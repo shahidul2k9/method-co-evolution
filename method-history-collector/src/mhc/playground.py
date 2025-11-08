@@ -1,6 +1,8 @@
+import os.path
+
 import pandas as pd
 
-from mhc.MethodHistoryCollector import MethodHistoryCollector
+from mhc.method_history_collector import MethodHistoryCollector
 
 # import MethodHistoryCollector
 df = pd.read_csv("../../../data/repository.csv")
@@ -27,6 +29,8 @@ df = pd.read_csv("../../../data/repository.csv")
 # df.to_csv("../../../.cache/repository.csv", index=False)
 
 
-method_collector = MethodHistoryCollector('../../../.cache', '../../../lib/javaparser-core-3.27.1.jar')
-print(df.to_dict('records'))
-method_collector.scan_method(df.to_dict('records')[:2])
+cache_dir = '../../../.cache'
+method_collector = MethodHistoryCollector(cache_dir, os.path.join(cache_dir, 'repository'), cache_dir, os.path.join(cache_dir, 'lib'))
+repositories = df['name'].tolist()[:1]
+method_collector.scan_method(repositories)
+method_collector.collect_method_history(repositories, ['codeShovel'])

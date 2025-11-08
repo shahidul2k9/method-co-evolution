@@ -2,10 +2,12 @@ import os.path
 import os
 from pathlib import Path
 from git import Repo, GitCommandError
-import pandas as pd
+from pandas import DataFrame
 import jpype
 import jpype.imports
 from jpype.types import *
+import pandas as pd
+import mhc.util as util
 
 
 class Method:
@@ -16,26 +18,27 @@ class Method:
         self.line = line
 
 
-def scan_method(repositories: list, repository_cache_directory: str, output_directory: str):
+def scan_method(repository_df: DataFrame, repository_directory: str, data_directory: str, cache_directory):
     from com.github.javaparser import StaticJavaParser, ParserConfiguration
     from com.github.javaparser.ast.visitor import VoidVisitorAdapter
     from com.github.javaparser.ast.body import MethodDeclaration
     from java.io import File
-    for repository in repositories:
-        name = repository['name']
+
+    for _, repository in repository_df.iterrows():
+        repository_name = repository['name']
         url = repository['url']
         hash = repository['hash']
-        repository_directory = os.path.join(repository_cache_directory, name)
-        output_method_file = os.path.join(f"{output_directory}/method", f"{name}--method.csv")
-        output_method_error_file = os.path.join(f"{output_directory}/method/log", f"{name}--method-log.csv")
+        git_repository_directory = util.format_git_project_directory(repository_directory, repository_name)
+        output_method_file = util.format_method_list_file(data_directory, repository_name)
+        output_method_error_file = os.path.join(f"{cache_directory}/log", f"{repository_name}--method-scan-log.csv")
         if not os.path.exists(output_method_file):
-            clone_and_checkout_commit(url, repository_directory, hash)
-            java_files = collect_files(repository_directory, "*.java")
+            clone_and_checkout_commit(url, git_repository_directory, hash)
+            java_files = collect_files(git_repository_directory, "*.java")
             print(java_files)
             methods = []
             errors = []
             for file in java_files:
-                file_without_base = file[len(repository_directory) + 1:]
+                file_without_base = file[len(git_repository_directory) + 1:]
                 try:
                     cu = StaticJavaParser.parse(File(file))
                     if cu is not None:
@@ -45,7 +48,7 @@ def scan_method(repositories: list, repository_cache_directory: str, output_dire
                             line_number = mt.getName().getBegin().get().line
                             method_type = "test" if '/test/' in file_without_base.lower() or '/androidTest/'.lower() in file_without_base.lower() else "production"
                             methods.append(
-                                {'file': file_without_base, 'code_type': method_type, 'method_name': method_name,
+                                {'file': file_without_base, 'method_type': method_type, 'method_name': method_name,
                                  'start_line': line_number})
                 except Exception as e:
                     errors.append({'file': file_without_base, 'error': str(e)})
