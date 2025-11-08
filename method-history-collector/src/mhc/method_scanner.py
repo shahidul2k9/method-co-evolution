@@ -34,7 +34,6 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
         if not os.path.exists(output_method_file):
             clone_and_checkout_commit(url, git_repository_directory, hash)
             java_files = collect_files(git_repository_directory, "*.java")
-            print(java_files)
             methods = []
             errors = []
             for file in java_files:
@@ -58,7 +57,6 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
             if len(errors) > 0:
                 os.makedirs(os.path.dirname(output_method_error_file), exist_ok=True)
                 pd.DataFrame(errors).to_csv(output_method_error_file, index=False)
-
 
 def start_java_parser(java_parser_jar_location: str):
     if not jpype.isJVMStarted():
@@ -121,6 +119,7 @@ def clone_and_checkout_commit(repo_url, repository_directory, commit_hash):
                 f"Failed to checkout the correct commit. Expected: {commit_hash}, Got: {current_commit}")
 
         print(f"Successfully checked out commit: {commit_hash}")
+        return current_commit
 
     except GitCommandError as e:
         raise Exception(f"Git command failed: {repository_directory} {str(e)}")
