@@ -8,7 +8,7 @@ import jpype
 import jpype.imports
 from jpype.types import *
 import pandas as pd
-import mhc.util as util
+import util as util
 import javalang
 import datetime
 import traceback
@@ -33,7 +33,7 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
         hash = repository['hash']
         git_repository_directory = util.format_git_project_directory(repository_directory, repository_name)
         output_method_file = util.format_method_list_file(data_directory, repository_name)
-        output_method_error_file = os.path.join(f"{cache_directory}/log", f"{repository_name}--method-scan-log.csv")
+        output_method_error_file = os.path.join(f"{cache_directory}/log/mhc", f"{repository_name}--method-scan-log.csv")
         if not os.path.exists(output_method_file):
             clone_and_checkout_commit(url, git_repository_directory, hash)
             java_files = collect_files(git_repository_directory, "*.java")
