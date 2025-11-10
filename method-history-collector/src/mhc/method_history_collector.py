@@ -1,6 +1,6 @@
 
-import mhc.method_scanner as ms
-from mhc.method_history_jar_runner import *
+import method_scanner as ms
+from method_history_jar_runner import *
 from pathlib import Path
 import os
 import pandas as pd

@@ -1,7 +1,7 @@
 import os
 import subprocess
 from pandas import DataFrame
-import mhc.util as util
+import util as util
 import pandas as pd
 
 
