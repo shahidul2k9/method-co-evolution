@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "method-level-maintenance"
+version = "0.1.0"
+description = "Method Level Maintenance"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0"
+
+[tool.poetry.workspace]
+members = [
+    "method-history-collector"
+]
