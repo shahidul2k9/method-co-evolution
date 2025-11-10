@@ -14,7 +14,7 @@ class MyTestCase(unittest.TestCase):
         # self.repositories = CODE_SHOVEL_REPOSITORIES
         self.repositories = ['checkstyle']
         self.method_collector =  MethodHistoryCollector(cache_dir, os.path.join(cache_dir, 'repository'), os.path.join(cache_dir, "data"),
-                                                        os.path.join(cache_dir, 'lib'))
+                                                        os.path.join(cache_dir, 'jar'))
     def test_method_listing(self):
         self.method_collector.scan_method(self.repositories)
 

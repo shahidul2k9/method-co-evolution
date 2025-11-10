@@ -23,7 +23,7 @@ def main():
         if not args.tool_name or not args.repository_name:
             print("Error: tool_name and repository_name are required for history command.")
             sys.exit(1)
-        mhc.collect_method_history([args.tool_name], [args.repository_name])
+        mhc.collect_method_history( [args.repository_name], [args.tool_name])
     else:
         print(f"Unknown command: {args.command}")
         sys.exit(1)
