@@ -1,5 +1,6 @@
 import os.path
 import os
+import traceback
 from pathlib import Path
 from git import Repo, GitCommandError
 from pandas import DataFrame
@@ -8,7 +9,9 @@ import jpype.imports
 from jpype.types import *
 import pandas as pd
 import mhc.util as util
-
+import javalang
+import datetime
+import traceback
 
 class Method:
     def __init__(self, file: str, method_type: str, name: str, line: int):
@@ -38,25 +41,57 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
             errors = []
             for file in java_files:
                 file_without_base = file[len(git_repository_directory) + 1:]
+                method_type = util.determine_method_type(file_without_base)
                 try:
                     cu = StaticJavaParser.parse(File(file))
+                    methods_in_file = []
                     if cu is not None:
                         method_decls = cu.findAll(MethodDeclaration)
                         for mt in method_decls:
-                            method_name = mt.getNameAsString()
-                            line_number = mt.getName().getBegin().get().line
-                            method_type = "test" if '/test/' in file_without_base.lower() or '/androidTest/'.lower() in file_without_base.lower() else "production"
-                            methods.append(
-                                {'file': file_without_base, 'method_type': method_type, 'method_name': method_name,
-                                 'start_line': line_number})
+                            methods_in_file.append(
+                                {'file': file_without_base,
+                                 'method_type': method_type,
+                                 'method_name': mt.getNameAsString(),
+                                 'start_line': mt.getName().getBegin().get().line,
+                                 'parser': 'javaparser'})
+                    methods.extend(methods_in_file)
                 except Exception as e:
-                    errors.append({'file': file_without_base, 'error': str(e)})
-            if len(methods) > 0:
-                os.makedirs(os.path.dirname(output_method_file), exist_ok=True)
-                pd.DataFrame(methods).to_csv(output_method_file, index=False)
+                    error_msg = str(e)
+                    if not error_msg:
+                        error_msg = f"{type(e).__module__}.{type(e).__name__}"
+                    errors.append({'file': file_without_base, 'parser': 'javaparser', 'created_at': datetime.datetime.now(), 'msg': error_msg})
+                    try:
+                        methods_in_file = []
+                        with open(file, 'r', encoding='utf-8') as f:
+                            java_code = f.read()
+                        tree = javalang.parse.parse(java_code)
+                        for _, node in tree.filter(javalang.tree.MethodDeclaration):
+                            if node.position:
+                                methods_in_file.append(
+                                    {'file': file_without_base,
+                                     'method_type': method_type,
+                                     'method_name': node.name,
+                                     'start_line': node.position.line if node.position else None,
+                                     'parser': 'javalang'})
+                        methods.extend(methods_in_file)
+                    except Exception as e:
+                        error_msg = str(e)
+                        if not error_msg:
+                            error_msg = f"{type(e).__module__}.{type(e).__name__}"
+                        errors.append({'file': file_without_base, 'parser': 'javalang', 'created_at': datetime.datetime.now(),
+                                       'msg': error_msg})
+
+            os.makedirs(os.path.dirname(output_method_file), exist_ok=True)
+            pd.DataFrame(methods).to_csv(output_method_file, index=False)
             if len(errors) > 0:
                 os.makedirs(os.path.dirname(output_method_error_file), exist_ok=True)
                 pd.DataFrame(errors).to_csv(output_method_error_file, index=False)
+            else:
+                if os.path.isfile(output_method_error_file):
+                    os.remove(output_method_error_file)
+
+
+
 
 def start_java_parser(java_parser_jar_location: str):
     if not jpype.isJVMStarted():

@@ -12,3 +12,7 @@ def format_method_history_file(cache_directory: str, tool_name: str, repository_
     file_without_extension = file[:-len('.java')] if file.lower().endswith(".java") else file
     file.replace(".java", "")
     return os.path.join(f"{cache_directory}/history/{tool_name}/{repository_name}/{file_without_extension}--{method_name}--{start_line}.json")
+
+#TODO: improve logic with gradle and pom build file
+def determine_method_type(file:str)-> str:
+    return "test" if '/test/' in file.lower() or '/androidTest/'.lower() in file.lower() else "production"

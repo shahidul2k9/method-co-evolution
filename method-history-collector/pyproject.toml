@@ -8,7 +8,8 @@ dependencies = [
     "pandas",
     "numpy",
     "GitPython",
-    "jpype1"
+    "jpype1",
+    "javalang"
 ]
 
 [build-system]
