@@ -9,6 +9,7 @@ module load ipykernel
 module load StdEnv
 module load cuda
 module load arrow
+module load java/21.0.1
 export PROJECT_DIRECTORY="$HOME/projects/$SLURM_ACCOUNT/$USER/method-level-maintenance"
 export CACHE_DIRECTORY="$PROJECT_DIRECTORY/.cache"
 LOG_DIR="$CACHE_DIRECTORY/log/job"
@@ -27,7 +28,7 @@ REPOSITORY=${REPOSITORIES[$SLURM_ARRAY_TASK_ID]}
 
 srun python method-history-collector/src/mhc/main.py history \
     --cache_directory "$CACHE_DIRECTORY" \
-    --repository_directory "$CACHE_DIRECTORY/repository" \
+    --repository_directory "$SLURM_TMPDIR/repository" \
     --data_directory "$CACHE_DIRECTORY/data" \
     --jar_directory "$CACHE_DIRECTORY/jar" \
     --tool_name "$TOOL_NAME" \

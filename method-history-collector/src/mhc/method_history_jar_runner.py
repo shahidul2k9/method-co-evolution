@@ -3,6 +3,7 @@ import subprocess
 from pandas import DataFrame
 import util as util
 import pandas as pd
+import  method_scanner as ms
 
 
 def execute_method_history_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,
@@ -14,6 +15,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
             url = repository['url']
             hash = repository['hash']
             method_df = pd.read_csv(util.format_method_list_file(data_directory, repository_name))
+            ms.clone_and_checkout_commit(url,repository_directory,hash)
             for _, method in method_df.iterrows():
                 method_name = method['method_name']
                 start_line = method['start_line']
