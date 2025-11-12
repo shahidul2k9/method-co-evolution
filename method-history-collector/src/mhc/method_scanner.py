@@ -31,16 +31,16 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
         repository_name = repository['name']
         url = repository['url']
         hash = repository['hash']
-        git_repository_directory = util.format_git_project_directory(repository_directory, repository_name)
+        dot_file_directory = util.format_git_project_directory(repository_directory, repository_name)
         output_method_file = util.format_method_list_file(data_directory, repository_name)
         output_method_error_file = os.path.join(f"{cache_directory}/log/mhc", f"{repository_name}--method-scan-log.csv")
         if not os.path.exists(output_method_file):
-            clone_and_checkout_commit(url, git_repository_directory, hash)
-            java_files = collect_files(git_repository_directory, "*.java")
+            clone_and_checkout_commit(url, dot_file_directory, hash)
+            java_files = collect_files(dot_file_directory, "*.java")
             methods = []
             errors = []
             for file in java_files:
-                file_without_base = file[len(git_repository_directory) + 1:]
+                file_without_base = file[len(dot_file_directory) + 1:]
                 method_type = util.determine_method_type(file_without_base)
                 try:
                     cu = StaticJavaParser.parse(File(file))
