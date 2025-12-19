@@ -11,5 +11,6 @@ pytest = "^8.0"
 
 [tool.poetry.workspace]
 members = [
-    "method-history-collector"
+    "method-history-collector",
+    "co-evolution"
 ]
