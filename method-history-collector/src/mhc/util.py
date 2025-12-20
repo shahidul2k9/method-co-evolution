@@ -16,3 +16,6 @@ def format_method_history_file(cache_directory: str, tool_name: str, repository_
 #TODO: improve logic with gradle and pom build file
 def determine_method_type(file:str)-> str:
     return "test" if '/test/' in file.lower() or '/androidTest/'.lower() in file.lower() else "production"
+
+def format_to_git_url(repository_url: str, hash:str, file: str, line_no: int) -> str:
+    return f"{repository_url}/blob/{hash}/{file}/#L{line_no}"

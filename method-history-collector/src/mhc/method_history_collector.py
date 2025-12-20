@@ -1,6 +1,6 @@
 
-import method_scanner as ms
-from method_history_jar_runner import *
+import mhc.method_scanner as ms
+from mhc.method_history_jar_runner import *
 from pathlib import Path
 import os
 import pandas as pd
@@ -8,12 +8,13 @@ import pandas as pd
 
 class MethodHistoryCollector:
     TOOL_NAMES = [ 'codeShovel', 'historyFinder', 'codeTracker']
-    def __init__(self, cache_directory: str, repository_directory, data_directory, jar_directory: str):
+    def __init__(self, cache_directory: str, repository_directory, data_directory, repository_file_name:str,
+                 jar_directory: str):
         self.cache_directory = cache_directory
         self.repository_directory = repository_directory
         self.data_directory = data_directory
         self.jar_file_map = {}
-        self.repository_df = pd.read_csv(os.path.join(data_directory, 'repository.csv'))
+        self.repository_df = pd.read_csv(os.path.join(f"{data_directory}/repository", repository_file_name))
 
         patterns = ['javaParser']
         patterns.extend(self.TOOL_NAMES)

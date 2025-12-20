@@ -1,9 +1,9 @@
 import os
 import subprocess
 from pandas import DataFrame
-import util as util
+import mhc.util as util
 import pandas as pd
-import  method_scanner as ms
+import  mhc.method_scanner as ms
 
 
 def execute_method_history_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,

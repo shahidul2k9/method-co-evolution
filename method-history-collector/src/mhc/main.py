@@ -17,7 +17,8 @@ def main():
 
     args = parser.parse_args()
 
-    mhc = MethodHistoryCollector(args.cache_directory, args.repository_directory, args.data_directory, args.jar_directory)
+    mhc = MethodHistoryCollector(args.cache_directory, args.repository_directory, args.data_directory, "repository.csv",
+                                 args.jar_directory)
 
     if args.command.lower() == "history":
         if not args.tool_name or not args.repository_name:

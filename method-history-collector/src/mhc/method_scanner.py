@@ -8,10 +8,11 @@ import jpype
 import jpype.imports
 from jpype.types import *
 import pandas as pd
-import util as util
+import mhc.util as util
 import javalang
 import datetime
 import traceback
+
 
 class Method:
     def __init__(self, file: str, method_type: str, name: str, line: int):
@@ -32,7 +33,7 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
         url = repository['url']
         hash = repository['hash']
         dot_file_directory = util.format_git_project_directory(repository_directory, repository_name)
-        output_method_file = util.format_method_list_file(data_directory, repository_name)
+        output_method_file = util.format_method_list_file(f"{data_directory}/method", repository_name)
         output_method_error_file = os.path.join(f"{cache_directory}/log/mhc", f"{repository_name}--method-scan-log.csv")
         if not os.path.exists(output_method_file):
             clone_and_checkout_commit(url, dot_file_directory, hash)
@@ -48,18 +49,22 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                     if cu is not None:
                         method_decls = cu.findAll(MethodDeclaration)
                         for mt in method_decls:
+                            start_line = mt.getName().getBegin().get().line
                             methods_in_file.append(
                                 {'file': file_without_base,
                                  'method_type': method_type,
                                  'method_name': mt.getNameAsString(),
-                                 'start_line': mt.getName().getBegin().get().line,
+                                 'start_line': start_line,
+                                 'url': util.format_to_git_url(url, hash, file_without_base, start_line),
                                  'parser': 'javaparser'})
                     methods.extend(methods_in_file)
                 except Exception as e:
                     error_msg = str(e)
                     if not error_msg:
                         error_msg = f"{type(e).__module__}.{type(e).__name__}"
-                    errors.append({'file': file_without_base, 'parser': 'javaparser', 'created_at': datetime.datetime.now(), 'msg': error_msg})
+                    errors.append(
+                        {'file': file_without_base, 'parser': 'javaparser', 'created_at': datetime.datetime.now(),
+                         'msg': error_msg})
                     try:
                         methods_in_file = []
                         with open(file, 'r', encoding='utf-8') as f:
@@ -67,19 +72,22 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                         tree = javalang.parse.parse(java_code)
                         for _, node in tree.filter(javalang.tree.MethodDeclaration):
                             if node.position:
+                                start_line = node.position.line if node.position else None
                                 methods_in_file.append(
                                     {'file': file_without_base,
                                      'method_type': method_type,
                                      'method_name': node.name,
-                                     'start_line': node.position.line if node.position else None,
+                                     'start_line': start_line,
+                                     'url': util.format_to_git_url(url, hash, file_without_base, start_line),
                                      'parser': 'javalang'})
                         methods.extend(methods_in_file)
                     except Exception as e:
                         error_msg = str(e)
                         if not error_msg:
                             error_msg = f"{type(e).__module__}.{type(e).__name__}"
-                        errors.append({'file': file_without_base, 'parser': 'javalang', 'created_at': datetime.datetime.now(),
-                                       'msg': error_msg})
+                        errors.append(
+                            {'file': file_without_base, 'parser': 'javalang', 'created_at': datetime.datetime.now(),
+                             'msg': error_msg})
 
             os.makedirs(os.path.dirname(output_method_file), exist_ok=True)
             pd.DataFrame(methods).to_csv(output_method_file, index=False)
@@ -89,8 +97,6 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
             else:
                 if os.path.isfile(output_method_error_file):
                     os.remove(output_method_error_file)
-
-
 
 
 def start_java_parser(java_parser_jar_location: str):
