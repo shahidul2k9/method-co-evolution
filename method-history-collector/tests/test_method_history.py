@@ -16,8 +16,8 @@ class MyTestCase(unittest.TestCase):
         filtered_repositories = df['name'].tolist()
         for name in ['jclouds', 'Essentials']:
             filtered_repositories.remove(name)
-        # self.repositories = filtered_repositories
-        self.repositories = CODE_SHOVEL_REPOSITORIES
+        self.repositories = filtered_repositories
+        # self.repositories = CODE_SHOVEL_REPOSITORIES
         # self.repositories = ['checkstyle']
         self.method_collector = MethodHistoryCollector(cache_dir, os.path.join(cache_dir, 'repository'),
                                                        os.path.join(cache_dir, "data"), "repository.csv",
