@@ -70,6 +70,11 @@
             <version>3.2.1</version>
         </dependency>
         <dependency>
+            <groupId>tech.tablesaw</groupId>
+            <artifactId>tablesaw-core</artifactId>
+            <version>LATEST</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.solr</groupId>
             <artifactId>solr-solrj</artifactId>
             <exclusions>

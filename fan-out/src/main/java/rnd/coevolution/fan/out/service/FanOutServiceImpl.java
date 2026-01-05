@@ -6,7 +6,9 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.nodeTypes.NodeWithRange;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
+import com.github.javaparser.resolution.model.SymbolReference;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
@@ -18,42 +20,43 @@ import rnd.coevolution.fan.out.model.Method;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
 @Slf4j
 public class FanOutServiceImpl implements FanOutService {
-    private JavaParser javaParser;
 
-    public FanOutServiceImpl(String repositoryPath, List<String> symbolResolverPaths) {
-        CombinedTypeSolver typeSolver = new CombinedTypeSolver();
-        typeSolver.add(new ReflectionTypeSolver(true));
-        for (String symbolResolverPath : symbolResolverPaths) {
-            Path repoRoot = Paths.get(repositoryPath);
-            Path path = repoRoot.resolve(symbolResolverPath).normalize();
-            if (Files.exists(path)) {
-                typeSolver.add(new JavaParserTypeSolver(path.toFile()));
-            }
-        }
-        typeSolver.add(new JavaParserTypeSolver("/home/cs/grad/islams32/dev/project/repository/checkstyle/src/main/java/com/puppycrawl/tools/checkstyle/api"));
-        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
-        ParserConfiguration config = new ParserConfiguration()
-                .setSymbolResolver(symbolSolver);
-        this.javaParser = new JavaParser(config);
+    public FanOutServiceImpl() {
+
 //        StaticJavaParser.setConfiguration(config);
 //        StaticJavaParser.getConfiguration().setSymbolResolver(new JavaSymbolSolver(typeSolver));
     }
 
     @Override
-    public List<Fan> findOut(String repositoryPath, List<String> targetPaths) {
-        List<String> files = FanOutUtil.expandPath(repositoryPath, targetPaths);
+    public List<Fan> findOut(String repositoryUrl, String repositoryLocation, String commitHash, List<String> targetPaths, String outputPath) {
+
+        String repositoryName = Arrays.stream(repositoryUrl.split("/")).toList().getLast();
+        CombinedTypeSolver typeSolver = new CombinedTypeSolver();
+        typeSolver.add(new ReflectionTypeSolver(false));
+        Path repositoryPath = Paths.get(repositoryLocation);
+        String absoluteRepositoryPath = repositoryPath.toFile().getAbsolutePath();
+        List<Path> allJavaSourceRoots = FanOutUtil.findAllJavaSourceRoots(repositoryPath);
+
+        for (Path path : allJavaSourceRoots) {
+            typeSolver.add(new JavaParserTypeSolver(path.toFile()));
+        }
+        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
+        ParserConfiguration config = new ParserConfiguration()
+                .setSymbolResolver(symbolSolver);
+        JavaParser javaParser = new JavaParser(config);
+        List<String> files = FanOutUtil.scanJavaFiles(repositoryLocation, targetPaths);
 
 
-        return files.stream()
+        List<Fan> fanList = files.stream()
                 .flatMap(file -> {
                     try {
                         var result = javaParser.parse(FileUtils.readFileToString(new File(file), StandardCharsets.UTF_8));
@@ -67,6 +70,9 @@ public class FanOutServiceImpl implements FanOutService {
                                                 method.findAll(MethodCallExpr.class).stream()
                                                         .flatMap(call -> {
                                                             try {
+                                                                SymbolReference<ResolvedMethodDeclaration> solution = JavaParserFacade.get(typeSolver)
+                                                                        .solve(call);
+
                                                                 ResolvedMethodDeclaration resolved = call.resolve();
 
                                                                 Optional<MethodDeclaration> ast = resolved.toAst()
@@ -86,25 +92,40 @@ public class FanOutServiceImpl implements FanOutService {
                                                                         .map(p -> p.line)
                                                                         .orElse(-1);
 
+                                                                int endLine = ast
+                                                                        .flatMap(NodeWithRange::getEnd)
+                                                                        .map(p -> p.line)
+                                                                        .orElse(-1);
+
+                                                                String fileSuffix = FanOutUtil.stripFilePrefix(absoluteRepositoryPath, filePath);
                                                                 return Stream.of(
                                                                         Method.builder()
                                                                                 .name(methodName)
-                                                                                .file(FanOutUtil.stripFilePrefix(repositoryPath, filePath))
+                                                                                .url(FanOutUtil.toMethodUrl(repositoryUrl,commitHash , fileSuffix, startLine))
+                                                                                .file(fileSuffix)
                                                                                 .startLine(startLine)
+                                                                                .endLine(endLine)
+                                                                                .hash(commitHash)
                                                                                 .build()
                                                                 );
 
                                                             } catch (Exception e) {
+                                                                log.error("Method resolve error {}", call.getNameAsString(), e);
                                                                 return Stream.empty(); // unresolved or external
                                                             }
                                                         })
                                                         .toList();
 
+                                        String targetMethodFileSuffix = FanOutUtil.stripFilePrefix(absoluteRepositoryPath, new File(file).getAbsolutePath());
+                                        int targetMethodStartLine = method.getName().getBegin().get().line;
                                         Fan fan = Fan.builder()
                                                 .method(Method.builder()
-                                                        .file(FanOutUtil.stripFilePrefix(repositoryPath, file))
+                                                        .file(targetMethodFileSuffix)
+                                                        .url(FanOutUtil.toMethodUrl(repositoryUrl, commitHash, targetMethodFileSuffix, targetMethodStartLine))
                                                         .name(method.getSignature().getName())
-                                                        .startLine(method.getName().getBegin().get().line)
+                                                        .startLine(targetMethodStartLine)
+                                                        .endLine(method.getName().getEnd().get().line)
+                                                        .hash(commitHash)
                                                         .build())
                                                 .fanMethods(calledMethods)
                                                 .build();
@@ -121,7 +142,12 @@ public class FanOutServiceImpl implements FanOutService {
                     }
                 })
                 .toList();
+
+        File fanOutFile = Paths.get(outputPath, "fan-out", repositoryName, repositoryName + "-" + commitHash + ".csv").toFile();
+        FanOutUtil.toTable(fanList, fanOutFile.getAbsolutePath());
+        File fanInFile = Paths.get(outputPath, "fan-in", repositoryName, repositoryName + "-" + commitHash + ".csv").toFile();
+        List<Fan> fanInList = FanOutUtil.fanInFromFanOut(fanList);
+        FanOutUtil.toTable(fanInList, fanInFile.getAbsolutePath());
+        return fanList;
     }
-
-
 }
