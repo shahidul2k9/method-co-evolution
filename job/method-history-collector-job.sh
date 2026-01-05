@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=method-history-collector
-#SBATCH --output=$HOME/projects/$SLURM_ACCOUNT/$USER/method-level-maintenance/.cache/log/job/%x.%A_%a.out
-#SBATCH --error=$HOME/projects/$SLURM_ACCOUNT/$USER/method-level-maintenance/.cache/log/job/%x.%A_%a.err
+#SBATCH --output=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.out
+#SBATCH --error=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.err
 set -euo pipefail
 module load python
 module load scipy-stack
@@ -10,7 +10,7 @@ module load StdEnv
 module load cuda
 module load arrow
 module load java/21.0.1
-export PROJECT_DIRECTORY="$HOME/projects/$SLURM_ACCOUNT/$USER/method-level-maintenance"
+export PROJECT_DIRECTORY="$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution"
 export CACHE_DIRECTORY="$PROJECT_DIRECTORY/.cache"
 LOG_DIR="$CACHE_DIRECTORY/log/job"
 mkdir -p "$LOG_DIR"
