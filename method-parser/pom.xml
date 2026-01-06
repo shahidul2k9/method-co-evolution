@@ -210,7 +210,7 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>rnd.methodCall.out.Main</mainClass>
+                            <mainClass>rnd.method.parser.call.graph.Main</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>

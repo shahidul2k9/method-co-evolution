@@ -14,6 +14,7 @@ import org.jspecify.annotations.NonNull;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.jupiter.api.*;
+import rnd.method.parser.call.graph.Main;
 import rnd.method.parser.call.graph.MethodParserUtil;
 import rnd.method.parser.call.graph.model.MethodCall;
 import rnd.method.parser.call.graph.service.CallGraphServiceImpl;
@@ -26,20 +27,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
 /**
  * @author Shahidul Islam
  * @since 2025-12-23
  */
 @Slf4j
 public class CallGraphTest {
-
-
-    //TODO:
-//    @TestFactory
-//    public DynamicNode randomPathTest() {
-//
-//
-//    }
 
     @Test
     public void testFanOut() throws FileNotFoundException {
@@ -133,5 +128,21 @@ public class CallGraphTest {
                             methodCallOut.forEach(System.out::println);
                             Assertions.assertFalse(methodCallOut.isEmpty());
                         })));
+    }
+
+
+    @Test
+    public void testCommandLineCallGraph() {
+        java.lang.String repositoryPath = System.getenv().getOrDefault("REPOSITORY_DIRECTORY", "../../repository") + "/checkstyle";
+        String[] args = {
+                "--command", "call-graph",
+                "--repository-url", "https://github.com/checkstyle/checkstyle",
+                "--repository-path", repositoryPath,
+                "--start-commit", "164a755af951cf0fd459d70873e1c199210d9d8b",
+                "--target-path", ".",
+                "--output-path", "../.cache/data"
+        };
+
+        assertDoesNotThrow(() -> Main.main(args));
     }
 }
