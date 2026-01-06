@@ -1,11 +1,12 @@
 package rnd.method.parser.call.graph;
 
 import lombok.extern.slf4j.Slf4j;
-import rnd.method.parser.call.graph.model.MethodCall;
 import rnd.method.parser.call.graph.model.Method;
+import rnd.method.parser.call.graph.model.MethodCall;
 import tech.tablesaw.api.IntColumn;
 import tech.tablesaw.api.StringColumn;
 import tech.tablesaw.api.Table;
+import tech.tablesaw.columns.Column;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 public class MethodParserUtil {
@@ -189,7 +191,9 @@ public class MethodParserUtil {
         IntColumn otherMethodEndLineColumn = IntColumn.create(otherMethodPrefix + "end");
         StringColumn otherMethodFileColumn = StringColumn.create(otherMethodPrefix + "file");
         StringColumn otherMethodUrlColumn = StringColumn.create(otherMethodPrefix + "url");
-        Table table = Table.create(focalMethodNameColumn, focalMethodStartLineColumn, focalMethodEndLineColumn, focalMethodFileColumn, focalMethodUrlColumn, otherMethodNameColumn, otherMethodStartLineColumn, otherMethodEndLineColumn, otherMethodFileColumn, otherMethodUrlColumn);
+        List<Column<?>> focalMethodColumns = Arrays.asList(focalMethodNameColumn, focalMethodStartLineColumn, focalMethodEndLineColumn, focalMethodFileColumn, focalMethodUrlColumn);
+        List<Column<?>> otherMethodColumns = List.of(otherMethodNameColumn, otherMethodStartLineColumn, otherMethodEndLineColumn, otherMethodFileColumn, otherMethodUrlColumn);
+        Table table = Table.create(isFanIn ? Stream.concat(focalMethodColumns.stream(), otherMethodColumns.stream()).toList() : Stream.concat(otherMethodColumns.stream(), focalMethodColumns.stream()).toList());
         for (MethodCall methodCall : methodCalls) {
             Method focalMethod = methodCall.getMethod();
             for (Method otherMethod : methodCall.getFanMethods()) {

@@ -141,9 +141,9 @@ public class CallGraphServiceImpl implements CallGraphService {
                 })
                 .toList();
 
-        File fanOutFile = Paths.get(outputPath, "fan", repositoryName + "--fan-out--" + commitHash + ".csv").toFile();
+        File fanOutFile = Paths.get(outputPath, "fan", repositoryName, repositoryName + "--fan-out--" + commitHash + ".csv").toFile();
         MethodParserUtil.toTable(methodCallOutList, fanOutFile.getAbsolutePath(), true);
-        File fanInFile = Paths.get(outputPath, "fan", repositoryName + "--fan-in--" + commitHash + ".csv").toFile();
+        File fanInFile = Paths.get(outputPath, "fan",repositoryName, repositoryName + "--fan-in--" + commitHash + ".csv").toFile();
         List<MethodCall> methodCallInList = MethodParserUtil.fanInFromFanOut(methodCallOutList);
         MethodParserUtil.toTable(methodCallInList, fanInFile.getAbsolutePath(), false);
         return methodCallOutList;
