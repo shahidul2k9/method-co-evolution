@@ -1,13 +1,14 @@
 
 import mhc.method_scanner as ms
 from mhc.method_history_jar_runner import *
+from mhc.call_graph import execute_call_graph_if_missing
 from pathlib import Path
 import os
 import pandas as pd
 
 
 class MethodHistoryCollector:
-    TOOL_NAMES = [ 'codeShovel', 'historyFinder', 'codeTracker']
+    TOOL_NAMES = [ 'codeShovel', 'historyFinder', 'codeTracker', 'methodParser']
     def __init__(self, cache_directory: str, repository_directory, data_directory, repository_file_name:str,
                  jar_directory: str):
         self.cache_directory = cache_directory
@@ -39,3 +40,8 @@ class MethodHistoryCollector:
                                           tool_names, self.jar_file_map)
     def update_execute_index(self):
         update_method_history_index(self.repository_df, self.data_directory, self.cache_directory, self.TOOL_NAMES)
+
+    def generate_call_graph(self, repositories: list[str], tool_names: list[str]):
+        execute_call_graph_if_missing(self.repository_df[self.repository_df['name'].isin(repositories)],
+                                          self.repository_directory, self.data_directory, self.cache_directory,
+                                          tool_names[-1], self.jar_file_map)

@@ -1,11 +1,11 @@
 import argparse
 import sys
-from method_history_collector import *
+from mhc.method_history_collector import *
 
 def main():
     parser = argparse.ArgumentParser(description="Method History Collector (MHC)")
 
-    parser.add_argument("command", type=str, help="Command to execute (e.g., history)")
+    parser.add_argument("command", type=str, help="Command to execute (e.g., history, call-graph)")
     parser.add_argument("--cache_directory", type=str, required=True, help="Cache directory path")
     parser.add_argument("--repository_directory", type=str, required=True, help="Repository directory path")
     parser.add_argument("--data_directory", type=str, required=True, help="Data directory path")
@@ -25,6 +25,11 @@ def main():
             print("Error: tool_name and repository_name are required for history command.")
             sys.exit(1)
         mhc.collect_method_history( [args.repository_name], [args.tool_name])
+    elif args.command.lower() == "call-graph":
+        if not args.tool_name or not args.repository_name:
+            print("Error: tool_name and repository_name are required for call graph command.")
+            sys.exit(1)
+        mhc.generate_call_graph( [args.repository_name], [args.tool_name])
     else:
         print(f"Unknown command: {args.command}")
         sys.exit(1)
