@@ -107,7 +107,8 @@ public class CallGraphTest {
                 "src/main/java/com/puppycrawl/tools/checkstyle/Checker.java",
                 "src/main/java/com/puppycrawl/tools/checkstyle/ant",
                 "src/main/java/com/puppycrawl/tools/checkstyle/utils"*/
-                ), "../.cache/data");
+                ), "../.cache/data/fan-in-out/checkstyle/checkstyle--fan-in--164a755af951cf0fd459d70873e1c199210d9d8b.csv",
+                "../.cache/data/fan-in-out/checkstyle/checkstyle--fan-out--164a755af951cf0fd459d70873e1c199210d9d8b.csv");
 
     }
 
@@ -115,16 +116,17 @@ public class CallGraphTest {
     @TestFactory
     public DynamicNode testFlink() {
         return createDynamicTest("https://github.com/apache/flink", "../../repository/flink", "261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9", List.of("flink-tests/src/test/java/org/apache/flink/test/accumulators/"),
-                "../.cache/data");
+                "../.cache/data/fan-in-out/flink/flink--fan-in--261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9.csv",
+                "../.cache/data/fan-in-out/flink/flink--fan-out--261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9.csv");
     }
 
-    private static @NonNull DynamicContainer createDynamicTest(String repositoryUrl, String repositoryPath, String commitHash, List<String> targetPaths, String outputPath) {
+    private static @NonNull DynamicContainer createDynamicTest(String repositoryUrl, String repositoryPath, String commitHash, List<String> targetPaths, String fanInFile, String fanOutFile) {
         CallGraphServiceImpl fanOutService = new CallGraphServiceImpl();
         return DynamicContainer.dynamicContainer(Arrays.stream(repositoryPath.split("/")).toList().getLast(),
                 targetPaths
                         .stream()
                         .map(path -> DynamicTest.dynamicTest(path, () -> {
-                            List<MethodCall> methodCallOut = fanOutService.findFanOut(repositoryUrl, repositoryPath, commitHash, List.of(path), outputPath);
+                            List<MethodCall> methodCallOut = fanOutService.findFanOut(repositoryUrl, repositoryPath, commitHash, List.of(path), fanInFile, fanOutFile);
                             methodCallOut.forEach(System.out::println);
                             Assertions.assertFalse(methodCallOut.isEmpty());
                         })));
@@ -140,7 +142,8 @@ public class CallGraphTest {
                 "--repository-path", repositoryPath,
                 "--start-commit", "164a755af951cf0fd459d70873e1c199210d9d8b",
                 "--target-path", ".",
-                "--output-path", "../.cache/data"
+                "--output-fan-in-file", "../.cache/data/fan-in-out/checkstyle/checkstyle--fan-in--164a755af951cf0fd459d70873e1c199210d9d8b.csv",
+                "--output-fan-out-file", "../.cache/data/fan-in-out/checkstyle/checkstyle--fan-out--164a755af951cf0fd459d70873e1c199210d9d8b.csv"
         };
 
         assertDoesNotThrow(() -> Main.main(args));

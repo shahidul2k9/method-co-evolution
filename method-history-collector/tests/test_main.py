@@ -2,17 +2,15 @@ import unittest
 from unittest.mock import patch
 import sys
 
-# Import your main function
 from mhc import main as mhc_main
 
 
 class TestMhcScript(unittest.TestCase):
     def setUp(self):
-        self.cache_dir = '../../.cache'
+        self.cache_dir = '.'
 
     @patch('mhc.main.MethodHistoryCollector')
     def test_history_command_success(self, mock_mhc_class):
-        # Mock the collect_method_history method
         mock_mhc_instance = mock_mhc_class.return_value
         mock_mhc_instance.collect_method_history.return_value = None
 

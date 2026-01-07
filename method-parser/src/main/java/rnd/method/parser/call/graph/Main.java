@@ -21,11 +21,12 @@ public class Main {
         String repositoryPath = commandLine.getOptionValue("repository-path");
         String commitHash = commandLine.getOptionValue("start-commit");
         String targetPath = commandLine.getOptionValue("target-path");
-        String outputPath = commandLine.getOptionValue("output-path");
+        String outputFanInFile = commandLine.getOptionValue("output-fan-in-file");
+        String outputFanOutFile = commandLine.getOptionValue("output-fan-out-file");
         Set<String> allowed = Set.of("call-graph");
         if (allowed.contains(command)) {
             if ("call-graph".equalsIgnoreCase(command)) {
-                generateCallGraph(repositoryUrl, repositoryPath, commitHash, List.of(targetPath), outputPath);
+                generateCallGraph(repositoryUrl, repositoryPath, commitHash, List.of(targetPath), outputFanInFile, outputFanOutFile);
             }
         } else {
             throw new IllegalArgumentException("Invalid command: " + command + ". Allowed: " + allowed);
@@ -40,12 +41,6 @@ public class Main {
                         .hasArg(true)
                         .desc("Command name")
                         .required(true)
-                        .build())
-                .addOption(Option.builder()
-                        .longOpt("call-graph")
-                        .hasArg(true)
-                        .desc("Call Graph")
-                        .required(false)
                         .build())
                 .addOption(Option.builder()
                         .longOpt("repository-path")
@@ -72,16 +67,22 @@ public class Main {
                         .required(true)
                         .build())
                 .addOption(Option.builder()
-                        .longOpt("output-path")
+                        .longOpt("output-fan-in-file")
                         .hasArg(true)
-                        .desc(" Path to write output")
+                        .desc("Output fan in file")
+                        .required(true)
+                        .build())
+                .addOption(Option.builder()
+                        .longOpt("output-fan-out-file")
+                        .hasArg(true)
+                        .desc("Output fan out file")
                         .required(true)
                         .build());
         return options;
     }
 
-    public static void generateCallGraph(String repositoryUrl, String repositoryPath, String commitHash, List<String> targetPaths, String outputPath) {
+    public static void generateCallGraph(String repositoryUrl, String repositoryPath, String commitHash, List<String> targetPaths, String outputFanInFile, String outputFanOutFile) {
         CallGraphServiceImpl fanOutService = new CallGraphServiceImpl();
-        List<MethodCall> methodCallOut = fanOutService.findFanOut(repositoryUrl, repositoryPath, commitHash, targetPaths, outputPath);
+        List<MethodCall> methodCallOut = fanOutService.findFanOut(repositoryUrl, repositoryPath, commitHash, targetPaths, outputFanInFile, outputFanOutFile);
     }
 }
