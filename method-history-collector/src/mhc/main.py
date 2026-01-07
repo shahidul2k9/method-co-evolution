@@ -1,6 +1,6 @@
 import argparse
 import sys
-from mhc.method_history_collector import *
+from method_history_collector import *
 
 def main():
     parser = argparse.ArgumentParser(description="Method History Collector (MHC)")

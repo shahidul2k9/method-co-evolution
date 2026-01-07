@@ -1,7 +1,6 @@
 
-import mhc.method_scanner as ms
-from mhc.method_history_jar_runner import *
-from mhc.call_graph import execute_call_graph_if_missing
+from method_history_jar_runner import *
+from call_graph import execute_call_graph_if_missing
 from pathlib import Path
 import os
 import pandas as pd

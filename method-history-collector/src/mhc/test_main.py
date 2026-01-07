@@ -2,7 +2,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-from mhc import main as mhc_main
+import main as mhc_main
 
 
 class TestMhcScript(unittest.TestCase):
