@@ -18,8 +18,8 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
         commits = git.get_all_commit_info(repository_path, hash)
         commit_index = 1
         for commit in commits:
-            fan_in_output_file = f"{data_directory}/fan-in-out/{repository_name}/{repository_name}--fan-in--{commit['hash']}.csv"
-            fan_out_output_file = f"{data_directory}/fan-in-out/{repository_name}/{repository_name}--fan-out--{commit['hash']}.csv"
+            fan_in_output_file = f"{data_directory}/fan-in/{repository_name}/{repository_name}--fan-in--{commit['hash']}.csv"
+            fan_out_output_file = f"{data_directory}/fan-out/{repository_name}/{repository_name}--fan-out--{commit['hash']}.csv"
             if not os.path.exists(fan_in_output_file) or not os.path.exists(fan_out_output_file):
                 logging.info(f"Executing call graph for {repository_name} {commit['hash']} {commit_index}/{len(commits)}")
                 cmd = [
