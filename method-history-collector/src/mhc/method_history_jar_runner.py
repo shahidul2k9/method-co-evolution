@@ -37,6 +37,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                 if unzip_file_count >= 10000:
                     merge_folder_into_tar_gz(method_history_path)
                     zip_index = load_zip_index(method_history_tar_gz)
+                    unzip_file_count = 0
             merge_folder_into_tar_gz(method_history_path)
 
 
