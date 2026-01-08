@@ -2,9 +2,9 @@ import os
 import subprocess
 from pandas import DataFrame
 import util as util
+from zip import load_zip_index, merge_folder_into_tar_gz
 import pandas as pd
 import  method_scanner as ms
-
 
 def execute_method_history_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,
                                       cache_directory: str, tool_names: list[str],
@@ -14,18 +14,32 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
             repository_name = repository['name']
             url = repository['url']
             hash = repository['hash']
+            method_history_path = util.format_method_history_path(cache_directory, tool_name, repository_name)
+
+            method_history_tar_gz = f"{method_history_path}.tar.gz"
+            zip_index = load_zip_index(method_history_tar_gz) if os.path.exists(method_history_tar_gz) else set()
+
             method_df = pd.read_csv(util.format_method_list_file(data_directory, repository_name))
             ms.clone_and_checkout_commit(url,os.path.join(repository_directory, repository_name),hash)
+            unzip_file_count = 0
             for _, method in method_df.iterrows():
                 method_name = method['method_name']
                 start_line = method['start_line']
                 file = method['file']
-                method_history_file = util.format_method_history_file(cache_directory, tool_name, repository_name, file,
-                                                                      method_name, start_line)
-                if not os.path.exists(method_history_file):
+                method_history_file_suffix = util.format_method_history_file_suffix(file, method_name, start_line)
+                method_history_file = os.path.join(method_history_path, method_history_file_suffix)
+                if method_history_file_suffix not in zip_index and not os.path.exists(method_history_file):
                     execute_cmd_method_history_jar(tool_name, jar_file_map[tool_name],
                                                    os.path.join(repository_directory, repository_name),
                                                    url, hash, file, method_name, start_line, method_history_file)
+                    zip_index.add(method_history_file_suffix)
+                    unzip_file_count += 1
+                if unzip_file_count >= 10000:
+                    merge_folder_into_tar_gz(method_history_path)
+                    zip_index = load_zip_index(method_history_tar_gz)
+            merge_folder_into_tar_gz(method_history_path)
+
+
 
 
 def update_method_history_index(repository_df: DataFrame, data_directory: str, cache_directory: str,
@@ -40,12 +54,13 @@ def update_method_history_index(repository_df: DataFrame, data_directory: str, c
 
             for tool_name in tool_names:
                 method_count = 0
+                method_history_path = util.format_method_history_path(cache_directory, tool_name, repository_name)
                 for _, method in method_df.iterrows():
                     method_name = method['method_name']
                     start_line = method['start_line']
                     file = method['file']
-                    method_history_file = util.format_method_history_file(cache_directory, tool_name, repository_name, file,
-                                                                          method_name, start_line)
+                    method_history_file_suffix = util.format_method_history_file_suffix(file, method_name, start_line)
+                    method_history_file = os.path.join(method_history_path, method_history_file_suffix)
                     if os.path.exists(method_history_file):
                         method_count += 1
                 record[tool_name] = method_count
