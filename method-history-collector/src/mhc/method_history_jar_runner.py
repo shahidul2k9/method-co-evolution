@@ -5,7 +5,7 @@ import util as util
 from zip import load_zip_index, merge_folder_into_tar_gz
 import pandas as pd
 import  method_scanner as ms
-
+from pathlib import Path
 def execute_method_history_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,
                                       cache_directory: str, tool_names: list[str],
                                       jar_file_map: dict[str, str]) -> None:
@@ -21,7 +21,8 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
 
             method_df = pd.read_csv(util.format_method_list_file(data_directory, repository_name))
             ms.clone_and_checkout_commit(url,os.path.join(repository_directory, repository_name),hash)
-            unzip_file_count = 0
+            unzip_file_count = len(list(Path(method_history_path).rglob("*.json")))
+
             for _, method in method_df.iterrows():
                 method_name = method['method_name']
                 start_line = method['start_line']
@@ -34,10 +35,10 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                                                    url, hash, file, method_name, start_line, method_history_file)
                     zip_index.add(method_history_file_suffix)
                     unzip_file_count += 1
-                if unzip_file_count >= 10000:
+                if unzip_file_count >= 1000:
                     merge_folder_into_tar_gz(method_history_path)
                     zip_index = load_zip_index(method_history_tar_gz)
-                    unzip_file_count = 0
+                    unzip_file_count = len(list(Path(method_history_path).rglob("*.json")))
             merge_folder_into_tar_gz(method_history_path)
 
 
