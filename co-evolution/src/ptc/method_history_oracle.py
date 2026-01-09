@@ -2,12 +2,14 @@ import os
 import pandas as pd
 from urllib.parse import urlparse
 import json
+import numpy as np
 
 DATA_DIRECTORY = ".cache/data"
 
 # %% Create Test Method Oracle for the CodeShovel and HistoryFinder repositories
 
 
+all_taken_test_method_df = pd.read_csv(f"{DATA_DIRECTORY}/oracle/test-method-oracle.csv")
 all_test_method_df = pd.DataFrame()
 for repository_file in ["code-shovel-repository.csv", "history-finder-repository.csv"]:
     repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/{repository_file}")
@@ -16,18 +18,20 @@ for repository_file in ["code-shovel-repository.csv", "history-finder-repository
         if os.path.exists(method_file):
             method_df = pd.read_csv(method_file)
             test_method_df = method_df[method_df["method_type"] == "test"]
-
-            if len(test_method_df) > 0:
-                all_test_method_df = pd.concat([all_test_method_df, test_method_df.sample(1)])
+            taken_test_method_df = all_taken_test_method_df[all_taken_test_method_df["url"].str.contains(f"/{repository}/")]
+            if len(taken_test_method_df) > 0:
+                all_test_method_df = pd.concat([all_test_method_df, taken_test_method_df])
+            if len(test_method_df) > 0 and len(taken_test_method_df) < 3:
+                all_test_method_df = pd.concat([all_test_method_df, test_method_df.sample(3 - len(taken_test_method_df), random_state=np.random.randint(0, 2**32 - 1))])
                 print(f"{repository}: {len(test_method_df)}/{len(method_df)}")
             else:
                 print(f"Missing test methods {repository}: {len(method_df)}")
         else:
             print(f"Missing file {repository}: {method_file}")
-all_test_method_df.to_csv(f"{DATA_DIRECTORY}/test-method-oracle.csv", index=False)
+all_test_method_df.to_csv(f"{DATA_DIRECTORY}/oracle/test-method-oracle.csv", index=False)
 
 # %%
-method_df = pd.read_csv(f"{DATA_DIRECTORY}/test-method-oracle.csv")
+method_df = pd.read_csv(f"{DATA_DIRECTORY}/oracle/test-method-oracle.csv")
 counter = 1001
 for row in method_df.itertuples():
     parsed_url = urlparse(row.url)
@@ -54,3 +58,27 @@ for row in method_df.itertuples():
     with open(oracle_file_path, "w") as output_stream:
         output_stream.write(json.dumps(json_history, indent=4))
     counter += 1
+
+# %%
+import pandas as pd
+import subprocess
+df = pd.read_csv(f"{DATA_DIRECTORY}/oracle/test-method-oracle.csv")
+x,y = list(map(int, input("Enter project index range : ").split(":")))
+urls = df["url"].to_list()
+print("Range: {x}-{y}".format(x=x, y=y))
+for url in urls[x:y]:
+    print(url)
+    subprocess.Popen([
+        "chromium-browser",
+        url
+    ])
+
+# %%
+import pandas as pd
+df = pd.read_csv(f"{DATA_DIRECTORY}/method/jgit--method.csv")
+df["url"] = df["url"].astype(str).str.replace(
+    "https://gerrit.googlesource.com/",
+    "https://github.com/eclipse-jgit/",
+    regex=False
+)
+df.to_csv(f"{DATA_DIRECTORY}/method/jgit--method.csv", index=False)
