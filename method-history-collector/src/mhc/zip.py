@@ -43,7 +43,7 @@ def merge_folder_into_tar_gz(folder_path: str) -> None:
             for root, _, files in os.walk(folder_path):
                 for f in files:
                     abs_path = os.path.join(root, f)
-                    rel_path = os.path.relpath(abs_path, start=folder_path)
+                    rel_path = os.path.relpath(abs_path, start=os.path.dirname(folder_path))
                     out_tar.add(abs_path, arcname=rel_path)
 
         # 3. Atomic replace
