@@ -15,7 +15,8 @@ class MyTestCase(unittest.TestCase):
         df = pd.read_csv(f"{cache_dir}/data/repository/repository.csv")
         filtered_repositories = df['name'].tolist()
         for name in ['jclouds', 'Essentials']:
-            filtered_repositories.remove(name)
+            if name in filtered_repositories:
+                filtered_repositories.remove(name)
         # self.repositories = filtered_repositories
         # # self.repositories = CODE_SHOVEL_REPOSITORIES
         self.repositories = ['checkstyle']
