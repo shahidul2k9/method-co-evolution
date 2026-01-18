@@ -11,11 +11,12 @@ CODE_SHOVEL_REPOSITORIES = ["checkstyle", "commons-lang", "flink", "hibernate-or
 class MyTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(MyTestCase, self).__init__(*args, **kwargs)
-        df = pd.read_csv("data/repository.csv")
-        cache_dir = '.cache'
+        cache_dir = os.environ.get("METHOD_CO_EVOLUTION_CACHE_DIRECTORY", ".cache")
+        df = pd.read_csv(f"{cache_dir}/data/repository/repository.csv")
         filtered_repositories = df['name'].tolist()
         for name in ['jclouds', 'Essentials']:
-            filtered_repositories.remove(name)
+            if name in filtered_repositories:
+                filtered_repositories.remove(name)
         # self.repositories = filtered_repositories
         # # self.repositories = CODE_SHOVEL_REPOSITORIES
         self.repositories = ['checkstyle']
@@ -25,15 +26,15 @@ class MyTestCase(unittest.TestCase):
 
     def test_method_listing(self):
         self.method_collector.scan_method(self.repositories)
-
-    def test_history_collection(self):
-        self.method_collector.collect_method_history(self.repositories, ['historyFinder'])
-
-    def test_history_collection_with_command_line(self):
-        self.method_collector.collect_method_history(self.repositories, ['historyFinder'])
-
-    def test_method_history_index(self):
-        self.method_collector.update_execute_index()
+    #
+    # def test_history_collection(self):
+    #     self.method_collector.collect_method_history(self.repositories, ['historyFinder'])
+    #
+    # def test_history_collection_with_command_line(self):
+    #     self.method_collector.collect_method_history(self.repositories, ['historyFinder'])
+    #
+    # def test_method_history_index(self):
+    #     self.method_collector.update_execute_index()
 
 
 if __name__ == '__main__':

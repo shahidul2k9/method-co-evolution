@@ -3,11 +3,12 @@ import unittest
 from unittest.mock import patch
 
 import main as mhc_main
+import os
 
 
 class TestMhcScript(unittest.TestCase):
     def setUp(self):
-        self.cache_dir = '.cache'
+        self.cache_dir = os.environ.get("METHOD_CO_EVOLUTION_CACHE_DIRECTORY")
 
     @patch('mhc.main.MethodHistoryCollector')
     def test_history_command_success(self, mock_mhc_class):

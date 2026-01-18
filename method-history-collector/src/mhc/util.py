@@ -23,13 +23,9 @@ def format_method_history_file_suffix(file: str, method_name: str, start_line: i
     return os.path.join(f"{file_without_extension}--{method_name}--{start_line}.json")
 
 
-# TODO: improve logic with gradle and pom build file
-def determine_method_type(file: str) -> str:
-    return "test" if '/test/' in file.lower() or '/androidTest/'.lower() in file.lower() else "production"
-
 
 def format_to_git_url(repository_url: str, hash: str, file: str, line_no: int) -> str:
-    return f"{repository_url}/blob/{hash}/{file}/#L{line_no}"
+    return f"{repository_url}/blob/{hash}/{file}#L{line_no}"
 
 
 def remove_prefix_if_exists(s: set[str], prefix) -> set[str]:

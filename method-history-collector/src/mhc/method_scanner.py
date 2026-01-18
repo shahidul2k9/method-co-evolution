@@ -13,6 +13,78 @@ import javalang
 import datetime
 import traceback
 
+TEST_ANNOTATION_FQNS = {
+    # JUnit 4
+    "org.junit.Test",
+    "org.junit.Before",
+    "org.junit.After",
+    "org.junit.BeforeClass",
+    "org.junit.AfterClass",
+    "org.junit.Ignore",
+
+    # JUnit 5-6
+    "org.junit.jupiter.api.Test",
+    "org.junit.jupiter.api.ParameterizedTest",
+    "org.junit.jupiter.api.RepeatedTest",
+    "org.junit.jupiter.api.TestFactory",
+    "org.junit.jupiter.api.TestTemplate",
+    "org.junit.jupiter.api.TestClassOrder",
+    "org.junit.jupiter.api.TestMethodOrder",
+    "org.junit.jupiter.api.TestInstance",
+    "org.junit.jupiter.api.DisplayName",
+    "org.junit.jupiter.api.DisplayNameGeneration",
+    "org.junit.jupiter.api.BeforeEach",
+    "org.junit.jupiter.api.AfterEach",
+    "org.junit.jupiter.api.BeforeAll",
+    "org.junit.jupiter.api.AfterAll",
+    "org.junit.jupiter.api.ParameterizedClass",
+    "org.junit.jupiter.api.BeforeParameterizedClassInvocation",
+    "org.junit.jupiter.api.AfterParameterizedClassInvocation",
+    "org.junit.jupiter.api.ClassTemplate",
+    "org.junit.jupiter.api.Nested",
+    "org.junit.jupiter.api.Tag",
+    "org.junit.jupiter.api.Disabled",
+    "org.junit.jupiter.api.AutoClose",
+    "org.junit.jupiter.api.Timeout",
+    "org.junit.jupiter.api.TempDir",
+    "org.junit.jupiter.api.ExtendWith",
+    "org.junit.jupiter.api.RegisterExtension"
+
+
+    # JUnit Theories
+    "org.junit.experimental.theories.Theory",
+
+    # TestNG
+    # https://testng.org/annotations.html#_annotations
+
+    "org.testng.annotations.Test",
+    "org.testng.annotations.BeforeSuite",
+    "org.testng.annotations.AfterSuite",
+    "org.testng.annotations.BeforeTest",
+    "org.testng.annotations.AfterTest",
+    "org.testng.annotations.BeforeGroups",
+    "org.testng.annotations.AfterGroups",
+    "org.testng.annotations.BeforeClass",
+    "org.testng.annotations.AfterClass",
+    "org.testng.annotations.BeforeMethod",
+    "org.testng.annotations.AfterMethod",
+    "org.testng.annotations.Factory",
+    # These are not related to method
+    # "org.testng.annotations.DataProvider",
+    # "org.testng.annotations.Listeners",
+    # "org.testng.annotations.Parameters"
+}
+UNIT_TEST_SUPERCLASS_FQNS = {
+    # JUnit 3
+    "junit.framework.TestCase",
+
+    # Android
+    "android.test.AndroidTestCase",
+    "android.test.InstrumentationTestCase",
+}
+TEST_PACKAGE_ROOT_DIRECTORY = {"test", "androidTest"}
+TEST_ANNOTATION_NAMES = set(map(lambda x: x.split(".")[-1], TEST_ANNOTATION_FQNS))
+
 
 class Method:
     def __init__(self, file: str, method_type: str, name: str, line: int):
@@ -23,42 +95,46 @@ class Method:
 
 
 def scan_method(repository_df: DataFrame, repository_directory: str, data_directory: str, cache_directory):
-    from com.github.javaparser import StaticJavaParser, ParserConfiguration
-    from com.github.javaparser.ast.visitor import VoidVisitorAdapter
-    from com.github.javaparser.ast.body import MethodDeclaration
-    from java.io import File
+    from jpype import JClass
+    MethodScannerImpl = JClass(
+        "rnd.method.parser.call.graph.service.MethodScannerImpl"
+    )
 
+    scanner = MethodScannerImpl()
     for _, repository in repository_df.iterrows():
         repository_name = repository['name']
         url = repository['url']
         hash = repository['hash']
         dot_file_directory = util.format_git_project_directory(repository_directory, repository_name)
-        output_method_file = util.format_method_list_file(f"{data_directory}/method", repository_name)
-        output_method_error_file = os.path.join(f"{cache_directory}/log/mhc", f"{repository_name}--method-scan-log.csv")
+        output_method_file = util.format_method_list_file(f"{data_directory}", repository_name)
+        output_method_error_file = os.path.join(f"{cache_directory}/log", f"{repository_name}--method-scan-log.csv")
         if not os.path.exists(output_method_file):
+        # if True:
             clone_and_checkout_commit(url, dot_file_directory, hash)
             java_files = collect_files(dot_file_directory, "*.java")
             methods = []
             errors = []
             for file in java_files:
                 file_without_base = file[len(dot_file_directory) + 1:]
-                method_type = util.determine_method_type(file_without_base)
                 try:
-                    cu = StaticJavaParser.parse(File(file))
                     methods_in_file = []
-                    if cu is not None:
-                        method_decls = cu.findAll(MethodDeclaration)
-                        for mt in method_decls:
-                            start_line = mt.getName().getBegin().get().line
-                            methods_in_file.append(
-                                {'file': file_without_base,
-                                 'method_type': method_type,
-                                 'method_name': mt.getNameAsString(),
-                                 'start_line': start_line,
-                                 'end_line': mt.getEnd().get().line,
-                                 'hash': hash,
-                                 'url': util.format_to_git_url(url, hash, file_without_base, start_line),
-                                 'parser': 'javaparser'})
+                    java_methods = scanner.scanMethod(
+                        dot_file_directory,
+                        url,
+                        hash,
+                        file_without_base
+                    )
+                    for jm in java_methods:
+                        methods_in_file.append({
+                            "file": jm.getFile(),
+                            "method_type": jm.getMethodType(),
+                            "method_name": jm.getName(),
+                            "start_line": jm.getStartLine(),
+                            "end_line": jm.getEndLine(),
+                            "hash": jm.getHash(),
+                            "url": jm.getUrl(),
+                            "parser": "javaparser"
+                        })
                     methods.extend(methods_in_file)
                 except Exception as e:
                     error_msg = str(e)
@@ -77,7 +153,7 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                                 start_line = node.position.line if node.position else None
                                 methods_in_file.append(
                                     {'file': file_without_base,
-                                     'method_type': method_type,
+                                     'method_type': "unknown",
                                      'method_name': node.name,
                                      'start_line': start_line,
                                      'end_line': -1, # Heuristically find end line
@@ -103,9 +179,9 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                     os.remove(output_method_error_file)
 
 
-def start_java_parser(java_parser_jar_location: str):
+def start_java_jar(jars: [str]):
     if not jpype.isJVMStarted():
-        jpype.startJVM(classpath=[java_parser_jar_location])
+        jpype.startJVM(classpath=jars)
         # class MethodLister(VoidVisitorAdapter):
         #     def __init__(self):
         #         self.methods = []
@@ -119,7 +195,7 @@ def start_java_parser(java_parser_jar_location: str):
         #         self.methods.append(Method(file, method_type, method_name, line_number))
 
 
-def stop_java_parser():
+def stop_java_jar():
     if jpype.isJVMStarted():
         jpype.shutdownJVM()
 
