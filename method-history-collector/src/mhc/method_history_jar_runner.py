@@ -21,6 +21,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
             zip_index =  util.remove_prefix_if_exists(load_zip_index(method_history_tar_gz), repository_name_prefix) if os.path.exists(method_history_tar_gz) else set()
 
             method_df = pd.read_csv(util.format_method_list_file(data_directory, repository_name), keep_default_na=False, na_filter=False)
+            method_df = method_df.sample(frac=1, random_state=42).reset_index(drop=True)
             ms.clone_and_checkout_commit(url,os.path.join(repository_directory, repository_name),hash)
             repo_path = Path(method_history_path)
             unzip_index = set(str(p.relative_to(repo_path)) for p in repo_path.rglob("*.json"))
