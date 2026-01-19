@@ -28,7 +28,7 @@ fi
 
 REPOSITORY=${REPOSITORIES[$SLURM_ARRAY_TASK_ID]}
 
-srun python mhc "$COMMAND_NAME" \
+srun mhc "$COMMAND_NAME" \
     --cache_directory "$CACHE_DIRECTORY" \
     --repository_directory "$SLURM_TMPDIR/repository" \
     --data_directory "$CACHE_DIRECTORY/data" \
