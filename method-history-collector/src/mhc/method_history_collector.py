@@ -1,6 +1,6 @@
 
-from method_history_jar_runner import *
-from call_graph import execute_call_graph_if_missing
+from mhc.method_history_jar_runner import *
+from mhc.call_graph import execute_call_graph_if_missing
 from pathlib import Path
 import os
 import pandas as pd
@@ -16,16 +16,13 @@ class MethodHistoryCollector:
         self.jar_file_map = {}
         self.repository_df = pd.read_csv(os.path.join(f"{data_directory}/repository", repository_file_name))
 
-        patterns = ['javaParserCore', 'SymbolSolverCore']
-        patterns.extend(self.TOOL_NAMES)
         for file in list(map(os.fspath, Path(jar_directory).rglob("*.jar"))):
-            for pattern in patterns:
+            for pattern in self.TOOL_NAMES:
                 if pattern.lower() in file.replace('-', '').lower():
                     self.jar_file_map[pattern] = file
 
     def scan_method(self, repositories: list[str]):
         try:
-            assert 'javaParserCore' in self.jar_file_map
             ms.start_java_jar([self.jar_file_map['methodParser']])
             ms.scan_method(self.repository_df[self.repository_df['name'].isin(repositories)], self.repository_directory, self.data_directory, self.cache_directory)
         except Exception as e:

@@ -2,7 +2,7 @@ import os
 import subprocess
 from pandas import DataFrame
 import pandas as pd
-import  git_repository as git
+import  mhc.git_repository as git
 import logging
 
 def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,

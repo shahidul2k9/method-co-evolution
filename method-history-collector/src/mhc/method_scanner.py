@@ -8,7 +8,7 @@ import jpype
 import jpype.imports
 from jpype.types import *
 import pandas as pd
-import util as util
+import mhc.util as util
 import javalang
 import datetime
 import traceback

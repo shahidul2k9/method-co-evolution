@@ -1,10 +1,10 @@
 import os
 import subprocess
 from pandas import DataFrame
-import util as util
-from zip import load_zip_index, merge_folder_into_tar_gz
+import mhc.util as util
+from mhc.zip import load_zip_index, merge_folder_into_tar_gz
 import pandas as pd
-import  method_scanner as ms
+import  mhc.method_scanner as ms
 from pathlib import Path
 def execute_method_history_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,
                                       cache_directory: str, tool_names: list[str],
@@ -20,7 +20,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
             repository_name_prefix = f"{repository_name}/"
             zip_index =  util.remove_prefix_if_exists(load_zip_index(method_history_tar_gz), repository_name_prefix) if os.path.exists(method_history_tar_gz) else set()
 
-            method_df = pd.read_csv(util.format_method_list_file(data_directory, repository_name))
+            method_df = pd.read_csv(util.format_method_list_file(data_directory, repository_name), keep_default_na=False, na_filter=False)
             ms.clone_and_checkout_commit(url,os.path.join(repository_directory, repository_name),hash)
             repo_path = Path(method_history_path)
             unzip_index = set(str(p.relative_to(repo_path)) for p in repo_path.rglob("*.json"))

@@ -16,6 +16,7 @@ LOG_DIR="$CACHE_DIRECTORY/log/job"
 mkdir -p "$LOG_DIR"
 cd "$PROJECT_DIRECTORY"
 source "$PROJECT_DIRECTORY/.venv/bin/activate"
+pip install -e ./method-history-collector
 COMMAND_NAME=$1
 TOOL_NAME=$2
 IFS=',' read -r -a REPOSITORIES <<< "$3"
@@ -27,7 +28,7 @@ fi
 
 REPOSITORY=${REPOSITORIES[$SLURM_ARRAY_TASK_ID]}
 
-srun python method-history-collector/src/mhc/main.py "$COMMAND_NAME" \
+srun python mhc "$COMMAND_NAME" \
     --cache_directory "$CACHE_DIRECTORY" \
     --repository_directory "$SLURM_TMPDIR/repository" \
     --data_directory "$CACHE_DIRECTORY/data" \

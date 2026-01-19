@@ -2,7 +2,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-import main as mhc_main
+import mhc.main as mhc_main
 import os
 
 

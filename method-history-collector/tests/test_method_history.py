@@ -1,5 +1,5 @@
 import unittest
-from method_history_collector import *
+from mhc.method_history_collector import *
 import pandas as pd
 
 CODE_SHOVEL_REPOSITORIES = ["checkstyle", "commons-lang", "flink", "hibernate-orm", "javaparser", "jgit", "junit4",
