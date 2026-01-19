@@ -108,7 +108,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                                                                 }
 
                                                             } catch (Exception e) {
-                                                                log.error("Method resolve error {}", call.getNameAsString(), e);
+                                                                log.debug("Method resolve error {}", call.getNameAsString(), e);
                                                                 return Stream.empty(); // unresolved or external
                                                             }
                                                         })
@@ -131,8 +131,8 @@ public class CallGraphServiceImpl implements CallGraphService {
                                         return Stream.of(methodCall);
                                     });
                         } else {
-                            log.error("Failed to parse file {}", file);
-                            log.error("Problems {}", result.getProblems());
+                            log.debug("Failed to parse file {}", file);
+                            log.debug("Problems {}", result.getProblems());
                             return Stream.empty();
                         }
                     } catch (Exception e) {

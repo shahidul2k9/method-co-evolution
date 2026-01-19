@@ -1,9 +1,11 @@
 import os
 import subprocess
 from pandas import DataFrame
-import pandas as pd
 import  mhc.git_repository as git
 import logging
+import mhc.util as util
+from pathlib import Path
+from mhc.zip import load_zip_index, merge_folder_into_tar_gz
 
 def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,
                                       cache_directory: str, tool_name: str,
@@ -16,10 +18,23 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
         git.clone_and_checkout_commit(url, repository_path, hash)
         commits = git.get_all_commit_info(repository_path, hash)
         commit_index = 1
+        fan_in_path = f"{data_directory}/fan-in/{repository_name}"
+        fan_out_path = f"{data_directory}/fan-out/{repository_name}"
+
+        fan_in_tar_gz = f"{fan_in_path}.tar.gz"
+        repository_name_prefix = f"{repository_name}/"
+        fan_in_zip_index = util.remove_prefix_if_exists(load_zip_index(fan_in_tar_gz),
+                                                 repository_name_prefix) if os.path.exists(
+            fan_in_tar_gz) else set()
+        fan_in_repo_path = Path(fan_in_path)
+        fan_in_unzip_index = set(str(p.relative_to(fan_in_repo_path)) for p in fan_in_repo_path.rglob("*.csv"))
         for commit in commits:
-            fan_in_output_file = f"{data_directory}/fan-in/{repository_name}/{repository_name}--fan-in--{commit['hash']}.csv"
-            fan_out_output_file = f"{data_directory}/fan-out/{repository_name}/{repository_name}--fan-out--{commit['hash']}.csv"
-            if not os.path.exists(fan_in_output_file) or not os.path.exists(fan_out_output_file):
+            fan_in_output_file_suffix = f"{repository_name}--fan-in--{commit['hash']}.csv"
+            fan_in_output_file = os.path.join(fan_in_path, fan_in_output_file_suffix)
+            fan_out_output_file_suffix = f"{repository_name}--fan-out--{commit['hash']}.csv"
+            fan_out_output_file = os.path.join(fan_out_path, fan_out_output_file_suffix)
+
+            if fan_in_output_file_suffix not in fan_in_zip_index and fan_in_output_file_suffix not in fan_in_unzip_index:
                 logging.info(f"Executing call graph for {repository_name} {commit['hash']} {commit_index}/{len(commits)}")
                 cmd = [
                     "java", "-jar", jar_file_map[tool_name],
@@ -32,10 +47,18 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
                     "-output-fan-out-file", fan_out_output_file
                 ]
                 try:
-                    subprocess.run(cmd, check=True, timeout=1000)
+                    subprocess.run(cmd, check=True, timeout=30*60)
+                    fan_in_unzip_index.add(fan_in_output_file_suffix)
                 except subprocess.CalledProcessError as e:
                     print(f"Call graph execution failed: {repository_name} {commit['hash']} {e} ")
+                if len(fan_in_unzip_index) >= 100:
+                    merge_folder_into_tar_gz(fan_in_path)
+                    merge_folder_into_tar_gz(fan_out_path)
+                    fan_in_zip_index =  util.remove_prefix_if_exists(load_zip_index(fan_in_tar_gz), repository_name_prefix)
+                    fan_in_unzip_index = set(str(p.relative_to(fan_in_repo_path)) for p in fan_in_repo_path.rglob("*.csv"))
             commit_index += 1
+        merge_folder_into_tar_gz(fan_in_path)
+        merge_folder_into_tar_gz(fan_out_path)
 
 def execute_cmd_method_history_jar(tool_name: str,
                                    jar_file: str,

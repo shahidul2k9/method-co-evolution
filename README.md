@@ -19,3 +19,22 @@ source .venv/bin/activate
 pip install -e ./method-history-collector
 ```
 
+### Run
+```bash
+mhc history \
+    --cache_directory ".cache" \
+    --repository_directory ".cache/repository" \
+    --data_directory ".cache/data" \
+    --jar_directory ".cache/jar" \
+    --tool_name "codeShovel" \
+    --repository_name "checkstyle"
+    
+mhc call-graph \
+    --cache_directory ".cache" \
+    --repository_directory ".cache/repository" \
+    --data_directory ".cache/data" \
+    --jar_directory ".cache/jar" \
+    --tool_name "methodParser" \
+    --repository_name "checkstyle"
+    
+```
