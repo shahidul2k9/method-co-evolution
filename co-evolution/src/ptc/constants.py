@@ -4,7 +4,6 @@ class MethodChangeType(str, Enum):
     INTRODUCTION = "Yintroduced"
     MOVE = "Ymovefromfile"
     BODY = "Ybodychange"
-    REMOVE = "Yremove"
     DOCUMENTATION = "Ydocumentationchange"
     FILE_MOVE = "Yfilerename"
     RENAME = "Yrename"
@@ -16,3 +15,5 @@ class MethodChangeType(str, Enum):
     ANNOTATION = "Yannotationchnage"
     FORMAT = "Yformatchange"
     MULTI = "Ymultichange"
+
+CODE_SHOVEL_UNSUPPORTED_CHANGES = [MethodChangeType.DOCUMENTATION, MethodChangeType.ANNOTATION, MethodChangeType.FORMAT]

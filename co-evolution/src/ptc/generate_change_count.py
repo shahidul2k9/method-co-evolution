@@ -39,10 +39,13 @@ for tooName in os.listdir(f"{cache_dir}/history"):
                             for change_type in changes:
                                 change_history[change_type] += 1
                         method_url = util.convert_method_file_to_method_url(repository_url, repository_hash, base_file)
-                        method_history = {"ch_all": len(change_commits), "url": method_url}
+                        method_history = {"url": method_url,
+                                          "tool_name": tooName,
+                                          "method_file": base_file,
+                                          "ch_all": len(change_commits)}
                         for key, value in change_history.items():
                             method_history[f"ch_{MethodChangeType(key).name.lower()}"] = value
-                            method_history_list.append(method_history)
+                        method_history_list.append(method_history)
         method_list_df = pd.read_csv(util.format_method_list_file(f"{cache_dir}/data", repository_name),
                                      keep_default_na=False, na_filter=False)
         repository_change_history_file = f"{cache_dir}/data/history/{tooName}/{repository_name}--history.csv"

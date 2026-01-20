@@ -16,7 +16,7 @@ LOG_DIR="$CACHE_DIRECTORY/log/job"
 mkdir -p "$LOG_DIR"
 cd "$PROJECT_DIRECTORY"
 source "$PROJECT_DIRECTORY/.venv/bin/activate"
-pip install -e ./method-history-collector
+#pip install -e ./method-history-collector
 COMMAND_NAME=$1
 TOOL_NAME=$2
 IFS=',' read -r -a REPOSITORIES <<< "$3"

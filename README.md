@@ -17,6 +17,7 @@ python -m venv .venv
 ```bash
 source .venv/bin/activate
 pip install -e ./method-history-collector
+pip install -e ./co-evolution
 ```
 
 ### Run
