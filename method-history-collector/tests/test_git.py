@@ -27,7 +27,7 @@ class GtTestCase(unittest.TestCase):
         repository_df["commits"] = repository_df.apply(
             get_commit_count,
             axis=1)
-        repository_df.to_csv(os.path.join(self.cache_dir, "data/repository/repository.csv"))
+        repository_df.to_csv(os.path.join(self.cache_dir, "data/repository/repository.csv"), index=False)
 
 
 if __name__ == '__main__':

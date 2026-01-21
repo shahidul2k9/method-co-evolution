@@ -35,6 +35,8 @@ def main():
             print("Error: repository_name are required to scan methods.")
             sys.exit(1)
         mhc.scan_method( [args.repository_name])
+    elif args.command.lower() == "index":
+        mhc.update_repository_index()
     else:
         print(f"Unknown command: {args.command}")
         sys.exit(1)
