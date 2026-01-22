@@ -68,14 +68,7 @@ for tool in tools:
         for change_index, ch in enumerate(ch_cols):
             ax = axes[repository_index][change_index] if n_cols > 1 else axes[repository_index]
 
-            for mtype, g in pdf.groupby("method_type"):
-                # x, y = ecdf_with_rank(g[ch])
-                x, y = ecdf(g[ch])
-                ax.plot(x, y, linewidth=width[change_index % len(width)], ls=styles[change_index % len(styles)],
-                        label=mtype)
-            ax.set_xlabel(ch.replace("ch_", "").capitalize(), fontsize=24)
-            # ax.tick_params(axis="both", labelsize=18)
-
+            # NA case (unchanged)
             if tool == 'codeShovel' and ch in code_shovel_unsupported_change_set:
                 ax.text(
                     0.5, 0.5, "NA",
@@ -83,13 +76,34 @@ for tool in tools:
                     fontsize=26,
                     transform=ax.transAxes
                 )
-            if change_index == 0:
-                ax.legend(loc="lower right", fontsize=20)
+                ax.set_xticks([])
+                ax.set_yticks([])
+                ax.set_xlabel(ch.replace("ch_", "").capitalize(), fontsize=24)
+                continue
+
+            data = []
+            labels = []
+
+            for mtype in method_types:
+                g = pdf[pdf["method_type"] == mtype][ch]
+                if len(g) > 0:
+                    data.append(g)
+                    labels.append(mtype)
+
+            if data:
+                ax.boxplot(
+                    data,
+                    labels=labels,
+                    showfliers=False,
+                    widths=0.6
+                )
+
+            ax.set_xlabel(ch.replace("ch_", "").capitalize(), fontsize=24)
 
             if change_index == 0:
-                ax.set_ylabel(f"{project}", fontsize=24)
-            ax.grid(True, alpha=0.25)
+                ax.set_ylabel(f"{project}\nChange count", fontsize=24)
 
+            ax.grid(True, axis="y", alpha=0.25)
     # fig.suptitle(
     #     f"ECDF of Method Changes per Project — Tool: {tool}",
     #     fontsize=20,
@@ -102,7 +116,7 @@ for tool in tools:
     # fig.legend(handles, labels, loc="upper left", ncol=len(method_types) + 1, bbox_to_anchor=(0,1))
 
     fig.tight_layout()
-    fig_file = f"{cache_dir}/figure/method-change-cdf-{tool}.pdf"
+    fig_file = f"{cache_dir}/figure/method-change-boxplot-{tool}.pdf"
     os.makedirs(os.path.dirname(fig_file), exist_ok=True)
     fig.savefig(fig_file,
                 bbox_inches="tight")
