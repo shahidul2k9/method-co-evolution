@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=method-history-collector
+#SBATCH --job-name=MHC
 #SBATCH --output=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.out
 #SBATCH --error=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.err
 set -euo pipefail
