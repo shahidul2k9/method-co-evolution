@@ -6,8 +6,8 @@ from urllib.parse import urlparse
 import json
 import numpy as np
 from pathlib import Path
+from mhc.config import *
 
-CACHE_DIRECTORY = os.environ.get("METHOD_CO_EVOLUTION_CACHE_DIRECTORY")
 TEST_METHOD_ORACLE_DIRECTORY = os.environ.get("TEST_METHOD_ORACLE_DIRECTORY")
 
 # %% Create Test Method Oracle for the CodeShovel and HistoryFinder repositories

@@ -8,13 +8,12 @@ import pandas as pd
 
 class MethodHistoryCollector:
     TOOL_NAMES = [ 'codeShovel', 'historyFinder', 'codeTracker', 'methodParser']
-    def __init__(self, cache_directory: str, repository_directory, data_directory, repository_file_name:str,
-                 jar_directory: str):
+    def __init__(self, cache_directory: str, repository_directory, data_directory, jar_directory: str):
         self.cache_directory = cache_directory
         self.repository_directory = repository_directory
         self.data_directory = data_directory
         self.jar_file_map = {}
-        self.repository_df = pd.read_csv(os.path.join(f"{data_directory}/repository", repository_file_name))
+        self.repository_df = pd.read_csv(os.path.join(f"{data_directory}/repository/repository.csv"))
 
         for file in list(map(os.fspath, Path(jar_directory).rglob("*.jar"))):
             for pattern in self.TOOL_NAMES:

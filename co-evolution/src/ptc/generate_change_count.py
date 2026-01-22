@@ -7,14 +7,14 @@ from pathlib import Path
 import pandas as pd
 import mhc.util as util
 from ptc.constants import MethodChangeType
+from mhc.config import *
 
-cache_dir = os.environ.get("METHOD_CO_EVOLUTION_CACHE_DIRECTORY")
-repository_df = pd.read_csv(f"{cache_dir}/data/repository/repository.csv")
+repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
 
 repository_name_map = {row["name"]: row for row in repository_df.to_dict(orient="records")}
 
-for tooName in os.listdir(f"{cache_dir}/history"):
-    for zip_file in Path(f"{cache_dir}/history/{tooName}").rglob("*.tar.gz"):
+for tooName in os.listdir(f"{CACHE_DIRECTORY}/history"):
+    for zip_file in Path(f"{CACHE_DIRECTORY}/history/{tooName}").rglob("*.tar.gz"):
         method_history_list = []
         repository_name = zip_file.name[:-len(".tar.gz")]
         repository_url = repository_name_map[repository_name]["url"]
@@ -46,9 +46,9 @@ for tooName in os.listdir(f"{cache_dir}/history"):
                         for key, value in change_history.items():
                             method_history[f"ch_{MethodChangeType(key).name.lower()}"] = value
                         method_history_list.append(method_history)
-        method_list_df = pd.read_csv(util.format_method_list_file(f"{cache_dir}/data", repository_name),
+        method_list_df = pd.read_csv(util.format_method_list_file(DATA_DIRECTORY, repository_name),
                                      keep_default_na=False, na_filter=False)
-        repository_change_history_file = f"{cache_dir}/data/history/{tooName}/{repository_name}--history.csv"
+        repository_change_history_file = f"{DATA_DIRECTORY}/history/{tooName}/{repository_name}--history.csv"
         os.makedirs(os.path.dirname(repository_change_history_file), exist_ok=True)
         pd.merge(method_list_df, pd.DataFrame(method_history_list), on="url", how="inner").to_csv(
             repository_change_history_file, index=False)

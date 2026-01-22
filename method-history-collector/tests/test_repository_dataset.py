@@ -3,12 +3,13 @@ import unittest
 
 import pandas as pd
 
+from mhc.config import *
+
 
 class RepositoryDatasetTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(RepositoryDatasetTestCase, self).__init__(*args, **kwargs)
-        self.cache_dir = os.environ.get("METHOD_CO_EVOLUTION_CACHE_DIRECTORY", ".cache")
-        self.repositories_df = pd.read_csv(f"{self.cache_dir}/data/repository/repository.csv")
+        self.repositories_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
 
     def test_repository_count(self):
         for dataset_name, repository_count in {"friesen": 49, "chowdhury": 49, "codeshovel": 20,

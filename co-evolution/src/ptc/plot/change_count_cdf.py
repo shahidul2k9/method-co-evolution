@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from constants import CODE_SHOVEL_UNSUPPORTED_CHANGES
+from mhc.config import DATA_DIRECTORY, CACHE_DIRECTORY
 
 
 def ecdf_with_rank(series):
@@ -28,9 +29,8 @@ marker_color = ['r', 'b', 'brown', '#c994c7', '#0F52BA', '#ff7518', '#6CA939', '
 gaps = [3, 3, 6, 5, 5, 4, 4, 4]
 code_shovel_unsupported_change_set = {f"ch_{change_type.name.lower()}" for change_type in
                                       CODE_SHOVEL_UNSUPPORTED_CHANGES}
-cache_dir = os.environ.get("METHOD_CO_EVOLUTION_CACHE_DIRECTORY")
 history_repository_dfs = [pd.read_csv(repository_history_file, keep_default_na=False, na_filter=False) for
-                          repository_history_file in list(Path(f"{cache_dir}/data/history").rglob("*.csv"))[:]]
+                          repository_history_file in list(Path(f"{DATA_DIRECTORY}/history").rglob("*.csv"))[:]]
 df = pd.concat(history_repository_dfs)
 df["method_type"] = df["method_type"].map(lambda mt: "test" if mt == "test_util" else mt)
 df = df.sort_values(by="name", key=lambda s: s.str.lower())
@@ -102,7 +102,7 @@ for tool in tools:
     # fig.legend(handles, labels, loc="upper left", ncol=len(method_types) + 1, bbox_to_anchor=(0,1))
 
     fig.tight_layout()
-    fig_file = f"{cache_dir}/figure/method-change-cdf-{tool}.pdf"
+    fig_file = f"{CACHE_DIRECTORY}/figure/method-change-cdf-{tool}.pdf"
     os.makedirs(os.path.dirname(fig_file), exist_ok=True)
     fig.savefig(fig_file,
                 bbox_inches="tight")

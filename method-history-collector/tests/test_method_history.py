@@ -1,6 +1,9 @@
 import unittest
-from mhc.method_history_collector import *
+
 import pandas as pd
+
+from mhc.config import *
+from mhc.method_history_collector import *
 
 CODE_SHOVEL_REPOSITORIES = ["checkstyle", "commons-lang", "flink", "hibernate-orm", "javaparser", "jgit", "junit4",
                             "junit5", "okhttp", "spring-framework", "commons-io", "elasticsearch", "hadoop",
@@ -11,17 +14,15 @@ CODE_SHOVEL_REPOSITORIES = ["checkstyle", "commons-lang", "flink", "hibernate-or
 class MethodHistoryTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(MethodHistoryTestCase, self).__init__(*args, **kwargs)
-        cache_dir = os.environ.get("METHOD_CO_EVOLUTION_CACHE_DIRECTORY", ".cache")
-        df = pd.read_csv(f"{cache_dir}/data/repository/repository.csv")
+        df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
         filtered_repositories = df['name'].tolist()
         for name in ['jclouds', 'Essentials']:
             if name in filtered_repositories:
                 filtered_repositories.remove(name)
         # self.repositories = filtered_repositories
         self.repositories = ['checkstyle']
-        self.method_collector = MethodHistoryCollector(cache_dir, os.path.join(cache_dir, 'repository'),
-                                                       os.path.join(cache_dir, "data"), "repository.csv",
-                                                       os.path.join(cache_dir, 'jar'))
+        self.method_collector = MethodHistoryCollector(CACHE_DIRECTORY, REPOSITORY_DIRECTORY, DATA_DIRECTORY,
+                                                       JAR_DIRECTORY)
 
     # def test_method_listing(self):
     #     self.method_collector.scan_method(self.repositories)

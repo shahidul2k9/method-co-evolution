@@ -3,13 +3,10 @@ import unittest
 from unittest.mock import patch
 
 import mhc.main as mhc_main
-import os
+from mhc.config import *
 
 
 class TestMhcScript(unittest.TestCase):
-    def setUp(self):
-        self.cache_dir = os.environ.get("METHOD_CO_EVOLUTION_CACHE_DIRECTORY")
-
     @patch('mhc.main.MethodHistoryCollector')
     def test_history_command_success(self, mock_mhc_class):
         mock_mhc_instance = mock_mhc_class.return_value
@@ -19,10 +16,10 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             'main.py',  # argv[0] is the script name
             'history',  # command
-            '--cache_directory', self.cache_dir,
-            '--repository_directory', f'{self.cache_dir}/repository',
-            '--data_directory', f'{self.cache_dir}/data',
-            '--jar_directory', f'{self.cache_dir}/jar',
+            '--cache_directory', CACHE_DIRECTORY,
+            '--repository_directory', REPOSITORY_DIRECTORY,
+            '--data_directory', DATA_DIRECTORY,
+            '--jar_directory', JAR_DIRECTORY,
             '--tool_name', 'codeShovel',
             '--repository_name', 'checkstyle'
         ]
@@ -35,8 +32,8 @@ class TestMhcScript(unittest.TestCase):
                 self.fail(f"main() exited unexpectedly with {e}")
 
         # Check that the collector was initialized with correct paths
-        mock_mhc_class.assert_called_once_with(f'{self.cache_dir}', f'{self.cache_dir}/repository',
-                                               f'{self.cache_dir}/data', f'{self.cache_dir}/jar')
+        mock_mhc_class.assert_called_once_with(CACHE_DIRECTORY, REPOSITORY_DIRECTORY,
+                                               DATA_DIRECTORY, JAR_DIRECTORY)
 
         # Check that collect_method_history was called with correct arguments
         mock_mhc_instance.collect_method_history.assert_called_once_with(['codeShovel'], ['checkstyle'])
@@ -46,10 +43,10 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             'main.py',
             'history',
-            '--cache_directory', self.cache_dir,
-            '--repository_directory', f'{self.cache_dir}/repository',
-            '--data_directory', f'{self.cache_dir}/data',
-            '--jar_directory', f'{self.cache_dir}/jar',
+            '--cache_directory', CACHE_DIRECTORY,
+            '--repository_directory', REPOSITORY_DIRECTORY,
+            '--data_directory', DATA_DIRECTORY,
+            '--jar_directory', JAR_DIRECTORY,
             # Missing --tool_name and --repository_name
         ]
 
@@ -63,10 +60,10 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             'main.py',
             'unknown',
-            '--cache_directory', self.cache_dir,
-            '--repository_directory', f'{self.cache_dir}/repository',
-            '--data_directory', f'{self.cache_dir}/data',
-            '--jar_directory', f'{self.cache_dir}/jar',
+            '--cache_directory', CACHE_DIRECTORY,
+            '--repository_directory', REPOSITORY_DIRECTORY,
+            '--data_directory', DATA_DIRECTORY,
+            '--jar_directory', JAR_DIRECTORY,
         ]
 
         with patch.object(sys, 'argv', test_args):
@@ -82,10 +79,10 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             'main.py',  # argv[0] is the script name
             'call-graph',
-            '--cache_directory', self.cache_dir,
-            '--repository_directory', f'{self.cache_dir}/repository',
-            '--data_directory', f'{self.cache_dir}/data',
-            '--jar_directory', f'{self.cache_dir}/jar',
+            '--cache_directory', CACHE_DIRECTORY,
+            '--repository_directory', REPOSITORY_DIRECTORY,
+            '--data_directory', DATA_DIRECTORY,
+            '--jar_directory', JAR_DIRECTORY,
             '--tool_name', 'methodParser',
             '--repository_name', 'checkstyle'
         ]

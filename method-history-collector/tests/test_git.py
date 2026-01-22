@@ -2,18 +2,16 @@ import unittest
 import os
 import pandas as pd
 from mhc import git_repository as git
+from mhc.config import *
 
 
 class GtTestCase(unittest.TestCase):
-    def setUp(self):
-        self.cache_dir = os.environ.get("METHOD_CO_EVOLUTION_CACHE_DIRECTORY")
-
     def test_commit_count(self):
-        repository_df = pd.read_csv(os.path.join(self.cache_dir, "data/repository/repository.csv"))
+        repository_df = pd.read_csv(os.path.join(CACHE_DIRECTORY, "data/repository/repository.csv"))
 
         def get_commit_count(row):
             try:
-                repository_path = f"{self.cache_dir}/repository/{row["name"]}"
+                repository_path = f"{CACHE_DIRECTORY}/repository/{row['name']}"
                 git.clone_and_checkout_commit(
                     row["url"],
                     repository_path,
@@ -27,7 +25,7 @@ class GtTestCase(unittest.TestCase):
         repository_df["commits"] = repository_df.apply(
             get_commit_count,
             axis=1)
-        repository_df.to_csv(os.path.join(self.cache_dir, "data/repository/repository.csv"), index=False)
+        repository_df.to_csv(os.path.join(CACHE_DIRECTORY, "data/repository/repository.csv"), index=False)
 
 
 if __name__ == '__main__':
