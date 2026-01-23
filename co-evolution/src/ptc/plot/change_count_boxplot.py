@@ -6,7 +6,8 @@ import numpy as np
 import pandas as pd
 from mhc.config import *
 
-from constants import CODE_SHOVEL_UNSUPPORTED_CHANGES
+from ptc.constants import *
+
 
 
 def ecdf_with_rank(series):
