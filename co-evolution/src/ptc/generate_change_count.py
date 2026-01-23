@@ -30,19 +30,27 @@ for tooName in os.listdir(f"{CACHE_DIRECTORY}/history"):
                         except Exception as e:
                             logging.error(f"Error loading history json for {tooName} {file}")
                             continue
-                        change_commits = history_json["changeHistoryShort"]
+                        change_commits = history_json["changeHistoryDetails"]
                         change_history = {ct.value: 0 for ct in MethodChangeType}
-
+                        diff_commit_count = 0
                         # print(change_history)
-                        for commit_hash, change_text in change_commits.items():
-                            changes = [p.strip() for p in re.split(r'[(),]', change_text) if p.strip()]
+                        for commit_hash, commit_detail in change_commits.items():
+                            changes = [p.strip() for p in re.split(r'[(),]', commit_detail['type']) if p.strip()]
                             for change_type in changes:
                                 change_history[change_type] += 1
+                            if "diff" in commit_detail and commit_detail['diff']:
+                                diff_commit_count += 1
+                            elif "subchanges" in commit_detail:
+                                for subchange in commit_detail['subchanges']:
+                                    if "diff" in subchange and subchange['diff']:
+                                        diff_commit_count += 1
+
                         method_url = util.convert_method_file_to_method_url(repository_url, repository_hash, base_file)
                         method_history = {"url": method_url,
                                           "tool_name": tooName,
                                           "method_file": base_file,
-                                          "ch_all": len(change_commits)}
+                                          "ch_all": len(change_commits),
+                                          "ch_diff": diff_commit_count}
                         for key, value in change_history.items():
                             method_history[f"ch_{MethodChangeType(key).name.lower()}"] = value
                         method_history_list.append(method_history)
