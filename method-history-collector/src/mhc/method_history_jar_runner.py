@@ -137,6 +137,6 @@ def execute_cmd_method_history_jar(tool_name: str,
     if not os.path.exists(output_file):
         print(f"Executing .. {file}")
         try:
-            subprocess.run(cmd, check=True, timeout=1000)
-        except subprocess.CalledProcessError as e:
-            print(f"Execution failed: {tool_name} {file} {e} ")
+            subprocess.run(cmd, check=True, timeout=30*60)
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            print(f"Execution failed: {tool_name} {file} {e}")
