@@ -40,5 +40,12 @@ for _, repo in repository_df.iterrows():
         fan_dfs.append(read_fan_count_if_exists(fan_zip_file, fan_file_suffix, url_column, fan.replace("-", "_")))
     fan_out_df, fan_in_df = fan_dfs
     if fan_out_df is not None and fan_in_df is not None:
-        pd.merge(fan_out_df, fan_in_df, on="url", how="inner")
+        in_out_df = pd.merge(fan_out_df, fan_in_df, on="url", how="cross")
+        method_df = pd.read_csv(util.format_method_list_file(DATA_DIRECTORY, repository_name), keep_default_na=False, na_filter=False)
+        fan_in_count_file = f"{DATA_DIRECTORY}/fan-in-out-count/{repository_name}--fan-in-out-count.csv"
+        os.makedirs(os.path.dirname(fan_in_count_file), exist_ok=True)
+        pd.merge(method_df, in_out_df, on="url", how="inner").to_csv(
+            fan_in_count_file, index=False)
+    break
+
 
