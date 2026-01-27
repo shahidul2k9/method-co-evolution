@@ -2,31 +2,12 @@ import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
+
+from graph_util import *
+from mhc.config import DATA_DIRECTORY, CACHE_DIRECTORY
 from ptc.constants import *
 
-from mhc.config import DATA_DIRECTORY, CACHE_DIRECTORY
-
-
-def ecdf_with_rank(series):
-    s = series.sort_values()
-    y = s.rank(method="max", pct=True)
-    return s, y
-
-
-def ecdf(a):
-    x, counts = np.unique(a, return_counts=True)
-    cusum = np.cumsum(counts)
-    return x, cusum / cusum[-1]
-
-
-styles = ["-", "--", "-.", ":", "--", "--", "-.", ":"]
-marks = ["^", "d", "o", "v", "p", "s", "<", ">"]
-width = [4, 4, 4, 4, 3, 3, 3, 3]
-marks_size = [10, 10, 12, 14, 20, 10, 12, 15]
-marker_color = ['r', 'b', 'brown', '#c994c7', '#0F52BA', '#ff7518', '#6CA939', '#636363']
-gaps = [3, 3, 6, 5, 5, 4, 4, 4]
 code_shovel_unsupported_change_set = {f"ch_{change_type.name.lower()}" for change_type in
                                       CODE_SHOVEL_UNSUPPORTED_CHANGES}
 history_repository_dfs = [pd.read_csv(repository_history_file, keep_default_na=False, na_filter=False) for
@@ -71,7 +52,8 @@ for tool in tools:
             for mtype, g in pdf.groupby("method_type"):
                 # x, y = ecdf_with_rank(g[ch])
                 x, y = ecdf(g[ch])
-                ax.plot(x, y, linewidth=width[change_index % len(width)], ls=styles[change_index % len(styles)],
+                ax.plot(x, y, linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
+                        ls=GRAPH_STYLES[change_index % len(GRAPH_STYLES)],
                         label=mtype)
             ax.set_xlabel(ch.replace("ch_", "").capitalize(), fontsize=24)
             # ax.tick_params(axis="both", labelsize=18)

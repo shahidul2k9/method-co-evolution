@@ -117,7 +117,7 @@ for tool in tools:
     # fig.legend(handles, labels, loc="upper left", ncol=len(method_types) + 1, bbox_to_anchor=(0,1))
 
     fig.tight_layout()
-    fig_file = f"{CACHE_DIRECTORY}/figure/method-change-boxplot-{tool}.pdf"
+    fig_file = f"{CACHE_DIRECTORY}/figure/change-count-boxplot-{tool}.pdf"
     os.makedirs(os.path.dirname(fig_file), exist_ok=True)
     fig.savefig(fig_file,
                 bbox_inches="tight")

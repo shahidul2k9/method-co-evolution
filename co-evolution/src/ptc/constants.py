@@ -17,3 +17,4 @@ class MethodChangeType(str, Enum):
     MULTI = "Ymultichange"
 
 CODE_SHOVEL_UNSUPPORTED_CHANGES = [MethodChangeType.DOCUMENTATION, MethodChangeType.ANNOTATION, MethodChangeType.FORMAT]
+ALL_REPOSITORY = "All Project"
