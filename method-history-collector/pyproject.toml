@@ -10,7 +10,8 @@ dependencies = [
     "GitPython",
     "jpype1",
     "javalang",
-    "python-dotenv"
+    "python-dotenv",
+    "PyGithub"
 ]
 
 [project.scripts]

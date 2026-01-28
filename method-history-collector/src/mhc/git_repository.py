@@ -2,6 +2,12 @@ import os
 import os.path
 
 from git import Repo, GitCommandError
+import requests
+from urllib.parse import urlparse
+from github import Github
+from urllib.parse import urlparse
+
+
 
 
 def clone_and_checkout_commit(repo_url, repository_directory, commit_hash):
@@ -58,3 +64,52 @@ def get_all_commit_info(repo_path, branch="HEAD"):
         })
 
     return commits
+
+
+
+def parse_github_url(url):
+    parts = urlparse(url).path.strip("/").split("/")
+    return parts[0], parts[1]
+
+
+def get_repo_metadata(github_url, token):
+    g = Github(token, per_page=1)
+    owner, repo = parse_github_url(github_url)
+
+    repo = g.get_repo(f"{owner}/{repo}")
+
+    default_branch = repo.default_branch
+
+    # ---------- Basic stats ----------
+    stars = repo.stargazers_count
+    forks = repo.forks_count
+    watchers = repo.subscribers_count
+
+    # ---------- Contributors ----------
+    contributors = repo.get_contributors(anon=True).totalCount
+
+    # ---------- Commits ----------
+    commits = repo.get_commits(sha=default_branch)
+    total_commits = commits.totalCount
+
+    latest_commit = commits[0]
+    first_commit = commits[total_commits - 1]
+
+    latest_hash = latest_commit.sha
+    latest_date = latest_commit.commit.committer.date
+
+    first_hash = first_commit.sha
+    first_date = first_commit.commit.committer.date
+
+    return {
+        "stars": stars,
+        "forks": forks,
+        "watchers": watchers,
+        "contributors": contributors,
+        "commits": total_commits,
+        "updated_at": latest_date.isoformat(),
+        "created_at": first_date.isoformat(),
+        "created_hash": first_hash,
+        "updated_hash": latest_hash,
+        "branch": default_branch
+    }
