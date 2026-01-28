@@ -18,7 +18,7 @@ for tooName in os.listdir(f"{CACHE_DIRECTORY}/history"):
         method_history_list = []
         repository_name = zip_file.name[:-len(".tar.gz")]
         repository_url = repository_name_map[repository_name]["url"]
-        repository_hash = repository_name_map[repository_name]["hash"]
+        repository_hash = repository_name_map[repository_name]["updated_hash"]
         with tarfile.open(zip_file, "r:gz") as tar:
             for file in tar.getmembers():
                 if file.isfile() and file.name.endswith(".json"):

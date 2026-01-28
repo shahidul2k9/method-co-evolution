@@ -31,7 +31,7 @@ repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
 repository_name_map = {row["name"]: row for row in repository_df.to_dict(orient="records")}
 for _, repo in repository_df.iterrows():
     repository_name = repo["name"]
-    commit_hash = repo["hash"]
+    commit_hash = repo["updated_hash"]
     fan_dfs = []
     for url_column, fan in [("caller_url", "fan-out"), ("callee_url", "fan-in")]:
         fan_zip_file = f"{DATA_DIRECTORY}/{fan}/{repository_name}.tar.gz"

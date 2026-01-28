@@ -13,7 +13,7 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
     for _, repository in repository_df.iterrows():
         repository_name = repository['name']
         url = repository['url']
-        hash = repository['hash']
+        hash = repository['updated_hash']
         repository_path = os.path.join(repository_directory, repository_name)
         git.clone_and_checkout_commit(url, repository_path, hash)
         commits = git.get_all_commit_info(repository_path, hash)

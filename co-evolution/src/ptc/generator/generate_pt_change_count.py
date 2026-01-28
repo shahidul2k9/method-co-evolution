@@ -14,7 +14,7 @@ history_df = pd.concat(history_repository_dfs)
 repository_name_map = {row["name"]: row for row in repository_df.to_dict(orient="records")}
 for _, repo in repository_df.iterrows():
     repository_name = repo["name"]
-    commit_hash = repo["hash"]
+    commit_hash = repo["updated_hash"]
     fan_out_zip_file = f"{DATA_DIRECTORY}/fan-out/{repository_name}.tar.gz"
     fan_out_file_suffix = f"{repository_name}/{repository_name}--fan-out--{commit_hash}.csv"
     fan_out_file = f"{DATA_DIRECTORY}/fan-out/{fan_out_file_suffix}"

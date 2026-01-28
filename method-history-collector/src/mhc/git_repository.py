@@ -6,7 +6,10 @@ import requests
 from urllib.parse import urlparse
 from github import Github
 from urllib.parse import urlparse
+import logging
+from mhc.config import *
 
+logging.basicConfig(level=logging.DEBUG)
 
 
 
@@ -72,11 +75,11 @@ def parse_github_url(url):
     return parts[0], parts[1]
 
 
-def get_repo_metadata(github_url, token):
-    g = Github(token, per_page=1)
-    owner, repo = parse_github_url(github_url)
+def get_repo_metadata(github_url):
+    g = Github(GITHUB_API_KEY, per_page=10_000)
+    owner, repo_name = parse_github_url(github_url)
 
-    repo = g.get_repo(f"{owner}/{repo}")
+    repo = g.get_repo(f"{owner}/{repo_name}")
 
     default_branch = repo.default_branch
 
@@ -88,7 +91,7 @@ def get_repo_metadata(github_url, token):
     # ---------- Contributors ----------
     contributors = repo.get_contributors(anon=True).totalCount
 
-    # ---------- Commits ----------
+    # # ---------- Commits ----------
     commits = repo.get_commits(sha=default_branch)
     total_commits = commits.totalCount
 
@@ -107,8 +110,8 @@ def get_repo_metadata(github_url, token):
         "watchers": watchers,
         "contributors": contributors,
         "commits": total_commits,
-        "updated_at": latest_date.isoformat(),
         "created_at": first_date.isoformat(),
+        "updated_at": latest_date.isoformat(),
         "created_hash": first_hash,
         "updated_hash": latest_hash,
         "branch": default_branch

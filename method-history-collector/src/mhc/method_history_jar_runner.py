@@ -17,7 +17,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
         for _, repository in repository_df.iterrows():
             repository_name = repository['name']
             url = repository['url']
-            hash = repository['hash']
+            hash = repository['updated_hash']
             method_history_path = util.format_method_history_path(cache_directory, tool_name, repository_name)
 
             method_history_tar_gz = f"{method_history_path}.tar.gz"

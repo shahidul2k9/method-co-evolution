@@ -104,7 +104,7 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
     for _, repository in repository_df.iterrows():
         repository_name = repository['name']
         url = repository['url']
-        hash = repository['hash']
+        hash = repository['updated_hash']
         dot_file_directory = util.format_git_project_directory(repository_directory, repository_name)
         output_method_file = util.format_method_list_file(f"{data_directory}", repository_name)
         output_method_error_file = os.path.join(f"{cache_directory}/log", f"{repository_name}--method-scan-log.csv")

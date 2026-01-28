@@ -16,9 +16,6 @@ class MethodHistoryTestCase(unittest.TestCase):
         super(MethodHistoryTestCase, self).__init__(*args, **kwargs)
         df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
         filtered_repositories = df['name'].tolist()
-        for name in ['jclouds', 'Essentials']:
-            if name in filtered_repositories:
-                filtered_repositories.remove(name)
         # self.repositories = filtered_repositories
         self.repositories = ['checkstyle']
         self.method_collector = MethodHistoryCollector(CACHE_DIRECTORY, REPOSITORY_DIRECTORY, DATA_DIRECTORY,
