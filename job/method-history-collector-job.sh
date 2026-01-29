@@ -20,7 +20,7 @@ source "$PROJECT_DIRECTORY/.venv/bin/activate"
 COMMAND_NAME=$1
 TOOL_NAME=$2
 IFS=',' read -r -a REPOSITORIES <<< "$3"
-if [[ $SLURM_ARRAY_TASK_ID -le 0 || $SLURM_ARRAY_TASK_ID -ge ${#REPOSITORIES[@]} ]]; then
+if [[ $SLURM_ARRAY_TASK_ID -le 0 || $SLURM_ARRAY_TASK_ID -gt ${#REPOSITORIES[@]} ]]; then
     echo "Invalid SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
     exit 1
 fi
