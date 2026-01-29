@@ -20,13 +20,13 @@ source "$PROJECT_DIRECTORY/.venv/bin/activate"
 COMMAND_NAME=$1
 TOOL_NAME=$2
 IFS=',' read -r -a REPOSITORIES <<< "$3"
-NUM_REPOS=${#REPOSITORIES[@]}
-if [[ "$NUM_REPOS" -lt "$SLURM_ARRAY_TASK_COUNT" ]]; then
-    echo "Error: Number of repositories ($NUM_REPOS) less than SLURM array task count ($SLURM_ARRAY_TASK_COUNT)."
+if [[ $SLURM_ARRAY_TASK_ID -le 0 || $SLURM_ARRAY_TASK_ID -ge ${#REPOSITORIES[@]} ]]; then
+    echo "Invalid SLURM_ARRAY_TASK_ID: $SLURM_ARRAY_TASK_ID"
     exit 1
 fi
 
-REPOSITORY=${REPOSITORIES[$SLURM_ARRAY_TASK_ID]}
+IDX=$((SLURM_ARRAY_TASK_ID - 1))
+REPOSITORY=${REPOSITORIES[$IDX]}
 
 srun mhc "$COMMAND_NAME" \
     --cache_directory "$CACHE_DIRECTORY" \
