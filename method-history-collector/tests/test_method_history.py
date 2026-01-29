@@ -15,9 +15,7 @@ class MethodHistoryTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(MethodHistoryTestCase, self).__init__(*args, **kwargs)
         df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
-        filtered_repositories = df['name'].tolist()
-        # self.repositories = filtered_repositories
-        self.repositories = ['checkstyle']
+        self.repositories = df['name'].tolist()
         self.method_collector = MethodHistoryCollector(CACHE_DIRECTORY, REPOSITORY_DIRECTORY, DATA_DIRECTORY,
                                                        JAR_DIRECTORY)
 
@@ -27,8 +25,8 @@ class MethodHistoryTestCase(unittest.TestCase):
     # def test_history_collection(self):
     #     self.method_collector.collect_method_history(self.repositories, ['historyFinder'])
 
-    def test_repository_index(self):
-        self.method_collector.update_repository_index()
+    # def test_repository_index(self):
+    #     self.method_collector.update_repository_index()
 
 
 if __name__ == '__main__':
