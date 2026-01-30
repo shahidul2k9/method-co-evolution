@@ -63,7 +63,8 @@ for tool in tools:
                 x, y = ecdf(pdf[ch])
                 ax.plot(x,y, linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
                         ls=GRAPH_STYLES[change_index % len(GRAPH_STYLES)])
-                ax.set_xscale("log")
+
+                # ax.set_xscale("log")
             else:
                 g = pdf[(pdf["caller_method_type"] == "test") & (pdf["callee_method_type"] == "production")]
                 x, y = g[f"callee_{ch}"], g[f"caller_{ch}"]
@@ -81,7 +82,7 @@ for tool in tools:
                 if x.std() == 0 or y.std() == 0:
                     correlation[ch]  = np.nan
                 else:
-                    correlation[ch] = x.corr(y)
+                    correlation[ch] = x.corr(y, method="kendall")
             ax.set_title(f"{ch.replace('ch_', '')}".capitalize(), fontsize=24)
 
             if tool == 'codeShovel' and ch in code_shovel_unsupported_change_set:
