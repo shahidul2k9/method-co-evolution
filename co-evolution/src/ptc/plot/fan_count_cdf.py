@@ -21,7 +21,7 @@ projects = sorted(
     df["name"].unique(),
     key=lambda x: x.lower()
 )
-projects.append("ALL PROJECTS")
+projects.append(ALL_REPOSITORY)
 in_out_types = ["fan_in", "fan_out"]
 n_rows = len(projects)
 n_cols = len(in_out_types)
@@ -36,7 +36,7 @@ if n_rows == 1:
     axes = [axes]
 
 for repository_index, project in enumerate(projects):
-    if project == "ALL PROJECTS":
+    if project == ALL_REPOSITORY:
         pdf = df
     else:
         pdf = df[df["name"] == project]

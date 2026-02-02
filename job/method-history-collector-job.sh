@@ -3,12 +3,11 @@
 #SBATCH --output=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.out
 #SBATCH --error=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.err
 set -euo pipefail
-module load python
-module load scipy-stack
-module load ipykernel
 module load StdEnv
-module load cuda
+module load scipy-stack/2025a
+module load ipykernel/2025a
 module load arrow
+module load cuda
 module load java/21.0.1
 export PROJECT_DIRECTORY="$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution"
 export CACHE_DIRECTORY="$PROJECT_DIRECTORY/.cache"

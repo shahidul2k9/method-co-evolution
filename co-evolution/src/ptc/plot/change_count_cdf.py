@@ -27,21 +27,19 @@ for tool in tools:
         tool_df["name"].unique(),
         key=lambda x: x.lower()
     )
-    projects.append("ALL PROJECTS")
+    projects.append(ALL_REPOSITORY)
     n_rows = len(projects)
     n_cols = len(ch_cols)
 
     fig, axes = plt.subplots(
         n_rows, n_cols,
-        figsize=(4 * n_cols, 3.2 * n_rows),
-        sharey=True
-    )
+        figsize=(4 * n_cols, 3.2 * n_rows))
 
     if n_rows == 1:
         axes = [axes]
 
     for repository_index, project in enumerate(projects):
-        if project == "ALL PROJECTS":
+        if project == ALL_REPOSITORY:
             pdf = tool_df
         else:
             pdf = tool_df[tool_df["name"] == project]
@@ -49,14 +47,17 @@ for tool in tools:
         for change_index, ch in enumerate(ch_cols):
             ax = axes[repository_index][change_index] if n_cols > 1 else axes[repository_index]
 
+            max_x = 0
             for mtype, g in pdf.groupby("method_type"):
-                # x, y = ecdf_with_rank(g[ch])
                 x, y = ecdf(g[ch])
+                max_x = max(max(x), max_x)
                 ax.plot(x, y, linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
                         ls=GRAPH_STYLES[change_index % len(GRAPH_STYLES)],
                         label=mtype)
             ax.set_xlabel(ch.replace("ch_", "").capitalize(), fontsize=24)
-            # ax.tick_params(axis="both", labelsize=18)
+            if max_x > 50:
+                ax.set_xscale("log")
+            ax.tick_params(axis="both", labelsize=18)
 
             if tool == 'codeShovel' and ch in code_shovel_unsupported_change_set:
                 ax.text(
