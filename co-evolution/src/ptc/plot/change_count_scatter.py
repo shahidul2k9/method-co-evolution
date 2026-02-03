@@ -55,7 +55,7 @@ for tool in tools:
         else:
             pdf = tool_df[tool_df["caller_name"] == project]
 
-        correlation = {"name": project}
+        correlation = {"repo_name": project}
         for change_index, ch in enumerate(ch_cols):
             ax = axes[repository_index][change_index] if n_cols > 1 else axes[repository_index]
 

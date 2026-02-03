@@ -18,10 +18,10 @@ df["method_type"] = df["method_type"].map(lambda mt: "test" if mt == "test_util"
 method_types = sorted(df["method_type"].unique())
 
 projects = sorted(
-    df["name"].unique(),
+    df["repo_name"].unique(),
     key=lambda x: x.lower()
 )
-projects.append("ALL PROJECTS")
+projects.append(ALL_REPOSITORY)
 in_out_types = ["fan_in", "fan_out"]
 n_rows = len(projects)
 n_cols = len(in_out_types)
@@ -36,10 +36,10 @@ if n_rows == 1:
     axes = [axes]
 
 for repository_index, project in enumerate(projects):
-    if project == "ALL PROJECTS":
+    if project == ALL_REPOSITORY:
         pdf = df
     else:
-        pdf = df[df["name"] == project]
+        pdf = df[df["repo_name"] == project]
 
     for change_index, ch in enumerate(in_out_types):
         ax = axes[repository_index][change_index] if n_cols > 1 else axes[repository_index]

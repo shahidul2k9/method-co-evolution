@@ -23,20 +23,20 @@ class MethodHistoryCollector:
     def scan_method(self, repositories: list[str]):
         try:
             ms.start_java_jar([self.jar_file_map['methodParser']])
-            ms.scan_method(self.repository_df[self.repository_df['name'].isin(repositories)], self.repository_directory, self.data_directory, self.cache_directory)
+            ms.scan_method(self.repository_df[self.repository_df["repo_name"].isin(repositories)], self.repository_directory, self.data_directory, self.cache_directory)
         except Exception as e:
             raise e
         finally:
             ms.stop_java_jar()
 
     def collect_method_history(self, repositories: list[str], tool_names: list[str]):
-        execute_method_history_if_missing(self.repository_df[self.repository_df['name'].isin(repositories)],
+        execute_method_history_if_missing(self.repository_df[self.repository_df["repo_name"].isin(repositories)],
                                           self.repository_directory, self.data_directory, self.cache_directory,
                                           tool_names, self.jar_file_map)
     def update_repository_index(self):
         update_repository_index(self.repository_df, self.cache_directory)
 
     def generate_call_graph(self, repositories: list[str], tool_names: list[str]):
-        execute_call_graph_if_missing(self.repository_df[self.repository_df['name'].isin(repositories)],
+        execute_call_graph_if_missing(self.repository_df[self.repository_df["repo_name"].isin(repositories)],
                                           self.repository_directory, self.data_directory, self.cache_directory,
                                           tool_names[-1], self.jar_file_map)

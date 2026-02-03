@@ -18,7 +18,7 @@ class RepositoryDatasetTestCase(unittest.TestCase):
                              repository_count, f"{dataset_name}")
 
     def test_repository_deduplication(self):
-        self.assertEqual(len(set(self.repositories_df["name"].tolist())), len(self.repositories_df), "Duplicate name")
+        self.assertEqual(len(set(self.repositories_df["repo_name"].tolist())), len(self.repositories_df), "Duplicate name")
         self.assertEqual(len(set(self.repositories_df["url"].tolist())), len(self.repositories_df), "Duplicate URL")
 
 

@@ -28,9 +28,9 @@ def read_fan_count_if_exists(fan_zip_file: str, fan_file_suffix: str, url_column
 
 repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
 
-repository_name_map = {row["name"]: row for row in repository_df.to_dict(orient="records")}
+repository_name_map = {row["repo_name"]: row for row in repository_df.to_dict(orient="records")}
 for _, repo in repository_df.iterrows():
-    repository_name = repo["name"]
+    repository_name = repo["repo_name"]
     commit_hash = repo["updated_hash"]
     fan_dfs = []
     for url_column, fan in [("caller_url", "fan-out"), ("callee_url", "fan-in")]:

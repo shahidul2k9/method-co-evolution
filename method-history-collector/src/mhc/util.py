@@ -37,3 +37,17 @@ def convert_method_file_to_method_url(repository_url: str, hash: str, method_fil
 
 def remove_prefix_if_exists(s: set[str], prefix) -> set[str]:
     return set(map(lambda f: f[len(prefix):] if f.startswith(prefix) else f, s))
+
+def lcs(s1, s2):
+    n = len(s1)
+    m = len(s2)
+    c = [[0]*(m+1) for i in range(n+1)]
+    for i in range(n+1):
+        for j in range(m+1):
+            if i==0 or j==0:
+                c[i][j] = 0
+            elif s1[i-1]==s2[j-1]:
+                    c[i][j] = c[i-1][j-1] + 1
+            else:
+                    c[i][j] = max(c[i-1][j], c[i][j-1])
+    return c[n][m]

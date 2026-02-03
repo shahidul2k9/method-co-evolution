@@ -10,7 +10,8 @@ dependencies = [
     "GitPython",
     "javalang",
     "matplotlib",
-    "scipy"
+    "scipy",
+    "levenshtein"
 ]
 
 [build-system]
