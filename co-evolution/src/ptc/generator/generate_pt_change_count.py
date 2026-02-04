@@ -1,39 +1,68 @@
-import tarfile
-from io import TextIOWrapper
+import sys
 from pathlib import Path
 
 import pandas as pd
 
 from mhc.config import *
+from ptc.constants import LinkStrategy, MethodChangeType
 
 repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
-
 repository_name_map = {row["repo_name"]: row for row in repository_df.to_dict(orient="records")}
+
+pt_link_dfs = [pd.read_csv(file, keep_default_na=False, na_filter=False) for
+               file in list(Path(f"{DATA_DIRECTORY}/pt-link").rglob("*.csv"))]
+pt_link_df = pd.concat(pt_link_dfs)
+change_count_df_columns = ["url", "method_type", "ch_all", "ch_diff"] + [f"ch_{change_type.name.lower()}" for change_type in MethodChangeType]
+
 for tooName in os.listdir(f"{CACHE_DIRECTORY}/history"):
     history_repository_dfs = [pd.read_csv(repository_history_file, keep_default_na=False, na_filter=False) for
-                              repository_history_file in list(Path(f"{DATA_DIRECTORY}/history/{tooName}").rglob("*.csv"))]
+                              repository_history_file in
+                              list(Path(f"{DATA_DIRECTORY}/history/{tooName}").rglob("*.csv"))]
     history_df = pd.concat(history_repository_dfs)
-
     for _, repo in repository_df.iterrows():
         repository_name = repo["repo_name"]
         commit_hash = repo["updated_hash"]
-        fan_out_zip_file = f"{DATA_DIRECTORY}/fan-out/{repository_name}.tar.gz"
-        fan_out_file_suffix = f"{repository_name}/{repository_name}--fan-out--{commit_hash}.csv"
-        fan_out_file = f"{DATA_DIRECTORY}/fan-out/{fan_out_file_suffix}"
-        if os.path.exists(fan_out_zip_file):
-            with tarfile.open(fan_out_zip_file, "r:gz") as tar:
-                members = tar.getmembers()
-                fan_out_files = {m.name for m in members}
-                if fan_out_file_suffix in fan_out_files:
-                    fan_out_file_content = tar.extractfile(tar.getmember(fan_out_file_suffix))
-                    raw_fan_out_df = pd.read_csv(TextIOWrapper(fan_out_file_content, encoding="utf-8"), na_filter=False,
-                                                 keep_default_na=False)
-                    raw_fan_out_df = raw_fan_out_df.groupby("caller_url").last().reset_index()
-                    change_df = (
-                        raw_fan_out_df[["caller_url", "callee_url"]]
-                        .merge(history_df.add_prefix("caller_"), on="caller_url", how="inner")
-                        .merge(history_df.add_prefix("callee_"), on="callee_url", how="inner")
+
+        pt_link_file = f"{DATA_DIRECTORY}/pt-link/{repository_name}.csv"
+
+        if os.path.exists(pt_link_file):
+            pt_link_df = pd.read_csv(pt_link_file, keep_default_na=False, na_filter=False)
+            for link_strategy in LinkStrategy:
+                for tool_name in history_df["tool_name"].unique():
+                    if link_strategy.value == "lc":
+                        score_cols = [
+                            "link_nc",
+                            "link_ncc",
+                            "link_lcs_b",
+                            "link_lcs_u",
+                            "link_leven",
+                        ]
+                    elif link_strategy.value == "max":
+                        score_cols = ["link_lc"]
+                    else:
+                        raise ValueError(f"Unknown link strategy: {link_strategy}")
+
+                    pt_link_df["_row_id"] = pt_link_df.index
+
+                    best_links_df = (
+                        pt_link_df
+                        .sort_values(
+                            by=["caller_url"] + score_cols + ["_row_id"],
+                            ascending=[True] + [False] * len(score_cols) + [False],
+                        )
+                        .groupby("caller_url", as_index=False)
+                        .first()
+                        .sort_values(by=["_row_id"], ascending=True)
                     )
-                    fan_in_count_file = f"{DATA_DIRECTORY}/pt-change-count/{tooName}/{repository_name}.csv"
+                    tool_df = history_df[
+                        (history_df["repo_name"] == repository_name) & (history_df["tool_name"] == tool_name)][change_count_df_columns]
+                    change_df = (
+                        best_links_df
+                        .assign(tool_name=tool_name)
+                        .drop(columns=["_row_id"], errors="ignore")
+                        .merge(tool_df.add_prefix("caller_"), on="caller_url", how="inner")
+                        .merge(tool_df.add_prefix("callee_"), on="callee_url", how="inner")
+                    )
+                    fan_in_count_file = f"{DATA_DIRECTORY}/pt-change-count/{tooName}/{link_strategy.value}/{repository_name}.csv"
                     os.makedirs(os.path.dirname(fan_in_count_file), exist_ok=True)
                     change_df.to_csv(fan_in_count_file, index=False)
