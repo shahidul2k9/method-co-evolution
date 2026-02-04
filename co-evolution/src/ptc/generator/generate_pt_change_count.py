@@ -42,7 +42,14 @@ for tooName in os.listdir(f"{CACHE_DIRECTORY}/history"):
                     else:
                         raise ValueError(f"Unknown link strategy: {link_strategy}")
 
+                    tool_df = history_df[
+                        (history_df["repo_name"] == repository_name) & (history_df["tool_name"] == tool_name)][change_count_df_columns]
+
                     pt_link_df["_row_id"] = pt_link_df.index
+                    pt_link_df = (pt_link_df.merge(tool_df.add_prefix("caller_"), on="caller_url", how="inner")
+                     .merge(tool_df.add_prefix("callee_"), on="callee_url", how="inner"))
+
+                    pt_link_df = pt_link_df[((pt_link_df["caller_method_type"] == "test") | (pt_link_df["caller_method_type"] == "test_util")) & (pt_link_df["callee_method_type"] == "production")]
 
                     best_links_df = (
                         pt_link_df
@@ -54,14 +61,11 @@ for tooName in os.listdir(f"{CACHE_DIRECTORY}/history"):
                         .first()
                         .sort_values(by=["_row_id"], ascending=True)
                     )
-                    tool_df = history_df[
-                        (history_df["repo_name"] == repository_name) & (history_df["tool_name"] == tool_name)][change_count_df_columns]
+
                     change_df = (
                         best_links_df
                         .assign(tool_name=tool_name)
                         .drop(columns=["_row_id"], errors="ignore")
-                        .merge(tool_df.add_prefix("caller_"), on="caller_url", how="inner")
-                        .merge(tool_df.add_prefix("callee_"), on="callee_url", how="inner")
                     )
                     fan_in_count_file = f"{DATA_DIRECTORY}/pt-change-count/{tooName}/{link_strategy.value}/{repository_name}.csv"
                     os.makedirs(os.path.dirname(fan_in_count_file), exist_ok=True)
