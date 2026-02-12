@@ -7,6 +7,7 @@ import pandas as pd
 
 import mhc.util as util
 from mhc.config import *
+import shutil
 
 repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
 
@@ -33,17 +34,26 @@ def establish_link(row):
 for _, repo in repository_df.iterrows():
     repository_name = repo["repo_name"]
     commit_hash = repo["updated_hash"]
-    fan_out_zip_file = f"{DATA_DIRECTORY}/fan-out/{repository_name}.tar.gz"
+    fan_out_zip_file = f"{DATA_DIRECTORY}/fan-out-gz/{repository_name}.tar.gz"
     fan_out_file_suffix = f"{repository_name}/{repository_name}--fan-out--{commit_hash}.csv"
-    fan_out_file = f"{DATA_DIRECTORY}/fan-out/{fan_out_file_suffix}"
+    fan_out_file = f"{DATA_DIRECTORY}/fan-out-gz/{fan_out_file_suffix}"
     if os.path.exists(fan_out_zip_file):
         with tarfile.open(fan_out_zip_file, "r:gz") as tar:
             members = tar.getmembers()
             fan_out_files = {m.name for m in members}
             if fan_out_file_suffix in fan_out_files:
-                fan_out_file_content = tar.extractfile(tar.getmember(fan_out_file_suffix))
-                fan_out_df = pd.read_csv(TextIOWrapper(fan_out_file_content, encoding="utf-8"), na_filter=False,
-                                         keep_default_na=False)
+                fan_out_csv_file = f"{DATA_DIRECTORY}/fan-out/{fan_out_file_suffix.split('/')[-1]}"
+                print(fan_out_csv_file)
+                os.makedirs(os.path.dirname(fan_out_csv_file), exist_ok=True)
+#                 if not os.path.exists(fan_out_csv_file):
+                member = tar.getmember(fan_out_file_suffix)
+                src = tar.extractfile(member)
+                if src is None:
+                    raise FileNotFoundError(f"Could not extract {fan_out_file_suffix} from tar")
+                with src, open(fan_out_csv_file, "wb") as dst:
+                    shutil.copyfileobj(src, dst, length=1024 * 1024)  # 1MB buffer
+
+                fan_out_df = pd.read_csv(fan_out_csv_file, na_filter=False, keep_default_na=False)
                 fan_out_df[["link_nc", "link_ncc", "link_lcs_b", "link_lcs_u", "link_leven"]] = fan_out_df.apply(
                     establish_link,
                     axis=1

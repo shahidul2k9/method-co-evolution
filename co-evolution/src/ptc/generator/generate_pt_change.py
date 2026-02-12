@@ -27,8 +27,19 @@ for tooName in os.listdir(f"{CACHE_DIRECTORY}/history"):
 
         if os.path.exists(pt_link_file):
             pt_link_df = pd.read_csv(pt_link_file, keep_default_na=False, na_filter=False)
-            # pt_link_df.drop_duplicates(subset="caller_url", keep= False, inplace=True)
-            # pt_link_df.drop_duplicates(subset="callee_url", keep=False, inplace=True)
+
+            # identify rows that are unique w.r.t caller or callee
+            unique_mask = (
+                    ~pt_link_df.duplicated(subset="caller_url", keep=False) |
+                    ~pt_link_df.duplicated(subset="callee_url", keep=False)
+            )
+
+            # rows where link_nc or link_ncc is 1
+            link_mask = (pt_link_df["link_nc"] == 1) | (pt_link_df["link_ncc"] == 1)
+
+            # keep rows that satisfy either condition
+            pt_link_df = pt_link_df[unique_mask | link_mask]
+
             for link_strategy in LinkStrategy:
                 for tool_name in history_df["tool_name"].unique():
                     if link_strategy.value == "lc":

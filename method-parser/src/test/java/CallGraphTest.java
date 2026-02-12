@@ -12,6 +12,7 @@ import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
@@ -103,8 +104,15 @@ public class CallGraphTest {
 
 
     @TestFactory
-    public DynamicNode testCallGraphFromConfigFiles() {
-        List<CallGraphConfig> configurations = loadConfigurations();
+    public DynamicNode testCallGraphFromConfigFilesAll() {
+        return generateTestCases("all");
+    }
+    @TestFactory
+    public DynamicNode testLightweightCallGraphFromConfigFiles() {
+        return generateTestCases("lightweight");
+    }
+    private static @NonNull DynamicContainer generateTestCases(String fileNameInfix) {
+        List<CallGraphConfig> configurations = loadConfigurations(fileNameInfix);
 
         return DynamicContainer.dynamicContainer("call-graph-configs",
                 configurations.stream().map(config -> DynamicContainer.dynamicContainer(config.name,
@@ -120,7 +128,7 @@ public class CallGraphTest {
                             );
                             methodCallOut.forEach(System.out::println);
                             Assertions.assertFalse(methodCallOut.isEmpty());
-                        }))));
+                        })))));
     }
 
     private static String resolvePlaceholders(String value) {
@@ -142,13 +150,13 @@ public class CallGraphTest {
         return resolved.toString();
     }
 
-    private static List<CallGraphConfig> loadConfigurations() {
+    private static List<CallGraphConfig> loadConfigurations(String fileNameInfix) {
         ObjectMapper objectMapper = new ObjectMapper();
         List<CallGraphConfig> configurations = new ArrayList<>();
 
         try (var jsonFiles = java.nio.file.Files.list(Paths.get("src/test/resources/call-graph"))) {
             List<Path> configFiles = jsonFiles
-                    .filter(path -> path.getFileName().toString().endsWith(".json"))
+                    .filter(path -> path.getFileName().toString().endsWith(".json") && (path.getFileName().toString().contains(fileNameInfix) || fileNameInfix.equalsIgnoreCase("all")))
                     .sorted()
                     .toList();
 

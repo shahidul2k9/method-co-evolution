@@ -22,9 +22,13 @@ tools = sorted(df["tool_name"].unique())
 
 for tool in tools:
     tool_df = df[df["tool_name"] == tool]
-
+    # print(tool)
+    # print(tool_df["repo_name"].unique())
     projects = sorted(
-        tool_df["repo_name"].unique(),
+        tool_df["repo_name"]
+        .dropna() # investigate nan
+        .astype(str)
+        .unique(),
         key=lambda x: x.lower()
     )
     projects.append(ALL_REPOSITORY)
