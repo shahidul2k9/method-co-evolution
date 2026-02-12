@@ -2,6 +2,7 @@ package rnd.method.parser.call.graph;
 
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.InvalidRemoteException;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.ObjectId;
 import rnd.method.parser.call.graph.model.Method;
@@ -98,12 +99,22 @@ public class MethodParserUtil {
         return deduplicateRoots(roots);
     }
 
-    public static void checkoutCommit(String repositoryPath, String commitHash) {
+    public static void prepareRepositoryForCommit(String repositoryUrl, String repositoryPath, String commitHash) {
         if (commitHash == null || commitHash.isBlank()) {
             throw new IllegalArgumentException("Commit hash is required");
         }
 
-        try (Git git = Git.open(Paths.get(repositoryPath).toFile())) {
+        Path path = Paths.get(repositoryPath);
+        Path gitDirectory = path.resolve(".git");
+
+        if (Files.exists(path) && !Files.isDirectory(path)) {
+            throw new IllegalStateException("Repository path exists and is not a directory: " + repositoryPath);
+        }
+
+        try (Git git = Files.exists(gitDirectory) && Files.isDirectory(gitDirectory)
+                ? Git.open(path.toFile())
+                : cloneRepository(repositoryUrl, path, repositoryPath)) {
+
             ObjectId resolvedCommit = git.getRepository().resolve(commitHash);
             if (resolvedCommit == null) {
                 throw new IllegalArgumentException("Unable to resolve commit hash: " + commitHash);
@@ -119,7 +130,33 @@ public class MethodParserUtil {
                 throw new IllegalStateException("Repository checkout failed for commit: " + commitHash);
             }
         } catch (IOException | GitAPIException exception) {
-            throw new IllegalStateException("Failed to checkout repository commit " + commitHash + " at " + repositoryPath, exception);
+            throw new IllegalStateException("Failed to prepare repository at " + repositoryPath + " for commit " + commitHash, exception);
+        }
+    }
+
+    private static Git cloneRepository(String repositoryUrl, Path path, String repositoryPath) {
+        try {
+            if (Files.exists(path) && Files.isDirectory(path)) {
+                try (Stream<Path> children = Files.list(path)) {
+                    if (children.findAny().isPresent()) {
+                        throw new IllegalStateException("Repository path is not a Git repository: " + repositoryPath);
+                    }
+                }
+            }
+
+            Path parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+
+            return Git.cloneRepository()
+                    .setURI(repositoryUrl)
+                    .setDirectory(path.toFile())
+                    .call();
+        } catch (InvalidRemoteException exception) {
+            throw new IllegalStateException("Invalid repository URL: " + repositoryUrl, exception);
+        } catch (GitAPIException | IOException exception) {
+            throw new IllegalStateException("Failed to clone repository " + repositoryUrl + " to " + repositoryPath, exception);
         }
     }
 
