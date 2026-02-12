@@ -11,8 +11,8 @@
           "targetPaths": [
             "src"
           ],
-          "fanInFile": "../.cache/data/fan-in/checkstyle/checkstyle--fan-in--164a755af951cf0fd459d70873e1c199210d9d8b.csv",
-          "fanOutFile": "../.cache/data/fan-out/checkstyle/checkstyle--fan-out--164a755af951cf0fd459d70873e1c199210d9d8b.csv"
+          "fanInFile": "../.cache/test/fan-in/checkstyle/checkstyle--fan-in--164a755af951cf0fd459d70873e1c199210d9d8b.csv",
+          "fanOutFile": "../.cache/test/fan-out/checkstyle/checkstyle--fan-out--164a755af951cf0fd459d70873e1c199210d9d8b.csv"
         }
       ]
     }
