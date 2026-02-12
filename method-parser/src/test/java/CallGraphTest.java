@@ -29,9 +29,12 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -48,17 +51,19 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 public class CallGraphTest {
 
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
+    private static final String DEFAULT_REPOSITORY_DIRECTORY = "../../repository";
+    private static final Map<String, String> OPTIONAL_ENV_VARS = loadOptionalEnvVariables();
 
     @Test
     public void testFanOut() throws FileNotFoundException {
-        String repositoryDirectory = System.getenv().getOrDefault("REPOSITORY_DIRECTORY", "../../repository");
+        String repositoryDirectory = getEnv("REPOSITORY_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY);
         Path path = Paths.get(repositoryDirectory, "checkstyle");
     }
 
     @Test
     public void testsymbolResolverTest() throws FileNotFoundException {
         JavaParser javaParser = new JavaParser();
-        String repositoryDirectory = Paths.get(System.getenv().getOrDefault("REPOSITORY_DIRECTORY", "../../repository"), "checkstyle").toString();
+        String repositoryDirectory = Paths.get(getEnv("REPOSITORY_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY), "checkstyle").toString();
 
         ParseResult<CompilationUnit> cu = javaParser.parse(new File(repositoryDirectory + "/src/main/java/com/puppycrawl/tools/checkstyle/AuditEventDefaultFormatter.java"));
         MethodDeclaration md = cu.getResult()
@@ -137,13 +142,7 @@ public class CallGraphTest {
 
         while (matcher.find()) {
             String key = matcher.group(1);
-            String replacement = System.getenv(key);
-            if (replacement == null && "REPOSITORY_DIRECTORY".equals(key)) {
-                replacement = "../../repository";
-            }
-            if (replacement == null) {
-                replacement = "";
-            }
+            String replacement = getEnv(key, "REPOSITORY_DIRECTORY".equals(key) ? DEFAULT_REPOSITORY_DIRECTORY : "");
             matcher.appendReplacement(resolved, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(resolved);
@@ -177,7 +176,7 @@ public class CallGraphTest {
 
     @Test
     public void testCommandLineCallGraph() {
-        java.lang.String repositoryPath = System.getenv().getOrDefault("REPOSITORY_DIRECTORY", "../../repository") + "/checkstyle";
+        java.lang.String repositoryPath = getEnv("REPOSITORY_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY) + "/checkstyle";
         String[] args = {
                 "--command", "call-graph",
                 "--repository-url", "https://github.com/checkstyle/checkstyle",
@@ -189,6 +188,54 @@ public class CallGraphTest {
         };
 
         assertDoesNotThrow(() -> Main.main(args));
+    }
+
+    private static String getEnv(String key, String defaultValue) {
+        String systemValue = System.getenv(key);
+        if (systemValue != null && !systemValue.isBlank()) {
+            return systemValue;
+        }
+        return OPTIONAL_ENV_VARS.getOrDefault(key, defaultValue);
+    }
+
+    private static Map<String, String> loadOptionalEnvVariables() {
+        List<Path> candidates = List.of(
+                Paths.get(".cache", ".env"),
+                Paths.get("..", ".cache", ".env")
+        );
+
+        for (Path candidate : candidates) {
+            if (!Files.exists(candidate)) {
+                continue;
+            }
+            try {
+                Map<String, String> envVars = new HashMap<>();
+                for (String line : Files.readAllLines(candidate, StandardCharsets.UTF_8)) {
+                    String trimmed = line.trim();
+                    if (trimmed.isEmpty() || trimmed.startsWith("#")) {
+                        continue;
+                    }
+                    if (trimmed.startsWith("export ")) {
+                        trimmed = trimmed.substring("export ".length()).trim();
+                    }
+                    int separatorIndex = trimmed.indexOf('=');
+                    if (separatorIndex <= 0) {
+                        continue;
+                    }
+                    String key = trimmed.substring(0, separatorIndex).trim();
+                    String value = trimmed.substring(separatorIndex + 1).trim();
+                    if (value.length() >= 2 && ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'")))) {
+                        value = value.substring(1, value.length() - 1);
+                    }
+                    envVars.put(key, value);
+                }
+                return envVars;
+            } catch (IOException exception) {
+                log.warn("Unable to load optional env file at {}", candidate, exception);
+            }
+        }
+
+        return Map.of();
     }
 
     private static class CallGraphConfig {
