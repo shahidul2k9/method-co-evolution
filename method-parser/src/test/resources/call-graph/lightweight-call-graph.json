@@ -1,6 +1,22 @@
 {
   "groups": [
     {
+      "name": "ant",
+      "repositoryUrl": "https://github.com/apache/ant",
+      "repositoryPath": "${METHOD_EVOLUTION_REPOSITORY_DIRECTORY}/ant",
+      "commitHash": "3ffea30ee459d9fc4b9a005d418a192157e0e3ac",
+      "cases": [
+        {
+          "name": "LayoutPreservingPropertiesTest.java",
+          "targetPaths": [
+            "src/tests/junit/org/apache/tools/ant/util/LayoutPreservingPropertiesTest.java"
+          ],
+          "fanInFile": "../.cache/test/fan-in/ant/ant--fan-in--3ffea30ee459d9fc4b9a005d418a192157e0e3ac.csv",
+          "fanOutFile": "../.cache/test/fan-out/ant/ant--fan-out--3ffea30ee459d9fc4b9a005d418a192157e0e3ac.csv"
+        }
+      ]
+    },
+    {
       "name": "spring-boot",
       "repositoryUrl": "https://github.com/spring-projects/spring-boot",
       "repositoryPath": "${METHOD_EVOLUTION_REPOSITORY_DIRECTORY}/spring-boot",
