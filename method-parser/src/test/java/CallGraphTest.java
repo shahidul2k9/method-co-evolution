@@ -12,6 +12,7 @@ import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.junit.Assert;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
@@ -28,9 +29,11 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -47,17 +50,20 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 public class CallGraphTest {
 
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
+    private static final Path OPTIONAL_ENV_FILE = Paths.get("..", ".cache", ".env");
+    private static final String DEFAULT_REPOSITORY_DIRECTORY = "../.cache/repository";
+    private static final Map<String, String> RESOLVED_ENV = loadEnvironmentVariables();
 
     @Test
     public void testFanOut() throws FileNotFoundException {
-        String repositoryDirectory = System.getenv().getOrDefault("REPOSITORY_DIRECTORY", "../../repository");
+        String repositoryDirectory = getEnv("METHOD_EVOLUTION_REPOSITORY_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY);
         Path path = Paths.get(repositoryDirectory, "checkstyle");
     }
 
     @Test
     public void testsymbolResolverTest() throws FileNotFoundException {
         JavaParser javaParser = new JavaParser();
-        String repositoryDirectory = Paths.get(System.getenv().getOrDefault("REPOSITORY_DIRECTORY", "../../repository"), "checkstyle").toString();
+        String repositoryDirectory = Paths.get(getEnv("METHOD_EVOLUTION_REPOSITORY_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY), "checkstyle").toString();
 
         ParseResult<CompilationUnit> cu = javaParser.parse(new File(repositoryDirectory + "/src/main/java/com/puppycrawl/tools/checkstyle/AuditEventDefaultFormatter.java"));
         MethodDeclaration md = cu.getResult()
@@ -103,8 +109,15 @@ public class CallGraphTest {
 
 
     @TestFactory
-    public DynamicNode testCallGraphFromConfigFiles() {
-        List<CallGraphConfig> configurations = loadConfigurations();
+    public DynamicNode testCallGraphFromConfigFilesAll() {
+        return generateTestCases("all");
+    }
+    @TestFactory
+    public DynamicNode testLightweightCallGraphFromConfigFiles() {
+        return generateTestCases("lightweight");
+    }
+    private static @NonNull DynamicContainer generateTestCases(String fileNameInfix) {
+        List<CallGraphConfig> configurations = loadConfigurations(fileNameInfix);
 
         return DynamicContainer.dynamicContainer("call-graph-configs",
                 configurations.stream().map(config -> DynamicContainer.dynamicContainer(config.name,
@@ -120,7 +133,7 @@ public class CallGraphTest {
                             );
                             methodCallOut.forEach(System.out::println);
                             Assertions.assertFalse(methodCallOut.isEmpty());
-                        }))));
+                        })))));
     }
 
     private static String resolvePlaceholders(String value) {
@@ -129,26 +142,20 @@ public class CallGraphTest {
 
         while (matcher.find()) {
             String key = matcher.group(1);
-            String replacement = System.getenv(key);
-            if (replacement == null && "REPOSITORY_DIRECTORY".equals(key)) {
-                replacement = "../../repository";
-            }
-            if (replacement == null) {
-                replacement = "";
-            }
+            String replacement = getEnv(key, "METHOD_EVOLUTION_REPOSITORY_DIRECTORY".equals(key) ? DEFAULT_REPOSITORY_DIRECTORY : "");
             matcher.appendReplacement(resolved, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(resolved);
         return resolved.toString();
     }
 
-    private static List<CallGraphConfig> loadConfigurations() {
+    private static List<CallGraphConfig> loadConfigurations(String fileNameInfix) {
         ObjectMapper objectMapper = new ObjectMapper();
         List<CallGraphConfig> configurations = new ArrayList<>();
 
         try (var jsonFiles = java.nio.file.Files.list(Paths.get("src/test/resources/call-graph"))) {
             List<Path> configFiles = jsonFiles
-                    .filter(path -> path.getFileName().toString().endsWith(".json"))
+                    .filter(path -> path.getFileName().toString().endsWith(".json") && (path.getFileName().toString().contains(fileNameInfix) || fileNameInfix.equalsIgnoreCase("all")))
                     .sorted()
                     .toList();
 
@@ -169,18 +176,62 @@ public class CallGraphTest {
 
     @Test
     public void testCommandLineCallGraph() {
-        java.lang.String repositoryPath = System.getenv().getOrDefault("REPOSITORY_DIRECTORY", "../../repository") + "/checkstyle";
+        java.lang.String repositoryPath = getEnv("METHOD_EVOLUTION_REPOSITORY_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY) + "/checkstyle";
         String[] args = {
                 "--command", "call-graph",
                 "--repository-url", "https://github.com/checkstyle/checkstyle",
                 "--repository-path", repositoryPath,
                 "--start-commit", "164a755af951cf0fd459d70873e1c199210d9d8b",
                 "--target-path", ".",
-                "--output-fan-in-file", "../.cache/data/fan-in/checkstyle/checkstyle--fan-in--164a755af951cf0fd459d70873e1c199210d9d8b.csv",
-                "--output-fan-out-file", "../.cache/data/fan-out/checkstyle/checkstyle--fan-out--164a755af951cf0fd459d70873e1c199210d9d8b.csv"
+                "--output-fan-in-file", "../.cache/test/fan-in/checkstyle/checkstyle--fan-in--164a755af951cf0fd459d70873e1c199210d9d8b.csv",
+                "--output-fan-out-file", "../.cache/test/fan-out/checkstyle/checkstyle--fan-out--164a755af951cf0fd459d70873e1c199210d9d8b.csv"
         };
 
         assertDoesNotThrow(() -> Main.main(args));
+    }
+
+    private static String getEnv(String key, String defaultValue) {
+        return RESOLVED_ENV.getOrDefault(key, defaultValue);
+    }
+
+    private static Map<String, String> loadEnvironmentVariables() {
+        Map<String, String> values = new HashMap<>(System.getenv());
+        if (!Files.exists(OPTIONAL_ENV_FILE)) {
+            return values;
+        }
+
+        try {
+            for (String rawLine : Files.readAllLines(OPTIONAL_ENV_FILE)) {
+                String line = rawLine.trim();
+                if (line.isEmpty() || line.startsWith("#")) {
+                    continue;
+                }
+
+                int splitIndex = line.indexOf('=');
+                if (splitIndex <= 0) {
+                    continue;
+                }
+
+                String key = line.substring(0, splitIndex).trim();
+                if (key.isEmpty()) {
+                    continue;
+                }
+
+                String parsedValue = stripWrappingQuotes(line.substring(splitIndex + 1).trim());
+                values.putIfAbsent(key, parsedValue);
+            }
+        } catch (IOException exception) {
+            throw new RuntimeException("Unable to read optional env file: " + OPTIONAL_ENV_FILE, exception);
+        }
+
+        return values;
+    }
+
+    private static String stripWrappingQuotes(String value) {
+        if (value.length() >= 2 && ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'")))) {
+            return value.substring(1, value.length() - 1);
+        }
+        return value;
     }
 
     private static class CallGraphConfig {

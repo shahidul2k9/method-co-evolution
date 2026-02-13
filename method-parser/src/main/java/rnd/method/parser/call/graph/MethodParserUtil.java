@@ -1,6 +1,13 @@
 package rnd.method.parser.call.graph;
 
+import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParseResult;
+import com.github.javaparser.ast.CompilationUnit;
 import lombok.extern.slf4j.Slf4j;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.InvalidRemoteException;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.lib.ObjectId;
 import rnd.method.parser.call.graph.model.Method;
 import rnd.method.parser.call.graph.model.MethodCall;
 import tech.tablesaw.api.IntColumn;
@@ -8,8 +15,10 @@ import tech.tablesaw.api.StringColumn;
 import tech.tablesaw.api.Table;
 import tech.tablesaw.columns.Column;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -19,33 +28,7 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class MethodParserUtil {
-    private static final List<String> JAVA_SOURCE_ROOT_SUFFIXES = List.of(
-            // Standard Java
-            "/src/main/java",
-            "/src/test/java",
-            "/src/integrationTest/java",
-            "/src/java",
-            "/java",
-
-            // Android (Gradle / Studio)
-            "/app/src/main/java",
-            "/app/src/test/java",
-            "/app/src/androidTest/java",
-            "/src/androidTest/java",
-
-            // Android (AOSP)
-            "/frameworks/base/core/java",
-            "/frameworks/base/java",
-            "/frameworks/*/java",          // handled via traversal
-            "/packages/apps",              // handled via traversal
-
-            // Product / Legacy
-            "/source/java",
-            "/sources/java",
-            "/code/java",
-            "/modules/src",
-            "/core/java"
-    );
+    private static final int MAX_PACKAGE_SCAN_LINES = 120;
     private static final Set<String> EXCLUDED_DIRS = Set.of(
             ".git", ".gradle", ".idea", ".settings",
             "target", "build", "out",
@@ -80,83 +63,193 @@ public class MethodParserUtil {
     }
 
     public static List<Path> findAllJavaSourceRoots(Path repoRoot) {
-        List<Path> roots = new ArrayList<>();
-
-        try {
-            Files.walk(repoRoot)
-                    .filter(Files::isDirectory)
-                    .filter(MethodParserUtil::isCandidateSourceRoot)
-                    .filter(MethodParserUtil::containsJavaFiles)
-                    .forEach(roots::add);
-
-        } catch (IOException ignored) {
-        }
-
-        return deduplicateRoots(roots);
+        return findAllJavaSourceRootsFromPackageDeclarations(repoRoot);
     }
 
-    private static boolean isCandidateSourceRoot(Path dir) {
-        String path = dir.toString().replace("\\", "/");
-
-        // Exclude build / generated / third-party dirs
-        for (String excluded : EXCLUDED_DIRS) {
-            if (path.contains("/" + excluded + "/")) {
-                return false;
-            }
+    public static List<Path> findAllJavaSourceRootsFromPackageDeclarations(Path repoRoot) {
+        List<Path> javaFiles;
+        try (Stream<Path> stream = Files.walk(repoRoot)) {
+            javaFiles = stream
+                    .filter(Files::isRegularFile)
+                    .filter(MethodParserUtil::isJavaFile)
+                    .filter(path -> !containsExcludedDirectory(path))
+                    .sorted()
+                    .toList();
+        } catch (IOException ignored) {
+            return List.of();
         }
 
-        // Direct suffix match
-        for (String suffix : JAVA_SOURCE_ROOT_SUFFIXES) {
-            if (!suffix.contains("*") && path.endsWith(suffix)) {
+        Set<Path> sourceRoots = new LinkedHashSet<>();
+        Map<Path, Path> packageDirectoryRoots = new HashMap<>();
+
+        for (Path javaFile : javaFiles) {
+            Path packageDirectory = javaFile.getParent();
+            Path cachedRoot = packageDirectoryRoots.get(packageDirectory);
+            if (cachedRoot != null) {
+                sourceRoots.add(cachedRoot);
+                continue;
+            }
+
+            Optional<String> packageName = extractPackageName(javaFile);
+            Path sourceRoot = inferSourceRootFromPackage(javaFile, packageName);
+            sourceRoots.add(sourceRoot);
+            packageDirectoryRoots.put(packageDirectory, sourceRoot);
+        }
+
+        return deduplicateRoots(new ArrayList<>(sourceRoots));
+    }
+
+    private static boolean isJavaFile(Path path) {
+        return path.toString().endsWith(".java");
+    }
+
+    private static boolean containsExcludedDirectory(Path path) {
+        for (Path element : path) {
+            if (EXCLUDED_DIRS.contains(element.toString())) {
                 return true;
             }
         }
-
-        // Handle wildcard-style Android / product layouts
-        return matchesWildcardSourceRoot(path);
+        return false;
     }
 
-    private static boolean containsJavaFiles(Path dir) {
+    private static Optional<String> extractPackageName(Path javaFile) {
+        Optional<String> packageFromParser = extractPackageNameWithJavaParser(javaFile);
+        if (packageFromParser.isPresent()) {
+            return packageFromParser;
+        }
+        return extractPackageNameFromFileHeader(javaFile);
+    }
+
+    private static Optional<String> extractPackageNameWithJavaParser(Path javaFile) {
         try {
-            return Files.walk(dir)
-                    .anyMatch(p -> Files.isRegularFile(p) && p.toString().endsWith(".java"));
-        } catch (IOException e) {
-            return false;
+            ParseResult<CompilationUnit> result = new JavaParser().parse(javaFile);
+            if (!result.isSuccessful() || result.getResult().isEmpty()) {
+                return Optional.empty();
+            }
+
+            return result.getResult()
+                    .flatMap(CompilationUnit::getPackageDeclaration)
+                    .map(packageDeclaration -> packageDeclaration.getName().asString())
+                    .filter(packageName -> !packageName.isBlank());
+        } catch (Exception ignored) {
+            return Optional.empty();
         }
     }
 
+    private static Optional<String> extractPackageNameFromFileHeader(Path javaFile) {
+        try (BufferedReader reader = Files.newBufferedReader(javaFile, StandardCharsets.UTF_8)) {
+            String line;
+            int linesRead = 0;
+            while ((line = reader.readLine()) != null && linesRead++ < MAX_PACKAGE_SCAN_LINES) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty() || trimmed.startsWith("//") || trimmed.startsWith("/*") || trimmed.startsWith("*")) {
+                    continue;
+                }
+                if (trimmed.startsWith("package ") && trimmed.endsWith(";")) {
+                    String packageName = trimmed.substring("package ".length(), trimmed.length() - 1).trim();
+                    if (!packageName.isBlank()) {
+                        return Optional.of(packageName);
+                    }
+                }
+                if (trimmed.startsWith("import ") || trimmed.startsWith("class ") || trimmed.startsWith("interface ") || trimmed.startsWith("enum ") || trimmed.startsWith("record ") || trimmed.startsWith("@")) {
+                    break;
+                }
+            }
+        } catch (IOException ignored) {
+            return Optional.empty();
+        }
+        return Optional.empty();
+    }
+
+    private static Path inferSourceRootFromPackage(Path javaFile, Optional<String> packageName) {
+        Path packageDirectory = javaFile.getParent();
+        if (packageName.isEmpty()) {
+            return packageDirectory;
+        }
+
+        String[] packageParts = packageName.get().split("\\.");
+        Path sourceRoot = packageDirectory;
+        for (int i = packageParts.length - 1; i >= 0; i--) {
+            if (sourceRoot == null || !sourceRoot.getFileName().toString().equals(packageParts[i])) {
+                return packageDirectory;
+            }
+            sourceRoot = sourceRoot.getParent();
+        }
+
+        return sourceRoot != null ? sourceRoot : packageDirectory;
+    }
+
+    public static void prepareRepositoryForCommit(String repositoryUrl, String repositoryPath, String commitHash) {
+        if (commitHash == null || commitHash.isBlank()) {
+            throw new IllegalArgumentException("Commit hash is required");
+        }
+
+        Path path = Paths.get(repositoryPath);
+        Path gitDirectory = path.resolve(".git");
+
+        if (Files.exists(path) && !Files.isDirectory(path)) {
+            throw new IllegalStateException("Repository path exists and is not a directory: " + repositoryPath);
+        }
+
+        try (Git git = Files.exists(gitDirectory) && Files.isDirectory(gitDirectory)
+                ? Git.open(path.toFile())
+                : cloneRepository(repositoryUrl, path, repositoryPath)) {
+
+            ObjectId resolvedCommit = git.getRepository().resolve(commitHash);
+            if (resolvedCommit == null) {
+                throw new IllegalArgumentException("Unable to resolve commit hash: " + commitHash);
+            }
+
+            git.checkout()
+                    .setName(resolvedCommit.getName())
+                    .setForced(true)
+                    .call();
+
+            ObjectId headCommit = git.getRepository().resolve("HEAD");
+            if (headCommit == null || !headCommit.getName().equals(resolvedCommit.getName())) {
+                throw new IllegalStateException("Repository checkout failed for commit: " + commitHash);
+            }
+        } catch (IOException | GitAPIException exception) {
+            throw new IllegalStateException("Failed to prepare repository at " + repositoryPath + " for commit " + commitHash, exception);
+        }
+    }
+
+    private static Git cloneRepository(String repositoryUrl, Path path, String repositoryPath) {
+        try {
+            if (Files.exists(path) && Files.isDirectory(path)) {
+                try (Stream<Path> children = Files.list(path)) {
+                    if (children.findAny().isPresent()) {
+                        throw new IllegalStateException("Repository path is not a Git repository: " + repositoryPath);
+                    }
+                }
+            }
+
+            Path parent = path.getParent();
+            if (parent != null) {
+                Files.createDirectories(parent);
+            }
+
+            return Git.cloneRepository()
+                    .setURI(repositoryUrl)
+                    .setDirectory(path.toFile())
+                    .call();
+        } catch (InvalidRemoteException exception) {
+            throw new IllegalStateException("Invalid repository URL: " + repositoryUrl, exception);
+        } catch (GitAPIException | IOException exception) {
+            throw new IllegalStateException("Failed to clone repository " + repositoryUrl + " to " + repositoryPath, exception);
+        }
+    }
     private static List<Path> deduplicateRoots(List<Path> roots) {
-        roots.sort(Comparator.comparingInt(p -> p.getNameCount()));
-
+        Set<String> takenSourceDirectory = new HashSet<>();
         List<Path> result = new ArrayList<>();
-
         for (Path root : roots) {
-            if (result.stream().noneMatch(r -> root.startsWith(r))) {
+            String directory = root.toAbsolutePath().toString();
+            if (!takenSourceDirectory.contains(directory)){
                 result.add(root);
+                takenSourceDirectory.add(directory);
             }
         }
         return result;
-    }
-
-
-    private static boolean matchesWildcardSourceRoot(String path) {
-
-        // frameworks/<anything>/java
-        if (path.contains("/frameworks/") && path.endsWith("/java")) {
-            return true;
-        }
-
-        // packages/apps/<app>/src
-        if (path.contains("/packages/apps/") && path.endsWith("/src")) {
-            return true;
-        }
-
-        // src/<anything>/java  (Gradle variants)
-        if (path.contains("/src/") && path.endsWith("/java")) {
-            return true;
-        }
-
-        return false;
     }
 
 

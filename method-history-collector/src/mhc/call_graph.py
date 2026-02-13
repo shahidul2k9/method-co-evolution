@@ -18,8 +18,8 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
         git.clone_and_checkout_commit(url, repository_path, hash)
         commits = git.get_all_commit_info(repository_path, hash)
         commit_index = 1
-        fan_in_path = f"{data_directory}/fan-in/{repository_name}"
-        fan_out_path = f"{data_directory}/fan-out/{repository_name}"
+        fan_in_path = f"{data_directory}/fan-in-gz/{repository_name}"
+        fan_out_path = f"{data_directory}/fan-out-gz/{repository_name}"
 
         fan_in_tar_gz = f"{fan_in_path}.tar.gz"
         repository_name_prefix = f"{repository_name}/"

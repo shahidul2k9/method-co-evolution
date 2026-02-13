@@ -1,0 +1,52 @@
+{
+  "groups": [
+    {
+      "name": "ant",
+      "repositoryUrl": "https://github.com/apache/ant",
+      "repositoryPath": "${METHOD_EVOLUTION_REPOSITORY_DIRECTORY}/ant",
+      "commitHash": "3ffea30ee459d9fc4b9a005d418a192157e0e3ac",
+      "cases": [
+        {
+          "name": "LayoutPreservingPropertiesTest.java",
+          "targetPaths": [
+            "src/tests/junit/org/apache/tools/ant/util/LayoutPreservingPropertiesTest.java"
+          ],
+          "fanInFile": "../.cache/test/fan-in/ant/ant--fan-in--3ffea30ee459d9fc4b9a005d418a192157e0e3ac.csv",
+          "fanOutFile": "../.cache/test/fan-out/ant/ant--fan-out--3ffea30ee459d9fc4b9a005d418a192157e0e3ac.csv"
+        }
+      ]
+    },
+    {
+      "name": "spring-boot",
+      "repositoryUrl": "https://github.com/spring-projects/spring-boot",
+      "repositoryPath": "${METHOD_EVOLUTION_REPOSITORY_DIRECTORY}/spring-boot",
+      "commitHash": "f8f1da605e936a62d1d3028e222d7e9f14f742cd",
+      "cases": [
+        {
+          "name": "MeterValueTests.java",
+          "targetPaths": [
+            "module/spring-boot-micrometer-metrics/src/test/java/org/springframework/boot/micrometer/metrics/autoconfigure/MeterValueTests.java"
+          ],
+          "fanInFile": "../.cache/test/fan-in/spring-boot/spring-boot--fan-in--f8f1da605e936a62d1d3028e222d7e9f14f742cd.csv",
+          "fanOutFile": "../.cache/test/fan-out/spring-boot/spring-boot--fan-out--f8f1da605e936a62d1d3028e222d7e9f14f742cd.csv"
+        }
+      ]
+    },
+    {
+      "name": "flink",
+      "repositoryUrl": "https://github.com/apache/flink",
+      "repositoryPath": "${METHOD_EVOLUTION_REPOSITORY_DIRECTORY}/flink",
+      "commitHash": "261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9",
+      "cases": [
+        {
+          "name": "accumulators-tests",
+          "targetPaths": [
+            "flink-tests/src/test/java/org/apache/flink/test/accumulators/"
+          ],
+          "fanInFile": "../.cache/test/fan-in/flink/flink--fan-in--261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9.csv",
+          "fanOutFile": "../.cache/test/fan-out/flink/flink--fan-out--261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9.csv"
+        }
+      ]
+    }
+  ]
+}

@@ -12,13 +12,13 @@ CHANGE_CORRELATION = "Change Correlation"
 code_shovel_unsupported_change_set = {f"ch_{change_type.name.lower()}" for change_type in
                                       CODE_SHOVEL_UNSUPPORTED_CHANGES}
 
-tools = sorted(os.listdir(f"{DATA_DIRECTORY}/pt-change-count"))
+tools = sorted(os.listdir(f"{DATA_DIRECTORY}/pt-change"))
 for tool in tools:
-    for link_strategy in sorted(os.listdir(f"{DATA_DIRECTORY}/pt-change-count/{tool}")):
+    for link_strategy in sorted(os.listdir(f"{DATA_DIRECTORY}/pt-change/{tool}")):
 
         history_repository_dfs = [pd.read_csv(repository_history_file, keep_default_na=False, na_filter=False) for
                                   repository_history_file in
-                                  list(Path(f"{DATA_DIRECTORY}/pt-change-count/{tool}/{link_strategy}").rglob("*.csv"))[
+                                  list(Path(f"{DATA_DIRECTORY}/pt-change/{tool}/{link_strategy}").rglob("*.csv"))[
                                       :int(os.getenv("METHOD_EVOLUTION_EXPERIMENT_REPOSITORY_COUNT", -1))]]
         df = pd.concat(history_repository_dfs)
         CALLER_CALLEE_PREFIXES = ["caller_", "callee_"]
@@ -104,7 +104,7 @@ for tool in tools:
             correlations.append(correlation)
 
         fig.tight_layout()
-        fig_file = f"{CACHE_DIRECTORY}/figure/change-count-scatter--{tool}--{link_strategy}.pdf"
+        fig_file = f"{CACHE_DIRECTORY}/figure/pt-change-scatter--{tool}--{link_strategy}.pdf"
         os.makedirs(os.path.dirname(fig_file), exist_ok=True)
         fig.savefig(fig_file,
                     bbox_inches="tight")
