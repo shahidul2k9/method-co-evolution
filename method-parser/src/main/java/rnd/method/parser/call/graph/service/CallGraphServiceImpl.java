@@ -32,7 +32,7 @@ public class CallGraphServiceImpl implements CallGraphService {
     @Override
     public List<MethodCall> findFanOut(String repositoryUrl, String repositoryLocation, String commitHash, List<String> targetPaths, String fanInOutputFile, String fanOutOutputFile) {
 
-        MethodParserUtil.prepareRepositoryForCommit(repositoryUrl, repositoryLocation, commitHash);
+//        MethodParserUtil.prepareRepositoryForCommit(repositoryUrl, repositoryLocation, commitHash);
 
         String repositoryName = Arrays.stream(repositoryUrl.split("/")).toList().getLast();
         CombinedTypeSolver typeSolver = new CombinedTypeSolver();

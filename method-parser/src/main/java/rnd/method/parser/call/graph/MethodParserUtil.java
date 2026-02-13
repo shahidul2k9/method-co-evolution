@@ -240,13 +240,13 @@ public class MethodParserUtil {
         }
     }
     private static List<Path> deduplicateRoots(List<Path> roots) {
-        roots.sort(Comparator.comparingInt(p -> p.getNameCount()));
-
+        Set<String> takenSourceDirectory = new HashSet<>();
         List<Path> result = new ArrayList<>();
-
         for (Path root : roots) {
-            if (result.stream().noneMatch(r -> root.startsWith(r))) {
+            String directory = root.toAbsolutePath().toString();
+            if (!takenSourceDirectory.contains(directory)){
                 result.add(root);
+                takenSourceDirectory.add(directory);
             }
         }
         return result;
