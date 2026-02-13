@@ -18,8 +18,10 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
         git.clone_and_checkout_commit(url, repository_path, hash)
         commits = git.get_all_commit_info(repository_path, hash)
         commit_index = 1
-        fan_in_path = f"{data_directory}/fan-in-gz/{repository_name}"
-        fan_out_path = f"{data_directory}/fan-out-gz/{repository_name}"
+        # fan_in_path = f"{data_directory}/fan-in-gz/{repository_name}"
+        # fan_out_path = f"{data_directory}/fan-out-gz/{repository_name}"
+        fan_in_path = f"{data_directory}/fan-in"
+        fan_out_path = f"{data_directory}/fan-out"
 
         fan_in_tar_gz = f"{fan_in_path}.tar.gz"
         repository_name_prefix = f"{repository_name}/"
@@ -51,11 +53,12 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
                     fan_in_unzip_index.add(fan_in_output_file_suffix)
                 except subprocess.CalledProcessError as e:
                     print(f"Call graph execution failed: {repository_name} {commit['hash']} {e} ")
-                if len(fan_in_unzip_index) >= 100:
-                    merge_folder_into_tar_gz(fan_in_path)
-                    merge_folder_into_tar_gz(fan_out_path)
-                    fan_in_zip_index =  util.remove_prefix_if_exists(load_zip_index(fan_in_tar_gz), repository_name_prefix)
-                    fan_in_unzip_index = set(str(p.relative_to(fan_in_repo_path)) for p in fan_in_repo_path.rglob("*.csv"))
-            commit_index += 1
-        merge_folder_into_tar_gz(fan_in_path)
-        merge_folder_into_tar_gz(fan_out_path)
+        #         if len(fan_in_unzip_index) >= 1000:
+        #             merge_folder_into_tar_gz(fan_in_path)
+        #             merge_folder_into_tar_gz(fan_out_path)
+        #             fan_in_zip_index =  util.remove_prefix_if_exists(load_zip_index(fan_in_tar_gz), repository_name_prefix)
+        #             fan_in_unzip_index = set(str(p.relative_to(fan_in_repo_path)) for p in fan_in_repo_path.rglob("*.csv"))
+        #     commit_index += 1
+        # merge_folder_into_tar_gz(fan_in_path)
+        # merge_folder_into_tar_gz(fan_out_path)
+            break

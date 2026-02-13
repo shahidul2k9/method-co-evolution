@@ -278,14 +278,16 @@ public class MethodParserUtil {
         IntColumn focalMethodEndLineColumn = IntColumn.create(focalMethodPrefix + "end");
         StringColumn focalMethodFileColumn = StringColumn.create(focalMethodPrefix + "file");
         StringColumn focalMethodUrlColumn = StringColumn.create(focalMethodPrefix + "url");
+        StringColumn focalPkgColumn = StringColumn.create(focalMethodPrefix + "pkg");
 
         StringColumn otherMethodNameColumn = StringColumn.create(otherMethodPrefix + "name");
         IntColumn otherMethodStartLineColumn = IntColumn.create(otherMethodPrefix + "start");
         IntColumn otherMethodEndLineColumn = IntColumn.create(otherMethodPrefix + "end");
         StringColumn otherMethodFileColumn = StringColumn.create(otherMethodPrefix + "file");
         StringColumn otherMethodUrlColumn = StringColumn.create(otherMethodPrefix + "url");
-        List<Column<?>> focalMethodColumns = Arrays.asList(focalMethodNameColumn, focalMethodStartLineColumn, focalMethodEndLineColumn, focalMethodFileColumn, focalMethodUrlColumn);
-        List<Column<?>> otherMethodColumns = List.of(otherMethodNameColumn, otherMethodStartLineColumn, otherMethodEndLineColumn, otherMethodFileColumn, otherMethodUrlColumn);
+        StringColumn otherMethodPkgColumn = StringColumn.create(otherMethodPrefix + "pkg");
+        List<Column<?>> focalMethodColumns = Arrays.asList(focalMethodNameColumn, focalMethodStartLineColumn, focalMethodEndLineColumn, focalMethodFileColumn, focalMethodUrlColumn, focalPkgColumn);
+        List<Column<?>> otherMethodColumns = List.of(otherMethodNameColumn, otherMethodStartLineColumn, otherMethodEndLineColumn, otherMethodFileColumn, otherMethodUrlColumn, otherMethodPkgColumn);
         Table table = Table.create(isFanIn ? Stream.concat(focalMethodColumns.stream(), otherMethodColumns.stream()).toList() : Stream.concat(otherMethodColumns.stream(), focalMethodColumns.stream()).toList());
         for (MethodCall methodCall : methodCalls) {
             Method focalMethod = methodCall.getMethod();
@@ -295,12 +297,14 @@ public class MethodParserUtil {
                 focalMethodEndLineColumn.append(focalMethod.getEndLine());
                 focalMethodFileColumn.append(focalMethod.getFile());
                 focalMethodUrlColumn.append(focalMethod.getUrl());
+                focalPkgColumn.append(focalMethod.getPkg());
 
                 otherMethodNameColumn.append(otherMethod.getName());
                 otherMethodStartLineColumn.append(otherMethod.getStartLine());
                 otherMethodEndLineColumn.append(otherMethod.getEndLine());
                 otherMethodFileColumn.append(otherMethod.getFile());
                 otherMethodUrlColumn.append(otherMethod.getUrl());
+                otherMethodPkgColumn.append(otherMethod.getPkg());
 
             }
 

@@ -17,6 +17,7 @@ public class Method {
     Integer startLine;
     Integer endLine;
     String methodType;
+    String pkg;
 
     @Override
     public String toString() {

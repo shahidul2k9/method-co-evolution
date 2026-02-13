@@ -94,6 +94,12 @@ public class CallGraphServiceImpl implements CallGraphService {
                                                                             .map(p -> p.line)
                                                                             .orElse(-1);
 
+                                                                    String pkg = ast
+                                                                            .flatMap(md -> md.findCompilationUnit())
+                                                                            .flatMap(cu -> cu.getPackageDeclaration()
+                                                                                    .map(pd -> pd.getNameAsString()))
+                                                                            .orElse("");   // empty if default package
+
                                                                     String fileSuffix = MethodParserUtil.stripFilePrefix(absoluteRepositoryPath, filePath);
                                                                     return Stream.of(
                                                                             Method.builder()
@@ -103,6 +109,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                                                                                     .startLine(startLine)
                                                                                     .endLine(endLine)
                                                                                     .hash(commitHash)
+                                                                                    .pkg(pkg)
                                                                                     .build()
                                                                     );
                                                                 } else {
