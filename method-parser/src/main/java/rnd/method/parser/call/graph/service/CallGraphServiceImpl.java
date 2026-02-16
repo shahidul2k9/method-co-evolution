@@ -76,6 +76,10 @@ public class CallGraphServiceImpl implements CallGraphService {
 
                                                                 String methodName = resolved.getName();
 
+                                                                String className = resolved.declaringType().getQualifiedName();
+
+                                                                String fqn = className + "." + methodName;
+
                                                                 String filePath = ast
                                                                         .flatMap(md -> md.findCompilationUnit())
                                                                         .flatMap(cu -> cu.getStorage())
@@ -104,6 +108,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                                                                     return Stream.of(
                                                                             Method.builder()
                                                                                     .name(methodName)
+                                                                                    .fqn(fqn)
                                                                                     .url(MethodParserUtil.toMethodUrl(repositoryUrl, commitHash, fileSuffix, startLine))
                                                                                     .file(fileSuffix)
                                                                                     .startLine(startLine)
@@ -130,9 +135,11 @@ public class CallGraphServiceImpl implements CallGraphService {
                                                         .file(targetMethodFileSuffix)
                                                         .url(MethodParserUtil.toMethodUrl(repositoryUrl, commitHash, targetMethodFileSuffix, targetMethodStartLine))
                                                         .name(method.getSignature().getName())
+                                                        .fqn(method.getType().getMetaModel().getQualifiedClassName() + "." + method.getSignature().getName())
                                                         .startLine(targetMethodStartLine)
                                                         .endLine(method.getEnd().get().line)
                                                         .hash(commitHash)
+                                                        .pkg(method.findCompilationUnit().get().getPackageDeclaration().get().getNameAsString())
                                                         .build())
                                                 .fanMethods(calledMethods)
                                                 .build();

@@ -49,7 +49,7 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
                     "-output-fan-out-file", fan_out_output_file
                 ]
                 try:
-                    subprocess.run(cmd, check=True, timeout=30*60)
+                    subprocess.run(cmd, check=True, timeout=24*30*60)
                     fan_in_unzip_index.add(fan_in_output_file_suffix)
                 except subprocess.CalledProcessError as e:
                     print(f"Call graph execution failed: {repository_name} {commit['hash']} {e} ")

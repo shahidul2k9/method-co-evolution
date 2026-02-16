@@ -12,12 +12,14 @@ import lombok.Data;
 public class Method {
     String hash;
     String name;
+    String fqn;
     String file;
     String url;
     Integer startLine;
     Integer endLine;
     String methodType;
     String pkg;
+    Integer lastAssertionLine;
 
     @Override
     public String toString() {

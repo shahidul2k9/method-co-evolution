@@ -279,6 +279,7 @@ public class MethodParserUtil {
         StringColumn focalMethodFileColumn = StringColumn.create(focalMethodPrefix + "file");
         StringColumn focalMethodUrlColumn = StringColumn.create(focalMethodPrefix + "url");
         StringColumn focalPkgColumn = StringColumn.create(focalMethodPrefix + "pkg");
+        StringColumn focalFqnColumn = StringColumn.create(focalMethodPrefix + "fqn");
 
         StringColumn otherMethodNameColumn = StringColumn.create(otherMethodPrefix + "name");
         IntColumn otherMethodStartLineColumn = IntColumn.create(otherMethodPrefix + "start");
@@ -286,8 +287,9 @@ public class MethodParserUtil {
         StringColumn otherMethodFileColumn = StringColumn.create(otherMethodPrefix + "file");
         StringColumn otherMethodUrlColumn = StringColumn.create(otherMethodPrefix + "url");
         StringColumn otherMethodPkgColumn = StringColumn.create(otherMethodPrefix + "pkg");
-        List<Column<?>> focalMethodColumns = Arrays.asList(focalMethodNameColumn, focalMethodStartLineColumn, focalMethodEndLineColumn, focalMethodFileColumn, focalMethodUrlColumn, focalPkgColumn);
-        List<Column<?>> otherMethodColumns = List.of(otherMethodNameColumn, otherMethodStartLineColumn, otherMethodEndLineColumn, otherMethodFileColumn, otherMethodUrlColumn, otherMethodPkgColumn);
+        StringColumn otherMethodFqnColumn = StringColumn.create(otherMethodPrefix + "fqn");
+        List<Column<?>> focalMethodColumns = Arrays.asList(focalMethodNameColumn, focalMethodStartLineColumn, focalMethodEndLineColumn, focalMethodFileColumn, focalMethodUrlColumn, focalPkgColumn, focalFqnColumn);
+        List<Column<?>> otherMethodColumns = List.of(otherMethodNameColumn, otherMethodStartLineColumn, otherMethodEndLineColumn, otherMethodFileColumn, otherMethodUrlColumn, otherMethodPkgColumn, otherMethodFqnColumn);
         Table table = Table.create(isFanIn ? Stream.concat(focalMethodColumns.stream(), otherMethodColumns.stream()).toList() : Stream.concat(otherMethodColumns.stream(), focalMethodColumns.stream()).toList());
         for (MethodCall methodCall : methodCalls) {
             Method focalMethod = methodCall.getMethod();
@@ -298,6 +300,7 @@ public class MethodParserUtil {
                 focalMethodFileColumn.append(focalMethod.getFile());
                 focalMethodUrlColumn.append(focalMethod.getUrl());
                 focalPkgColumn.append(focalMethod.getPkg());
+                focalFqnColumn.append(focalMethod.getFqn());
 
                 otherMethodNameColumn.append(otherMethod.getName());
                 otherMethodStartLineColumn.append(otherMethod.getStartLine());
@@ -305,6 +308,7 @@ public class MethodParserUtil {
                 otherMethodFileColumn.append(otherMethod.getFile());
                 otherMethodUrlColumn.append(otherMethod.getUrl());
                 otherMethodPkgColumn.append(otherMethod.getPkg());
+                otherMethodFqnColumn.append(otherMethod.getFqn());
 
             }
 
