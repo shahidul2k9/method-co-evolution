@@ -7,7 +7,13 @@ import pandas as pd
 
 
 class MethodHistoryCollector:
-    TOOL_NAMES = ["codeShovel", "historyFinder", "codeTracker", "methodParser"]
+    TOOL_NAMES = [
+        "codeShovel",
+        "historyFinder",
+        "codeTracker",
+        "methodParser",
+        "complexityAnalyzer",
+    ]
 
     def __init__(
         self,

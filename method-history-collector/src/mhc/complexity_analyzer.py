@@ -1,8 +1,10 @@
 import os
 import pandas as pd
+import glob
 import uuid
 import shutil
 import tarfile
+import subprocess
 
 
 class ComplexityAnalyzer:
@@ -40,7 +42,7 @@ class ComplexityAnalyzer:
         self.temp_dirs = []
 
         self.create_project_info()
-        self.copy_extract_history()
+        self.copy_extract_structure_history_tar()
 
     def __del__(self):
         self.delete_file(self.project_info_path)
@@ -111,16 +113,21 @@ class ComplexityAnalyzer:
 
     def run_complexity_analyzer(self):
         command = [
-            f"java -Xmx10240m -jar {self.jar_file_path} -projectsInfo {self.project_info_path} -codeShovelHistoryDir {self.history_json_dir} -resultDir {self.output_dir} -filterOutTestMethods false"
+            "java",
+            "-Xmx10240m",
+            "-jar",
+            self.jar_file_path,
+            "-projectsInfo",
+            self.project_info_path,
+            "-codeShovelHistoryDir",
+            self.history_json_dir,
+            "-resultDir",
+            self.output_dir,
+            "-filterOutTestMethods",
+            "false",
         ]
         try:
-            result = subprocess.run(
-                command,
-                capture_output=True,
-                text=True,
-                shell=True,
-                check=True,
-            )
+            subprocess.run(command, check=True)
         except subprocess.CalledProcessError as e:
             raise e
         finally:
