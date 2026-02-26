@@ -16,8 +16,5 @@ class MethodChangeType(str, Enum):
     FORMAT = "Yformatchange"
     MULTI = "Ymultichange"
 
-class LinkStrategy(str, Enum):
-    MAX = "max"
-    LAST_CALL = "lc"
 CODE_SHOVEL_UNSUPPORTED_CHANGES = [MethodChangeType.DOCUMENTATION, MethodChangeType.ANNOTATION, MethodChangeType.FORMAT]
 ALL_REPOSITORY = "All Project"

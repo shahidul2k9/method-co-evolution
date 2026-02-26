@@ -20,6 +20,7 @@ for tool in tools:
                                   repository_history_file in
                                   list(Path(f"{DATA_DIRECTORY}/pt-change/{tool}/{link_strategy}").rglob("*.csv"))[
                                       :int(os.getenv("METHOD_EVOLUTION_EXPERIMENT_REPOSITORY_COUNT", -1))]]
+        history_repository_dfs = [d for d in history_repository_dfs if not d.empty ]
         df = pd.concat(history_repository_dfs)
         CALLER_CALLEE_PREFIXES = ["caller_", "callee_"]
         for prefix in CALLER_CALLEE_PREFIXES:
