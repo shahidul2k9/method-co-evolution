@@ -112,23 +112,18 @@ class ComplexityAnalyzer:
             self.delete_directory(extracted_dir)
 
     def run_complexity_analyzer(self):
-        command = [
-            "java",
-            "-Xmx10240m",
-            "-jar",
-            self.jar_file_path,
-            "-projectsInfo",
-            self.project_info_path,
-            "-codeShovelHistoryDir",
-            self.history_json_dir,
-            "-resultDir",
-            self.output_dir,
-            "-filterOutTestMethods",
-            "false",
-        ]
+        command = f"java -Xmx10240m -jar {self.jar_file_path} -projectsInfo {self.project_info_path} -codeShovelHistoryDir {self.history_json_dir} -resultDir {self.output_dir}/ -filterOutTestMethods false"
         try:
-            subprocess.run(command, check=True)
+            subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                shell=True,
+                check=True,
+            )
         except subprocess.CalledProcessError as e:
+            print(e.stdout)
+            print(e.stderr)
             raise e
         finally:
             self.delete_file(self.project_info_path)
