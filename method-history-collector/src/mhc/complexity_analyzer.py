@@ -5,6 +5,7 @@ import uuid
 import shutil
 import tarfile
 import subprocess
+from datetime import datetime
 
 
 class ComplexityAnalyzer:
@@ -67,9 +68,13 @@ class ComplexityAnalyzer:
             repo_stat.append(
                 {
                     "name": row["repo_name"],
-                    "latest_commit_date": row["updated_at"],
+                    "latest_commit_date": datetime.fromisoformat(
+                        row["updated_at"]
+                    ).strftime("%d/%m/%y"),
                     "latest_commit_hash": row["updated_hash"],
-                    "first_commit_date": row["created_at"],
+                    "first_commit_date": datetime.fromisoformat(
+                        row["created_at"]
+                    ).strftime("%d/%m/%y"),
                     "first_commit_hash": row["created_hash"],
                 }
             )
@@ -112,7 +117,7 @@ class ComplexityAnalyzer:
             self.delete_directory(extracted_dir)
 
     def run_complexity_analyzer(self):
-        command = f"java -Xmx10240m -jar {self.jar_file_path} -projectsInfo {self.project_info_path} -codeShovelHistoryDir {self.history_json_dir} -resultDir {self.output_dir}/ -filterOutTestMethods false"
+        command = f"java -Xmx10240m -jar {self.jar_file_path} -projectsInfo {self.project_info_path} -codeShovelHistoryDir {self.history_json_dir}/ -resultDir {self.output_dir}/ -filterOutTestMethods false"
         try:
             subprocess.run(
                 command,
