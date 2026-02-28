@@ -33,7 +33,7 @@ for _, repo in repository_df.iterrows():
     repository_name = repo["repo_name"]
     commit_hash = repo["updated_hash"]
     fan_dfs = []
-    for url_column, fan in [("caller_url", "fan-out"), ("callee_url", "fan-in")]:
+    for url_column, fan in [("caller_url", "fan-out"), ("to_url", "fan-in")]:
         fan_zip_file = f"{DATA_DIRECTORY}/{fan}/{repository_name}.tar.gz"
         fan_file_suffix = f"{repository_name}/{repository_name}--{fan}--{commit_hash}.csv"
         fan_file = f"{DATA_DIRECTORY}/{fan}/{fan_file_suffix}"

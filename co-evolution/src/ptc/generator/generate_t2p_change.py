@@ -26,8 +26,8 @@ for tooName in tool_dirs:
             if os.path.exists(t2p_file):
                 t2p_confidence_df = pd.read_csv(t2p_file, keep_default_na=False, na_filter=False)
 
-                t2p_change_df = (t2p_confidence_df.merge(change_df.add_prefix("caller_"), on="caller_url", how="inner")
-                                 .merge(change_df.add_prefix("callee_"), on="callee_url", how="inner"))
+                t2p_change_df = (t2p_confidence_df.merge(change_df.add_prefix("from_"), on="from_url", how="inner")
+                                 .merge(change_df.add_prefix("to_"), on="to_url", how="inner"))
 
                 t2p_change_file = f"{DATA_DIRECTORY}/t2p-change/{tooName}/{t2p_strategy}/{change_file.name}"
                 os.makedirs(os.path.dirname(t2p_change_file), exist_ok=True)

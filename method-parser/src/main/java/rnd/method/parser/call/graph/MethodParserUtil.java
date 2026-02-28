@@ -275,75 +275,80 @@ public class MethodParserUtil {
         }
     }
 
-    public static void toTable(List<MethodCall> methodCalls, String outputPath, boolean isFanIn) {
-        String focalMethodPrefix = isFanIn ? "from_" : "to_";
-        String otherMethodPrefix = isFanIn ? "to_" : "from_";
-        StringColumn focalMethodNameColumn = StringColumn.create(focalMethodPrefix + "name");
-        IntColumn focalMethodStartLineColumn = IntColumn.create(focalMethodPrefix + "start");
-        IntColumn focalMethodEndLineColumn = IntColumn.create(focalMethodPrefix + "end");
-        StringColumn focalMethodFileColumn = StringColumn.create(focalMethodPrefix + "file");
-        StringColumn focalMethodUrlColumn = StringColumn.create(focalMethodPrefix + "url");
-        StringColumn focalPkgColumn = StringColumn.create(focalMethodPrefix + "pkg");
-        StringColumn focalFqnColumn = StringColumn.create(focalMethodPrefix + "fqn");
+    public static void toTable(List<MethodCall> methodCalls, String outputPath, boolean isFanOut) {
 
-        StringColumn otherMethodNameColumn = StringColumn.create(otherMethodPrefix + "name");
-        IntColumn otherMethodStartLineColumn = IntColumn.create(otherMethodPrefix + "start");
-        IntColumn otherMethodEndLineColumn = IntColumn.create(otherMethodPrefix + "end");
-        StringColumn otherMethodFileColumn = StringColumn.create(otherMethodPrefix + "file");
-        StringColumn otherMethodUrlColumn = StringColumn.create(otherMethodPrefix + "url");
-        StringColumn otherMethodPkgColumn = StringColumn.create(otherMethodPrefix + "pkg");
-        StringColumn otherMethodFqnColumn = StringColumn.create(otherMethodPrefix + "fqn");
+        StringColumn fromMethodNameColumn = StringColumn.create("from_name");
+        IntColumn fromMethodStartLineColumn = IntColumn.create("from_start");
+        IntColumn fromMethodEndLineColumn = IntColumn.create("from_end");
+        StringColumn fromMethodFileColumn = StringColumn.create("from_file");
+        StringColumn fromMethodUrlColumn = StringColumn.create("from_url");
+        StringColumn fromPkgColumn = StringColumn.create("from_pkg");
+        StringColumn fromFqnColumn = StringColumn.create("from_fqn");
+        IntColumn fromInvocationLineColumn = IntColumn.create("from_invocation");
+        IntColumn fromLastAssertionLineColumn = IntColumn.create("from_assertion");
+
+
+
+        StringColumn toMethodNameColumn = StringColumn.create("to_name");
+        IntColumn toMethodStartLineColumn = IntColumn.create("to_start");
+        IntColumn toMethodEndLineColumn = IntColumn.create("to_end");
+        StringColumn toMethodFileColumn = StringColumn.create("to_file");
+        StringColumn toMethodUrlColumn = StringColumn.create("to_url");
+        StringColumn toMethodPkgColumn = StringColumn.create("to_pkg");
+        StringColumn toMethodFqnColumn = StringColumn.create("to_fqn");
+        IntColumn  toInvocationLineColumn = IntColumn.create("to_invocation");
+        IntColumn toLastAssertionLineColumn = IntColumn.create("to_assertion");
+
+
 
         StringColumn repositoryNameColumn = StringColumn.create("repo_name");
-        IntColumn invocationLineColumn = IntColumn.create("invocation_line");
-        IntColumn lastAssertionLineColumn = IntColumn.create("last_assertion_line");
 
-        List<Column<?>> remainingColumns = Arrays.asList(invocationLineColumn, lastAssertionLineColumn);
-        List<Column<?>> focalMethodColumns = Arrays.asList(focalMethodNameColumn, focalMethodStartLineColumn, focalMethodEndLineColumn, focalMethodFileColumn, focalMethodUrlColumn, focalPkgColumn, focalFqnColumn);
-        List<Column<?>> otherMethodColumns = List.of(otherMethodNameColumn, otherMethodStartLineColumn, otherMethodEndLineColumn, otherMethodFileColumn, otherMethodUrlColumn, otherMethodPkgColumn, otherMethodFqnColumn);
 
-        Stream<Column<?>> orderedColumns = isFanIn
-                ? Stream.concat(
-                Stream.concat(focalMethodColumns.stream(), otherMethodColumns.stream()),
-                remainingColumns.stream()
-        )
-                : Stream.concat(
-                Stream.concat(otherMethodColumns.stream(), focalMethodColumns.stream()),
-                remainingColumns.stream()
-        );
+        List<Column<?>> fromMethodColumns = Arrays.asList(fromMethodNameColumn, fromMethodStartLineColumn, fromMethodEndLineColumn, fromMethodFileColumn, fromMethodUrlColumn, fromPkgColumn, fromFqnColumn, fromInvocationLineColumn, fromLastAssertionLineColumn);
+        List<Column<?>> toMethodColumns = List.of(toMethodNameColumn, toMethodStartLineColumn, toMethodEndLineColumn, toMethodFileColumn, toMethodUrlColumn, toMethodPkgColumn, toMethodFqnColumn, toInvocationLineColumn, toLastAssertionLineColumn);
 
-       ;
         List<Column<?>> allColumns = new ArrayList<>();
         allColumns.add(repositoryNameColumn);
-        allColumns.addAll(focalMethodColumns);
-        allColumns.addAll(otherMethodColumns);
-        allColumns.add(invocationLineColumn);
-        allColumns.add(lastAssertionLineColumn);
+        allColumns.addAll(fromMethodColumns);
+        allColumns.addAll(toMethodColumns);
         Table table = Table.create(allColumns);
-        for (MethodCall methodCall : methodCalls) {
-            Method focalMethod = methodCall.getMethod();
-            for (Method otherMethod : methodCall.getFanMethods()) {
-                repositoryNameColumn.append(otherMethod.getRepositoryName());
+        for (MethodCall mc : methodCalls) {
+            Method one = mc.getMethod();
+            for (Method many : mc.getFanMethods()) {
 
-                focalMethodNameColumn.append(focalMethod.getName());
-                focalMethodStartLineColumn.append(focalMethod.getStartLine());
-                focalMethodEndLineColumn.append(focalMethod.getEndLine());
-                focalMethodFileColumn.append(focalMethod.getFile());
-                focalMethodUrlColumn.append(focalMethod.getUrl());
-                focalPkgColumn.append(focalMethod.getPkg());
-                focalFqnColumn.append(focalMethod.getFqn());
+                Method from = isFanOut ? one : many;
+                Method to = isFanOut ? many : one;
 
-                otherMethodNameColumn.append(otherMethod.getName());
-                otherMethodStartLineColumn.append(otherMethod.getStartLine());
-                otherMethodEndLineColumn.append(otherMethod.getEndLine());
-                otherMethodFileColumn.append(otherMethod.getFile());
-                otherMethodUrlColumn.append(otherMethod.getUrl());
-                otherMethodPkgColumn.append(otherMethod.getPkg());
-                otherMethodFqnColumn.append(otherMethod.getFqn());
 
-                invocationLineColumn.append(Integer.max(focalMethod.getInvocationLine(), otherMethod.getInvocationLine()));
-                lastAssertionLineColumn.append(Integer.max(focalMethod.getLastAssertionLine(), otherMethod.getLastAssertionLine()));
+                repositoryNameColumn.append(many.getRepositoryName());
 
+
+                fromMethodNameColumn.append(from.getName());
+                fromMethodStartLineColumn.append(from.getStartLine());
+                fromMethodEndLineColumn.append(from.getEndLine());
+                fromMethodFileColumn.append(from.getFile());
+                fromMethodUrlColumn.append(from.getUrl());
+                fromPkgColumn.append(from.getPkg());
+                fromFqnColumn.append(from.getFqn());
+                fromLastAssertionLineColumn.append(from.getLastAssertionLine());
+
+
+                toMethodNameColumn.append(to.getName());
+                toMethodStartLineColumn.append(to.getStartLine());
+                toMethodEndLineColumn.append(to.getEndLine());
+                toMethodFileColumn.append(to.getFile());
+                toMethodUrlColumn.append(to.getUrl());
+                toMethodPkgColumn.append(to.getPkg());
+                toMethodFqnColumn.append(to.getFqn());
+                toLastAssertionLineColumn.append(to.getLastAssertionLine());
+
+                if (isFanOut){
+                    fromInvocationLineColumn.append(to.getInvocationLine());
+                    toInvocationLineColumn.append(-1);
+                }else {
+                    fromInvocationLineColumn.append(-1);
+                    toInvocationLineColumn.append(-1);
+                }
             }
 
         }

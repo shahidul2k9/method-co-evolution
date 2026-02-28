@@ -22,7 +22,7 @@ for tool in tools:
                                       :int(os.getenv("METHOD_EVOLUTION_EXPERIMENT_REPOSITORY_COUNT", -1))]]
         history_repository_dfs = [d for d in history_repository_dfs if not d.empty ]
         df = pd.concat(history_repository_dfs)
-        CALLER_CALLEE_PREFIXES = ["caller_", "callee_"]
+        CALLER_CALLEE_PREFIXES = ["caller_", "to_"]
         for prefix in CALLER_CALLEE_PREFIXES:
             df[f"{prefix}method_type"] = df[f"{prefix}method_type"].map(lambda mt: "test" if mt == "test_util" else mt)
 
@@ -75,8 +75,8 @@ for tool in tools:
                         ax.plot(x, y, linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
                                 ls=GRAPH_STYLES[change_index % len(GRAPH_STYLES)])
                     else:
-                        g = pdf[(pdf["caller_method_type"] == "test") & (pdf["callee_method_type"] == "production")]
-                        x, y = g[f"callee_{ch}"], g[f"caller_{ch}"]
+                        g = pdf[(pdf["caller_method_type"] == "test") & (pdf["to_method_type"] == "production")]
+                        x, y = g[f"to_{ch}"], g[f"caller_{ch}"]
 
                         ax.scatter(x.values, y.values, linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
                                    ls=GRAPH_STYLES[change_index % len(GRAPH_STYLES)])
