@@ -1,5 +1,6 @@
 import os
-
+import pandas as pd
+import numpy as np
 
 def format_git_project_directory(repository_directory: str, repository_name: str) -> str:
     return os.path.join(f"{repository_directory}", repository_name)
@@ -51,3 +52,21 @@ def lcs(s1, s2):
             else:
                     c[i][j] = max(c[i-1][j], c[i][j-1])
     return c[n][m]
+
+def convert_float_int_columns_to_nullable_int(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Convert float columns that contain only integer-valued data
+    (ignoring missing values) into pandas nullable Int64 columns.
+    """
+    df = df.copy()
+
+    for col in df.columns:
+        s = df[col]
+
+        if pd.api.types.is_float_dtype(s):
+            non_null = s.dropna()
+
+            if non_null.empty or np.all(np.isclose(non_null, np.round(non_null))):
+                df[col] = np.round(s).astype("Int64")
+
+    return df

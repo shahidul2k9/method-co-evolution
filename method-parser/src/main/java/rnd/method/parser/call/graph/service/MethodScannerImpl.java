@@ -99,6 +99,8 @@ public class MethodScannerImpl implements MethodScanner {
 
     @Override
     public List<Method> scanMethod(String repoRoot, String repoUrl, String commitHash, String file) {
+        MethodParserUtil.prepareRepositoryForCommit(repoUrl, repoRoot, commitHash);
+
         String repositoryName = MethodParserUtil.extractRepositoryName(repoUrl);
         File javaFile = Path.of(repoRoot, file).toFile();
         CombinedTypeSolver typeResolver = new CombinedTypeSolver();

@@ -6,7 +6,6 @@ from pathlib import Path
 ROOT_DIR = Path.cwd()
 
 def run_module(module_name: str):
-    print(f"\n===== Running {module_name} =====")
     subprocess.run(
         [sys.executable, "-m", module_name],
         check=True,
