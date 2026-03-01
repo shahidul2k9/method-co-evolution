@@ -5,14 +5,19 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.stmt.AssertStmt;
 import com.github.javaparser.ast.stmt.Statement;
-import com.github.javaparser.resolution.UnsolvedSymbolException;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
+import com.github.javaparser.resolution.model.SymbolReference;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 
+@Slf4j
 public final class AssertionLineFinder {
 
     private static final Set<String> ASSERTION_OWNER_FQNS = Set.of(
@@ -85,13 +90,13 @@ public final class AssertionLineFinder {
     /**
      * Returns the last line number in the file occupied by an assertion statement/call
      * inside the given method.
-     *
+     * <p>
      * This uses the enclosing statement's end line when possible, so multi-line assertions
      * such as assertThat(...).isEqualTo(...) return the last line of the whole statement.
      */
-    public static OptionalInt findLastAssertionLine(MethodDeclaration method) {
+    public static Optional<Integer> findLastAssertionLine(MethodDeclaration method, CombinedTypeSolver typeSolver) {
         if (method == null || method.getBody().isEmpty()) {
-            return OptionalInt.empty();
+            return Optional.empty();
         }
 
         int maxLine = -1;
@@ -108,7 +113,7 @@ public final class AssertionLineFinder {
         Set<Statement> matchedStatements = new HashSet<>();
 
         for (MethodCallExpr call : method.findAll(MethodCallExpr.class)) {
-            if (!isAssertionCall(call)) {
+            if (!isAssertionCall(call, typeSolver)) {
                 continue;
             }
 
@@ -130,7 +135,7 @@ public final class AssertionLineFinder {
             maxLine = Math.max(maxLine, line);
         }
 
-        return maxLine >= 0 ? OptionalInt.of(maxLine) : OptionalInt.empty();
+        return maxLine >= 0 ? Optional.of(maxLine) : Optional.empty();
     }
 
     private static Optional<Statement> findEnclosingStatement(Node node) {
@@ -144,24 +149,23 @@ public final class AssertionLineFinder {
         return Optional.empty();
     }
 
-    private static boolean isAssertionCall(MethodCallExpr call) {
+    private static boolean isAssertionCall(MethodCallExpr call, CombinedTypeSolver typeResolver) {
         try {
-            ResolvedMethodDeclaration resolved = call.resolve();
+            SymbolReference<ResolvedMethodDeclaration> ref =
+                    JavaParserFacade.get(typeResolver).solve(call);
+
+            if (!ref.isSolved()) {
+                return isStrongAssertionName(call.getNameAsString());
+            }
+
+            ResolvedMethodDeclaration resolved = ref.getCorrespondingDeclaration();
             String owner = resolved.declaringType().getQualifiedName();
             String methodName = resolved.getName();
 
-            if (ASSERTION_OWNER_FQNS.contains(owner) && isStrongAssertionName(methodName)) {
-                return true;
-            }
+            return (ASSERTION_OWNER_FQNS.contains(owner) || isKnownAssertionPackage(owner))
+                    && isStrongAssertionName(methodName);
 
-            if (isKnownAssertionPackage(owner) && isStrongAssertionName(methodName)) {
-                return true;
-            }
-
-            return false;
-
-        } catch (UnsolvedSymbolException | UnsupportedOperationException | IllegalArgumentException e) {
-            // Fallback when symbol resolution fails
+        } catch (RuntimeException e) {
             return isStrongAssertionName(call.getNameAsString());
         }
     }

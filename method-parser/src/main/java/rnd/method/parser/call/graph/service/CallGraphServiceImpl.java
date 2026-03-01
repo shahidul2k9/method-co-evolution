@@ -2,8 +2,11 @@ package rnd.method.parser.call.graph.service;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.nodeTypes.NodeWithName;
 import com.github.javaparser.ast.nodeTypes.NodeWithRange;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.resolution.model.SymbolReference;
@@ -20,7 +23,6 @@ import rnd.method.parser.call.graph.model.Method;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -36,7 +38,7 @@ public class CallGraphServiceImpl implements CallGraphService {
 
         String repositoryName = MethodParserUtil.extractRepositoryName(repositoryUrl);
         CombinedTypeSolver typeSolver = new CombinedTypeSolver();
-        typeSolver.add(new ReflectionTypeSolver(false));
+        typeSolver.add(new ReflectionTypeSolver(true));
         Path repositoryPath = Paths.get(repositoryLocation);
         String absoluteRepositoryPath = repositoryPath.toFile().getAbsolutePath();
         List<Path> allJavaSourceRoots = MethodParserUtil.findAllJavaSourceRootsFromPackageDeclarations(repositoryPath);
@@ -47,37 +49,38 @@ public class CallGraphServiceImpl implements CallGraphService {
         JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
         ParserConfiguration config = new ParserConfiguration()
                 .setSymbolResolver(symbolSolver);
-        JavaParser javaParser = new JavaParser(config);
+        StaticJavaParser.setConfiguration(config);
+        JavaParser parserWithSymbolResolver = new JavaParser(config);
         List<String> files = MethodParserUtil.scanJavaFiles(repositoryLocation, targetPaths);
 
 
         List<MethodCall> methodCallOutList = files.stream()
                 .flatMap(file -> {
                     try {
-                        var result = javaParser.parse(Paths.get(file));
+                        var result = parserWithSymbolResolver.parse(Paths.get(file));
                         if (result.isSuccessful()) {
                             return result.getResult().get()
                                     .findAll(MethodDeclaration.class)
                                     .stream()
-                                    .flatMap(method -> {
+                                    .flatMap(fromMd -> {
 
                                         List<Method> calledMethods =
-                                                method.findAll(MethodCallExpr.class).stream()
+                                                fromMd.findAll(MethodCallExpr.class).stream()
                                                         .flatMap(call -> {
                                                             try {
                                                                 SymbolReference<ResolvedMethodDeclaration> solution = JavaParserFacade.get(typeSolver)
                                                                         .solve(call);
 
-                                                                ResolvedMethodDeclaration resolved = call.resolve();
+                                                                if (!solution.isSolved()){
+                                                                    return Stream.empty();
+                                                                }
+                                                                ResolvedMethodDeclaration resolved =  solution.getCorrespondingDeclaration();
 
                                                                 Optional<MethodDeclaration> ast = resolved.toAst()
                                                                         .filter(MethodDeclaration.class::isInstance)
                                                                         .map(MethodDeclaration.class::cast);
 
                                                                 String methodName = resolved.getName();
-
-                                                                String className = resolved.declaringType().getQualifiedName();
-
 
                                                                 String filePath = ast
                                                                         .flatMap(md -> md.findCompilationUnit())
@@ -86,24 +89,24 @@ public class CallGraphServiceImpl implements CallGraphService {
                                                                         .orElse(null);
                                                                 int invocationStartLine = call.getBegin()
                                                                         .map(p -> p.line)
-                                                                        .orElse(-1);
+                                                                        .orElse(null);
                                                                 if (filePath != null) {
 
                                                                     int startLine = ast
                                                                             .flatMap(NodeWithRange::getBegin)
                                                                             .map(p -> p.line)
-                                                                            .orElse(-1);
+                                                                            .orElse(null);
 
                                                                     int endLine = ast
                                                                             .flatMap(NodeWithRange::getEnd)
                                                                             .map(p -> p.line)
-                                                                            .orElse(-1);
+                                                                            .orElse(null);
 
                                                                     String pkg = ast
                                                                             .flatMap(md -> md.findCompilationUnit())
                                                                             .flatMap(cu -> cu.getPackageDeclaration()
                                                                                     .map(pd -> pd.getNameAsString()))
-                                                                            .orElse("");   // empty if default package
+                                                                            .orElse(null);   // empty if default package
 
                                                                     String fileSuffix = MethodParserUtil.stripFilePrefix(absoluteRepositoryPath, filePath);
                                                                     return Stream.of(
@@ -117,7 +120,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                                                                                     .startLine(startLine)
                                                                                     .endLine(endLine)
                                                                                     .hash(commitHash)
-                                                                                    .lastAssertionLine(AssertionLineFinder.findLastAssertionLine(ast.get()).orElse(-1))
+                                                                                    .lastAssertionLine(AssertionLineFinder.findLastAssertionLine(ast.get(), typeSolver ).orElse(null))
                                                                                     .invocationLine(invocationStartLine)
                                                                                     .build()
                                                                     );
@@ -126,27 +129,29 @@ public class CallGraphServiceImpl implements CallGraphService {
                                                                 }
 
                                                             } catch (Exception e) {
-                                                                log.debug("Method resolve error {}", call.getNameAsString(), e);
+//                                                               throw e;
+                                                                log.error("Method resolve error {}", call.getNameAsString());
                                                                 return Stream.empty(); // unresolved or external
                                                             }
                                                         })
                                                         .toList();
 
                                         String targetMethodFileSuffix = MethodParserUtil.stripFilePrefix(absoluteRepositoryPath, new File(file).getAbsolutePath());
-                                        int targetMethodStartLine = method.getName().getBegin().get().line;
+                                        int targetMethodStartLine = fromMd.getName().getBegin().get().line;
+                                        Optional<PackageDeclaration> packageDeclaration = fromMd.findCompilationUnit().get().getPackageDeclaration();
                                         MethodCall methodCall = MethodCall.builder()
                                                 .method(Method.builder()
                                                         .repositoryName(repositoryName)
                                                         .file(targetMethodFileSuffix)
                                                         .url(MethodParserUtil.toMethodUrl(repositoryUrl, commitHash, targetMethodFileSuffix, targetMethodStartLine))
-                                                        .name(method.getSignature().getName())
-                                                        .pkg(method.findCompilationUnit().get().getPackageDeclaration().get().getNameAsString())
-                                                        .fqn(MethodParserUtil.getMethodFqnSimpleParams(method))
+                                                        .name(fromMd.getSignature().getName())
+                                                        .pkg(packageDeclaration.map(NodeWithName::getNameAsString).orElse(null))
+                                                        .fqn(MethodParserUtil.getMethodFqnSimpleParams(fromMd))
                                                         .startLine(targetMethodStartLine)
-                                                        .endLine(method.getEnd().get().line)
+                                                        .endLine(fromMd.getEnd().get().line)
                                                         .hash(commitHash)
-                                                        .lastAssertionLine(AssertionLineFinder.findLastAssertionLine(method).orElse(-1))
-                                                        .invocationLine(-1)
+                                                        .lastAssertionLine(AssertionLineFinder.findLastAssertionLine(fromMd, typeSolver).orElse(null))
+                                                        .invocationLine(null)
                                                         .build())
                                                 .fanMethods(calledMethods)
                                                 .build();
@@ -154,8 +159,8 @@ public class CallGraphServiceImpl implements CallGraphService {
                                         return Stream.of(methodCall);
                                     });
                         } else {
-                            log.debug("Failed to parse file {}", file);
-                            log.debug("Problems {}", result.getProblems());
+//                             log.debug("Failed to parse file {}", file);
+//                             log.debug("Problems {}", result.getProblems());
                             return Stream.empty();
                         }
                     } catch (Exception e) {

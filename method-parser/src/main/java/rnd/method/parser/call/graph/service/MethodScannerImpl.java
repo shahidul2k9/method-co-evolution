@@ -101,11 +101,11 @@ public class MethodScannerImpl implements MethodScanner {
     public List<Method> scanMethod(String repoRoot, String repoUrl, String commitHash, String file) {
         String repositoryName = MethodParserUtil.extractRepositoryName(repoUrl);
         File javaFile = Path.of(repoRoot, file).toFile();
-        CombinedTypeSolver solver = new CombinedTypeSolver();
-        solver.add(new ReflectionTypeSolver());
-        solver.add(new JavaParserTypeSolver(new File(repoRoot)));
+        CombinedTypeSolver typeResolver = new CombinedTypeSolver();
+        typeResolver.add(new ReflectionTypeSolver());
+        typeResolver.add(new JavaParserTypeSolver(new File(repoRoot)));
 
-        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(solver);
+        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeResolver);
 
         ParserConfiguration config = new ParserConfiguration()
                 .setSymbolResolver(symbolSolver)
@@ -145,7 +145,7 @@ public class MethodScannerImpl implements MethodScanner {
                     .hash(commitHash)
                     .url(methodUrl)
                     .methodType(methodType)
-                    .lastAssertionLine(AssertionLineFinder.findLastAssertionLine(md).orElse(-1))
+                    .lastAssertionLine(AssertionLineFinder.findLastAssertionLine(md, typeResolver ).orElse(-1))
                     .invocationLine(-1)
                     .build()
             );

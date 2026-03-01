@@ -16,7 +16,7 @@ def run_module(module_name: str):
 # run_module("ptc.generator.generate_fan")
 
 #%%
-run_module("ptc.generator.generate_change")
+# run_module("ptc.generator.generate_change")
 
 #%%
 run_module("ptc.generator.generate_m2m_confidence")

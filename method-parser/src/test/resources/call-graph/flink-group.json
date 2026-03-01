@@ -3,7 +3,7 @@
     {
       "name": "flink",
       "repositoryUrl": "https://github.com/apache/flink",
-      "repositoryPath": "${METHOD_EVOLUTION_REPOSITORY_DIRECTORY}/flink",
+      "repositoryPath": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/repository/flink",
       "commitHash": "261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9",
       "cases": [
         {
@@ -11,8 +11,8 @@
           "targetPaths": [
             "flink-tests/src/test/java/org/apache/flink/test/accumulators/"
           ],
-          "fanInFile": "../.cache/test/fan-in/flink/flink--fan-in--261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9.csv",
-          "fanOutFile": "../.cache/test/fan-out/flink/flink--fan-out--261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9.csv"
+          "fanInFile": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test/fan-in/flink/flink--fan-in--261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9.csv",
+          "fanOutFile": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test/fan-out/flink/flink--fan-out--261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9.csv"
         }
       ]
     }
