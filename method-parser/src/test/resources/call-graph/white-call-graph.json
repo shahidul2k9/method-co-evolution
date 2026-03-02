@@ -8,11 +8,8 @@
       "cases": [
         {
           "name": "src",
-          "targetPaths": [
-            "src"
-          ],
-          "fanInFile": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test/fan-in/commons-io/src--4077158829de92987367d3149e4ba71356bb5390.csv",
-          "fanOutFile": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test/fan-out/commons-io/src--4077158829de92987367d3149e4ba71356bb5390.csv"
+          "targetPath": "src",
+          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
         }
       ]
     },
@@ -24,11 +21,8 @@
       "cases": [
         {
           "name": "LayoutPreservingPropertiesTest",
-          "targetPaths": [
-            "src/test/java/org/apache/commons/io/FileUtilsTestCase.java"
-          ],
-          "fanInFile": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test/fan-in/commons-io/LayoutPreservingPropertiesTest--4077158829de92987367d3149e4ba71356bb5390.csv",
-          "fanOutFile": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test/fan-out/commons-io/LayoutPreservingPropertiesTest--4077158829de92987367d3149e4ba71356bb5390.csv"
+          "targetPath": "src/test/java/org/apache/commons/io/FileUtilsTestCase.java",
+          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
         }
       ]
     }

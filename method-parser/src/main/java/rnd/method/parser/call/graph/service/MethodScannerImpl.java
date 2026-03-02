@@ -4,10 +4,16 @@ import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
+import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.resolution.TypeSolver;
+import com.github.javaparser.resolution.declarations.ResolvedReferenceTypeDeclaration;
+import com.github.javaparser.resolution.types.ResolvedReferenceType;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
@@ -129,7 +135,7 @@ public class MethodScannerImpl implements MethodScanner {
         List<Method> result = new ArrayList<>();
 
         for (MethodDeclaration md : cu.findAll(MethodDeclaration.class)) {
-            String methodType = determineMethodType(javaFile, packageName, md);
+            String methodType = determineMethodType(javaFile, packageName, md, typeResolver);
 
             int start = md.getName().getBegin().map(p -> p.line).orElse(-1);
             Integer end = md.getEnd().map(p -> p.line).orElse(null);
@@ -146,7 +152,7 @@ public class MethodScannerImpl implements MethodScanner {
                     .hash(commitHash)
                     .url(methodUrl)
                     .methodType(methodType)
-                    .lastAssertionLine(AssertionLineFinder.findLastAssertionLine(md, typeResolver ).orElse(null))
+                    .lastAssertionLine(AssertionLineFinder.findLastAssertionLine(md, typeResolver).orElse(null))
                     .invocationLine(null)
                     .build()
             );
@@ -157,7 +163,7 @@ public class MethodScannerImpl implements MethodScanner {
     private String determineMethodType(
             File file,
             String pkg,
-            MethodDeclaration md) {
+            MethodDeclaration md, TypeSolver typeResolver) {
 
         String filePath = file.getPath().replace(File.separatorChar, '/');
         String bareFileName = file.getName();
@@ -188,15 +194,8 @@ public class MethodScannerImpl implements MethodScanner {
         }
 
 
-        if (hasTestAnnotation(md, false)) {
+        if (isTestMethod(md, false)) {
             methodType = "test";
-        } else {
-            Optional<ClassOrInterfaceDeclaration> parent =
-                    md.findAncestor(ClassOrInterfaceDeclaration.class);
-
-            if (parent.isPresent() && classExtendsTest(parent.get())) {
-                methodType = "test";
-            }
         }
 
 
@@ -226,21 +225,106 @@ public class MethodScannerImpl implements MethodScanner {
         return false;
     }
 
+    private boolean isTestMethod(MethodDeclaration method, boolean isStrict) {
+        if (hasTestAnnotation(method, false)) {
+            return true;
+        }
+
+        String methodName = method.getNameAsString();
+        Optional<ClassOrInterfaceDeclaration> parent =
+                method.findAncestor(ClassOrInterfaceDeclaration.class);
+
+
+        boolean classExtendsTestCase = parent.filter(this::classExtendsTest).isPresent();
+        // JUnit 3 style
+        if (classExtendsTestCase
+                && method.isPublic()
+                && method.getType().isVoidType()
+                && method.getParameters().isEmpty()
+                && methodName.startsWith("test")) {
+            return true;
+        }
+
+        // fallback naming-based heuristic
+        return looksLikeTestMethodName(methodName);
+    }
+
+
+    private static boolean looksLikeTestMethodName(String methodName) {
+        return methodName.startsWith("test")
+                || methodName.startsWith("should")
+                || methodName.startsWith("when")
+                || methodName.startsWith("given")
+                || methodName.contains("_when_")
+                || methodName.contains("_then_")
+                || methodName.contains("_given_");
+    }
+
     private boolean classExtendsTest(ClassOrInterfaceDeclaration cls) {
         try {
-            var resolved = cls.resolve();
-
-            if (UNIT_TEST_SUPERCLASS_FQNS.contains(
-                    resolved.getQualifiedName())) {
-                return true;
+            if (cls.isInterface()) {
+                return false;
             }
 
-            return resolved.getAllAncestors().stream()
-                    .anyMatch(a ->
-                            UNIT_TEST_SUPERCLASS_FQNS.contains(
-                                    a.getQualifiedName()));
+            Optional<CompilationUnit> cuOpt = cls.findCompilationUnit();
+            if (cuOpt.isEmpty()) {
+                return false;
+            }
+
+            CompilationUnit cu = cuOpt.get();
+
+            for (ClassOrInterfaceType extendedType : cls.getExtendedTypes()) {
+                String fqn = toQualifiedName(extendedType, cu);
+                if (fqn != null && UNIT_TEST_SUPERCLASS_FQNS.contains(fqn)) {
+                    return true;
+                }
+            }
+
+            return false;
         } catch (Exception e) {
             return false;
         }
     }
+
+    private String toQualifiedName(ClassOrInterfaceType type, CompilationUnit cu) {
+        String name = type.getNameWithScope();
+
+        // already fully qualified in source
+        if (name.contains(".")) {
+            return name;
+        }
+
+        // exact import match
+        for (ImportDeclaration imp : cu.getImports()) {
+            if (imp.isAsterisk()) {
+                continue;
+            }
+
+            String imported = imp.getNameAsString();
+            if (imported.endsWith("." + name)) {
+                return imported;
+            }
+        }
+
+        // optional heuristic for common junit wildcard imports
+        for (ImportDeclaration imp : cu.getImports()) {
+            if (!imp.isAsterisk()) {
+                continue;
+            }
+
+            String pkg = imp.getNameAsString();
+            String candidate = pkg + "." + name;
+            if (UNIT_TEST_SUPERCLASS_FQNS.contains(candidate)) {
+                return candidate;
+            }
+        }
+
+        // same package fallback
+        if (cu.getPackageDeclaration().isPresent()) {
+            return cu.getPackageDeclaration().get().getNameAsString() + "." + name;
+        }
+
+        return name;
+    }
+
 }

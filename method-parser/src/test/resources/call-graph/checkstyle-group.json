@@ -8,11 +8,8 @@
       "cases": [
         {
           "name": "src",
-          "targetPaths": [
-            "src"
-          ],
-          "fanInFile": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test/fan-in/checkstyle/src--164a755af951cf0fd459d70873e1c199210d9d8b.csv",
-          "fanOutFile": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test/fan-out/checkstyle/src--164a755af951cf0fd459d70873e1c199210d9d8b.csv"
+          "targetPath": "src",
+          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
         }
       ]
     }

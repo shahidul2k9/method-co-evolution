@@ -13,13 +13,8 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.ObjectId;
 import rnd.method.parser.call.graph.model.Method;
 import rnd.method.parser.call.graph.model.MethodCall;
-import tech.tablesaw.api.IntColumn;
-import tech.tablesaw.api.StringColumn;
-import tech.tablesaw.api.Table;
-import tech.tablesaw.columns.Column;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -274,90 +269,6 @@ public class MethodParserUtil {
         } else {
             return text;
         }
-    }
-
-    public static void toTable(List<MethodCall> methodCalls, String outputPath, boolean isFanOut) {
-
-        StringColumn fromMethodNameColumn = StringColumn.create("from_name");
-        IntColumn fromMethodStartLineColumn = IntColumn.create("from_start");
-        IntColumn fromMethodEndLineColumn = IntColumn.create("from_end");
-        StringColumn fromMethodFileColumn = StringColumn.create("from_file");
-        StringColumn fromMethodUrlColumn = StringColumn.create("from_url");
-        StringColumn fromPkgColumn = StringColumn.create("from_pkg");
-        StringColumn fromFqnColumn = StringColumn.create("from_fqn");
-        IntColumn fromInvocationLineColumn = IntColumn.create("from_invocation");
-        IntColumn fromLastAssertionLineColumn = IntColumn.create("from_assertion");
-
-
-
-        StringColumn toMethodNameColumn = StringColumn.create("to_name");
-        IntColumn toMethodStartLineColumn = IntColumn.create("to_start");
-        IntColumn toMethodEndLineColumn = IntColumn.create("to_end");
-        StringColumn toMethodFileColumn = StringColumn.create("to_file");
-        StringColumn toMethodUrlColumn = StringColumn.create("to_url");
-        StringColumn toMethodPkgColumn = StringColumn.create("to_pkg");
-        StringColumn toMethodFqnColumn = StringColumn.create("to_fqn");
-        IntColumn  toInvocationLineColumn = IntColumn.create("to_invocation");
-        IntColumn toLastAssertionLineColumn = IntColumn.create("to_assertion");
-
-
-
-        StringColumn repositoryNameColumn = StringColumn.create("repo_name");
-        StringColumn commitHashColumn = StringColumn.create("hash");
-
-
-        List<Column<?>> fromMethodColumns = Arrays.asList(fromMethodNameColumn, fromMethodStartLineColumn, fromMethodEndLineColumn, fromMethodFileColumn, fromMethodUrlColumn, fromPkgColumn, fromFqnColumn, fromInvocationLineColumn, fromLastAssertionLineColumn);
-        List<Column<?>> toMethodColumns = List.of(toMethodNameColumn, toMethodStartLineColumn, toMethodEndLineColumn, toMethodFileColumn, toMethodUrlColumn, toMethodPkgColumn, toMethodFqnColumn, toInvocationLineColumn, toLastAssertionLineColumn);
-
-        List<Column<?>> allColumns = new ArrayList<>();
-        allColumns.add(repositoryNameColumn);
-        allColumns.addAll(fromMethodColumns);
-        allColumns.addAll(toMethodColumns);
-        allColumns.add(commitHashColumn);
-        Table table = Table.create(allColumns);
-        for (MethodCall mc : methodCalls) {
-            Method one = mc.getMethod();
-            List<Method> manyMethods = mc.getFanMethods().isEmpty()? Collections.singletonList(Method.builder().build()) : mc.getFanMethods();
-            for (Method many : manyMethods) {
-
-                Method from = isFanOut ? one : many;
-                Method to = isFanOut ? many : one;
-
-
-                repositoryNameColumn.append(from.getRepositoryName());
-                commitHashColumn.append(from.getHash());
-
-
-                fromMethodNameColumn.append(from.getName());
-                fromMethodStartLineColumn.append(from.getStartLine());
-                fromMethodEndLineColumn.append(from.getEndLine());
-                fromMethodFileColumn.append(from.getFile());
-                fromMethodUrlColumn.append(from.getUrl());
-                fromPkgColumn.append(from.getPkg());
-                fromFqnColumn.append(from.getFqn());
-                fromLastAssertionLineColumn.append(from.getLastAssertionLine());
-
-
-                toMethodNameColumn.append(to.getName());
-                toMethodStartLineColumn.append(to.getStartLine());
-                toMethodEndLineColumn.append(to.getEndLine());
-                toMethodFileColumn.append(to.getFile());
-                toMethodUrlColumn.append(to.getUrl());
-                toMethodPkgColumn.append(to.getPkg());
-                toMethodFqnColumn.append(to.getFqn());
-                toLastAssertionLineColumn.append(to.getLastAssertionLine());
-
-                if (isFanOut){
-                    fromInvocationLineColumn.append(to.getInvocationLine());
-                    toInvocationLineColumn.appendMissing();
-                }else {
-                    fromInvocationLineColumn.appendMissing();
-                    toInvocationLineColumn.appendMissing();
-                }
-            }
-        }
-        boolean mkdirs = new File(outputPath).getParentFile().mkdirs();
-        table.write().csv(outputPath);
     }
 
     public static List<MethodCall> fanInFromFanOut(List<MethodCall> methodCallOutList) {

@@ -12,7 +12,9 @@ def aggregate_csv_files(input_dir, output_file_name: str):
         os.makedirs(f"{DATA_DIRECTORY}/aggregate", exist_ok=True)
         df.to_csv(f"{DATA_DIRECTORY}/aggregate/{output_file_name}", index=False)
 
-
+# aggregate_csv_files(f"{DATA_DIRECTORY}/t2p-ground-truth", "t2p-ground-truth.csv")
+aggregate_csv_files(f"{DATA_DIRECTORY}/method", "method.csv")
+#
 # aggregate_csv_files(f"{DATA_DIRECTORY}/m2m-confidence", "m2m-confidence.csv")
 # t2p_strategy_dirs = [dir_name for dir_name in os.listdir(f"{DATA_DIRECTORY}/t2p-link") if
 #                      os.path.isdir(f"{DATA_DIRECTORY}/t2p-link/{dir_name}")]

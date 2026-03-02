@@ -127,14 +127,14 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                     for jm in java_methods:
                         methods_in_file.append({
                             "repo_name": repository_name,
-                            "file": jm.getFile(),
                             "method_type": jm.getMethodType(),
                             "method_name": jm.getName(),
                             "start_line": jm.getStartLine(),
                             "end_line": jm.getEndLine(),
                             "url": jm.getUrl(),
-                            "fqn": jm.getFqn(),
+                            "file": jm.getFile(),
                             "pkg": jm.getPkg(),
+                            "fqn": jm.getFqn(),
                             "hash": jm.getHash(),
                             "parser": "javaparser"
                         })
@@ -156,14 +156,14 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                                 start_line = node.position.line if node.position else None
                                 methods_in_file.append(
                                     {"repo_name": repository_name,
-                                     'file': file_without_base,
                                      'method_type': "unknown",
                                      'method_name': node.name,
                                      'start_line': start_line,
                                      'end_line': None,  # Heuristically find end line
                                      'url': util.format_to_git_url(url, hash, file_without_base, start_line),
-                                     'fqn': None,
                                      "pkg": None,
+                                     'fqn': None,
+                                     'file': file_without_base,
                                      'hash': hash,
                                      'parser': 'javalang'})
                         methods.extend(methods_in_file)

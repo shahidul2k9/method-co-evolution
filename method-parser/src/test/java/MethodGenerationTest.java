@@ -1,22 +1,47 @@
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.*;
 import rnd.method.parser.call.graph.model.Method;
 import rnd.method.parser.call.graph.service.MethodScannerImpl;
+import rnd.method.parser.call.graph.util.TableUtil;
 
-import java.lang.reflect.Array;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * @author Shahidul Islam
  * @since 2026-01-12
  */
 @Slf4j
-public class MethodGenerationTest {
-    private  String CACHE_DIRECTORY;
-    private  String REPOSITORY_DIRECTORY;
+public class MethodGenerationTest extends TestConfigurationBase {
+    private String CACHE_DIRECTORY;
+    private String REPOSITORY_DIRECTORY;
+
+    @TestFactory
+    public DynamicNode testGson() {
+        return generateTestCases("gson");
+    }
+
+    private static @NonNull DynamicContainer generateTestCases(String fileNameInfix) {
+        List<TestProjectConfig> configurations = TestConfigurationBase.loadConfigurations("method", fileNameInfix);
+
+        return DynamicContainer.dynamicContainer("method-generation",
+                configurations.stream().map(projectConfig -> DynamicContainer.dynamicContainer(projectConfig.name,
+                        projectConfig.cases.stream().map(testCase -> DynamicTest.dynamicTest(testCase.name, () -> {
+
+                            MethodScannerImpl methodScanner = new MethodScannerImpl();
+                            List<Method> methods = methodScanner.scanMethod(TestConfigurationBase.resolvePlaceholders(projectConfig.repositoryPath), projectConfig.repositoryUrl,
+                                    projectConfig.commitHash, testCase.targetPath);
+
+                            String outputDirectory = TestConfigurationBase.resolvePlaceholders(testCase.outputDirectory);
+
+                            TableUtil.toTable(methods, String.format(Locale.CANADA, "%s/method/%s/%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash));
+
+                        })))));
+    }
 
     @Before
     public void setUp() {
@@ -35,4 +60,6 @@ public class MethodGenerationTest {
         }
 
     }
+
+
 }

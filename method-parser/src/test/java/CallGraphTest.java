@@ -1,5 +1,3 @@
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ast.CompilationUnit;
@@ -27,18 +25,11 @@ import rnd.method.parser.call.graph.service.CallGraphServiceImpl;
 
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Locale;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
@@ -47,18 +38,13 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
  * @since 2025-12-23
  */
 @Slf4j
-public class CallGraphTest {
-
-    private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
-    private static final Path OPTIONAL_ENV_FILE = Paths.get("..", ".cache", ".env");
-    private static final String DEFAULT_REPOSITORY_DIRECTORY = "../.cache";
-    private static final Map<String, String> RESOLVED_ENV = loadEnvironmentVariables();
+public class CallGraphTest extends TestConfigurationBase {
 
 
     @Test
     public void testSymbolResolverTest() throws FileNotFoundException {
         JavaParser javaParser = new JavaParser();
-        String repositoryDirectory = Paths.get(getEnv("METHOD_EVOLUTION_CACHE_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY), "repository/checkstyle").toString();
+        String repositoryDirectory = Paths.get(TestConfigurationBase.getEnv("METHOD_EVOLUTION_CACHE_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY), "repository/checkstyle").toString();
 
         ParseResult<CompilationUnit> cu = javaParser.parse(new File(repositoryDirectory + "/src/main/java/com/puppycrawl/tools/checkstyle/AuditEventDefaultFormatter.java"));
         MethodDeclaration md = cu.getResult()
@@ -107,71 +93,38 @@ public class CallGraphTest {
     public DynamicNode testCallGraphFromConfigFilesAll() {
         return generateTestCases("all");
     }
+
     @TestFactory
     public DynamicNode testLightweightCallGraphFromConfigFiles() {
         return generateTestCases("white");
     }
+
     private static @NonNull DynamicContainer generateTestCases(String fileNameInfix) {
-        List<CallGraphConfig> configurations = loadConfigurations(fileNameInfix);
+        List<TestProjectConfig> configurations = TestConfigurationBase.loadConfigurations("call-graph", fileNameInfix);
 
         return DynamicContainer.dynamicContainer("call-graph-configs",
-                configurations.stream().map(config -> DynamicContainer.dynamicContainer(config.name,
-                        config.cases.stream().map(testCase -> DynamicTest.dynamicTest(testCase.name, () -> {
+                configurations.stream().map(projectConfig -> DynamicContainer.dynamicContainer(projectConfig.name,
+                        projectConfig.cases.stream().map(testCase -> DynamicTest.dynamicTest(testCase.name, () -> {
                             CallGraphServiceImpl fanOutService = new CallGraphServiceImpl();
+                            String outputDirectory = TestConfigurationBase.resolvePlaceholders(testCase.outputDirectory);
+
                             List<MethodCall> methodCallOut = fanOutService.findFanOut(
-                                    resolvePlaceholders(config.repositoryUrl),
-                                    resolvePlaceholders(config.repositoryPath),
-                                    config.commitHash,
-                                    testCase.targetPaths,
-                                    resolvePlaceholders(testCase.fanInFile),
-                                    resolvePlaceholders(testCase.fanOutFile)
+                                    TestConfigurationBase.resolvePlaceholders(projectConfig.repositoryUrl),
+                                    TestConfigurationBase.resolvePlaceholders(projectConfig.repositoryPath),
+                                    projectConfig.commitHash,
+                                    List.of(testCase.targetPath),
+                                    String.format(Locale.CANADA, "%s/fan-in/%s/%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash),
+                                    String.format(Locale.CANADA, "%s/fan-out/%s/%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash)
                             );
                             methodCallOut.forEach(System.out::println);
                             Assertions.assertFalse(methodCallOut.isEmpty());
                         })))));
     }
 
-    private static String resolvePlaceholders(String value) {
-        Matcher matcher = PLACEHOLDER_PATTERN.matcher(value);
-        StringBuilder resolved = new StringBuilder();
-
-        while (matcher.find()) {
-            String key = matcher.group(1);
-            String replacement = getEnv(key, "METHOD_EVOLUTION_CACHE_DIRECTORY".equals(key) ? DEFAULT_REPOSITORY_DIRECTORY : "");
-            matcher.appendReplacement(resolved, Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(resolved);
-        return resolved.toString();
-    }
-
-    private static List<CallGraphConfig> loadConfigurations(String fileNameInfix) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        List<CallGraphConfig> configurations = new ArrayList<>();
-
-        try (var jsonFiles = java.nio.file.Files.list(Paths.get("src/test/resources/call-graph"))) {
-            List<Path> configFiles = jsonFiles
-                    .filter(path -> path.getFileName().toString().endsWith(".json") && (path.getFileName().toString().contains(fileNameInfix) || fileNameInfix.equalsIgnoreCase("all")))
-                    .sorted()
-                    .toList();
-
-            for (Path configFile : configFiles) {
-                try (InputStream inputStream = java.nio.file.Files.newInputStream(configFile)) {
-                    Map<String, List<CallGraphConfig>> wrapper = objectMapper.readValue(inputStream,
-                            new TypeReference<>() {
-                            });
-                    configurations.addAll(wrapper.getOrDefault("groups", List.of()));
-                }
-            }
-        } catch (IOException exception) {
-            throw new RuntimeException("Unable to read call graph test configurations", exception);
-        }
-
-        return configurations;
-    }
 
     @Test
     public void testCommandLineCallGraph() {
-        java.lang.String repositoryPath = getEnv("METHOD_EVOLUTION_CACHE_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY) + "/repository/checkstyle";
+        java.lang.String repositoryPath = TestConfigurationBase.getEnv("METHOD_EVOLUTION_CACHE_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY) + "/repository/checkstyle";
         String[] args = {
                 "--command", "call-graph",
                 "--repository-url", "https://github.com/checkstyle/checkstyle",
@@ -183,64 +136,5 @@ public class CallGraphTest {
         };
 
         assertDoesNotThrow(() -> Main.main(args));
-    }
-
-    private static String getEnv(String key, String defaultValue) {
-        return RESOLVED_ENV.getOrDefault(key, defaultValue);
-    }
-
-    private static Map<String, String> loadEnvironmentVariables() {
-        Map<String, String> values = new HashMap<>(System.getenv());
-        if (!Files.exists(OPTIONAL_ENV_FILE)) {
-            return values;
-        }
-
-        try {
-            for (String rawLine : Files.readAllLines(OPTIONAL_ENV_FILE)) {
-                String line = rawLine.trim();
-                if (line.isEmpty() || line.startsWith("#")) {
-                    continue;
-                }
-
-                int splitIndex = line.indexOf('=');
-                if (splitIndex <= 0) {
-                    continue;
-                }
-
-                String key = line.substring(0, splitIndex).trim();
-                if (key.isEmpty()) {
-                    continue;
-                }
-
-                String parsedValue = stripWrappingQuotes(line.substring(splitIndex + 1).trim());
-                values.putIfAbsent(key, parsedValue);
-            }
-        } catch (IOException exception) {
-            throw new RuntimeException("Unable to read optional env file: " + OPTIONAL_ENV_FILE, exception);
-        }
-
-        return values;
-    }
-
-    private static String stripWrappingQuotes(String value) {
-        if (value.length() >= 2 && ((value.startsWith("\"") && value.endsWith("\"")) || (value.startsWith("'") && value.endsWith("'")))) {
-            return value.substring(1, value.length() - 1);
-        }
-        return value;
-    }
-
-    private static class CallGraphConfig {
-        public String name;
-        public String repositoryUrl;
-        public String repositoryPath;
-        public String commitHash;
-        public List<CallGraphCase> cases;
-    }
-
-    private static class CallGraphCase {
-        public String name;
-        public List<String> targetPaths;
-        public String fanInFile;
-        public String fanOutFile;
     }
 }

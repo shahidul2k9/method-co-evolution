@@ -1,0 +1,22 @@
+{
+  "groups": [
+    {
+      "name": "gson",
+      "repositoryUrl": "https://github.com/google/gson",
+      "repositoryPath": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/repository/gson",
+      "commitHash": "e9ead40302b3466f557a82f924907de59462deb9",
+      "cases": [
+        {
+          "name": "src",
+          "targetPath": "gson/src",
+          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
+        },
+        {
+          "name": "SerializedNameTest",
+          "targetPath": "gson/src/test/java/com/google/gson/functional/SerializedNameTest.java",
+          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
+        }
+      ]
+    }
+  ]
+}

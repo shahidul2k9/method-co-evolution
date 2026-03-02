@@ -8,11 +8,8 @@
       "cases": [
         {
           "name": "accumulators-tests",
-          "targetPaths": [
-            "flink-tests/src/test/java/org/apache/flink/test/accumulators/"
-          ],
-          "fanInFile": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test/fan-in/flink/flink--fan-in--261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9.csv",
-          "fanOutFile": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test/fan-out/flink/flink--fan-out--261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9.csv"
+          "targetPath": "flink-tests/src/test/java/org/apache/flink/test/accumulators/",
+          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
         }
       ]
     }

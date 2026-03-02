@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import rnd.method.parser.call.graph.MethodParserUtil;
 import rnd.method.parser.call.graph.model.MethodCall;
 import rnd.method.parser.call.graph.model.Method;
+import rnd.method.parser.call.graph.util.TableUtil;
 
 import java.io.File;
 import java.nio.file.Path;
@@ -170,10 +171,10 @@ public class CallGraphServiceImpl implements CallGraphService {
                 .toList();
 
         File fanOutFile = Paths.get(fanOutOutputFile).toFile();
-        MethodParserUtil.toTable(methodCallOutList, fanOutFile.getAbsolutePath(), true);
+        TableUtil.toTable(methodCallOutList, fanOutFile.getAbsolutePath(), true);
         File fanInFile = Paths.get(fanInOutputFile).toFile();
         List<MethodCall> methodCallInList = MethodParserUtil.fanInFromFanOut(methodCallOutList);
-        MethodParserUtil.toTable(methodCallInList, fanInFile.getAbsolutePath(), false);
+        TableUtil.toTable(methodCallInList, fanInFile.getAbsolutePath(), false);
         return methodCallOutList;
     }
 }
