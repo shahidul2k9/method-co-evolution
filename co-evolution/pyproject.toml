@@ -11,7 +11,8 @@ dependencies = [
     "javalang",
     "matplotlib",
     "scipy",
-    "levenshtein"
+    "levenshtein",
+    "scikit-learn"
 ]
 
 [build-system]

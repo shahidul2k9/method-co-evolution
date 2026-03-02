@@ -3,8 +3,8 @@ from pathlib import Path
 import pandas as pd
 
 from mhc.config import *
-from ptc.constants import MethodChangeType
 from ptc.link_strategy import *
+
 LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
     LinkStrategy.O2O,
     LinkStrategy.NC,
@@ -45,7 +45,7 @@ def select_one_stage_indices(
         return pt_link_df.index[:0]
 
     if stage == LinkStrategy.O2O:
-        candidate_mask = (~pt_link_df.duplicated(subset=["from_url", "to_url"], keep=False))
+        candidate_mask = (~pt_link_df.duplicated(subset=["from_url"], keep=False))
 
         return pt_link_df.loc[candidate_mask].index
 
@@ -100,11 +100,10 @@ def _stage_mask_one_hot_by_caller(
     seen_callers = set(pt_link_df.loc[new_mask, "from_url"])
 
     for idx in candidate_idx:
-        caller = pt_link_df.at[idx, "from_url"]
-        if caller in seen_callers:
-            continue
-        new_mask.at[idx] = True
-        seen_callers.add(caller)
+        from_url = pt_link_df.at[idx, "from_url"]
+        if from_url not in seen_callers:
+            new_mask.at[idx] = True
+            seen_callers.add(from_url)
 
     return new_mask
 
@@ -125,14 +124,13 @@ def select_links_cascade(
 
     for stage in iter_atomic_strategies(composite):
         stage_candidate_idx = select_one_stage_indices(pt_link_df, stage)
-        if len(stage_candidate_idx) == 0:
-            continue
-
-        keep_mask = _stage_mask_one_hot_by_caller(
-            pt_link_df=pt_link_df,
-            candidate_idx=stage_candidate_idx,
-            keep_mask=keep_mask,
-        )
+        # stage_candidate_idx.to_series(index = False).to_csv(f"{DATA_DIRECTORY}/aggregate/stage-index-{repo_name}.csv")
+        if len(stage_candidate_idx) > 0:
+            keep_mask = _stage_mask_one_hot_by_caller(
+                pt_link_df=pt_link_df,
+                candidate_idx=stage_candidate_idx,
+                keep_mask=keep_mask,
+            )
 
     return keep_mask
 
