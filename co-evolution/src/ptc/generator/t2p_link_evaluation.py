@@ -27,9 +27,9 @@ for gt_file in ground_truth_dir.glob("*.csv"):
     repo_name = gt_file.stem
 
     try:
-        gt_full_df = load_link_df(gt_file)
-        gt_df = gt_full_df[["from_url", "to_url"]].drop_duplicates()
-        gt_pairs = set(map(tuple, gt_df.to_records(index=False)))
+        gt_detail_df = load_link_df(gt_file)
+        gt_url_df = gt_detail_df[["from_url", "to_url"]].drop_duplicates()
+        gt_url_pairs = set(map(tuple, gt_url_df.to_records(index=False)))
 
         for strategy_dir in link_root_dir.iterdir():
             if strategy_dir.is_dir():
@@ -37,13 +37,14 @@ for gt_file in ground_truth_dir.glob("*.csv"):
                 pred_file = strategy_dir / gt_file.name
 
                 if pred_file.exists():
-                    pred_full_df = load_link_df(pred_file)
-                    pred_df = pred_full_df[["from_url", "to_url"]].drop_duplicates()
-                    pred_pairs = set(map(tuple, pred_df.to_records(index=False)))
+                    pred_detail_df = load_link_df(pred_file)
+                    pred_detail_df = pred_detail_df[pred_detail_df["from_url"].isin(gt_detail_df["from_url"])]
+                    pred_url_df = pred_detail_df[["from_url", "to_url"]].drop_duplicates()
+                    pred_url_pairs = set(map(tuple, pred_url_df.to_records(index=False)))
 
-                    tp_pairs = gt_pairs & pred_pairs
-                    fp_pairs = pred_pairs - gt_pairs
-                    fn_pairs = gt_pairs - pred_pairs
+                    tp_pairs = gt_url_pairs & pred_url_pairs
+                    fp_pairs = pred_url_pairs - gt_url_pairs
+                    fn_pairs = gt_url_pairs - pred_url_pairs
 
                     tp = len(tp_pairs)
                     fp = len(fp_pairs)
@@ -56,7 +57,7 @@ for gt_file in ground_truth_dir.glob("*.csv"):
                     recall = recall_score(y_true, y_pred, zero_division=0)
                     f1 = f1_score(y_true, y_pred, zero_division=0)
 
-                    all_pairs = gt_pairs | pred_pairs
+                    all_pairs = gt_url_pairs | pred_url_pairs
                     from_urls = {from_url for from_url, _ in all_pairs}
                     to_urls = {to_url for _, to_url in all_pairs}
                     candidate_pairs = {(from_url, to_url) for from_url in from_urls for to_url in to_urls}
@@ -64,35 +65,35 @@ for gt_file in ground_truth_dir.glob("*.csv"):
                     if len(candidate_pairs) == 0:
                         mcc = 0.0
                     else:
-                        mcc_y_true = [1 if pair in gt_pairs else 0 for pair in candidate_pairs]
-                        mcc_y_pred = [1 if pair in pred_pairs else 0 for pair in candidate_pairs]
+                        mcc_y_true = [1 if pair in gt_url_pairs else 0 for pair in candidate_pairs]
+                        mcc_y_pred = [1 if pair in pred_url_pairs else 0 for pair in candidate_pairs]
                         mcc = matthews_corrcoef(mcc_y_true, mcc_y_pred)
 
                     rows.append(
                         {
                             "repo_name": repo_name,
                             "strategy": strategy_name,
-                            "gt_links": len(gt_pairs),
-                            "pred_links": len(pred_pairs),
+                            "gt_links": len(gt_url_pairs),
+                            "pred_links": len(pred_url_pairs),
                             "tp": tp,
                             "fp": fp,
                             "fn": fn,
-                            "precision": precision,
-                            "recall": recall,
-                            "f1": f1,
-                            "mcc": mcc,
+                            "precision": round(precision, 2),
+                            "recall": round(recall, 2),
+                            "f1": round(f1, 2),
+                            "mcc": round(mcc, 2)
                         }
                     )
 
-                    mismatch_df = pred_full_df.copy()
+                    mismatch_df = pred_detail_df.copy()
                     mismatch_df["pair"] = list(zip(mismatch_df["from_url"], mismatch_df["to_url"]))
                     mismatch_df["label"] = mismatch_df["pair"].map(
-                        lambda pair: "TP" if pair in gt_pairs else "FP"
+                        lambda pair: "TP" if pair in gt_url_pairs else "FP"
                     )
 
-                    missing_df = gt_full_df.copy()
+                    missing_df = gt_detail_df.copy()
                     missing_df["pair"] = list(zip(missing_df["from_url"], missing_df["to_url"]))
-                    missing_df = missing_df[~missing_df["pair"].isin(pred_pairs)].copy()
+                    missing_df = missing_df[~missing_df["pair"].isin(pred_url_pairs)].copy()
                     missing_df["label"] = "FN"
 
                     mismatch_df = pd.concat(

@@ -45,10 +45,8 @@ def select_one_stage_indices(
         return pt_link_df.index[:0]
 
     if stage == LinkStrategy.O2O:
-        candidate_mask = (
-            ~pt_link_df.duplicated(subset="from_url", keep=False)
-            | ~pt_link_df.duplicated(subset="to_url", keep=False)
-        )
+        candidate_mask = (~pt_link_df.duplicated(subset=["from_url", "to_url"], keep=False))
+
         return pt_link_df.loc[candidate_mask].index
 
     if stage == LinkStrategy.NC:
