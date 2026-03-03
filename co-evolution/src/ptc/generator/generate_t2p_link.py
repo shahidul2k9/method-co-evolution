@@ -105,9 +105,6 @@ def _stage_mask_one_hot_by_caller(
         if from_url not in seen_callers:
             new_mask.at[idx] = True
             seen_callers.add(from_url)
-            if from_url == 'https://github.com/google/gson/blob/e9ead40302b3466f557a82f924907de59462deb9/gson/src/test/java/com/google/gson/CommentsTest.java#L32':
-                logging.warn(("WTH"))
-
     return new_mask
 
 def select_links_cascade(

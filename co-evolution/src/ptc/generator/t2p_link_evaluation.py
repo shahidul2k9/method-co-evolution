@@ -52,10 +52,11 @@ for gt_file in ground_truth_dir.glob("*.csv"):
 
                     y_true = [1] * tp + [0] * fp + [1] * fn
                     y_pred = [1] * tp + [1] * fp + [0] * fn
+                    import numpy as np
 
-                    precision = precision_score(y_true, y_pred, zero_division=0)
-                    recall = recall_score(y_true, y_pred, zero_division=0)
-                    f1 = f1_score(y_true, y_pred, zero_division=0)
+                    precision = precision_score(y_true, y_pred, zero_division=np.nan)
+                    recall = recall_score(y_true, y_pred, zero_division=np.nan)
+                    f1 = f1_score(y_true, y_pred, zero_division=np.nan)
 
                     all_pairs = gt_url_pairs | pred_url_pairs
                     from_urls = {from_url for from_url, _ in all_pairs}
@@ -63,7 +64,7 @@ for gt_file in ground_truth_dir.glob("*.csv"):
                     candidate_pairs = {(from_url, to_url) for from_url in from_urls for to_url in to_urls}
 
                     if len(candidate_pairs) == 0:
-                        mcc = 0.0
+                        mcc = np.nan
                     else:
                         mcc_y_true = [1 if pair in gt_url_pairs else 0 for pair in candidate_pairs]
                         mcc_y_pred = [1 if pair in pred_url_pairs else 0 for pair in candidate_pairs]
@@ -78,13 +79,12 @@ for gt_file in ground_truth_dir.glob("*.csv"):
                             "tp": tp,
                             "fp": fp,
                             "fn": fn,
-                            "precision": round(precision, 2),
-                            "recall": round(recall, 2),
-                            "f1": round(f1, 2),
-                            "mcc": round(mcc, 2)
+                            "precision": round(precision, 2) if not np.isnan(precision) else np.nan,
+                            "recall": round(recall, 2) if not np.isnan(recall) else np.nan,
+                            "f1": round(f1, 2) if not np.isnan(f1) else np.nan,
+                            "mcc": round(mcc, 2) if not np.isnan(mcc) else np.nan,
                         }
                     )
-
                     mismatch_df = pred_detail_df.copy()
                     mismatch_df["pair"] = list(zip(mismatch_df["from_url"], mismatch_df["to_url"]))
                     mismatch_df["label"] = mismatch_df["pair"].map(

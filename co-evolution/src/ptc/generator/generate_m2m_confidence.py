@@ -3,6 +3,17 @@ import pandas as pd
 
 import mhc.util as util
 from mhc.config import *
+from pytctracer.techniques.naming_conventions import *
+from pytctracer.techniques.levenshtein_distance import *
+from pytctracer.techniques.longest_common_subsequence import *
+from pytctracer.techniques.last_call_before_assert import *
+
+nc = NamingConventions()
+ncc = NamingConventionsContains()
+ld = LevenshteinDistance()
+lcsUnit = LongestCommonSubsequenceUnit()
+lcsBoth = LongestCommonSubsequenceUnit()
+
 
 repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
 
@@ -12,16 +23,12 @@ repository_name_map = {row["repo_name"]: row for row in repository_df.to_dict(or
 def establish_confidence(row):
     test_method_name = row["from_name"]
     production_method_name = row["to_name"]
-    lcs = util.lcs(production_method_name, test_method_name)
     return pd.Series({
-        "confidence_nc": int(production_method_name == test_method_name),
-        "confidence_ncc": int(production_method_name in test_method_name),
-        "confidence_lcs_b": lcs / max(len(production_method_name), len(test_method_name)),
-        "confidence_lcs_u": lcs / len(production_method_name),
-        "confidence_leven": 1 - Levenshtein.distance(production_method_name, test_method_name) / max(
-            len(production_method_name),
-            len(test_method_name))
-    })
+        "confidence_nc": nc._compute_nc_score(production_method_name, test_method_name),
+        "confidence_ncc": ncc._compute_nc_score(production_method_name, test_method_name),
+        "confidence_lcs_b": lcsBoth._compute_lcs_score(production_method_name, test_method_name),
+        "confidence_lcs_u": lcsUnit._compute_lcs_score(production_method_name, test_method_name),
+        "confidence_leven": ld._compute_levenshtein_score(production_method_name, test_method_name)})
 
 
 # repository_df = repository_df[repository_df["repo_name"].str.startswith("Apktool")]

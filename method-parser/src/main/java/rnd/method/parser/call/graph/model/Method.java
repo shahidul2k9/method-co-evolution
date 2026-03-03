@@ -21,7 +21,7 @@ public class Method {
     Integer invocationLine;
     String methodType;
     String hash;
-    Integer lastAssertionLine;
+    Integer lcba;
 
     @Override
     public String toString() {
@@ -37,7 +37,7 @@ public class Method {
                 ", invocationLine=" + invocationLine +
                 ", methodType='" + methodType + '\'' +
                 ", hash='" + hash + '\'' +
-                ", lastAssertionLine=" + lastAssertionLine +
+                ", lastAssertionLine=" + lcba +
                 '}';
     }
 }

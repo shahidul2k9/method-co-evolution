@@ -7,14 +7,12 @@ import com.github.javaparser.ast.stmt.AssertStmt;
 import com.github.javaparser.ast.stmt.Statement;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.resolution.model.SymbolReference;
-import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.HashSet;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 
 @Slf4j
@@ -113,7 +111,7 @@ public final class AssertionLineFinder {
         Set<Statement> matchedStatements = new HashSet<>();
 
         for (MethodCallExpr call : method.findAll(MethodCallExpr.class)) {
-            if (!isAssertionCall(call, typeSolver)) {
+            if (!isAssertionCall(call, typeSolver, false)) {
                 continue;
             }
 
@@ -149,25 +147,25 @@ public final class AssertionLineFinder {
         return Optional.empty();
     }
 
-    private static boolean isAssertionCall(MethodCallExpr call, CombinedTypeSolver typeResolver) {
-        try {
-            SymbolReference<ResolvedMethodDeclaration> ref =
-                    JavaParserFacade.get(typeResolver).solve(call);
-
-            if (!ref.isSolved()) {
+    public static boolean isAssertionCall(MethodCallExpr call, CombinedTypeSolver typeResolver, boolean useSymbolResolver) {
+        if (useSymbolResolver) {
+            try {
+                SymbolReference<ResolvedMethodDeclaration> ref =
+                        JavaParserFacade.get(typeResolver).solve(call);
+                if (ref.isSolved()) {
+                    ResolvedMethodDeclaration resolved = ref.getCorrespondingDeclaration();
+                    String owner = resolved.declaringType().getQualifiedName();
+                    String methodName = resolved.getName();
+                    return (ASSERTION_OWNER_FQNS.contains(owner) || isKnownAssertionPackage(owner))
+                            && isStrongAssertionName(methodName);
+                } else return isStrongAssertionName(call.getNameAsString());
+            } catch (RuntimeException e) {
                 return isStrongAssertionName(call.getNameAsString());
             }
-
-            ResolvedMethodDeclaration resolved = ref.getCorrespondingDeclaration();
-            String owner = resolved.declaringType().getQualifiedName();
-            String methodName = resolved.getName();
-
-            return (ASSERTION_OWNER_FQNS.contains(owner) || isKnownAssertionPackage(owner))
-                    && isStrongAssertionName(methodName);
-
-        } catch (RuntimeException e) {
+        } else {
             return isStrongAssertionName(call.getNameAsString());
         }
+
     }
 
     private static boolean isKnownAssertionPackage(String owner) {

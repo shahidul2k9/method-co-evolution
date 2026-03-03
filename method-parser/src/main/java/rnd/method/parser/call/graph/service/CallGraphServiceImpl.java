@@ -3,6 +3,8 @@ package rnd.method.parser.call.graph.service;
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
@@ -26,6 +28,8 @@ import rnd.method.parser.call.graph.util.TableUtil;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
@@ -67,78 +71,81 @@ public class CallGraphServiceImpl implements CallGraphService {
                                     .stream()
                                     .flatMap(fromMd -> {
 
-                                        List<Method> calledMethods =
-                                                fromMd.findAll(MethodCallExpr.class).stream()
-                                                        .flatMap(call -> {
-                                                            try {
-                                                                SymbolReference<ResolvedMethodDeclaration> solution = JavaParserFacade.get(typeSolver)
-                                                                        .solve(call);
+                                        List<Method> calledMethods = new ArrayList<>();
 
-                                                                if (!solution.isSolved()) {
-                                                                    return Stream.empty();
-                                                                }
-                                                                ResolvedMethodDeclaration resolved = solution.getCorrespondingDeclaration();
+                                        fromMd.walk(com.github.javaparser.ast.Node.TreeTraversal.POSTORDER, node -> {
+                                            if (node instanceof MethodCallExpr call) {
+                                                int calledMethodSize = calledMethods.size();
+                                                try {
+                                                    SymbolReference<ResolvedMethodDeclaration> solution = JavaParserFacade.get(typeSolver)
+                                                            .solve(call);
 
-                                                                Optional<MethodDeclaration> ast = resolved.toAst()
-                                                                        .filter(MethodDeclaration.class::isInstance)
-                                                                        .map(MethodDeclaration.class::cast);
+                                                    if (solution.isSolved()) {
+                                                        ResolvedMethodDeclaration resolved = solution.getCorrespondingDeclaration();
 
-                                                                String methodName = resolved.getName();
+                                                        Optional<MethodDeclaration> ast = resolved.toAst()
+                                                                .filter(MethodDeclaration.class::isInstance)
+                                                                .map(MethodDeclaration.class::cast);
 
-                                                                String filePath = ast
-                                                                        .flatMap(md -> md.findCompilationUnit())
-                                                                        .flatMap(cu -> cu.getStorage())
-                                                                        .map(storage -> storage.getPath().toString())
-                                                                        .orElse(null);
-                                                                int invocationStartLine = call.getBegin()
-                                                                        .map(p -> p.line)
-                                                                        .orElse(null);
-                                                                if (filePath != null) {
+                                                        String methodName = resolved.getName();
 
-                                                                    Integer startLine = ast
-                                                                            .map(NodeWithSimpleName::getName)
-                                                                            .flatMap(SimpleName::getBegin)
-                                                                            .map(p -> p.line)
-                                                                            .orElse(null);
+                                                        String filePath = ast
+                                                                .flatMap(Node::findCompilationUnit)
+                                                                .flatMap(CompilationUnit::getStorage)
+                                                                .map(storage -> storage.getPath().toString())
+                                                                .orElse(null);
+                                                        Integer invocationStartLine = call.getBegin()
+                                                                .map(p -> p.line)
+                                                                .orElse(null);
+                                                        if (filePath != null) {
 
-                                                                    Integer endLine = ast
-                                                                            .flatMap(NodeWithRange::getEnd)
-                                                                            .map(p -> p.line)
-                                                                            .orElse(null);
+                                                            Integer startLine = ast
+                                                                    .map(NodeWithSimpleName::getName)
+                                                                    .flatMap(SimpleName::getBegin)
+                                                                    .map(p -> p.line)
+                                                                    .orElse(null);
 
-                                                                    String pkg = ast
-                                                                            .flatMap(md -> md.findCompilationUnit())
-                                                                            .flatMap(cu -> cu.getPackageDeclaration()
-                                                                                    .map(pd -> pd.getNameAsString()))
-                                                                            .orElse(null);   // empty if default package
+                                                            Integer endLine = ast
+                                                                    .flatMap(NodeWithRange::getEnd)
+                                                                    .map(p -> p.line)
+                                                                    .orElse(null);
 
-                                                                    String fileSuffix = MethodParserUtil.stripFilePrefix(absoluteRepositoryPath, filePath);
-                                                                    return Stream.of(
-                                                                            Method.builder()
-                                                                                    .repositoryName(repositoryName)
-                                                                                    .name(methodName)
-                                                                                    .pkg(pkg)
-                                                                                    .fqn(MethodParserUtil.getMethodFqnSimpleParams(ast.get()))
-                                                                                    .url(MethodParserUtil.toMethodUrl(repositoryUrl, commitHash, fileSuffix, startLine))
-                                                                                    .file(fileSuffix)
-                                                                                    .startLine(startLine)
-                                                                                    .endLine(endLine)
-                                                                                    .hash(commitHash)
-                                                                                    .lastAssertionLine(AssertionLineFinder.findLastAssertionLine(ast.get(), typeSolver).orElse(null))
-                                                                                    .invocationLine(invocationStartLine)
-                                                                                    .build()
-                                                                    );
-                                                                } else {
-                                                                    return Stream.empty();
-                                                                }
+                                                            String pkg = ast
+                                                                    .flatMap(Node::findCompilationUnit)
+                                                                    .flatMap(cu -> cu.getPackageDeclaration()
+                                                                            .map(NodeWithName::getNameAsString))
+                                                                    .orElse(null);   // empty if default package
 
-                                                            } catch (Exception e) {
-//                                                               throw e;
-                                                                log.error("Method resolve error {}", call.getNameAsString());
-                                                                return Stream.empty(); // unresolved or external
-                                                            }
-                                                        })
-                                                        .toList();
+                                                            String fileSuffix = MethodParserUtil.stripFilePrefix(absoluteRepositoryPath, filePath);
+                                                            calledMethods.add(
+                                                                    Method.builder()
+                                                                            .repositoryName(repositoryName)
+                                                                            .name(methodName)
+                                                                            .pkg(pkg)
+                                                                            .fqn(MethodParserUtil.getMethodFqnSimpleParams(ast.get()))
+                                                                            .url(MethodParserUtil.toMethodUrl(repositoryUrl, commitHash, fileSuffix, startLine))
+                                                                            .file(fileSuffix)
+                                                                            .startLine(startLine)
+                                                                            .endLine(endLine)
+                                                                            .hash(commitHash)
+                                                                            .lcba(0)
+                                                                            .invocationLine(invocationStartLine)
+                                                                            .build()
+                                                            );
+                                                        }
+                                                    }
+
+                                                } catch (Exception e) {
+//                                                    log.error("Method resolve error {}", call.getNameAsString());
+                                                }
+                                                if (!calledMethods.isEmpty()
+                                                        && calledMethodSize == calledMethods.size()
+                                                        && AssertionLineFinder.isAssertionCall(call, typeSolver, false)) {
+                                                    calledMethods.getLast()
+                                                            .setLcba(1);
+                                                }
+                                            }
+                                        });
 
                                         String targetMethodFileSuffix = MethodParserUtil.stripFilePrefix(absoluteRepositoryPath, new File(file).getAbsolutePath());
                                         int targetMethodStartLine = fromMd.getName().getBegin().get().line;
@@ -154,7 +161,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                                                         .startLine(targetMethodStartLine)
                                                         .endLine(fromMd.getEnd().get().line)
                                                         .hash(commitHash)
-                                                        .lastAssertionLine(AssertionLineFinder.findLastAssertionLine(fromMd, typeSolver).orElse(null))
+                                                        .lcba(0)
                                                         .invocationLine(null)
                                                         .build())
                                                 .fanMethods(calledMethods)

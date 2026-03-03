@@ -12,7 +12,8 @@ dependencies = [
     "matplotlib",
     "scipy",
     "levenshtein",
-    "scikit-learn"
+    "scikit-learn",
+    "pytctracer"
 ]
 
 [build-system]

@@ -9,14 +9,13 @@ import tech.tablesaw.columns.Column;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 public class TableUtil {
 
     public static void toTable(List<Method> methods, String outputPath) {
-        StringColumn repoNameColumn = StringColumn.create("repo_name");
+        StringColumn repoNameColumn = StringColumn.create("project");
         StringColumn methodTypeColumn = StringColumn.create("method_type");
         StringColumn methodNameColumn = StringColumn.create("method_name");
         IntColumn startLineColumn = IntColumn.create("start_line");
@@ -101,7 +100,7 @@ public class TableUtil {
         StringColumn fromPkgColumn = StringColumn.create("from_pkg");
         StringColumn fromFqnColumn = StringColumn.create("from_fqn");
         IntColumn fromInvocationLineColumn = IntColumn.create("from_invocation");
-        IntColumn fromLastAssertionLineColumn = IntColumn.create("from_assertion");
+        IntColumn fromLastCallBeforeAnAssertion = IntColumn.create("from_lcba");
 
 
 
@@ -113,11 +112,11 @@ public class TableUtil {
         StringColumn toMethodPkgColumn = StringColumn.create("to_pkg");
         StringColumn toMethodFqnColumn = StringColumn.create("to_fqn");
         IntColumn  toInvocationLineColumn = IntColumn.create("to_invocation");
-        IntColumn toLastAssertionLineColumn = IntColumn.create("to_assertion");
+        IntColumn toLastCallBeforeAnAssertion = IntColumn.create("to_lcba");
 
 
 
-        StringColumn repositoryNameColumn = StringColumn.create("repo_name");
+        StringColumn repositoryNameColumn = StringColumn.create("project");
         StringColumn commitHashColumn = StringColumn.create("hash");
 
 
@@ -149,8 +148,8 @@ public class TableUtil {
         allColumns.add(fromInvocationLineColumn);
         allColumns.add(toInvocationLineColumn);
 
-        allColumns.add(fromLastAssertionLineColumn);
-        allColumns.add(toLastAssertionLineColumn);
+        allColumns.add(fromLastCallBeforeAnAssertion);
+        allColumns.add(toLastCallBeforeAnAssertion);
 
         allColumns.add(fromMethodFileColumn);
         allColumns.add(toMethodFileColumn);
@@ -177,7 +176,7 @@ public class TableUtil {
                 fromMethodUrlColumn.append(from.getUrl());
                 fromPkgColumn.append(from.getPkg());
                 fromFqnColumn.append(from.getFqn());
-                fromLastAssertionLineColumn.append(from.getLastAssertionLine());
+                fromLastCallBeforeAnAssertion.append(from.getLcba());
 
 
                 toMethodNameColumn.append(to.getName());
@@ -187,7 +186,7 @@ public class TableUtil {
                 toMethodUrlColumn.append(to.getUrl());
                 toMethodPkgColumn.append(to.getPkg());
                 toMethodFqnColumn.append(to.getFqn());
-                toLastAssertionLineColumn.append(to.getLastAssertionLine());
+                toLastCallBeforeAnAssertion.append(to.getLcba());
 
                 if (isFanOut){
                     fromInvocationLineColumn.append(to.getInvocationLine());
