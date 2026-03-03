@@ -11,7 +11,7 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
                                       cache_directory: str, tool_name: str,
                                       jar_file_map: dict[str, str]) -> None:
     for _, repository in repository_df.iterrows():
-        repository_name = repository["repo_name"]
+        repository_name = repository["project"]
         url = repository['url']
         hash = repository['updated_hash']
         repository_path = os.path.join(repository_directory, repository_name)

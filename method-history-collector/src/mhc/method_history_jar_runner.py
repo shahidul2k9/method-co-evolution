@@ -15,7 +15,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                                       jar_file_map: dict[str, str]) -> None:
     for tool_name in tool_names:
         for _, repository in repository_df.iterrows():
-            repository_name = repository["repo_name"]
+            repository_name = repository["project"]
             url = repository['url']
             hash = repository['updated_hash']
             method_history_path = util.format_method_history_path(cache_directory, tool_name, repository_name)
@@ -80,11 +80,11 @@ def update_repository_index(repository_df: DataFrame, cache_dir: str) -> None:
             repository_statistics[repository_name][f"{fan}"] = len(zip_index)
 
     repository_index = []
-    for repo_name, stats in repository_statistics.items():
-        stats["repo_name"] = repo_name
+    for project, stats in repository_statistics.items():
+        stats["project"] = project
         repository_index.append(stats)
 
-    index_df = pd.merge(repository_df, pd.DataFrame(repository_index), on="repo_name", how="left")
+    index_df = pd.merge(repository_df, pd.DataFrame(repository_index), on="project", how="left")
     num_cols = index_df.select_dtypes(include="number").columns
     index_df[num_cols] = index_df[num_cols].astype("Int64")
 

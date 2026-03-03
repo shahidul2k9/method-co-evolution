@@ -102,7 +102,7 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
 
     scanner = MethodScannerImpl()
     for _, repository in repository_df.iterrows():
-        repository_name = repository["repo_name"]
+        repository_name = repository["project"]
         url = repository['url']
         hash = repository['updated_hash']
         dot_file_directory = util.format_git_project_directory(repository_directory, repository_name)
@@ -126,7 +126,7 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                     )
                     for jm in java_methods:
                         methods_in_file.append({
-                            "repo_name": repository_name,
+                            "project": repository_name,
                             "method_name": jm.getName(),
                             "url": jm.getUrl(),
                             "method_type": jm.getMethodType(),
@@ -155,7 +155,7 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                             if node.position:
                                 start_line = node.position.line if node.position else None
                                 methods_in_file.append(
-                                    {"repo_name": repository_name,
+                                    {"project": repository_name,
                                      'method_name': node.name,
                                      'url': util.format_to_git_url(url, hash, file_without_base, start_line),
                                      'method_type': "unknown",

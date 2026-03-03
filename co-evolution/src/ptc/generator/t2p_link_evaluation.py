@@ -24,7 +24,7 @@ def load_link_df(csv_file: Path) -> pd.DataFrame:
 rows = []
 
 for gt_file in ground_truth_dir.glob("*.csv"):
-    repo_name = gt_file.stem
+    project = gt_file.stem
 
     try:
         gt_detail_df = load_link_df(gt_file)
@@ -72,7 +72,7 @@ for gt_file in ground_truth_dir.glob("*.csv"):
 
                     rows.append(
                         {
-                            "repo_name": repo_name,
+                            "project": project,
                             "strategy": strategy_name,
                             "gt_links": len(gt_url_pairs),
                             "pred_links": len(pred_url_pairs),
@@ -113,7 +113,7 @@ for gt_file in ground_truth_dir.glob("*.csv"):
 
 result_df = pd.DataFrame(rows)
 result_df = convert_float_int_columns_to_nullable_int(result_df)
-result_df = result_df.sort_values(["repo_name", "strategy"]).reset_index(drop=True)
+result_df = result_df.sort_values(["project", "strategy"]).reset_index(drop=True)
 result_df.to_csv(output_file, index=False)
 
 print(f"Saved evaluation to {output_file}")

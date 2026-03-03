@@ -32,7 +32,7 @@ for tool in tools:
         tool_df = df[df["tool_name"] == tool]
 
         projects = sorted(
-            tool_df["repo_name"].unique(),
+            tool_df["project"].unique(),
             key=lambda x: x.lower()
         )
 
@@ -56,9 +56,9 @@ for tool in tools:
             elif project == CHANGE_CORRELATION:
                 pdf = pd.DataFrame(correlations)
             else:
-                pdf = tool_df[tool_df["repo_name"] == project]
+                pdf = tool_df[tool_df["project"] == project]
 
-            correlation = {"repo_name": project}
+            correlation = {"project": project}
             for change_index, ch in enumerate(ch_cols):
                 ax = axes[repository_index][change_index] if n_cols > 1 else axes[repository_index]
 

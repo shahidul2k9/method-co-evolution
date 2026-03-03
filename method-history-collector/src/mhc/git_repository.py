@@ -77,9 +77,9 @@ def parse_github_url(url):
 
 def get_repo_metadata(github_url):
     g = Github(GITHUB_API_KEY, per_page=10_000)
-    owner, repo_name = parse_github_url(github_url)
+    owner, project = parse_github_url(github_url)
 
-    repo = g.get_repo(f"{owner}/{repo_name}")
+    repo = g.get_repo(f"{owner}/{project}")
 
     default_branch = repo.default_branch
 

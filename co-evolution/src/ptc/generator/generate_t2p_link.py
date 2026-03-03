@@ -124,7 +124,7 @@ def select_links_cascade(
 
     for stage in iter_atomic_strategies(composite):
         stage_candidate_idx = select_one_stage_indices(pt_link_df, stage)
-        # stage_candidate_idx.to_series(index = False).to_csv(f"{DATA_DIRECTORY}/aggregate/stage-index-{repo_name}.csv")
+        # stage_candidate_idx.to_series(index = False).to_csv(f"{DATA_DIRECTORY}/aggregate/stage-index-{project}.csv")
         if len(stage_candidate_idx) > 0:
             keep_mask = _stage_mask_one_hot_by_caller(
                 pt_link_df=pt_link_df,
@@ -143,8 +143,8 @@ def strategy_output_key(mask: LinkStrategy) -> str:
 
 for m2m_link_file in list(Path(f"{DATA_DIRECTORY}/m2m-confidence").rglob("*.csv")):
     m2m_link_df = pd.read_csv(m2m_link_file, keep_default_na=False, na_filter=False)
-    assert len(m2m_link_df["repo_name"].unique()) == 1, "Each file must be for the same repository_name"
-    repository_name = m2m_link_df["repo_name"].iloc[0]
+    assert len(m2m_link_df["project"].unique()) == 1, "Each file must be for the same repository_name"
+    repository_name = m2m_link_df["project"].iloc[0]
     method_df = pd.read_csv(f"{DATA_DIRECTORY}/method/{repository_name}.csv", keep_default_na=False, na_filter=False)
     method_df = method_df[["url", "method_type"]]
 

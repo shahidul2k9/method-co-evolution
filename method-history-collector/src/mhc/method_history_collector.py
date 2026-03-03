@@ -39,7 +39,7 @@ class MethodHistoryCollector:
         try:
             ms.start_java_jar([self.jar_file_map["methodParser"]])
             ms.scan_method(
-                self.repository_df[self.repository_df["repo_name"].isin(repositories)],
+                self.repository_df[self.repository_df["project"].isin(repositories)],
                 self.repository_directory,
                 self.data_directory,
                 self.cache_directory,
@@ -51,7 +51,7 @@ class MethodHistoryCollector:
 
     def collect_method_history(self, repositories: list[str], tool_names: list[str]):
         execute_method_history_if_missing(
-            self.repository_df[self.repository_df["repo_name"].isin(repositories)],
+            self.repository_df[self.repository_df["project"].isin(repositories)],
             self.repository_directory,
             self.data_directory,
             self.cache_directory,
@@ -64,7 +64,7 @@ class MethodHistoryCollector:
 
     def generate_call_graph(self, repositories: list[str], tool_names: list[str]):
         execute_call_graph_if_missing(
-            self.repository_df[self.repository_df["repo_name"].isin(repositories)],
+            self.repository_df[self.repository_df["project"].isin(repositories)],
             self.repository_directory,
             self.data_directory,
             self.cache_directory,

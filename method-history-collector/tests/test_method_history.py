@@ -15,7 +15,7 @@ class MethodHistoryTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(MethodHistoryTestCase, self).__init__(*args, **kwargs)
         df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
-        self.repositories = df["repo_name"].tolist()
+        self.repositories = df["project"].tolist()
         self.method_collector = MethodHistoryCollector(CACHE_DIRECTORY, REPOSITORY_DIRECTORY, DATA_DIRECTORY,
                                                        JAR_DIRECTORY)
 

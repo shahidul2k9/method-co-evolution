@@ -11,7 +11,7 @@ from mhc.config import *
 
 repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
 
-repository_name_map = {row["repo_name"]: row for row in repository_df.to_dict(orient="records")}
+repository_name_map = {row["project"]: row for row in repository_df.to_dict(orient="records")}
 
 for tooName in os.listdir(f"{CACHE_DIRECTORY}/history"):
     for zip_file in Path(f"{CACHE_DIRECTORY}/history/{tooName}").rglob("*.tar.gz"):

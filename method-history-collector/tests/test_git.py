@@ -12,7 +12,7 @@ class GitTestCase(unittest.TestCase):
 
         def get_commit_count(row):
             try:
-                repository_path = f"{CACHE_DIRECTORY}/repository/{row['repo_name']}"
+                repository_path = f"{CACHE_DIRECTORY}/repository/{row['project']}"
                 git.clone_and_checkout_commit(
                     row["url"],
                     repository_path,

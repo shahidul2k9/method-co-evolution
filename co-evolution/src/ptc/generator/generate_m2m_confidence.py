@@ -17,7 +17,7 @@ lcsBoth = LongestCommonSubsequenceUnit()
 
 repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
 
-repository_name_map = {row["repo_name"]: row for row in repository_df.to_dict(orient="records")}
+repository_name_map = {row["project"]: row for row in repository_df.to_dict(orient="records")}
 
 
 def establish_confidence(row):
@@ -31,9 +31,9 @@ def establish_confidence(row):
         "confidence_leven": ld._compute_levenshtein_score(production_method_name, test_method_name)})
 
 
-# repository_df = repository_df[repository_df["repo_name"].str.startswith("Apktool")]
+# repository_df = repository_df[repository_df["project"].str.startswith("Apktool")]
 for _, repo in repository_df.iterrows():
-    repository_name = repo["repo_name"]
+    repository_name = repo["project"]
     commit_hash = repo["updated_hash"]
     fan_out_file_suffix = f"{repository_name}.csv"
     # fan_out_file_suffix = f"{repository_name}--fan-out--{commit_hash}.csv"

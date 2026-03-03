@@ -14,7 +14,7 @@ history_repository_dfs = [pd.read_csv(repository_history_file, keep_default_na=F
                           repository_history_file in list(Path(f"{DATA_DIRECTORY}/history").rglob("*.csv"))[:]]
 df = pd.concat(history_repository_dfs)
 df["method_type"] = df["method_type"].map(lambda mt: "test" if mt == "test_util" else mt)
-df = df.sort_values(by="repo_name", key=lambda s: s.str.lower())
+df = df.sort_values(by="project", key=lambda s: s.str.lower())
 
 ch_cols = [c for c in df.columns if c.startswith("ch_")]
 method_types = sorted(df["method_type"].unique())
@@ -23,9 +23,9 @@ tools = sorted(df["tool_name"].unique())
 for tool in tools:
     tool_df = df[df["tool_name"] == tool]
     # print(tool)
-    # print(tool_df["repo_name"].unique())
+    # print(tool_df["project"].unique())
     projects = sorted(
-        tool_df["repo_name"]
+        tool_df["project"]
         .dropna() # investigate nan
         .astype(str)
         .unique(),
@@ -46,7 +46,7 @@ for tool in tools:
         if project == ALL_REPOSITORY:
             pdf = tool_df
         else:
-            pdf = tool_df[tool_df["repo_name"] == project]
+            pdf = tool_df[tool_df["project"] == project]
 
         for change_index, ch in enumerate(ch_cols):
             ax = axes[repository_index][change_index] if n_cols > 1 else axes[repository_index]

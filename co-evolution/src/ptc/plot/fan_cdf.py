@@ -18,7 +18,7 @@ df["method_type"] = df["method_type"].map(lambda mt: "test" if mt == "test_util"
 method_types = sorted(df["method_type"].unique())
 
 projects = sorted(
-    df["repo_name"].unique(),
+    df["project"].unique(),
     key=lambda x: x.lower()
 )
 projects.append(ALL_REPOSITORY)
@@ -39,7 +39,7 @@ for repository_index, project in enumerate(projects):
     if project == ALL_REPOSITORY:
         pdf = df
     else:
-        pdf = df[df["repo_name"] == project]
+        pdf = df[df["project"] == project]
 
     for change_index, ch in enumerate(in_out_types):
         ax = axes[repository_index][change_index] if n_cols > 1 else axes[repository_index]

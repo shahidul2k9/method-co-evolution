@@ -62,12 +62,12 @@ class ComplexityAnalyzer:
         repo_stat = []
 
         repository_df = pd.read_csv(self.repository_df_path)
-        repository_df = repository_df[repository_df["repo_name"].isin(self.repo_list)]
+        repository_df = repository_df[repository_df["project"].isin(self.repo_list)]
 
         for _, row in repository_df.iterrows():
             repo_stat.append(
                 {
-                    "name": row["repo_name"],
+                    "name": row["project"],
                     "latest_commit_date": datetime.fromisoformat(
                         row["updated_at"]
                     ).strftime("%d/%m/%y"),
@@ -83,26 +83,26 @@ class ComplexityAnalyzer:
         repo_stat_df.to_csv(self.project_info_path, index=False, header=False, sep="\t")
 
     def copy_extract_structure_history_tar(self):
-        for repo_name in self.repo_list:
+        for project in self.repo_list:
             source_tar_path = os.path.join(
-                self.cache_directory, "history", "historyFinder", f"{repo_name}.tar.gz"
+                self.cache_directory, "history", "historyFinder", f"{project}.tar.gz"
             )
 
             destination_tar_path = os.path.join(
-                self.history_json_dir, f"{repo_name}.tar.gz"
+                self.history_json_dir, f"{project}.tar.gz"
             )
 
             shutil.copy2(source_tar_path, destination_tar_path)
 
             extracted_dir = os.path.join(
-                self.history_json_dir, repo_name + "_raw_history"
+                self.history_json_dir, project + "_raw_history"
             )
             os.makedirs(extracted_dir, exist_ok=True)
             with tarfile.open(destination_tar_path, "r:gz") as tar:
                 tar.extractall(path=extracted_dir)
             self.delete_file(destination_tar_path)
 
-            restructured_dir = os.path.join(self.history_json_dir, repo_name)
+            restructured_dir = os.path.join(self.history_json_dir, project)
             os.makedirs(restructured_dir, exist_ok=True)
             self.temp_dirs.append(restructured_dir)
 
