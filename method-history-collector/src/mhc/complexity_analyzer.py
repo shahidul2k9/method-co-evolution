@@ -46,6 +46,9 @@ class ComplexityAnalyzer:
         self.copy_extract_structure_history_tar()
 
     def __del__(self):
+        self.cleanup()
+
+    def cleanup(self):
         self.delete_file(self.project_info_path)
         for temp_dir in self.temp_dirs:
             self.delete_directory(temp_dir)
@@ -109,6 +112,9 @@ class ComplexityAnalyzer:
             file_number = 1
             json_files = glob.glob(f"{extracted_dir}/**/*.json", recursive=True)
             for file in json_files:
+                if os.path.isdir(file):
+                    continue
+
                 shutil.copy2(
                     file, os.path.join(restructured_dir, f"{file_number}.json")
                 )
@@ -131,6 +137,4 @@ class ComplexityAnalyzer:
             print(e.stderr)
             raise e
         finally:
-            self.delete_file(self.project_info_path)
-            for temp_dir in self.temp_dirs:
-                self.delete_directory(temp_dir)
+            self.cleanup()
