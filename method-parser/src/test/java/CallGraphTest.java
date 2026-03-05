@@ -96,7 +96,7 @@ public class CallGraphTest extends TestConfigurationBase {
 
     @TestFactory
     public DynamicNode testLightweightCallGraphFromConfigFiles() {
-        return generateTestCases("white");
+        return generateTestCases("constructor");
     }
 
     private static @NonNull DynamicContainer generateTestCases(String fileNameInfix) {

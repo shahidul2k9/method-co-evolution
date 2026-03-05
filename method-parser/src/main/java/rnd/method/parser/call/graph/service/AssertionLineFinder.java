@@ -5,9 +5,6 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.MethodCallExpr;
 import com.github.javaparser.ast.stmt.AssertStmt;
 import com.github.javaparser.ast.stmt.Statement;
-import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
-import com.github.javaparser.resolution.model.SymbolReference;
-import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import lombok.extern.slf4j.Slf4j;
 
@@ -111,7 +108,7 @@ public final class AssertionLineFinder {
         Set<Statement> matchedStatements = new HashSet<>();
 
         for (MethodCallExpr call : method.findAll(MethodCallExpr.class)) {
-            if (!isAssertionCall(call, typeSolver, false)) {
+            if (!isAssertionCall(call.getNameAsString())) {
                 continue;
             }
 
@@ -147,25 +144,9 @@ public final class AssertionLineFinder {
         return Optional.empty();
     }
 
-    public static boolean isAssertionCall(MethodCallExpr call, CombinedTypeSolver typeResolver, boolean useSymbolResolver) {
-        if (useSymbolResolver) {
-            try {
-                SymbolReference<ResolvedMethodDeclaration> ref =
-                        JavaParserFacade.get(typeResolver).solve(call);
-                if (ref.isSolved()) {
-                    ResolvedMethodDeclaration resolved = ref.getCorrespondingDeclaration();
-                    String owner = resolved.declaringType().getQualifiedName();
-                    String methodName = resolved.getName();
-                    return (ASSERTION_OWNER_FQNS.contains(owner) || isKnownAssertionPackage(owner))
-                            && isStrongAssertionName(methodName);
-                } else return isStrongAssertionName(call.getNameAsString());
-            } catch (RuntimeException e) {
-                return isStrongAssertionName(call.getNameAsString());
-            }
-        } else {
-            return isStrongAssertionName(call.getNameAsString());
-        }
-
+    // Add package if possible
+    public static boolean isAssertionCall(String methodName) {
+        return isStrongAssertionName(methodName);
     }
 
     private static boolean isKnownAssertionPackage(String owner) {

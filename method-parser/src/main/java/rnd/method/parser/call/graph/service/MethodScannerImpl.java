@@ -1,5 +1,6 @@
 package rnd.method.parser.call.graph.service;
 
+import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseProblemException;
 import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
@@ -10,12 +11,15 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.resolution.TypeSolver;
+import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
+import lombok.extern.slf4j.Slf4j;
 import rnd.method.parser.call.graph.MethodParserUtil;
 import rnd.method.parser.call.graph.model.Method;
+import rnd.method.parser.call.graph.util.AltMethodDeclarationFqn;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -26,6 +30,7 @@ import java.util.*;
  * @author Shahidul Islam
  * @since 2026-01-12
  */
+@Slf4j
 public class MethodScannerImpl implements MethodScanner {
     private static final Set<String> TEST_ANNOTATION_FQNS = Set.of(
 //            # JUnit 4
@@ -116,11 +121,12 @@ public class MethodScannerImpl implements MethodScanner {
                 .setSymbolResolver(symbolSolver)
                 .setLanguageLevel(ParserConfiguration.LanguageLevel.BLEEDING_EDGE);
 
+        JavaParser parserWithSymbolResolver = new JavaParser(config);
         StaticJavaParser.setConfiguration(config);
 
         CompilationUnit cu;
         try {
-            cu = StaticJavaParser.parse(javaFile);
+            cu = parserWithSymbolResolver.parse(javaFile).getResult().get();
         } catch (ParseProblemException | FileNotFoundException e) {
             return Collections.emptyList();
         }
@@ -134,21 +140,32 @@ public class MethodScannerImpl implements MethodScanner {
         for (MethodDeclaration md : cu.findAll(MethodDeclaration.class)) {
             String methodType = determineMethodType(javaFile, packageName, md, typeResolver);
 
+            String fqn = null;
+            String fqs = null;
+            try {
+                ResolvedMethodDeclaration resolvedDec = md.resolve();
+                fqn = resolvedDec.getQualifiedName();
+                fqs = resolvedDec.getQualifiedSignature();
+            }catch (Exception ignored) {
+
+            }
             int start = md.getName().getBegin().map(p -> p.line).orElse(-1);
             Integer end = md.getEnd().map(p -> p.line).orElse(null);
             String methodUrl = MethodParserUtil.toMethodUrl(repoUrl, commitHash, file, start);
-
             result.add(Method.builder()
                     .repositoryName(repositoryName)
                     .name(md.getNameAsString())
+                    .expression("method")
                     .pkg(cu.findCompilationUnit().get().getPackageDeclaration().get().getNameAsString())
-                    .fqn(MethodParserUtil.getMethodFqnSimpleParams(md))
+                    .fqn(fqn)
+                    .fqs(fqs)
+                    .fqsAlt(AltMethodDeclarationFqn.getMethodFqnSimpleParams(md))
                     .file(file)
                     .startLine(start)
                     .endLine(end)
                     .hash(commitHash)
                     .url(methodUrl)
-                    .methodType(methodType)
+                    .artifact(methodType)
                     .lcba(0)
                     .invocationLine(null)
                     .build()

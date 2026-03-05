@@ -16,67 +16,81 @@ public class TableUtil {
 
     public static void toTable(List<Method> methods, String outputPath) {
         StringColumn repoNameColumn = StringColumn.create("project");
-        StringColumn methodTypeColumn = StringColumn.create("method_type");
-        StringColumn methodNameColumn = StringColumn.create("method_name");
+        StringColumn artifactColumn = StringColumn.create("artifact");
+        StringColumn methodNameColumn = StringColumn.create("name");
         IntColumn startLineColumn = IntColumn.create("start_line");
         IntColumn endLineColumn = IntColumn.create("end_line");
         StringColumn urlColumn = StringColumn.create("url");
+        StringColumn expressionColumn = StringColumn.create("expression");
         StringColumn fileColumn = StringColumn.create("file");
         StringColumn pkgColumn = StringColumn.create("pkg");
         StringColumn fqnColumn = StringColumn.create("fqn");
+        StringColumn fqsColumn = StringColumn.create("fqs");
+        StringColumn fqsSimpleColumn = StringColumn.create("fqs_alt");
         StringColumn hashColumn = StringColumn.create("hash");
         StringColumn parserColumn = StringColumn.create("parser");
 //        IntColumn invocationLineColumn = IntColumn.create("invocation_line");
 //        IntColumn lastAssertionLineColumn = IntColumn.create("last_assertion_line");
 
-        for (Method jm : methods) {
-            if (jm.getRepositoryName() == null) repoNameColumn.appendMissing();
-            else repoNameColumn.append(jm.getRepositoryName());
+        for (Method m : methods) {
+            if (m.getRepositoryName() == null) repoNameColumn.appendMissing();
+            else repoNameColumn.append(m.getRepositoryName());
 
-            if (jm.getMethodType() == null) methodTypeColumn.appendMissing();
-            else methodTypeColumn.append(jm.getMethodType());
+            if (m.getArtifact() == null) artifactColumn.appendMissing();
+            else artifactColumn.append(m.getArtifact());
 
-            if (jm.getName() == null) methodNameColumn.appendMissing();
-            else methodNameColumn.append(jm.getName());
+            if (m.getName() == null) methodNameColumn.appendMissing();
+            else methodNameColumn.append(m.getName());
 
-            if (jm.getStartLine() == null) startLineColumn.appendMissing();
-            else startLineColumn.append(jm.getStartLine());
+            if (m.getStartLine() == null) startLineColumn.appendMissing();
+            else startLineColumn.append(m.getStartLine());
 
-            if (jm.getEndLine() == null) endLineColumn.appendMissing();
-            else endLineColumn.append(jm.getEndLine());
+            if (m.getEndLine() == null) endLineColumn.appendMissing();
+            else endLineColumn.append(m.getEndLine());
 
-            if (jm.getUrl() == null) urlColumn.appendMissing();
-            else urlColumn.append(jm.getUrl());
+            if (m.getUrl() == null) urlColumn.appendMissing();
+            else urlColumn.append(m.getUrl());
 
-            if (jm.getFile() == null) fileColumn.appendMissing();
-            else fileColumn.append(jm.getFile());
+            if (m.getFile() == null) fileColumn.appendMissing();
+            else fileColumn.append(m.getFile());
 
-            if (jm.getPkg() == null) pkgColumn.appendMissing();
-            else pkgColumn.append(jm.getPkg());
+            if (m.getPkg() == null) pkgColumn.appendMissing();
+            else pkgColumn.append(m.getPkg());
 
-            if (jm.getFqn() == null) fqnColumn.appendMissing();
-            else fqnColumn.append(jm.getFqn());
+            if (m.getFqn() == null) fqnColumn.appendMissing();
+            else fqnColumn.append(m.getFqn());
 
-            if (jm.getHash() == null) hashColumn.appendMissing();
-            else hashColumn.append(jm.getHash());
+            if (m.getFqs() == null) fqsColumn.appendMissing();
+            else fqsColumn.append(m.getFqs());
+
+            if (m.getFqsAlt() == null) fqsSimpleColumn.appendMissing();
+            else fqsSimpleColumn.append(m.getFqsAlt());
+
+
+            if (m.getHash() == null) hashColumn.appendMissing();
+            else hashColumn.append(m.getHash());
+
+            if (m.getExpression() == null) expressionColumn.appendMissing();
+            else expressionColumn.append(m.getExpression());
 
             parserColumn.append("javaparser");
 
-//            if (jm.getInvocationLine() == null) invocationLineColumn.appendMissing();
-//            else invocationLineColumn.append(jm.getInvocationLine());
+//            if (m.getInvocationLine() == null) invocationLineColumn.appendMissing();
+//            else invocationLineColumn.append(m.getInvocationLine());
 //
-//            if (jm.getLastAssertionLine() == null) lastAssertionLineColumn.appendMissing();
-//            else lastAssertionLineColumn.append(jm.getLastAssertionLine());
+//            if (m.getLastAssertionLine() == null) lastAssertionLineColumn.appendMissing();
+//            else lastAssertionLineColumn.append(m.getLastAssertionLine());
         }
 
-        Table table = Table.create("methods")
+        Table table = Table.create("method")
                 .addColumns(
                         repoNameColumn,
                         methodNameColumn,
                         urlColumn,
-                        methodTypeColumn,
+                        artifactColumn,
                         startLineColumn,
                         endLineColumn,
+                        expressionColumn,
                         pkgColumn,
                         fqnColumn,
                         fileColumn,
@@ -97,8 +111,11 @@ public class TableUtil {
         IntColumn fromMethodEndLineColumn = IntColumn.create("from_end");
         StringColumn fromMethodFileColumn = StringColumn.create("from_file");
         StringColumn fromMethodUrlColumn = StringColumn.create("from_url");
+        StringColumn fromExpressionColumn = StringColumn.create("from_expression");
         StringColumn fromPkgColumn = StringColumn.create("from_pkg");
         StringColumn fromFqnColumn = StringColumn.create("from_fqn");
+        StringColumn fromFqsColumn = StringColumn.create("from_fqs");
+        StringColumn fromFqsAltColumn = StringColumn.create("from_fqs_alt");
         IntColumn fromInvocationLineColumn = IntColumn.create("from_invocation");
         IntColumn fromLastCallBeforeAnAssertion = IntColumn.create("from_lcba");
 
@@ -109,8 +126,11 @@ public class TableUtil {
         IntColumn toMethodEndLineColumn = IntColumn.create("to_end");
         StringColumn toMethodFileColumn = StringColumn.create("to_file");
         StringColumn toMethodUrlColumn = StringColumn.create("to_url");
+        StringColumn toExpressionColumn = StringColumn.create("to_expression");
         StringColumn toMethodPkgColumn = StringColumn.create("to_pkg");
-        StringColumn toMethodFqnColumn = StringColumn.create("to_fqn");
+        StringColumn toFqnColumn = StringColumn.create("to_fqn");
+        StringColumn toFqsColumn = StringColumn.create("to_fqs");
+        StringColumn toFqsAltColumn = StringColumn.create("to_fqs_alt");
         IntColumn  toInvocationLineColumn = IntColumn.create("to_invocation");
         IntColumn toLastCallBeforeAnAssertion = IntColumn.create("to_lcba");
 
@@ -130,12 +150,24 @@ public class TableUtil {
         allColumns.add(toMethodUrlColumn);
 
 
+        allColumns.add(fromExpressionColumn);
+        allColumns.add(toExpressionColumn);
+
+
 
         allColumns.add(fromPkgColumn);
         allColumns.add(toMethodPkgColumn);
 
         allColumns.add(fromFqnColumn);
-        allColumns.add(toMethodFqnColumn);
+        allColumns.add(toFqnColumn);
+
+
+        allColumns.add(fromFqsColumn);
+        allColumns.add(toFqsColumn);
+
+
+        allColumns.add(fromFqsAltColumn);
+        allColumns.add(toFqsAltColumn);
 
         allColumns.add(fromMethodStartLineColumn);
         allColumns.add(fromMethodEndLineColumn);
@@ -175,7 +207,6 @@ public class TableUtil {
                 fromMethodFileColumn.append(from.getFile());
                 fromMethodUrlColumn.append(from.getUrl());
                 fromPkgColumn.append(from.getPkg());
-                fromFqnColumn.append(from.getFqn());
                 fromLastCallBeforeAnAssertion.append(from.getLcba());
 
 
@@ -185,8 +216,20 @@ public class TableUtil {
                 toMethodFileColumn.append(to.getFile());
                 toMethodUrlColumn.append(to.getUrl());
                 toMethodPkgColumn.append(to.getPkg());
-                toMethodFqnColumn.append(to.getFqn());
                 toLastCallBeforeAnAssertion.append(to.getLcba());
+
+                fromFqnColumn.append(from.getFqn());
+                toFqnColumn.append(to.getFqn());
+
+                fromFqsColumn.append(from.getFqs());
+                toFqsColumn.append(to.getFqs());
+
+                fromFqsAltColumn.append(from.getFqsAlt());
+                toFqsAltColumn.append(to.getFqsAlt());
+
+                fromExpressionColumn.append(from.getExpression());
+                toExpressionColumn.append(to.getExpression());
+
 
                 if (isFanOut){
                     fromInvocationLineColumn.append(to.getInvocationLine());
