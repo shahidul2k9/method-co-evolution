@@ -19,6 +19,8 @@ public class Method {
     String fqsAlt;
     String file;
     String url;
+    String callerUrl;
+    String callDepth;
     Integer startLine;
     Integer endLine;
     Integer invocationLine;

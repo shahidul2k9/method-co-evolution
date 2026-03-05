@@ -7,10 +7,12 @@ import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.resolution.TypeSolver;
+import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
@@ -19,6 +21,7 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeS
 import lombok.extern.slf4j.Slf4j;
 import rnd.method.parser.call.graph.MethodParserUtil;
 import rnd.method.parser.call.graph.model.Method;
+import rnd.method.parser.call.graph.util.AltConstructorDeclarationFqn;
 import rnd.method.parser.call.graph.util.AltMethodDeclarationFqn;
 
 import java.io.File;
@@ -137,47 +140,85 @@ public class MethodScannerImpl implements MethodScanner {
 
         List<Method> result = new ArrayList<>();
 
-        for (MethodDeclaration md : cu.findAll(MethodDeclaration.class)) {
-            String methodType = determineMethodType(javaFile, packageName, md, typeResolver);
+        cu.walk(node -> {
+            if (node instanceof MethodDeclaration md) {
+                String methodType = determineMethodType(javaFile, packageName, md, typeResolver);
 
-            String fqn = null;
-            String fqs = null;
-            try {
-                ResolvedMethodDeclaration resolvedDec = md.resolve();
-                fqn = resolvedDec.getQualifiedName();
-                fqs = resolvedDec.getQualifiedSignature();
-            }catch (Exception ignored) {
+                String fqn = null;
+                String fqs = null;
+                try {
+                    ResolvedMethodDeclaration resolvedDec = md.resolve();
+                    fqn = resolvedDec.getQualifiedName();
+                    fqs = resolvedDec.getQualifiedSignature();
+                } catch (Exception ignored) {
+                }
+                
+                int start = md.getName().getBegin().map(p -> p.line).orElse(-1);
+                Integer end = md.getEnd().map(p -> p.line).orElse(null);
+                String methodUrl = MethodParserUtil.toMethodUrl(repoUrl, commitHash, file, start);
+                
+                result.add(Method.builder()
+                        .repositoryName(repositoryName)
+                        .name(md.getNameAsString())
+                        .expression("method")
+                        .pkg(cu.findCompilationUnit().flatMap(CompilationUnit::getPackageDeclaration).map(pd -> pd.getNameAsString()).orElse(null))
+                        .fqn(fqn)
+                        .fqs(fqs)
+                        .fqsAlt(AltMethodDeclarationFqn.getMethodFqnSimpleParams(md))
+                        .file(file)
+                        .startLine(start)
+                        .endLine(end)
+                        .hash(commitHash)
+                        .url(methodUrl)
+                        .artifact(methodType)
+                        .lcba(0)
+                        .invocationLine(null)
+                        .build()
+                );
+            } else if (node instanceof ConstructorDeclaration cd) {
+                String methodType = determineMethodType(javaFile, packageName, cd, typeResolver);
 
+                String fqn = null;
+                String fqs = null;
+
+                try {
+                    ResolvedConstructorDeclaration resolvedDec = cd.resolve();
+                    fqn = resolvedDec.getQualifiedName();
+                    fqs = resolvedDec.getQualifiedSignature();
+                } catch (Exception ignored) {
+                }
+
+                int start = cd.getName().getBegin().map(p -> p.line).orElse(-1);
+                Integer end = cd.getEnd().map(p -> p.line).orElse(null);
+                String methodUrl = MethodParserUtil.toMethodUrl(repoUrl, commitHash, file, start);
+
+                result.add(Method.builder()
+                        .repositoryName(repositoryName)
+                        .name(cd.getNameAsString())
+                        .expression("constructor")
+                        .pkg(cu.findCompilationUnit().flatMap(CompilationUnit::getPackageDeclaration).map(pd -> pd.getNameAsString()).orElse(null))
+                        .fqn(fqn)
+                        .fqs(fqs)
+                        .fqsAlt(AltConstructorDeclarationFqn.getMethodFqnSimpleParams(cd))
+                        .file(file)
+                        .startLine(start)
+                        .endLine(end)
+                        .hash(commitHash)
+                        .url(methodUrl)
+                        .artifact(methodType)
+                        .lcba(0)
+                        .invocationLine(null)
+                        .build()
+                );
             }
-            int start = md.getName().getBegin().map(p -> p.line).orElse(-1);
-            Integer end = md.getEnd().map(p -> p.line).orElse(null);
-            String methodUrl = MethodParserUtil.toMethodUrl(repoUrl, commitHash, file, start);
-            result.add(Method.builder()
-                    .repositoryName(repositoryName)
-                    .name(md.getNameAsString())
-                    .expression("method")
-                    .pkg(cu.findCompilationUnit().get().getPackageDeclaration().get().getNameAsString())
-                    .fqn(fqn)
-                    .fqs(fqs)
-                    .fqsAlt(AltMethodDeclarationFqn.getMethodFqnSimpleParams(md))
-                    .file(file)
-                    .startLine(start)
-                    .endLine(end)
-                    .hash(commitHash)
-                    .url(methodUrl)
-                    .artifact(methodType)
-                    .lcba(0)
-                    .invocationLine(null)
-                    .build()
-            );
-        }
+        });
         return result;
     }
 
     private String determineMethodType(
             File file,
             String pkg,
-            MethodDeclaration md, TypeSolver typeResolver) {
+            com.github.javaparser.ast.Node node, TypeSolver typeResolver) {
 
         String filePath = file.getPath().replace(File.separatorChar, '/');
         String bareFileName = file.getName();
@@ -208,8 +249,13 @@ public class MethodScannerImpl implements MethodScanner {
         }
 
 
-        if (isTestMethod(md, false)) {
+        if (node instanceof MethodDeclaration && isTestMethod((MethodDeclaration) node, false)) {
             methodType = "test";
+        } else if (node instanceof ConstructorDeclaration) {
+            Optional<MethodDeclaration> parentMethod = node.findAncestor(MethodDeclaration.class);
+            if (parentMethod.isPresent() && isTestMethod(parentMethod.get(), false)) {
+                methodType = "test";
+            }
         }
 
 

@@ -26,7 +26,7 @@ public class TableUtil {
         StringColumn pkgColumn = StringColumn.create("pkg");
         StringColumn fqnColumn = StringColumn.create("fqn");
         StringColumn fqsColumn = StringColumn.create("fqs");
-        StringColumn fqsSimpleColumn = StringColumn.create("fqs_alt");
+        StringColumn fqsAltColumn = StringColumn.create("fqs_alt");
         StringColumn hashColumn = StringColumn.create("hash");
         StringColumn parserColumn = StringColumn.create("parser");
 //        IntColumn invocationLineColumn = IntColumn.create("invocation_line");
@@ -63,8 +63,8 @@ public class TableUtil {
             if (m.getFqs() == null) fqsColumn.appendMissing();
             else fqsColumn.append(m.getFqs());
 
-            if (m.getFqsAlt() == null) fqsSimpleColumn.appendMissing();
-            else fqsSimpleColumn.append(m.getFqsAlt());
+            if (m.getFqsAlt() == null) fqsAltColumn.appendMissing();
+            else fqsAltColumn.append(m.getFqsAlt());
 
 
             if (m.getHash() == null) hashColumn.appendMissing();
@@ -93,6 +93,8 @@ public class TableUtil {
                         expressionColumn,
                         pkgColumn,
                         fqnColumn,
+                        fqsColumn,
+                        fqsAltColumn,
                         fileColumn,
                         hashColumn,
                         parserColumn
@@ -118,6 +120,8 @@ public class TableUtil {
         StringColumn fromFqsAltColumn = StringColumn.create("from_fqs_alt");
         IntColumn fromInvocationLineColumn = IntColumn.create("from_invocation");
         IntColumn fromLastCallBeforeAnAssertion = IntColumn.create("from_lcba");
+        StringColumn fromCallerUrlColumn = StringColumn.create("from_caller_url");
+        IntColumn fromCallDepthColumn = IntColumn.create("from_call_depth");
 
 
 
@@ -133,7 +137,8 @@ public class TableUtil {
         StringColumn toFqsAltColumn = StringColumn.create("to_fqs_alt");
         IntColumn  toInvocationLineColumn = IntColumn.create("to_invocation");
         IntColumn toLastCallBeforeAnAssertion = IntColumn.create("to_lcba");
-
+        StringColumn toCallerUrlColumn = StringColumn.create("to_caller_url");
+        IntColumn toCallDepthColumn = IntColumn.create("to_call_depth");
 
 
         StringColumn repositoryNameColumn = StringColumn.create("project");
@@ -186,6 +191,11 @@ public class TableUtil {
         allColumns.add(fromMethodFileColumn);
         allColumns.add(toMethodFileColumn);
 
+        allColumns.add(fromCallerUrlColumn);
+        allColumns.add(toCallerUrlColumn);
+
+        allColumns.add(fromCallDepthColumn);
+        allColumns.add(toCallDepthColumn);
         allColumns.add(commitHashColumn);
         Table table = Table.create(allColumns);
         for (MethodCall mc : methodCalls) {
@@ -230,7 +240,11 @@ public class TableUtil {
                 fromExpressionColumn.append(from.getExpression());
                 toExpressionColumn.append(to.getExpression());
 
+                fromCallerUrlColumn.appendMissing();
+                toCallerUrlColumn.appendMissing();
 
+                fromCallDepthColumn.appendMissing();
+                toCallDepthColumn.appendMissing();
                 if (isFanOut){
                     fromInvocationLineColumn.append(to.getInvocationLine());
                     toInvocationLineColumn.appendMissing();
