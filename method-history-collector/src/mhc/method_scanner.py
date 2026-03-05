@@ -129,7 +129,7 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                             "project": repository_name,
                             "name": jm.getName(),
                             "url": jm.getUrl(),
-                            "artifact": jm.getMethodType(),
+                            "artifact": jm.getArtifact(),
                             "start_line": jm.getStartLine(),
                             "end_line": jm.getEndLine(),
                             "file": jm.getFile(),

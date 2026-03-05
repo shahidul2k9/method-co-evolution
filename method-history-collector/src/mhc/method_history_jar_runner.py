@@ -28,13 +28,14 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
 
             method_df = pd.read_csv(util.format_method_list_file(data_directory, repository_name),
                                     keep_default_na=False, na_filter=False)
+            method_df = method_df[method_df["expression"] == "method"]
             method_df = method_df.sample(frac=1, random_state=42).reset_index(drop=True)
             ms.clone_and_checkout_commit(url, os.path.join(repository_directory, repository_name), hash)
             repo_path = Path(method_history_path)
             unzip_index = set(str(p.relative_to(repo_path)) for p in repo_path.rglob("*.json"))
 
             for _, method in method_df.iterrows():
-                name = method['name']
+                method_name = method['name']
                 start_line = method['start_line']
                 file = method['file']
                 if pd.notna(method_name) and pd.notna(start_line):
@@ -60,7 +61,6 @@ def update_repository_index(repository_df: DataFrame, cache_dir: str) -> None:
         if repository_name not in repository_statistics:
             repository_statistics[repository_name] = {}
         repository_statistics[repository_name]["methods"] = len(pd.read_csv(method_file))
-
 
     for tooName in os.listdir(f"{cache_dir}/history"):
         for zip_file in Path(f"{cache_dir}/history/{tooName}").rglob("*.tar.gz"):
@@ -137,6 +137,6 @@ def execute_cmd_method_history_jar(tool_name: str,
     if not os.path.exists(output_file):
         print(f"Executing .. {file}")
         try:
-            subprocess.run(cmd, check=True, timeout=30*60)
+            subprocess.run(cmd, check=True, timeout=30 * 60)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             print(f"Execution failed: {tool_name} {file} {e}")

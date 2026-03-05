@@ -19,27 +19,28 @@ def clone_and_checkout_commit(repo_url, repository_directory, commit_hash):
     """
     try:
         if os.path.exists(repository_directory):
-            print(f"Repository already exists at {repository_directory}. Pulling latest changes...")
+            # Check for a stale lock file and remove it
+            lock_file = os.path.join(repository_directory, ".git", "index.lock")
+            if os.path.exists(lock_file):
+                print(f"Removing stale lock file at {lock_file}")
+                os.remove(lock_file)
+            print(f"Opening existing repo at {repository_directory}")
             repo = Repo(repository_directory)
-
-            # Ensure the repository is valid
-            if repo.bare:
-                raise Exception(
-                    f"Error: The repository at {repository_directory} is corrupted or incomplete.")
-
-            # repo.remotes.origin.pull()
         else:
-            print(f"Cloning repository {repo_url} into {repository_directory}...")
+            print(f"Cloning {repo_url}...")
             repo = Repo.clone_from(repo_url, repository_directory)
 
-        # Checkout specific commit hash
+            # 1. Fetch to ensure we have the latest metadata
+        print(f"Fetching updates...")
+        repo.git.fetch('--all')
+
+        # 2. Force checkout to bypass dirty state or index issues
         print(f"Checking out commit {commit_hash}...")
-        # repo.remotes.origin.fetch()
-        repo.git.checkout(commit_hash)
+        repo.git.checkout(commit_hash, force=True)
 
         # Verify checkout success
         current_commit = repo.head.object.hexsha
-        if commit_hash not in current_commit:
+        if commit_hash != current_commit:
             raise Exception(
                 f"Failed to checkout the correct commit. Expected: {commit_hash}, Got: {current_commit}")
 
