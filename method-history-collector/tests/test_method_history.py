@@ -19,8 +19,8 @@ class MethodHistoryTestCase(unittest.TestCase):
         self.method_collector = MethodHistoryCollector(CACHE_DIRECTORY, REPOSITORY_DIRECTORY, DATA_DIRECTORY,
                                                        JAR_DIRECTORY)
 
-    # def test_method_listing(self):
-    #     self.method_collector.scan_method(self.repositories)
+    def test_method_listing(self):
+        self.method_collector.scan_method(self.repositories)
 
     # def test_history_collection(self):
     #     self.method_collector.collect_method_history(self.repositories, ['historyFinder'])
