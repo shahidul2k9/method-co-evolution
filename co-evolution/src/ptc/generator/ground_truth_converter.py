@@ -1,6 +1,8 @@
 import os.path
 import warnings
 
+import pandas as pd
+
 from mhc.config import *
 from mhc.util import *
 
@@ -36,6 +38,8 @@ def update_ground_truth():
 
                 new_df = pd.DataFrame(new_rows)
                 for col in ["from_url", "to_url"]:
+                    if col not in gt_df.columns:
+                        gt_df[col] = pd.NA
                     gt_df[col] = gt_df[col].fillna(new_df[col])
 
                 gt_df = convert_float_int_columns_to_nullable_int(gt_df)
@@ -62,13 +66,13 @@ def parse_three_columns(file_path):
             yield line.split(',', 2)
 
 
-def escape_ground_truth(projects: [str]):
+def escape_ground_truth_of_author_sun(projects: [str]):
     for file_name in projects:
         input_file = f'{DATA_DIRECTORY}/ground-truth/{file_name}.csv'
         # Use the generator to create the DataFrame
         # This is much safer for Slurm environments
         data_gen = parse_three_columns(input_file)
-        df = pd.DataFrame(data_gen, columns=['project', 'test_fqn', 'tested_method_fqn'])
+        df = pd.DataFrame(data_gen, columns=['project', 'test-fqn', 'tested-method-fqn'])
         output_file = f'{DATA_DIRECTORY}/ground-truth-escaped/{file_name}.csv'
         os.makedirs(os.path.basename(output_file), exist_ok=True)
         # Save with QUOTE_ALL (quoting=1) to ensure columns 2 and 3 are escaped
@@ -79,5 +83,5 @@ def escape_ground_truth(projects: [str]):
 
 if __name__ == "__main__":
     # Escape unescaped ground truth and move into the t2p-ground-truth-updated folder
-    # escape_ground_truth(['jenkins', "dubbo"])
+    # escape_ground_truth_of_author_sun(['jenkins', "dubbo"])
     update_ground_truth()
