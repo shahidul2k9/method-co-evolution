@@ -10,18 +10,22 @@
           "name": "src",
           "targetPath": "src",
           "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
+        }, {
+          "name": "LayoutPreservingPropertiesTest",
+          "targetPath": "src/test/java/org/apache/commons/io/FileUtilsTestCase.java",
+          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
         }
       ]
     },
     {
-      "name": "commons-io",
-      "repositoryUrl": "https://github.com/apache/commons-io",
-      "repositoryPath": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/repository/commons-io",
-      "commitHash": "4077158829de92987367d3149e4ba71356bb5390",
+      "name": "jfreechart",
+      "repositoryUrl": "https://github.com/jfree/jfreechart",
+      "repositoryPath": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/repository/jfreechart",
+      "commitHash": "b3f5f21ba0fe32a8f7eccb6760a79df30628be3e",
       "cases": [
         {
-          "name": "LayoutPreservingPropertiesTest",
-          "targetPath": "src/test/java/org/apache/commons/io/FileUtilsTestCase.java",
+          "name": "Millisecond",
+          "targetPath": "src/main/java/org/jfree/data/time/Millisecond.java",
           "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
         }
       ]

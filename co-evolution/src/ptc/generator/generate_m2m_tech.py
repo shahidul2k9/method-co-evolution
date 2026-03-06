@@ -40,8 +40,8 @@ repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
 # ---------------------------
 
 def establish_confidence(row):
-    test_name = row["from_name"]
-    production_name = row["to_name"]
+    test_name = row["from_name"].lower()
+    production_name = row["to_name"].lower()
 
     return pd.Series({
         "tech_nc": nc._compute_nc_score(production_name, test_name),
