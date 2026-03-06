@@ -100,6 +100,16 @@ public class CallGraphServiceImpl implements CallGraphService {
 
                                         String targetMethodFileSuffix = MethodParserUtil.stripFilePrefix(absoluteRepositoryPath, new File(file).getAbsolutePath());
                                         int targetMethodStartLine = fromMd.getName().getBegin().get().line;
+                                        String fromFqn = null;
+                                        String fromFqs = null;
+                                        try{
+                                            ResolvedMethodDeclaration resolvedFromMd = fromMd.resolve();
+
+                                            fromFqn  = resolvedFromMd.getQualifiedName();
+                                            fromFqs  = resolvedFromMd.getQualifiedName();
+                                        }catch(Exception e){
+                                            log.warn("Failed to parse from method FQN and FQS for {}", fromMd.getNameAsString());
+                                        }
                                         Optional<PackageDeclaration> packageDeclaration = fromMd.findCompilationUnit().get().getPackageDeclaration();
                                         MethodCall methodCall = MethodCall.builder()
                                                 .method(Method.builder()
@@ -108,8 +118,8 @@ public class CallGraphServiceImpl implements CallGraphService {
                                                         .url(MethodParserUtil.toMethodUrl(repositoryUrl, commitHash, targetMethodFileSuffix, targetMethodStartLine))
                                                         .name(fromMd.getSignature().getName())
                                                         .pkg(packageDeclaration.map(NodeWithName::getNameAsString).orElse(null))
-                                                        .fqn(fromMd.resolve().getQualifiedName())
-                                                        .fqs(fromMd.resolve().getQualifiedSignature())
+                                                        .fqn(fromFqn)
+                                                        .fqs(fromFqs)
                                                         .fqsAlt(AltMethodDeclarationFqn.getMethodFqnSimpleParams(fromMd))
                                                         .startLine(targetMethodStartLine)
                                                         .endLine(fromMd.getEnd().get().line)

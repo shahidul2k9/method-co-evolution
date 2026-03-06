@@ -22,6 +22,9 @@ class MethodHistoryTestCase(unittest.TestCase):
     def test_method_listing(self):
         self.method_collector.scan_method(self.repositories)
 
+    def test_call_graph_listing(self):
+        self.method_collector.generate_call_graph(self.repositories, ["methodParser"])
+
     # def test_history_collection(self):
     #     self.method_collector.collect_method_history(self.repositories, ['historyFinder'])
 

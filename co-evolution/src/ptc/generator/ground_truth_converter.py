@@ -19,8 +19,8 @@ for gt_file in ground_truth_dir.glob("*.csv"):
             gt_df = pd.read_csv(gt_file)
             gt_df.rename(
                 columns={
-                    "test-fqn": "from_fqn",
-                    "tested-method-fqn": "to_fqn",
+                    "test-fqn": "from_fqs_alt",
+                    "tested-method-fqn": "to_fqs_alt",
                 },
                 inplace=True,
             )
@@ -31,7 +31,7 @@ for gt_file in ground_truth_dir.glob("*.csv"):
             merged_df = gt_df.merge(
                 fanout_df,
                 how="left",
-                on=["project", "from_fqn", "to_fqn"],
+                on=["project", "from_fqs_alt", "to_fqs_alt"],
                 indicator=True,
             )
 
@@ -52,7 +52,7 @@ for gt_file in ground_truth_dir.glob("*.csv"):
                 recovered_df = unmatched_df.merge(
                     fanout_df,
                     how="left",
-                    on=["project", "from_fqn"],
+                    on=["project", "from_fqs_alt"],
                 )
 
                 recovered_df = convert_float_int_columns_to_nullable_int(recovered_df)
