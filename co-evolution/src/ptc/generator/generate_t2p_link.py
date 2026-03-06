@@ -6,6 +6,8 @@ import pandas as pd
 from mhc.config import *
 from ptc.link_strategy import *
 
+ONE_TO_ONE_MAPPING = False
+
 LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
     LinkStrategy.O2O,
     LinkStrategy.NC,
@@ -21,6 +23,7 @@ METHOD_LINK_STRATEGIES: list[LinkStrategy] = [
     LinkStrategy.LC,
     LinkStrategy.LCBA,
     LinkStrategy.MAX,
+    LinkStrategy.O2O | LinkStrategy.NC,
     LinkStrategy.O2O | LinkStrategy.NC | LinkStrategy.NCC,
     LinkStrategy.O2O | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.LCBA,
     LinkStrategy.O2O | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.MAX,
@@ -52,10 +55,10 @@ def select_one_stage_indices(
         return pt_link_df.loc[candidate_mask].index
 
     if stage == LinkStrategy.NC:
-        return pt_link_df.loc[pt_link_df["tech_nc"] == 1].index
+        return pt_link_df.loc[pt_link_df["tech_nc"] > 0].index
 
     if stage == LinkStrategy.NCC:
-        return pt_link_df.loc[pt_link_df["tech_ncc"] == 1].index
+        return pt_link_df.loc[pt_link_df["tech_ncc"] > 0].index
 
     if stage == LinkStrategy.LCBA:
         return pt_link_df.loc[pt_link_df["tech_lcs_b"] > 0].index
@@ -86,11 +89,7 @@ def select_one_stage_indices(
     raise ValueError(f"Unsupported stage: {stage}")
 
 
-def _stage_mask_one_hot_by_caller(
-    pt_link_df: pd.DataFrame,
-    candidate_idx: pd.Index,
-    keep_mask: pd.Series,
-) -> pd.Series:
+def _stage_mask_by_caller(pt_link_df: pd.DataFrame, candidate_idx: pd.Index, keep_mask: pd.Series, one_hot:bool) -> pd.Series:
     """
     Augment and return a NEW keep_mask using stage candidates.
 
@@ -98,6 +97,7 @@ def _stage_mask_one_hot_by_caller(
     - Skip from_url already selected in keep_mask
     - If candidate_idx contains multiple rows for the same from_url,
       keep only the first one (candidate_idx order is preserved)
+      :param one_hot:
     """
     new_mask = keep_mask.copy()
 
@@ -106,7 +106,7 @@ def _stage_mask_one_hot_by_caller(
 
     for idx in candidate_idx:
         from_url = pt_link_df.at[idx, "from_url"]
-        if from_url not in seen_callers:
+        if from_url not in seen_callers or not one_hot:
             new_mask.at[idx] = True
             seen_callers.add(from_url)
     return new_mask
@@ -130,11 +130,8 @@ def select_links_cascade(
         stage_candidate_idx = select_one_stage_indices(pt_link_df, stage)
         # stage_candidate_idx.to_series(index = False).to_csv(f"{DATA_DIRECTORY}/aggregate/stage-index-{project}.csv")
         if len(stage_candidate_idx) > 0:
-            keep_mask = _stage_mask_one_hot_by_caller(
-                pt_link_df=pt_link_df,
-                candidate_idx=stage_candidate_idx,
-                keep_mask=keep_mask,
-            )
+            keep_mask = _stage_mask_by_caller(pt_link_df=pt_link_df, candidate_idx=stage_candidate_idx,
+                                              keep_mask=keep_mask, one_hot=ONE_TO_ONE_MAPPING)
 
     return keep_mask
 
@@ -163,7 +160,8 @@ for m2m_link_file in list(Path(f"{DATA_DIRECTORY}/m2m-tech").rglob("*.csv")):
         print(repository_name, link_strategy, strategy_output_key(link_strategy), len(change_df))
         # Optional safety check: exactly one selected row per from_url
         counts = change_df["from_url"].value_counts()
-        assert (counts == 1).all(), "Duplicate from_url selections found"
+        if ONE_TO_ONE_MAPPING:
+            assert (counts == 1).all(), "Duplicate from_url selections found"
         t2p_file = f"{DATA_DIRECTORY}/t2p-link/{strategy_output_key(link_strategy)}/{repository_name}.csv"
         os.makedirs(os.path.dirname(t2p_file), exist_ok=True)
         change_df.to_csv(t2p_file, index=False)
