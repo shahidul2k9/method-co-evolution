@@ -12,7 +12,6 @@ from mhc.config import *
 logging.basicConfig(level=logging.DEBUG)
 
 
-
 def clone_and_checkout_commit(repo_url, repository_directory, commit_hash):
     """Clone a GitHub repository and checkout a specific commit hash.
        Raises an exception if cloning or checking out fails.
@@ -20,10 +19,10 @@ def clone_and_checkout_commit(repo_url, repository_directory, commit_hash):
     try:
         if os.path.exists(repository_directory):
             # Check for a stale lock file and remove it
-            lock_file = os.path.join(repository_directory, ".git", "index.lock")
-            if os.path.exists(lock_file):
-                print(f"Removing stale lock file at {lock_file}")
-                os.remove(lock_file)
+            # lock_file = os.path.join(repository_directory, ".git", "index.lock")
+            # if os.path.exists(lock_file):
+            #     print(f"Removing stale lock file at {lock_file}")
+            #     os.remove(lock_file)
             print(f"Opening existing repo at {repository_directory}")
             repo = Repo(repository_directory)
         else:
@@ -32,11 +31,12 @@ def clone_and_checkout_commit(repo_url, repository_directory, commit_hash):
 
             # 1. Fetch to ensure we have the latest metadata
         print(f"Fetching updates...")
-        repo.git.fetch('--all')
+        # repo.git.fetch('--all')
 
         # 2. Force checkout to bypass dirty state or index issues
         print(f"Checking out commit {commit_hash}...")
-        repo.git.checkout(commit_hash, force=True)
+        repo.git.checkout(commit_hash)
+        # repo.git.checkout(commit_hash, force=True)
 
         # Verify checkout success
         current_commit = repo.head.object.hexsha
@@ -68,7 +68,6 @@ def get_all_commit_info(repo_path, branch="HEAD"):
         })
 
     return commits
-
 
 
 def parse_github_url(url):

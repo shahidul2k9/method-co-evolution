@@ -95,8 +95,7 @@ public class AltConstructorDeclarationFqn {
         // arrays
         if (typeName.endsWith("[]")) {
             String elementType = typeName.substring(0, typeName.length() - 2);
-            return toSimpleTypeName(elementType);
-//            return toSimpleTypeName(elementType) + "[]";
+            return toSimpleTypeName(elementType) + "[]";
         }
 
         // remove generics: List<com.foo.Address> -> List
