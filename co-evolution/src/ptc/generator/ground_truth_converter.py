@@ -1,69 +1,83 @@
-from pathlib import Path
-import pandas as pd
-from mhc.config import *
+import os.path
 import warnings
+
+from mhc.config import *
 from mhc.util import *
 
-fanout_dir = Path(f"{CACHE_DIRECTORY}/data/fan-out")
-ground_truth_dir = Path(f"{CACHE_DIRECTORY}/data/ground-truth")
-output_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-ground-truth")
-unmatched_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-ground-truth-missing")
+method_dir = Path(f"{CACHE_DIRECTORY}/data/method")
+ground_truth_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-ground-truth-updated")
+output_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-ground-truth-updated")
 output_dir.mkdir(parents=True, exist_ok=True)
-unmatched_dir.mkdir(parents=True, exist_ok=True)
 
-for gt_file in ground_truth_dir.glob("*.csv"):
-    fanout_file = fanout_dir / gt_file.name
 
-    if fanout_file.exists():
-        try:
-            gt_df = pd.read_csv(gt_file)
-            gt_df.rename(
-                columns={
-                    "test-fqn": "from_fqs_alt",
-                    "tested-method-fqn": "to_fqs_alt",
-                },
-                inplace=True,
-            )
+def update_ground_truth():
+    for gt_file in ground_truth_dir.glob("*.csv"):
+        method_file = method_dir / gt_file.name
 
-            fanout_df = pd.read_csv(fanout_file)
+        if method_file.exists():
+            try:
+                gt_df = pd.read_csv(gt_file)
+                method_df = pd.read_csv(method_file)
 
-            # First merge (strict match)
-            merged_df = gt_df.merge(
-                fanout_df,
-                how="left",
-                on=["project", "from_fqs_alt", "to_fqs_alt"],
-                indicator=True,
-            )
+                new_rows = []
 
-            # Rows that did NOT match
-            unmatched_df = merged_df[merged_df["_merge"] == "left_only"].copy()
+                for _, row in gt_df.iterrows():
+                    updated_row = {
+                        'from_url': None,
+                        'to_url': None
+                    }
 
-            # Drop merge indicator
-            merged_df.drop(columns=["_merge"], inplace=True)
+                    for url_key, fqs_key, fqs_value in [("from_url", "test-fqn", row.get('test-fqn')),
+                                                        ("to_url", "tested-method-fqn", row.get('tested-method-fqn'))]:
+                        matched_df = method_df[method_df["fqs_alt"] == fqs_value]
+                        if len(matched_df) == 1:
+                            updated_row[url_key] = matched_df.iloc[0].get('url')
+                    new_rows.append(updated_row)
 
-            # Save the normal merged result
-            merged_df = convert_float_int_columns_to_nullable_int(merged_df)
-            merged_df.to_csv(output_dir / gt_file.name, index=False)
+                new_df = pd.DataFrame(new_rows)
+                for col in ["from_url", "to_url"]:
+                    gt_df[col] = gt_df[col].fillna(new_df[col])
 
-            # ---- Second merge for unmatched (fallback on from_fqn only) ----
-            if not unmatched_df.empty:
-                unmatched_df = unmatched_df[gt_df.columns]  # keep original GT columns
+                gt_df = convert_float_int_columns_to_nullable_int(gt_df)
+                gt_df.to_csv(output_dir / gt_file.name, index=False)
 
-                recovered_df = unmatched_df.merge(
-                    fanout_df,
-                    how="left",
-                    on=["project", "from_fqs_alt"],
-                )
+            except Exception as e:
+                warnings.warn(f"Fail for {gt_file.name}: {e}")
 
-                recovered_df = convert_float_int_columns_to_nullable_int(recovered_df)
+        else:
+            warnings.warn(f"Skipping {gt_file.name}: no matching fan-out file found")
 
-                recovered_df.to_csv(
-                    unmatched_dir / f"{gt_file.name}",
-                    index=False,
-                )
 
-        except Exception as e:
-            warnings.warn(f"Could not convert {gt_file}: {e}")
+def parse_three_columns(file_path):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        # Skip or yield the header separately
+        header = next(f).strip().split(',')
 
-    else:
-        warnings.warn(f"Skipping {gt_file.name}: no matching fan-out file found")
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            # split(separator, maxsplit)
+            # 2 means: split at 1st comma, then 2nd comma, then stop.
+            yield line.split(',', 2)
+
+
+def escape_ground_truth(projects: [str]):
+    for file_name in projects:
+        input_file = f'{DATA_DIRECTORY}/ground-truth/{file_name}.csv'
+        # Use the generator to create the DataFrame
+        # This is much safer for Slurm environments
+        data_gen = parse_three_columns(input_file)
+        df = pd.DataFrame(data_gen, columns=['project', 'test_fqn', 'tested_method_fqn'])
+        output_file = f'{DATA_DIRECTORY}/ground-truth-escaped/{file_name}.csv'
+        os.makedirs(os.path.basename(output_file), exist_ok=True)
+        # Save with QUOTE_ALL (quoting=1) to ensure columns 2 and 3 are escaped
+        df.to_csv(output_file, index=False)
+
+        print(f"Successfully processed and saved to {output_file}")
+
+
+if __name__ == "__main__":
+    # Escape unescaped ground truth and move into the t2p-ground-truth-updated folder
+    # escape_ground_truth(['jenkins', "dubbo"])
+    update_ground_truth()

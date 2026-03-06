@@ -19,7 +19,7 @@ import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 import rnd.method.parser.call.graph.Main;
-import rnd.method.parser.call.graph.MethodParserUtil;
+import rnd.method.parser.call.graph.util.MethodParserUtil;
 import rnd.method.parser.call.graph.model.MethodCall;
 import rnd.method.parser.call.graph.service.CallGraphServiceImpl;
 

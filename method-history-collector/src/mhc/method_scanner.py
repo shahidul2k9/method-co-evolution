@@ -132,6 +132,7 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                             "artifact": jm.getArtifact(),
                             "start_line": jm.getStartLine(),
                             "end_line": jm.getEndLine(),
+                            "expression": jm.getExpression(),
                             "file": jm.getFile(),
                             "pkg": jm.getPkg(),
                             "fqn": jm.getFqn(),
@@ -163,6 +164,7 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                                      'artifact': "unknown",
                                      'start_line': start_line,
                                      'end_line': None,  # Heuristically find end line
+                                     "expression": None,
                                      "pkg": None,
                                      'fqn': None,
                                      'fqs':None,

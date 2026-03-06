@@ -22,9 +22,9 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import lombok.extern.slf4j.Slf4j;
-import rnd.method.parser.call.graph.MethodParserUtil;
-import rnd.method.parser.call.graph.model.MethodCall;
+import rnd.method.parser.call.graph.util.MethodParserUtil;
 import rnd.method.parser.call.graph.model.Method;
+import rnd.method.parser.call.graph.model.MethodCall;
 import rnd.method.parser.call.graph.util.AltConstructorDeclarationFqn;
 import rnd.method.parser.call.graph.util.AltMethodDeclarationFqn;
 import rnd.method.parser.call.graph.util.TableUtil;
@@ -102,12 +102,11 @@ public class CallGraphServiceImpl implements CallGraphService {
                                         int targetMethodStartLine = fromMd.getName().getBegin().get().line;
                                         String fromFqn = null;
                                         String fromFqs = null;
-                                        try{
+                                        try {
                                             ResolvedMethodDeclaration resolvedFromMd = fromMd.resolve();
-
-                                            fromFqn  = resolvedFromMd.getQualifiedName();
-                                            fromFqs  = resolvedFromMd.getQualifiedName();
-                                        }catch(Exception e){
+                                            fromFqn = resolvedFromMd.getQualifiedName();
+                                            fromFqs = resolvedFromMd.getQualifiedName();
+                                        } catch (Exception e) {
                                             log.warn("Failed to parse from method FQN and FQS for {}", fromMd.getNameAsString());
                                         }
                                         Optional<PackageDeclaration> packageDeclaration = fromMd.findCompilationUnit().get().getPackageDeclaration();

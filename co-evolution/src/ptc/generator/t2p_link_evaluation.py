@@ -2,7 +2,7 @@ from sklearn.metrics import precision_score, recall_score, f1_score, matthews_co
 from mhc.config import *
 from mhc.util import *
 
-ground_truth_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-ground-truth")
+ground_truth_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-ground-truth-updated")
 link_root_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-link")
 output_dir = Path(f"{CACHE_DIRECTORY}/data/aggregate")
 mismatch_root_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-link-missmatch")
@@ -110,8 +110,9 @@ if __name__ == "__main__":
                     pred_detail_df = load_link_df(pred_file)
                     project = pred_file.stem
                     gt_file = ground_truth_dir / pred_file.name
-                    if gt_file.exists():
+                    if gt_file.exists() and str(gt_file.stem) not in ["dubbo"]: # TODO: Fix dubbo parsing issue
                         gt_detail_df = load_link_df(gt_file)
+                        gt_detail_df.dropna(subset=["from_url", "to_url"], inplace=True)
 
                         pred_detail_df = pred_detail_df[pred_detail_df["from_url"].isin(gt_detail_df["from_url"])]
 

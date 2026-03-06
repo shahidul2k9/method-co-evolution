@@ -19,7 +19,7 @@ import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSol
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import lombok.extern.slf4j.Slf4j;
-import rnd.method.parser.call.graph.MethodParserUtil;
+import rnd.method.parser.call.graph.util.MethodParserUtil;
 import rnd.method.parser.call.graph.model.Method;
 import rnd.method.parser.call.graph.util.AltConstructorDeclarationFqn;
 import rnd.method.parser.call.graph.util.AltMethodDeclarationFqn;

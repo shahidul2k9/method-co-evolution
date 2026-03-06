@@ -88,7 +88,7 @@ public class AltMethodDeclarationFqn {
         // varargs
         if (typeName.endsWith("...")) {
             String elementType = typeName.substring(0, typeName.length() - 3);
-            return toSimpleTypeName(elementType) + "...";
+            return toSimpleTypeName(elementType) + "[]";
         }
 
         // arrays
