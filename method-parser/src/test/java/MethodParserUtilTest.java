@@ -1,6 +1,6 @@
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import rnd.method.parser.call.graph.MethodParserUtil;
+import rnd.method.parser.call.graph.util.MethodParserUtil;
 
 import java.io.IOException;
 import java.nio.file.Files;
