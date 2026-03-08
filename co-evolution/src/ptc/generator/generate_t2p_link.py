@@ -7,7 +7,7 @@ from mhc.config import *
 from ptc.link_strategy import *
 
 LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
-    LinkStrategy.O2O,
+    LinkStrategy.OMC,
     LinkStrategy.NC,
     LinkStrategy.NCC,
     LinkStrategy.LCBA,
@@ -15,16 +15,16 @@ LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
     LinkStrategy.MAX,
 ]
 METHOD_LINK_STRATEGIES: list[LinkStrategy] = [
-    LinkStrategy.O2O,
+    LinkStrategy.OMC,
     LinkStrategy.NC,
     LinkStrategy.NCC,
     LinkStrategy.LC,
     LinkStrategy.LCBA,
     LinkStrategy.MAX,
-    LinkStrategy.O2O | LinkStrategy.NC,
-    LinkStrategy.O2O | LinkStrategy.NC | LinkStrategy.NCC,
-    LinkStrategy.O2O | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.LCBA,
-    LinkStrategy.O2O | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.MAX,
+    LinkStrategy.OMC | LinkStrategy.NC,
+    LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC,
+    LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.LCBA,
+    LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.MAX,
 
 ]
 
@@ -49,7 +49,7 @@ def select_one_stage_indices(
     """
     indexes = pt_link_df.iloc[:0].index
     match stage:
-        case LinkStrategy.O2O:
+        case LinkStrategy.OMC:
             candidate_mask = (~pt_link_df.duplicated(subset=["from_url"], keep=False))
             indexes = pt_link_df.loc[candidate_mask].index
         case LinkStrategy.NC:

@@ -5,12 +5,12 @@ from mhc.util import *
 ground_truth_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-ground-truth-updated")
 link_root_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-link")
 output_dir = Path(f"{CACHE_DIRECTORY}/data/aggregate")
-mismatch_root_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-link-missmatch")
+mismatch_root_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-link-metric")
 
 output_dir.mkdir(parents=True, exist_ok=True)
 mismatch_root_dir.mkdir(parents=True, exist_ok=True)
 
-output_file = output_dir / "t2p_link_metrics.csv"
+output_file = output_dir / "t2p_link_overall_metric.csv"
 
 
 def load_link_df(csv_file: Path) -> pd.DataFrame:
