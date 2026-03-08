@@ -24,12 +24,14 @@ import rnd.method.parser.call.graph.model.MethodCall;
 import rnd.method.parser.call.graph.service.CallGraphServiceImpl;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.io.FileNotFoundException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
@@ -90,13 +92,31 @@ public class CallGraphTest extends TestConfigurationBase {
 
 
     @TestFactory
-    public DynamicNode testCallGraphFromConfigFilesAll() {
-        return generateTestCases("white");
-    }
+    public java.util.stream.Stream<DynamicNode> testCallGraph() throws java.io.IOException {
+        String targetFile = TestConfigurationBase.getEnv("TEST_CONFIG_FILE", "");
+        if (!targetFile.isBlank()) {
+            return Stream.of(generateTestCases(targetFile));
+        }
 
-    @TestFactory
-    public DynamicNode testLightweightCallGraphFromConfigFiles() {
-        return generateTestCases("constructor");
+        Path configDir = Paths.get("src/test/resources/call-graph");
+        if (!Files.exists(configDir)) {
+            return java.util.stream.Stream.empty();
+        }
+
+        List<DynamicNode> allTests;
+        try (java.util.stream.Stream<Path> paths = Files.list(configDir)) {
+            allTests = paths.filter(p -> p.getFileName().toString().endsWith(".json"))
+                    .map(p -> {
+                        String fileName = p.getFileName().toString();
+                        String infix = fileName.replace(".json", "");
+                        return (DynamicNode) DynamicContainer.dynamicContainer(
+                                fileName,
+                                java.util.stream.Stream.of(generateTestCases(infix))
+                        );
+                    })
+                    .toList();
+        }
+        return allTests.stream();
     }
 
     private static @NonNull DynamicContainer generateTestCases(String fileNameInfix) {

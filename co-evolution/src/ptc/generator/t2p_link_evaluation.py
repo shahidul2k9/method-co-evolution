@@ -82,12 +82,12 @@ def calculate_score(project: str, strategy_name: str, pred_detail_df: pd.DataFra
         ignore_index=True,
         sort=False,
     )
-
+    mismatch_df = mismatch_df.drop_duplicates(subset=["from_url", "to_url"])
     mismatch_df = convert_float_int_columns_to_nullable_int(mismatch_df)
 
     strategy_mismatch_dir = mismatch_root_dir / strategy_name
     strategy_mismatch_dir.mkdir(parents=True, exist_ok=True)
-    mismatch_df.to_csv(strategy_mismatch_dir / gt_file.name, index=False)
+    mismatch_df.to_csv(strategy_mismatch_dir / f"{project}.csv", index=False)
     return score
 
 if __name__ == "__main__":
@@ -96,8 +96,8 @@ if __name__ == "__main__":
         if strategy_dir.is_dir():
             strategy_name = strategy_dir.name
             pred_gt_tuples = []
-            for pred_file in list(strategy_dir.glob("*.csv")) + ["all.csv"]:
-                if pred_file == 'all.csv':
+            for pred_file in list(strategy_dir.glob("*.csv")) + ["all"]:
+                if str(pred_file) == 'all':
                     all_pred_df, all_gt_df = (
                         pd.concat(items, ignore_index=True)
                         for items in zip(*pred_gt_tuples)

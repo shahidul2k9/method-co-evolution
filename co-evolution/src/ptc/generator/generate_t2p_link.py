@@ -6,8 +6,6 @@ import pandas as pd
 from mhc.config import *
 from ptc.link_strategy import *
 
-ONE_TO_ONE_MAPPING = False
-
 LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
     LinkStrategy.O2O,
     LinkStrategy.NC,
@@ -29,13 +27,16 @@ METHOD_LINK_STRATEGIES: list[LinkStrategy] = [
     LinkStrategy.O2O | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.MAX,
 
 ]
+
+
 def iter_atomic_strategies(mask: LinkStrategy) -> list[LinkStrategy]:
     """Return enabled single strategies in fixed priority order."""
     return [s for s in LINK_STRATEGY_PRIORITY if s in mask]
 
+
 def select_one_stage_indices(
-    pt_link_df: pd.DataFrame,
-    stage: LinkStrategy,
+        pt_link_df: pd.DataFrame,
+        stage: LinkStrategy,
 ) -> pd.Index:
     """
     Select row indices for ONE atomic stage only.
@@ -46,50 +47,41 @@ def select_one_stage_indices(
     - Non-MAX stages: filter only (no sorting, no dedup)
     - MAX stage: filter + sort only (no dedup)
     """
-    if pt_link_df.empty:
-        return pt_link_df.index[:0]
+    indexes = pt_link_df.iloc[:0].index
+    match stage:
+        case LinkStrategy.O2O:
+            candidate_mask = (~pt_link_df.duplicated(subset=["from_url"], keep=False))
+            indexes = pt_link_df.loc[candidate_mask].index
+        case LinkStrategy.NC:
+            indexes = pt_link_df.loc[pt_link_df["tech_nc"] > 0].index
 
-    if stage == LinkStrategy.O2O:
-        candidate_mask = (~pt_link_df.duplicated(subset=["from_url"], keep=False))
+        case LinkStrategy.NCC:
+            indexes = pt_link_df.loc[pt_link_df["tech_ncc"] > 0].index
 
-        return pt_link_df.loc[candidate_mask].index
+        case LinkStrategy.LC:
+            indexes = pt_link_df.loc[pt_link_df["tech_lc"] > 0].index
 
-    if stage == LinkStrategy.NC:
-        return pt_link_df.loc[pt_link_df["tech_nc"] > 0].index
+        case LinkStrategy.LCBA:
+            indexes = pt_link_df.loc[pt_link_df["tech_lcba"] > 0].index
 
-    if stage == LinkStrategy.NCC:
-        return pt_link_df.loc[pt_link_df["tech_ncc"] > 0].index
-
-    if stage == LinkStrategy.LCBA:
-        return pt_link_df.loc[pt_link_df["tech_lcs_b"] > 0].index
-
-    if stage == LinkStrategy.LC:
-        return pt_link_df.loc[pt_link_df["tech_lc"] > 0].index
-
-    if stage == LinkStrategy.LCBA:
-        return pt_link_df.loc[pt_link_df["tech_lcba"] > 0].index
-
-    if stage == LinkStrategy.MAX:
-        score_cols = ["tech_nc", "tech_ncc", "tech_lcs_b", "tech_lcs_u", "tech_leven", "tech_lcba"]
-        candidates = pt_link_df.loc[pt_link_df[score_cols].max(axis=1) > 0]
-        if candidates.empty:
-            return candidates.index[:0]
-
-        # sort only (no dedup) - preserves ranking for later one-hot selection
-        return (
-            candidates.assign(_idx=candidates.index)
-            .sort_values(
-                by=["from_url"] + score_cols + ["_idx"],
-                ascending=[True] + [False] * len(score_cols) + [True],
-            )["_idx"]
-            .astype(int)
-            .pipe(pd.Index)
-        )
-
-    raise ValueError(f"Unsupported stage: {stage}")
+        case LinkStrategy.MAX:
+            score_cols = ["tech_nc", "tech_ncc", "tech_lcs_b", "tech_lcs_u", "tech_leven", "tech_lcba"]
+            candidates = pt_link_df.loc[pt_link_df[score_cols].max(axis=1) > 0]
+            indexes = (
+                candidates.assign(_idx=candidates.index)
+                .sort_values(
+                    by=["from_url"] + score_cols + ["_idx"],
+                    ascending=[True] + [False] * len(score_cols) + [True],
+                )["_idx"]
+                .astype(int)
+                .pipe(pd.Index)
+            )
+        case _:
+            raise ValueError(f"Unsupported stage: {stage}")
+    return indexes
 
 
-def _stage_mask_by_caller(pt_link_df: pd.DataFrame, candidate_idx: pd.Index, keep_mask: pd.Series, one_hot:bool) -> pd.Series:
+def _stage_mask_by_caller(pt_link_df: pd.DataFrame, candidate_idx: pd.Index, keep_mask: pd.Series) -> pd.Series:
     """
     Augment and return a NEW keep_mask using stage candidates.
 
@@ -105,15 +97,17 @@ def _stage_mask_by_caller(pt_link_df: pd.DataFrame, candidate_idx: pd.Index, kee
     seen_callers = set(pt_link_df.loc[new_mask, "from_url"])
 
     for idx in candidate_idx:
-        from_url = pt_link_df.at[idx, "from_url"]
-        if from_url not in seen_callers or not one_hot:
-            new_mask.at[idx] = True
-            seen_callers.add(from_url)
+        # from_url = pt_link_df.at[idx, "from_url"]
+        # if from_url not in seen_callers:
+        #     new_mask.at[idx] = True
+        #     seen_callers.add(from_url)
+        new_mask.at[idx] = True
     return new_mask
 
+
 def select_links_cascade(
-    pt_link_df: pd.DataFrame,
-    composite: LinkStrategy,
+        pt_link_df: pd.DataFrame,
+        composite: LinkStrategy,
 ) -> pd.Series:
     """
     Greedy cascade over ORIGINAL pt_link_df.
@@ -131,7 +125,7 @@ def select_links_cascade(
         # stage_candidate_idx.to_series(index = False).to_csv(f"{DATA_DIRECTORY}/aggregate/stage-index-{project}.csv")
         if len(stage_candidate_idx) > 0:
             keep_mask = _stage_mask_by_caller(pt_link_df=pt_link_df, candidate_idx=stage_candidate_idx,
-                                              keep_mask=keep_mask, one_hot=ONE_TO_ONE_MAPPING)
+                                              keep_mask=keep_mask)
 
     return keep_mask
 
@@ -160,8 +154,7 @@ for m2m_link_file in list(Path(f"{DATA_DIRECTORY}/m2m-tech").rglob("*.csv")):
         print(repository_name, link_strategy, strategy_output_key(link_strategy), len(change_df))
         # Optional safety check: exactly one selected row per from_url
         counts = change_df["from_url"].value_counts()
-        if ONE_TO_ONE_MAPPING:
-            assert (counts == 1).all(), "Duplicate from_url selections found"
+        # assert (counts == 1).all(), "Duplicate from_url selections found"
         t2p_file = f"{DATA_DIRECTORY}/t2p-link/{strategy_output_key(link_strategy)}/{repository_name}.csv"
         os.makedirs(os.path.dirname(t2p_file), exist_ok=True)
         change_df.to_csv(t2p_file, index=False)

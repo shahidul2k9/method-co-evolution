@@ -1,0 +1,22 @@
+{
+  "groups": [
+    {
+      "name": "commons-lang",
+      "repositoryUrl": "https://github.com/apache/commons-lang",
+      "repositoryPath": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/repository/commons-lang",
+      "commitHash": "425d8085cfcaab5a78bf0632f9ae77b7e9127cf8",
+      "cases": [
+        {
+          "name": "CharSetTest",
+          "targetPath": "src/test/java/org/apache/commons/lang3/CharSetTest.java",
+          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
+        },
+        {
+          "name": "ArrayUtilsTest",
+          "targetPath": "src/test/java/org/apache/commons/lang3/ArrayUtilsTest.java",
+          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
+        }
+      ]
+    }
+  ]
+}

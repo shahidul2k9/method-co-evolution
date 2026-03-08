@@ -2,6 +2,7 @@ package rnd.method.parser.call.graph.service;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.Range;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
@@ -35,6 +36,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Stack;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -74,27 +76,52 @@ public class CallGraphServiceImpl implements CallGraphService {
                                     .stream()
                                     .flatMap(fromMd -> {
 //                                        testEmptyString
-                                        if (fromMd.getSignature().getName().contains("testNulls")) {
+                                        if (fromMd.getSignature().getName().contains("testIsNotEmptyPrimitives")) {
                                             log.info(fromMd.getSignature().getName().toString());
 
                                         }
 
+                                        Stack<Range> stack = new Stack<>();
+
                                         List<Method> calledMethods = new ArrayList<>();
 
-                                        fromMd.walk(com.github.javaparser.ast.Node.TreeTraversal.POSTORDER, node -> {
+                                        fromMd.walk(Node.TreeTraversal.PREORDER, node -> {
+
 
                                             if (node instanceof MethodCallExpr || node instanceof ObjectCreationExpr) {
 
-                                                Method methodInfo = getMethodInfo(repositoryUrl, commitHash, node, typeSolver, absoluteRepositoryPath, repositoryName);
-                                                if (methodInfo != null) {
-                                                    calledMethods.add(methodInfo);
-                                                }
                                                 boolean isAssertionMethod = node instanceof MethodCallExpr && AssertionLineFinder.isAssertionCall(((MethodCallExpr) node).getNameAsString());
+
+                                                if (isAssertionMethod && node.getRange().isPresent()) {
+                                                    stack.add(node.getRange().get());
+                                                }
                                                 if (!calledMethods.isEmpty()
                                                         && isAssertionMethod) {
                                                     calledMethods.getLast()
                                                             .setLcba(1);
                                                 }
+
+
+                                                Method methodInfo = getMethodInfo(repositoryUrl, commitHash, node, typeSolver, absoluteRepositoryPath, repositoryName);
+                                                if (methodInfo != null) {
+                                                    while (!stack.isEmpty()) {
+                                                        Range assertRange = stack.peek();
+                                                        if (node.getBegin().isPresent() && node.getBegin().get().line >= assertRange.begin.line
+                                                                && node.getEnd().isPresent() && node.getEnd().get().line <= assertRange.end.line) {
+                                                            methodInfo.setLcba(1);
+                                                            break;
+                                                        } else if (node.getBegin().isPresent() &&
+                                                                (node.getBegin().get().line > assertRange.end.line ||
+                                                                        (node.getBegin().get().line == assertRange.end.line &&
+                                                                                node.getBegin().get().column > assertRange.end.column))) {
+                                                            stack.pop();
+                                                        } else {
+                                                            break;
+                                                        }
+                                                    }
+                                                    calledMethods.add(methodInfo);
+                                                }
+
                                             }
                                         });
 
@@ -164,10 +191,12 @@ public class CallGraphServiceImpl implements CallGraphService {
             String fqnSimple = null;
             String expression = null;
 
-
             if (callNode instanceof MethodCallExpr) {
+                if (((MethodCallExpr) callNode).getName().asString().equals("getSerialIndex")) {
+//                    log.info(callNode.toString());
+                }
                 Optional<ResolvedMethodDeclaration> resolvedDec = JavaParserFacade.get(typeSolver)
-                        .solve((MethodCallExpr) callNode)
+                        .solve((MethodCallExpr) callNode, false)
                         .getDeclaration();
                 Optional<MethodDeclaration> ast =
                         resolvedDec
@@ -275,7 +304,10 @@ public class CallGraphServiceImpl implements CallGraphService {
             }
 
         } catch (Exception e) {
-//                                                    log.error("Method resolve error {}", callNode.getNameAsString());
+            String name = callNode instanceof MethodCallExpr ? ((MethodCallExpr)callNode).getNameAsString() : "";
+            name = callNode instanceof ObjectCreationExpr ? ((ObjectCreationExpr)callNode).getTypeAsString() : "";
+
+//            log.error("Method resolve error {} {}", name, e.getMessage());
         }
         return null;
     }
