@@ -7,6 +7,14 @@
       "commitHash": "425d8085cfcaab5a78bf0632f9ae77b7e9127cf8",
       "cases": [
         {
+          "name": "EqualsBuilderTest",
+          "targetPath": "src/test/java/org/apache/commons/lang3/builder/EqualsBuilderTest.java",
+          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
+        },{
+          "name": "StrLookupTest",
+          "targetPath": "src/test/java/org/apache/commons/lang3/text/StrLookupTest.java",
+          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
+        },{
           "name": "CharSetTest",
           "targetPath": "src/test/java/org/apache/commons/lang3/CharSetTest.java",
           "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
