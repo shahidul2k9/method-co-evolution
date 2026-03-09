@@ -162,14 +162,7 @@ for _, repo in repository_df.iterrows():
                 == expanded_df.groupby("from_url")["from_url"].transform("size") - 1
         ).astype(int)
 
-        expanded_df["tech_lcba"] = (
-            expanded_df.index.isin(
-                expanded_df[expanded_df["to_lcba"] == 1]
-                .groupby("from_url")
-                .tail(1)
-                .index
-            )
-        ).astype(int)
+        expanded_df["tech_lcba"] = expanded_df["to_lcba"].astype(int)
 
         expanded_df = util.convert_float_int_columns_to_nullable_int(expanded_df)
 

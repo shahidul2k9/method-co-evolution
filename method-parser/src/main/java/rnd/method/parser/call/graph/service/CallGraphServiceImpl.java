@@ -2,6 +2,7 @@ package rnd.method.parser.call.graph.service;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.Range;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.Node;
@@ -14,6 +15,7 @@ import com.github.javaparser.ast.expr.SimpleName;
 import com.github.javaparser.ast.nodeTypes.NodeWithName;
 import com.github.javaparser.ast.nodeTypes.NodeWithRange;
 import com.github.javaparser.ast.nodeTypes.NodeWithSimpleName;
+import com.github.javaparser.ast.stmt.ExpressionStmt;
 import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
@@ -32,9 +34,7 @@ import rnd.method.parser.call.graph.util.TableUtil;
 import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -73,28 +73,68 @@ public class CallGraphServiceImpl implements CallGraphService {
                                     .findAll(MethodDeclaration.class)
                                     .stream()
                                     .flatMap(fromMd -> {
-//                                        testEmptyString
-                                        if (fromMd.getSignature().getName().contains("testNulls")) {
+                                        if (fromMd.getSignature().getName().contains("testIncrement")) {
                                             log.info(fromMd.getSignature().getName().toString());
 
                                         }
 
-                                        List<Method> calledMethods = new ArrayList<>();
+                                        Set<String> lcbaMetodUrlSet = new HashSet<>();
 
-                                        fromMd.walk(com.github.javaparser.ast.Node.TreeTraversal.POSTORDER, node -> {
+                                        List<Method> calledMethods = new ArrayList<>();
+                                         /*For handling method just before assertion
+                                         e.g. mutNum.increment
+                                         https://github.com/apache/commons-lang/blob/425d8085cfcaab5a78bf0632f9ae77b7e9127cf8/src/test/java/org/apache/commons/lang3/mutable/MutableIntTest.java#L146
+*/
+                                        Stack<Method> lcbaCandidateMethod = new Stack<>();
+
+
+                                        fromMd.walk(Node.TreeTraversal.POSTORDER, node -> {
+
 
                                             if (node instanceof MethodCallExpr || node instanceof ObjectCreationExpr) {
+
+                                                boolean isAssertionMethod = node instanceof MethodCallExpr && AssertionLineFinder.isAssertionCall(((MethodCallExpr) node).getNameAsString());
+
+                                                if (isAssertionMethod) {
+                                                    while (!lcbaCandidateMethod.isEmpty()) {
+                                                        Method preceededMethod = lcbaCandidateMethod.pop();
+                                                        if (preceededMethod.getInvocationLine() < node.getBegin().get().line){
+                                                            lcbaMetodUrlSet.add(preceededMethod.getUrl());
+                                                            lcbaCandidateMethod.clear();
+                                                        }
+                                                    }
+
+                                                    ((MethodCallExpr) node).getArguments().forEach(argNode -> {
+
+                                                        if (argNode instanceof MethodCallExpr || argNode instanceof ObjectCreationExpr) {
+
+                                                            Method m = getMethodInfo(
+                                                                    repositoryUrl,
+                                                                    commitHash,
+                                                                    argNode,
+                                                                    typeSolver,
+                                                                    absoluteRepositoryPath,
+                                                                    repositoryName
+                                                            );
+                                                            if (m != null) {
+                                                                lcbaMetodUrlSet.add(m.getUrl());
+                                                            }
+                                                        }
+
+                                                    });
+                                                }
 
                                                 Method methodInfo = getMethodInfo(repositoryUrl, commitHash, node, typeSolver, absoluteRepositoryPath, repositoryName);
                                                 if (methodInfo != null) {
                                                     calledMethods.add(methodInfo);
+                                                    lcbaCandidateMethod.add(methodInfo);
                                                 }
-                                                boolean isAssertionMethod = node instanceof MethodCallExpr && AssertionLineFinder.isAssertionCall(((MethodCallExpr) node).getNameAsString());
-                                                if (!calledMethods.isEmpty()
-                                                        && isAssertionMethod) {
-                                                    calledMethods.getLast()
-                                                            .setLcba(1);
-                                                }
+                                            }
+                                        });
+
+                                        calledMethods.forEach(method -> {
+                                            if (lcbaMetodUrlSet.contains(method.getUrl())) {
+                                                method.setLcba(1);
                                             }
                                         });
 
@@ -141,7 +181,9 @@ public class CallGraphServiceImpl implements CallGraphService {
                         return Stream.empty(); // skip file completely
                     }
                 })
-                .toList();
+                        .
+
+                toList();
 
         File fanOutFile = Paths.get(fanOutOutputFile).toFile();
         TableUtil.toTable(methodCallOutList, fanOutFile.getAbsolutePath(), true);
@@ -164,10 +206,12 @@ public class CallGraphServiceImpl implements CallGraphService {
             String fqnSimple = null;
             String expression = null;
 
-
             if (callNode instanceof MethodCallExpr) {
+                if (((MethodCallExpr) callNode).getName().asString().equals("getSerialIndex")) {
+//                    log.info(callNode.toString());
+                }
                 Optional<ResolvedMethodDeclaration> resolvedDec = JavaParserFacade.get(typeSolver)
-                        .solve((MethodCallExpr) callNode)
+                        .solve((MethodCallExpr) callNode, false)
                         .getDeclaration();
                 Optional<MethodDeclaration> ast =
                         resolvedDec
@@ -275,7 +319,10 @@ public class CallGraphServiceImpl implements CallGraphService {
             }
 
         } catch (Exception e) {
-//                                                    log.error("Method resolve error {}", callNode.getNameAsString());
+            String name = callNode instanceof MethodCallExpr ? ((MethodCallExpr) callNode).getNameAsString() : "";
+            name = callNode instanceof ObjectCreationExpr ? ((ObjectCreationExpr) callNode).getTypeAsString() : "";
+
+//            log.error("Method resolve error {} {}", name, e.getMessage());
         }
         return null;
     }

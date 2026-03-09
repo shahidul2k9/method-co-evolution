@@ -26,7 +26,7 @@ for t2p_strategy_dir in t2p_strategy_dirs:
     aggregate_csv_files(f"{DATA_DIRECTORY}/t2p-link/{t2p_strategy_dir}",
                         f"t2p-link--{t2p_strategy_dir}.csv")
 
-for t2p_strategy_dir in Path(f"{DATA_DIRECTORY}/t2p-link-missmatch").iterdir():
+for t2p_strategy_dir in Path(f"{DATA_DIRECTORY}/t2p-link-metric").iterdir():
     if t2p_strategy_dir.is_dir():
         aggregate_csv_files(t2p_strategy_dir,
-                        f"t2p-link-missmatch--{t2p_strategy_dir.name}.csv")
+                        f"t2p-link-metric--{t2p_strategy_dir.name}.csv")

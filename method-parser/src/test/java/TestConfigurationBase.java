@@ -37,7 +37,7 @@ public class TestConfigurationBase {
         ObjectMapper objectMapper = new ObjectMapper();
         List<TestProjectConfig> configurations = new ArrayList<>();
 
-        try (var jsonFiles = java.nio.file.Files.list(Paths.get("src/test/resources/" + resourceGroup))) {
+        try (var jsonFiles = Files.list(Paths.get("src/test/resources/" + resourceGroup))) {
             List<Path> configFiles = jsonFiles
                     .filter(path -> path.getFileName().toString().endsWith(".json") && (path.getFileName().toString().contains(fileNameInfix) || fileNameInfix.equalsIgnoreCase("all")))
                     .sorted()
@@ -118,5 +118,16 @@ public class TestConfigurationBase {
         public String targetPath;
         public String outputDirectory;
         public String fanOutFile;
+        @com.fasterxml.jackson.annotation.JsonProperty("assertions")
+        public List<AssertionConfig> asserts;
+    }
+
+    public static class AssertionConfig {
+        public Map<String, String> projection;
+        public ExpectedConfig expected;
+    }
+
+    public static class ExpectedConfig {
+        public Integer size;
     }
 }

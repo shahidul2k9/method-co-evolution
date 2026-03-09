@@ -10,22 +10,10 @@
           "name": "src",
           "targetPath": "src",
           "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
-        }, {
+        },
+        {
           "name": "LayoutPreservingPropertiesTest",
           "targetPath": "src/test/java/org/apache/commons/io/FileUtilsTestCase.java",
-          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
-        }
-      ]
-    },
-    {
-      "name": "jfreechart",
-      "repositoryUrl": "https://github.com/jfree/jfreechart",
-      "repositoryPath": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/repository/jfreechart",
-      "commitHash": "b3f5f21ba0fe32a8f7eccb6760a79df30628be3e",
-      "cases": [
-        {
-          "name": "Millisecond",
-          "targetPath": "src/main/java/org/jfree/data/time/Millisecond.java",
           "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
         }
       ]

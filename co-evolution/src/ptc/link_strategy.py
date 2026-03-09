@@ -2,19 +2,19 @@ from enum import IntFlag
 
 class LinkStrategy(IntFlag):
     NONE = 0
-    O2O  = 1 << 0
+    OMC  = 1 << 0
     NC   = 1 << 1
     NCC  = 1 << 2
     LCBA = 1 << 3
     LC   = 1 << 4
     MAX  = 1 << 5
 
-    ALL = O2O | NC | NCC | LCBA | LC | MAX
+    ALL = OMC | NC | NCC | LCBA | LC | MAX
 
 
 # Single source of truth for external keys (config/csv/json/etc.)
 STRATEGY_KEYS: dict[LinkStrategy, str] = {
-    LinkStrategy.O2O: "o2o",
+    LinkStrategy.OMC: "omc",
     LinkStrategy.NC: "nc",
     LinkStrategy.NCC: "ncc",
     LinkStrategy.LCBA: "lcba",
