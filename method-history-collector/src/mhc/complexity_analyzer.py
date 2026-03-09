@@ -117,7 +117,9 @@ class ComplexityAnalyzer:
                 if os.path.isdir(file):
                     continue
 
-                filename = file.replace(extracted_dir + "/" + project + "/", "").replace("/", "--")
+                filename = file.replace(
+                    extracted_dir + "/" + project + "/", ""
+                ).replace("/", "--")
                 file_map[filename] = file_number
                 shutil.copy2(
                     file, os.path.join(restructured_dir, f"{file_number}.json")
@@ -134,7 +136,7 @@ class ComplexityAnalyzer:
             self.delete_directory(extracted_dir)
 
     def run_complexity_analyzer(self):
-        command = f"java -Xmx32G -jar {self.jar_file_path} -projectsInfo {self.project_info_path} -codeShovelHistoryDir {self.history_json_dir}/ -resultDir {self.output_dir}/ -filterOutTestMethods false"
+        command = f"java -Xmx32G -jar {self.jar_file_path} -projectsInfo {self.project_info_path} -historyDir {self.history_json_dir}/ -resultDir {self.output_dir}/ -filterOutTestMethods false"
         try:
             subprocess.run(
                 command,
