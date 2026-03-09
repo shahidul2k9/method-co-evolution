@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import json
 import glob
 import uuid
 import shutil
@@ -109,21 +110,33 @@ class ComplexityAnalyzer:
             os.makedirs(restructured_dir, exist_ok=True)
             self.temp_dirs.append(restructured_dir)
 
+            file_map = {}
             file_number = 1
             json_files = glob.glob(f"{extracted_dir}/**/*.json", recursive=True)
             for file in json_files:
                 if os.path.isdir(file):
                     continue
 
+                filename = file.replace(
+                    extracted_dir + "/" + project + "/", ""
+                ).replace("/", "--")
+                file_map[filename] = file_number
                 shutil.copy2(
                     file, os.path.join(restructured_dir, f"{file_number}.json")
                 )
                 file_number += 1
 
+            with open(
+                os.path.join(self.output_dir, f"{project}_file_map.json"),
+                "w",
+                encoding="utf-8",
+            ) as f:
+                json.dump(file_map, f)
+
             self.delete_directory(extracted_dir)
 
     def run_complexity_analyzer(self):
-        command = f"java -Xmx32G -jar {self.jar_file_path} -projectsInfo {self.project_info_path} -codeShovelHistoryDir {self.history_json_dir}/ -resultDir {self.output_dir}/ -filterOutTestMethods false"
+        command = f"java -Xmx32G -jar {self.jar_file_path} -projectsInfo {self.project_info_path} -historyDir {self.history_json_dir}/ -resultDir {self.output_dir}/ -filterOutTestMethods false"
         try:
             subprocess.run(
                 command,
