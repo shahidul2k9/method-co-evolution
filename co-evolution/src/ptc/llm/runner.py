@@ -1,0 +1,315 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from itertools import islice
+import json
+from typing import TYPE_CHECKING
+
+from ptc.llm.models import GenerationConfig, LinkPrediction, PromptInput, ProviderGeneration
+from ptc.llm.persistence import CsvRunStore, normalize_input_kind
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+
+class ModelProvider(ABC):
+    @abstractmethod
+    def generate_batch(
+        self,
+        prompts: list[PromptInput],
+        generation_config: GenerationConfig,
+    ) -> list[ProviderGeneration]:
+        raise NotImplementedError
+
+
+class DataFrameMethodLinker:
+    def __init__(
+        self,
+        provider: ModelProvider,
+        prompt_factory,
+        parser,
+        run_store: CsvRunStore | None = None,
+        batch_size: int = 4,
+        resume: bool = True,
+    ):
+        self.provider = provider
+        self.prompt_factory = prompt_factory
+        self.parser = parser
+        self.run_store = run_store
+        self.batch_size = batch_size
+        self.resume = resume
+
+    def link_dataframe(
+        self,
+        edge_df: "pd.DataFrame",
+        input_kind: str,
+        generation_config: GenerationConfig,
+    ):
+        self._require_pandas()
+        normalized_input_kind = normalize_input_kind(input_kind)
+        working_df = self._normalize_dataframe(edge_df.copy())
+        source_prefix, candidate_prefix, group_column = _layout(normalized_input_kind)
+        working_df["llm_id"] = working_df[group_column]
+        grouped_cases = [case_df for _, case_df in working_df.groupby(group_column, sort=False)]
+
+        completed_predictions = self.run_store.load_predictions() if self.run_store and self.resume else {}
+        pending_cases = []
+        for case_df in grouped_cases:
+            row_id = case_df.iloc[0][group_column]
+            if row_id not in completed_predictions:
+                pending_cases.append(case_df)
+
+        for batch_cases in _chunked(pending_cases, self.batch_size):
+            prompts: list[PromptInput] = []
+            for case_df in batch_cases:
+                prompt = self.prompt_factory.build_prompt(case_df, normalized_input_kind)
+                if prompt.candidate_lookup:
+                    prompts.append(prompt)
+                    if self.run_store:
+                        self.run_store.append_request(prompt)
+                    continue
+
+                prediction = LinkPrediction(
+                    id=prompt.id,
+                    fqs=prompt.fqs,
+                    url=prompt.url,
+                    label="none",
+                    raw_output_text="",
+                    confidence=1.0,
+                    selected_candidate_ids=[],
+                    selected_candidate_confidences=[],
+                    selected_candidate_sigs=[],
+                    selected_candidate_urls=[],
+                    rationale="No candidate methods were present in this grouped case.",
+                    metadata={"generated_without_model": True},
+                )
+                completed_predictions[prompt.id] = prediction
+                if self.run_store:
+                    snapshot_df = self._merge_predictions_into_dataframe(
+                        working_df=working_df,
+                        completed_predictions=completed_predictions,
+                        source_prefix=source_prefix,
+                        candidate_prefix=candidate_prefix,
+                    )
+                    self.run_store.write_prediction_snapshot(snapshot_df)
+
+            if not prompts:
+                continue
+
+            try:
+                outputs = self.provider.generate_batch(prompts, generation_config)
+            except Exception as exc:
+                if self.run_store:
+                    for prompt in prompts:
+                        self.run_store.append_failure(prompt.id, "provider", str(exc))
+                continue
+
+            outputs_by_id = {output.id: output for output in outputs}
+            for prompt in prompts:
+                output = outputs_by_id.get(prompt.id)
+                if output is None:
+                    if self.run_store:
+                        self.run_store.append_failure(prompt.id, "provider", "Missing provider output")
+                    continue
+                try:
+                    prediction = self.parser.parse(prompt, output.output_text)
+                except Exception as exc:
+                    if self.run_store:
+                        self.run_store.append_failure(prompt.id, "parser", str(exc))
+                    continue
+
+                completed_predictions[prompt.id] = prediction
+                if self.run_store:
+                    snapshot_df = self._merge_predictions_into_dataframe(
+                        working_df=working_df,
+                        completed_predictions=completed_predictions,
+                        source_prefix=source_prefix,
+                        candidate_prefix=candidate_prefix,
+                    )
+                    self.run_store.write_prediction_snapshot(snapshot_df)
+
+        merged_df = self._merge_predictions_into_dataframe(
+            working_df=working_df,
+            completed_predictions=completed_predictions,
+            source_prefix=source_prefix,
+            candidate_prefix=candidate_prefix,
+        )
+        if self.run_store:
+            self.run_store.write_prediction_snapshot(merged_df)
+        return merged_df
+
+    @staticmethod
+    def _normalize_dataframe(edge_df):
+        column_aliases = {
+            "from_fqs": ["from_fqs", "from_fqn", "from_name"],
+            "to_fqs": ["to_fqs", "to_fqn", "to_name"],
+            "from_sig": ["from_sig", "from_fqs", "from_fqs_alt", "from_fqn"],
+            "to_sig": ["to_sig", "to_fqs", "to_fqs_alt", "to_fqn"],
+        }
+        for canonical_column, aliases in column_aliases.items():
+            if canonical_column in edge_df.columns:
+                continue
+            for alias in aliases:
+                if alias in edge_df.columns:
+                    edge_df[canonical_column] = edge_df[alias]
+                    break
+            else:
+                edge_df[canonical_column] = ""
+
+        required_columns = ["from_url", "to_url", "from_file", "to_file", "from_fqs", "to_fqs", "from_sig", "to_sig"]
+        missing = [column for column in required_columns if column not in edge_df.columns]
+        if missing:
+            raise ValueError(f"Input dataframe is missing required columns: {missing}")
+
+        return edge_df.fillna("")
+
+    @staticmethod
+    def _predictions_to_dataframe(predictions_by_id):
+        import pandas as pd
+
+        rows = []
+        for prediction in predictions_by_id.values():
+            rows.append(
+                {
+                    "llm_id": prediction.id,
+                    "llm_label": prediction.label,
+                    "llm_confidence": prediction.confidence,
+                    "llm_predicted_candidate_ids": "|".join(prediction.selected_candidate_ids),
+                    "llm_predicted_candidate_confidences": json.dumps(
+                        prediction.selected_candidate_confidences
+                    ),
+                    "llm_predicted_sigs": "|".join(prediction.selected_candidate_sigs),
+                    "llm_predicted_urls": "|".join(prediction.selected_candidate_urls),
+                    "llm_predicted_count": len(prediction.selected_candidate_ids),
+                    "llm_rationale": prediction.rationale,
+                    "llm_raw_output": prediction.raw_output_text,
+                    "llm_fqs": prediction.fqs,
+                    "llm_url": prediction.url,
+                }
+            )
+        return pd.DataFrame(rows)
+
+    def _merge_predictions_into_dataframe(
+        self,
+        working_df,
+        completed_predictions: dict[str, LinkPrediction],
+        source_prefix: str,
+        candidate_prefix: str,
+    ):
+        prediction_df = self._predictions_to_dataframe(completed_predictions)
+        if prediction_df.empty:
+            merged_df = working_df.copy()
+            for column in [
+                "llm_label",
+                "llm_confidence",
+                "llm_predicted_candidate_ids",
+                "llm_predicted_candidate_confidences",
+                "llm_predicted_sigs",
+                "llm_predicted_urls",
+                "llm_predicted_count",
+                "llm_rationale",
+                "llm_raw_output",
+                "llm_fqs",
+                "llm_url",
+                "llm_predicted_candidate_confidence",
+            ]:
+                merged_df[column] = ""
+        else:
+            merged_df = working_df.merge(
+                prediction_df,
+                on="llm_id",
+                how="left",
+            )
+
+        row_candidate_sig_column = f"{candidate_prefix}_sig"
+        row_candidate_url_column = f"{candidate_prefix}_url"
+        merged_df["llm_predicted_match"] = (
+            (merged_df[row_candidate_sig_column] != "")
+            & (
+                merged_df.apply(
+                    lambda row: row[row_candidate_sig_column] in _split_pipe_value(row["llm_predicted_sigs"])
+                    or row[row_candidate_url_column] in _split_pipe_value(row["llm_predicted_urls"]),
+                    axis=1,
+                )
+            )
+        ).astype(int)
+        merged_df["llm_predicted_candidate_confidence"] = merged_df.apply(
+            lambda row: _match_candidate_confidence(
+                row_candidate_sig=row[row_candidate_sig_column],
+                row_candidate_url=row[row_candidate_url_column],
+                predicted_sigs=row.get("llm_predicted_sigs", ""),
+                predicted_urls=row.get("llm_predicted_urls", ""),
+                predicted_confidences=row.get("llm_predicted_candidate_confidences", ""),
+            ),
+            axis=1,
+        )
+        return merged_df
+
+    @staticmethod
+    def _require_pandas() -> None:
+        try:
+            import pandas  # noqa: F401
+        except ImportError as exc:
+            raise ImportError("pandas is required for dataframe-based LLM linking.") from exc
+
+
+def _layout(input_kind: str) -> tuple[str, str, str]:
+    if input_kind in {"fan-out", "t2p"}:
+        return "from", "to", "from_url"
+    if input_kind in {"fan-in", "p2t"}:
+        return "to", "from", "to_url"
+    raise ValueError(f"Unsupported input_kind: {input_kind}")
+
+
+def _chunked(items: list, batch_size: int):
+    iterator = iter(items)
+    while True:
+        chunk = list(islice(iterator, batch_size))
+        if not chunk:
+            return
+        yield chunk
+
+
+def _split_pipe_value(value) -> list[str]:
+    if value is None or value == "":
+        return []
+    return [item for item in str(value).split("|") if item]
+
+
+def _parse_confidence_list(value) -> list[float | None]:
+    if value in (None, ""):
+        return []
+    try:
+        raw_values = json.loads(value)
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    if not isinstance(raw_values, list):
+        return []
+    confidences: list[float | None] = []
+    for raw_value in raw_values:
+        if raw_value in (None, ""):
+            confidences.append(None)
+            continue
+        try:
+            confidences.append(float(raw_value))
+        except (TypeError, ValueError):
+            confidences.append(None)
+    return confidences
+
+
+def _match_candidate_confidence(
+    row_candidate_sig: str,
+    row_candidate_url: str,
+    predicted_sigs,
+    predicted_urls,
+    predicted_confidences,
+):
+    confidences = _parse_confidence_list(predicted_confidences)
+    for index, (candidate_sig, candidate_url) in enumerate(
+        zip(_split_pipe_value(predicted_sigs), _split_pipe_value(predicted_urls))
+    ):
+        if row_candidate_sig == candidate_sig or row_candidate_url == candidate_url:
+            if index < len(confidences):
+                return confidences[index]
+            return None
+    return None

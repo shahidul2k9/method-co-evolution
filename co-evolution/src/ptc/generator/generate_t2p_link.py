@@ -13,6 +13,9 @@ LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
     LinkStrategy.LCBA,
     LinkStrategy.LC,
     LinkStrategy.MAX,
+    LinkStrategy.LLM_GPT_OSS_20B,
+    LinkStrategy.LLM_GPT_OSS_120B,
+    LinkStrategy.LLM_QWEN_2D5B,
 ]
 METHOD_LINK_STRATEGIES: list[LinkStrategy] = [
     LinkStrategy.OMC,
@@ -25,6 +28,9 @@ METHOD_LINK_STRATEGIES: list[LinkStrategy] = [
     LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC,
     LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.LCBA,
     LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.MAX,
+    LinkStrategy.LLM_GPT_OSS_20B,
+    LinkStrategy.LLM_GPT_OSS_120B,
+    LinkStrategy.LLM_QWEN_2D5B,
 
 ]
 
@@ -76,9 +82,34 @@ def select_one_stage_indices(
                 .astype(int)
                 .pipe(pd.Index)
             )
+        case _ if stage in {
+            LinkStrategy.LLM_GPT_OSS_20B,
+            LinkStrategy.LLM_GPT_OSS_120B,
+            LinkStrategy.LLM_QWEN_2D5B,
+        }:
+            indexes = _select_llm_stage_indices(pt_link_df, stage)
         case _:
             raise ValueError(f"Unsupported stage: {stage}")
     return indexes
+
+
+def _select_llm_stage_indices(pt_link_df: pd.DataFrame, stage: LinkStrategy) -> pd.Index:
+    llm_column = _llm_stage_column_name(pt_link_df, stage)
+    if llm_column is None:
+        return pt_link_df.iloc[:0].index
+    llm_values = pd.to_numeric(pt_link_df[llm_column], errors="coerce")
+    return pt_link_df.loc[llm_values > 0].index
+
+
+def _llm_stage_column_name(pt_link_df: pd.DataFrame, stage: LinkStrategy) -> str | None:
+    strategy_name = strategy_key(stage)
+    candidates = [
+        f"tech_{strategy_name}"
+    ]
+    for column_name in candidates:
+        if column_name in pt_link_df.columns:
+            return column_name
+    return None
 
 
 def _stage_mask_by_caller(pt_link_df: pd.DataFrame, candidate_idx: pd.Index, keep_mask: pd.Series) -> pd.Series:
@@ -132,37 +163,40 @@ def select_links_cascade(
 
 def strategy_output_key(mask: LinkStrategy) -> str:
     """Stable key for path/logging (single or composite)."""
-    parts = [s.name.lower() for s in iter_atomic_strategies(mask)]
-    return "-".join(parts) if parts else "none"
+    parts = [STRATEGY_KEYS.get(atomic_link) for atomic_link in iter_atomic_strategies(mask)]
+    return "--".join(parts) if parts else "none"
 
 
-for m2m_link_file in list(Path(f"{DATA_DIRECTORY}/m2m-tech").rglob("*.csv")):
-    m2m_link_df = pd.read_csv(m2m_link_file, keep_default_na=False, na_filter=False)
-    assert len(m2m_link_df["project"].unique()) == 1, "Each file must be for the same repository_name"
-    repository_name = m2m_link_df["project"].iloc[0]
-    method_df = pd.read_csv(f"{DATA_DIRECTORY}/method/{repository_name}.csv", keep_default_na=False, na_filter=False)
-    method_df = method_df[["url", "artifact"]]
+def main() -> None:
+    for m2m_link_file in list(Path(f"{DATA_DIRECTORY}/m2m-tech").rglob("*.csv")):
+        m2m_link_df = pd.read_csv(m2m_link_file, keep_default_na=False, na_filter=False)
+        assert len(m2m_link_df["project"].unique()) == 1, "Each file must be for the same repository_name"
+        repository_name = m2m_link_df["project"].iloc[0]
+        method_df = pd.read_csv(f"{DATA_DIRECTORY}/method/{repository_name}.csv", keep_default_na=False, na_filter=False)
+        method_df = method_df[["url", "artifact"]]
 
-    t2p_link_df = (m2m_link_df.merge(method_df.add_prefix("from_"), on="from_url", how="inner")
-                   .merge(method_df.add_prefix("to_"), on="to_url", how="inner"))
+        t2p_link_df = (m2m_link_df.merge(method_df.add_prefix("from_"), on="from_url", how="inner")
+                       .merge(method_df.add_prefix("to_"), on="to_url", how="inner"))
 
-    t2p_link_df = (t2p_link_df[(t2p_link_df["from_artifact"] == "test") & (t2p_link_df["to_artifact"] == "production")])
+        t2p_link_df = (t2p_link_df[(t2p_link_df["from_artifact"] == "test") & (t2p_link_df["to_artifact"] == "production")])
 
 
-    # Remove constructor unless all the to_url are constructors
-    is_constructor = t2p_link_df["to_expression"].str.contains("constructor", case=False, na=False)
-    groups_with_methods = t2p_link_df.groupby("from_url")["to_expression"].transform(
-        lambda x: (~x.str.contains("constructor", case=False, na=False)).any()
-    )
-    t2p_link_df = t2p_link_df[~(is_constructor & groups_with_methods)]
+        # Remove constructor unless all the to_url are constructors
+        is_constructor = t2p_link_df["to_expression"].str.contains("constructor", case=False, na=False)
+        groups_with_methods = t2p_link_df.groupby("from_url")["to_expression"].transform(
+            lambda x: (~x.str.contains("constructor", case=False, na=False)).any()
+        )
+        t2p_link_df = t2p_link_df[~(is_constructor & groups_with_methods)]
 
-    for link_strategy in METHOD_LINK_STRATEGIES:
-        keep_mask = select_links_cascade(t2p_link_df, link_strategy)
-        change_df = t2p_link_df.loc[keep_mask].copy()
-        print(repository_name, link_strategy, strategy_output_key(link_strategy), len(change_df))
-        # Optional safety check: exactly one selected row per from_url
-        counts = change_df["from_url"].value_counts()
-        # assert (counts == 1).all(), "Duplicate from_url selections found"
-        t2p_file = f"{DATA_DIRECTORY}/t2p-link/{strategy_output_key(link_strategy)}/{repository_name}.csv"
-        os.makedirs(os.path.dirname(t2p_file), exist_ok=True)
-        change_df.to_csv(t2p_file, index=False)
+        for link_strategy in METHOD_LINK_STRATEGIES:
+            keep_mask = select_links_cascade(t2p_link_df, link_strategy)
+            change_df = t2p_link_df.loc[keep_mask].copy()
+            print(repository_name, link_strategy, strategy_output_key(link_strategy), len(change_df))
+            counts = change_df["from_url"].value_counts()
+            t2p_file = f"{DATA_DIRECTORY}/t2p-link/{strategy_output_key(link_strategy)}/{repository_name}.csv"
+            os.makedirs(os.path.dirname(t2p_file), exist_ok=True)
+            change_df.to_csv(t2p_file, index=False)
+
+
+if __name__ == "__main__":
+    main()

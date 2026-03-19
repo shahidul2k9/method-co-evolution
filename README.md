@@ -20,36 +20,92 @@ pip install -e ./method-history-collector --upgrade
 pip install -e ./co-evolution --upgrade
 ```
 
+For LLM method-to-method linking:
+
+```bash
+pip install -e ./co-evolution[llm] --upgrade
+```
+
+The `llm` extra includes `torch`, `transformers`, and `accelerate`. On some GPU systems you may still prefer installing a cluster-specific `torch` wheel manually first if you need a particular CUDA build.
+
 ### Run
 ```bash
 mhc scan-method \
-    --cache_directory ".cache" \
-    --repository_directory ".cache/repository" \
-    --data_directory ".cache/data" \
-    --jar_directory ".cache/jar" \
-    --repository_name "checkstyle"
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --project "checkstyle"
     
 mhc history \
-    --cache_directory ".cache" \
-    --repository_directory ".cache/repository" \
-    --data_directory ".cache/data" \
-    --jar_directory ".cache/jar" \
-    --tool_name "codeShovel" \
-    --repository_name "checkstyle"
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --tool-name "codeShovel" \
+    --project "checkstyle"
     
 mhc call-graph \
-    --cache_directory ".cache" \
-    --repository_directory ".cache/repository" \
-    --data_directory ".cache/data" \
-    --jar_directory ".cache/jar" \
-    --tool_name "methodParser" \
-    --repository_name "checkstyle"
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --tool-name "methodParser" \
+    --project "checkstyle"
 
 mhc complexity-analyzer \
-    --cache_directory ".cache" \
-    --repository_directory ".cache/repository" \
-    --data_directory ".cache/data" \
-    --jar_directory ".cache/jar" \
-    --tool_name "complexityAnalyzer" \
-    --repository_name "checkstyle"
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --tool-name "complexityAnalyzer" \
+    --project "checkstyle"
 ```
+
+### LLM M2M Link
+
+The `co-evolution` package now includes a reusable LLM classification runner with:
+
+- Hugging Face model backend abstraction
+- Durable CSV persistence for resumable long runs
+- Batch execution for large method-linking jobs
+- Zero-shot prompting for `t2p` and `p2t` linking
+- Multi-label predictions for cases where one method maps to multiple targets
+
+
+```bash
+ptc-llm llm-m2m-link \
+    --cache-directory ".cache" \
+    --project "commons-io" \
+    --input-kind "t2p" \
+    --model-name-or-path "openai/gpt-oss-20b" \
+    --batch-size 8 \
+    --dtype "auto"
+```
+
+
+For `llm-m2m-link`, the input CSV is resolved automatically from:
+
+- `t2p` -> `<data_directory>/fan-out/<project>.csv`
+- `p2t` -> `<data_directory>/fan-in/<project>.csv`
+
+By default, outputs are written under `<cache_directory>/data/llm` using this layout:
+
+- `<cache_directory>/data/llm/t2p/<model-name>/prediction/<input-file>.csv`
+- `<cache_directory>/data/llm/t2p/<model-name>/request/<input-file>.csv`
+- `<cache_directory>/data/llm/t2p/<model-name>/error/<input-file>.csv`
+- `<cache_directory>/data/llm/p2t/<model-name>/prediction/<input-file>.csv`
+- `<cache_directory>/data/llm/p2t/<model-name>/request/<input-file>.csv`
+- `<cache_directory>/data/llm/p2t/<model-name>/error/<input-file>.csv`
+
+For example, with `openai/gpt-oss-20b`, the model folder name becomes `gpt-oss-20b`.
+
+The primary files are:
+
+- `prediction/<input-file>.csv`
+- `request/<input-file>.csv`
+- `error/<input-file>.csv`
+
+`prediction/<input-file>.csv` is the original input dataframe plus the added LLM columns such as `llm_label`, `llm_confidence`, `llm_predicted_candidate_confidences`, `llm_predicted_sigs`, `llm_predicted_urls`, `llm_predicted_candidate_confidence`, and row-level `llm_predicted_match`.
+
+For `t2p` input, rows are grouped by `from_url`. For `p2t` input, rows are grouped by `to_url`. Each group becomes one prompt, and the LLM output is merged back onto all rows in that group.

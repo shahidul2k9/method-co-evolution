@@ -16,10 +16,19 @@ dependencies = [
     "pytctracer"
 ]
 
+[project.optional-dependencies]
+llm = [
+    "torch",
+    "transformers",
+    "accelerate",
+]
+
+[project.scripts]
+ptc-llm = "ptc.llm.main:main"
+
 [build-system]
 requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
