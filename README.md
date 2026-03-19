@@ -31,34 +31,34 @@ The `llm` extra includes `torch`, `transformers`, and `accelerate`. On some GPU 
 ### Run
 ```bash
 mhc scan-method \
-    --cache_directory ".cache" \
-    --repository_directory ".cache/repository" \
-    --data_directory ".cache/data" \
-    --jar_directory ".cache/jar" \
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
     --project "checkstyle"
     
 mhc history \
-    --cache_directory ".cache" \
-    --repository_directory ".cache/repository" \
-    --data_directory ".cache/data" \
-    --jar_directory ".cache/jar" \
-    --tool_name "codeShovel" \
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --tool-name "codeShovel" \
     --project "checkstyle"
     
 mhc call-graph \
-    --cache_directory ".cache" \
-    --repository_directory ".cache/repository" \
-    --data_directory ".cache/data" \
-    --jar_directory ".cache/jar" \
-    --tool_name "methodParser" \
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --tool-name "methodParser" \
     --project "checkstyle"
 
 mhc complexity-analyzer \
-    --cache_directory ".cache" \
-    --repository_directory ".cache/repository" \
-    --data_directory ".cache/data" \
-    --jar_directory ".cache/jar" \
-    --tool_name "complexityAnalyzer" \
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --tool-name "complexityAnalyzer" \
     --project "checkstyle"
 ```
 
@@ -75,11 +75,11 @@ The `co-evolution` package now includes a reusable LLM classification runner wit
 
 ```bash
 ptc-llm llm-m2m-link \
-    --cache_directory ".cache" \
+    --cache-directory ".cache" \
     --project "commons-io" \
-    --input_kind "t2p" \
-    --model_name_or_path "openai/gpt-oss-20b" \
-    --batch_size 8 \
+    --input-kind "t2p" \
+    --model-name-or-path "openai/gpt-oss-20b" \
+    --batch-size 8 \
     --dtype "auto"
 ```
 

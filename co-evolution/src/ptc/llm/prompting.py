@@ -20,8 +20,8 @@ class MethodLinkingPromptFactory:
         for index, row in enumerate(case_df.itertuples(index=False), start=1):
             candidate_fqs = _display_method_text(row, candidate_prefix)
             candidate_id = f"c{index}"
-            candidate_sig = getattr(row, f"{candidate_prefix}_sig")
-            candidate_url = getattr(row, f"{candidate_prefix}_url")
+            candidate_sig = _row_value(row, f"{candidate_prefix}_sig")
+            candidate_url = _row_value(row, f"{candidate_prefix}_url")
             candidate_file = getattr(row, f"{candidate_prefix}_file", "")
 
             if not any([candidate_fqs, candidate_sig, candidate_url, candidate_file]):
@@ -29,7 +29,7 @@ class MethodLinkingPromptFactory:
 
             candidate_lookup[candidate_id] = {
                 "fqs": candidate_fqs,
-                "sig": candidate_sig,
+                "sig": candidate_sig or candidate_fqs,
                 "url": candidate_url,
             }
             candidate_lines.append(
@@ -155,6 +155,12 @@ class JsonPredictionParser:
     @staticmethod
     def _extract_json(output_text: str) -> dict:
         decoder = json.JSONDecoder()
+        stripped_output = output_text.strip()
+        standalone_payload = JsonPredictionParser._try_decode_standalone_json(decoder, stripped_output)
+        normalized_payload = JsonPredictionParser._normalize_payload_shape(standalone_payload)
+        if normalized_payload is not None and JsonPredictionParser._looks_like_prediction_payload(normalized_payload):
+            return normalized_payload
+
         for start_index, character in enumerate(output_text):
             if character not in {"{", "["}:
                 continue
@@ -168,6 +174,18 @@ class JsonPredictionParser:
         raise ValueError(f"Could not find JSON object in model output: {output_text}")
 
     @staticmethod
+    def _try_decode_standalone_json(decoder: json.JSONDecoder, output_text: str):
+        if not output_text:
+            return None
+        try:
+            payload, end_index = decoder.raw_decode(output_text)
+        except json.JSONDecodeError:
+            return None
+        if output_text[end_index:].strip():
+            return None
+        return payload
+
+    @staticmethod
     def _looks_like_prediction_payload(payload: dict) -> bool:
         if "candidate_ids" not in payload and "candidate_id" not in payload:
             return False
@@ -177,10 +195,12 @@ class JsonPredictionParser:
             return False
 
         candidate_ids = payload.get("candidate_ids", payload.get("candidate_id", []))
+        candidate_confidences = payload.get("candidate_confidences")
         if (
             isinstance(candidate_ids, list)
             and candidate_ids == ["c1", "c2"]
-            and rationale in {"", "short explanation"}
+            and rationale == "short explanation"
+            and candidate_confidences == {}
         ):
             return False
 

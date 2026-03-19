@@ -67,6 +67,21 @@ class TestCsvRunStore(unittest.TestCase):
                 store.failures_file,
             )
 
+    def test_short_model_name_overrides_directory_name(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = CsvRunStore(
+                tmpdir,
+                "t2p",
+                "openai/gpt-oss-20b",
+                "commons-io.csv",
+                short_model_name="gpt_oss_20b",
+            )
+
+            self.assertEqual(
+                Path(tmpdir) / "t2p" / "gpt_oss_20b" / "prediction" / "commons-io.csv",
+                store.predictions_file,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

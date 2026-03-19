@@ -10,27 +10,38 @@ def main():
         "command", type=str, help="Command to execute (e.g., history, call-graph)"
     )
     parser.add_argument(
-        "--cache_directory", type=str, required=True, help="Cache directory path"
+        "--cache-directory",
+        type=str,
+        required=True,
+        help="Cache directory path"
     )
     parser.add_argument(
-        "--repository_directory",
+        "--repository-directory",
         type=str,
         required=True,
         help="Repository directory path",
     )
     parser.add_argument(
-        "--data_directory", type=str, required=True, help="Data directory path"
+        "--data-directory",
+        type=str,
+        required=True,
+        help="Data directory path"
     )
     parser.add_argument(
-        "--jar_directory", type=str, required=True, help="Jar directory path"
+        "--jar-directory",
+        type=str,
+        required=True,
+        help="Jar directory path"
     )
 
     # Conditional args for history command
     parser.add_argument(
-        "--tool_name", type=str, help="Tool name (required for history command)"
+        "--tool-name", dest="tool_name", type=str, help="Tool name (required for history command)"
     )
     parser.add_argument(
-        "--repository_name",
+        "--project",
+        "--repository-name",
+        dest="repository_name",
         type=str,
         help="Repository name (required for history command)",
     )

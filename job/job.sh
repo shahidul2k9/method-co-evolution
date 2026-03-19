@@ -28,12 +28,13 @@ module load arrow
 module load cuda
 module load java/21.0.1
 
+export PROJECT_DIRECTORY="$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution"
 COMMAND_NAME=""
 TOOL_NAME=""
 MODEL_NAME_OR_PATH=""
 PROJECTS_CSV=""
 INPUT_KIND="t2p"
-CACHE_DIRECTORY_ARG=".cache"
+CACHE_DIRECTORY="$PROJECT_DIRECTORY/.cache"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -58,7 +59,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --cache-directory)
-            CACHE_DIRECTORY_ARG="$2"
+            CACHE_DIRECTORY="$2"
             shift 2
             ;;
         --help|-h)
@@ -93,13 +94,6 @@ else
     fi
 fi
 
-export PROJECT_DIRECTORY="$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution"
-if [[ "$CACHE_DIRECTORY_ARG" = /* ]]; then
-    export CACHE_DIRECTORY="$CACHE_DIRECTORY_ARG"
-else
-    export CACHE_DIRECTORY="$PROJECT_DIRECTORY/$CACHE_DIRECTORY_ARG"
-fi
-
 LOG_DIR="$CACHE_DIRECTORY/log/job"
 mkdir -p "$LOG_DIR"
 cd "$PROJECT_DIRECTORY"
@@ -116,18 +110,18 @@ PROJECT=${PROJECTS[$IDX]}
 
 if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
     srun ptc-llm llm-m2m-link \
-        --cache_directory "$CACHE_DIRECTORY" \
-        --model_name_or_path "$MODEL_NAME_OR_PATH" \
-        --input_kind "$INPUT_KIND" \
+        --cache-directory "$CACHE_DIRECTORY" \
+        --model-name-or-path "$MODEL_NAME_OR_PATH" \
+        --input-kind "$INPUT_KIND" \
         --project "$PROJECT"
     echo "Task started on $(hostname) at $(date) for model $MODEL_NAME_OR_PATH, input kind $INPUT_KIND, and project $PROJECT"
 else
     srun mhc "$COMMAND_NAME" \
-        --cache_directory "$CACHE_DIRECTORY" \
-        --repository_directory "$SLURM_TMPDIR/repository" \
-        --data_directory "$CACHE_DIRECTORY/data" \
-        --jar_directory "$CACHE_DIRECTORY/jar" \
-        --tool_name "$TOOL_NAME" \
+        --cache-directory "$CACHE_DIRECTORY" \
+        --repository-directory "$SLURM_TMPDIR/repository" \
+        --data-directory "$CACHE_DIRECTORY/data" \
+        --jar-directory "$CACHE_DIRECTORY/jar" \
+        --tool-name "$TOOL_NAME" \
         --project "$PROJECT"
     echo "Task started on $(hostname) at $(date) for tool name $TOOL_NAME and project $PROJECT"
 fi

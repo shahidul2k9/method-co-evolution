@@ -20,7 +20,7 @@ class TestLlmMainHelpers(unittest.TestCase):
         input_file = resolve_input_file(str(TEST_CACHE_DIRECTORY), "commons-io", "t2p")
 
         self.assertEqual(
-            TEST_CACHE_DIRECTORY / "data" / "fan-out" / "commons-io.csv",
+            TEST_CACHE_DIRECTORY / "data" / "t2p-candidate" / "commons-io.csv",
             input_file,
         )
 

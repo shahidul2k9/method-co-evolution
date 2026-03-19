@@ -14,10 +14,11 @@ class CsvRunStore:
         input_kind: str,
         model_name_or_path: str,
         input_file_name: str,
+        short_model_name: str | None = None,
     ):
         self.output_root = Path(output_root)
         self.input_kind = normalize_input_kind(input_kind)
-        self.model_directory_name = model_directory_name(model_name_or_path)
+        self.model_directory_name = model_directory_name(model_name_or_path, short_model_name)
         self.input_file_name = input_file_name
 
         self.kind_directory = self.output_root / self.input_kind
@@ -138,7 +139,9 @@ def _coerce_float_list(value: str) -> list[float | None]:
     return [_coerce_float("" if item is None else str(item)) for item in raw_values]
 
 
-def model_directory_name(model_name_or_path: str) -> str:
+def model_directory_name(model_name_or_path: str, short_model_name: str | None = None) -> str:
+    if short_model_name:
+        return short_model_name
     normalized = model_name_or_path.replace("\\", "/").rstrip("/")
     return normalized.split("/")[-1] or "model"
 
