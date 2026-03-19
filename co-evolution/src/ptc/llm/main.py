@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
-
+from mhc.config import *
 from ptc.llm.models import GenerationConfig
 from ptc.llm.persistence import CsvRunStore
 from ptc.llm.prompting import JsonPredictionParser, MethodLinkingPromptFactory
@@ -55,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--torch_dtype", dest="dtype", help=argparse.SUPPRESS)
     parser.add_argument(
         "--hf_token",
-        default=None,
+        default=HF_TOKEN,
         help="Hugging Face token. Defaults to HF_TOKEN or HUGGINGFACE_HUB_TOKEN.",
     )
     parser.add_argument(
