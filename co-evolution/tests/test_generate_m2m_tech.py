@@ -113,7 +113,7 @@ class TestApplyLlmTechniques(unittest.TestCase):
 
     def test_llm_strategy_directory_names_use_link_strategy_keys(self):
         self.assertEqual(
-            ["gpt_oss_20b", "gpt_oss_120b", "qwen_2d5b"],
+            ["gpt-oss-20b", "gpt-oss-120b", "qwen-2d5b"],
             llm_strategy_directory_names(),
         )
 

@@ -52,7 +52,7 @@ def apply_llm_techniques(
     enriched_df = t2p_candidate_df.copy()
 
     for directory_name in llm_directory_names:
-        column_name = f"tech_llm_{directory_name}"
+        column_name = f"tech_{directory_name}"
         prediction_file = llm_prediction_root / directory_name / "prediction" / f"{project}.csv"
 
         if not prediction_file.exists():
