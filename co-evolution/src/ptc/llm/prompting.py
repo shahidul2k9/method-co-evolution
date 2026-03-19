@@ -33,7 +33,8 @@ class MethodLinkingPromptFactory:
                 "url": candidate_url,
             }
             candidate_lines.append(
-                f"{candidate_id}: fqs={candidate_fqs}; file={candidate_file}"
+                # f"{candidate_id}: fqs={candidate_fqs}; file={candidate_file}"
+                f"{candidate_id}: fqs={candidate_fqs}"
             )
 
         prompt_text = self._build_prompt_text(
@@ -60,8 +61,7 @@ class MethodLinkingPromptFactory:
         candidate_lines: list[str],
     ) -> str:
         schema = (
-            '{"label":"match|none|partial","candidate_ids":["c1","c2"],'
-            '"candidate_confidences":{"c1":0.0,"c2":0.0},"confidence":0.0,'
+            '{"candidate_ids":[],"candidate_confidences":{},"confidence":0.0,'
             '"rationale":"short explanation"}'
         )
         candidate_block = "\n".join(candidate_lines) if candidate_lines else "- None"
@@ -70,32 +70,34 @@ class MethodLinkingPromptFactory:
             return (
                 "You are linking test methods to production methods in a Java codebase.\n"
                 "This is a zero-shot test-to-production classification task.\n"
-                "The source method is a test method.\n"
-                "The candidate methods are production methods called by that test method.\n"
-                "Select zero, one, or multiple candidate production methods that are actually tested by the source test method.\n"
-                "Respond with JSON only using this schema:\n"
+                "The production method is the method under test.\n"
+                "The candidate methods are production methods called by the source method.\n"
+                "Select zero, one, or multiple candidate production methods that are actually tested by or strongly linked to the test method.\n"
+                "Respond with valid JSON only using this schema:\n"
                 f"{schema}\n\n"
+                "Only return candidate IDs such as c1, c2, c3. Do not return a label field.\n"
+                "Do not repeat the prompt. Do not use markdown or code fences.\n"
                 f"Test method FQS: {source_fqs}\n"
-                f"Test method file: {source_file}\n"
-                "Production methods called by this test method:\n"
+                "Candidate production methods called by the test method:\n"
                 f"{candidate_block}\n\n"
-                "Return JSON only."
+                "JSON only:"
             )
 
         if input_kind == "p2t":
             return (
                 "You are linking production methods to test methods in a Java codebase.\n"
                 "This is a zero-shot production-to-test classification task.\n"
-                "The source method is a production method.\n"
-                "The candidate methods are test methods that call that production method.\n"
-                "Select zero, one, or multiple candidate test methods that actually test the source production method.\n"
-                "Respond with JSON only using this schema:\n"
+                "The production method is the method under test.\n"
+                "The candidate methods are production methods that call that production method.\n"
+                "Select zero, one, or multiple candidate production methods that actually call the production method.\n"
+                "Respond with valid JSON only using this schema:\n"
                 f"{schema}\n\n"
+                "Only return candidate IDs such as c1, c2, c3. Do not return a label field.\n"
+                "Do not repeat the prompt. Do not use markdown or code fences.\n"
                 f"Production method FQS: {source_fqs}\n"
-                f"Production method file: {source_file}\n"
-                "Test methods that call this production method:\n"
+                "Candidate test methods that call this production method:\n"
                 f"{candidate_block}\n\n"
-                "Return JSON only."
+                "JSON only:"
             )
 
         raise ValueError(f"Unsupported input_kind: {input_kind}")
@@ -105,7 +107,7 @@ class JsonPredictionParser:
     parser_name = "json_prediction_parser"
 
     def parse(self, prompt_input: PromptInput, output_text: str) -> LinkPrediction:
-        payload = self._extract_json(output_text)
+        payload = self._extract_or_fallback_payload(output_text)
         candidate_ids = self._normalize_candidate_ids(payload)
         candidate_confidences = self._normalize_candidate_confidences(payload, candidate_ids)
         selected_candidate_sigs: list[str] = []
@@ -122,7 +124,7 @@ class JsonPredictionParser:
             id=prompt_input.id,
             fqs=prompt_input.fqs,
             url=prompt_input.url,
-            label=str(payload.get("label", "none")).lower(),
+            label="match" if candidate_ids else "none",
             raw_output_text=output_text,
             confidence=self._coerce_confidence(payload.get("confidence")),
             selected_candidate_ids=candidate_ids,
@@ -133,13 +135,64 @@ class JsonPredictionParser:
             metadata={"raw_json": payload},
         )
 
+    @classmethod
+    def _extract_or_fallback_payload(cls, output_text: str) -> dict:
+        try:
+            return cls._extract_json(output_text)
+        except ValueError:
+            stripped_output = output_text.strip()
+            return {
+                "candidate_ids": [],
+                "candidate_confidences": {},
+                "confidence": None,
+                "rationale": (
+                    "Model did not return a JSON object."
+                    if stripped_output
+                    else "Model returned an empty response."
+                ),
+            }
+
     @staticmethod
     def _extract_json(output_text: str) -> dict:
-        start = output_text.find("{")
-        end = output_text.rfind("}")
-        if start == -1 or end == -1 or end < start:
-            raise ValueError(f"Could not find JSON object in model output: {output_text}")
-        return json.loads(output_text[start : end + 1])
+        decoder = json.JSONDecoder()
+        for start_index, character in enumerate(output_text):
+            if character not in {"{", "["}:
+                continue
+            try:
+                raw_payload, _ = decoder.raw_decode(output_text[start_index:])
+            except json.JSONDecodeError:
+                continue
+            payload = JsonPredictionParser._normalize_payload_shape(raw_payload)
+            if payload is not None and JsonPredictionParser._looks_like_prediction_payload(payload):
+                return payload
+        raise ValueError(f"Could not find JSON object in model output: {output_text}")
+
+    @staticmethod
+    def _looks_like_prediction_payload(payload: dict) -> bool:
+        if "candidate_ids" not in payload and "candidate_id" not in payload:
+            return False
+
+        rationale = str(payload.get("rationale", "")).strip().lower()
+        if rationale == "short explanation":
+            return False
+
+        candidate_ids = payload.get("candidate_ids", payload.get("candidate_id", []))
+        if (
+            isinstance(candidate_ids, list)
+            and candidate_ids == ["c1", "c2"]
+            and rationale in {"", "short explanation"}
+        ):
+            return False
+
+        return True
+
+    @staticmethod
+    def _normalize_payload_shape(raw_payload) -> dict | None:
+        if isinstance(raw_payload, dict):
+            return raw_payload
+        if isinstance(raw_payload, list) and all(isinstance(item, str) for item in raw_payload):
+            return {"candidate_ids": raw_payload}
+        return None
 
     @staticmethod
     def _normalize_candidate_ids(payload: dict) -> list[str]:
