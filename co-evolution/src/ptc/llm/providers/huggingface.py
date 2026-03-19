@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import importlib.util
 import os
 import warnings
@@ -31,14 +32,12 @@ class HuggingFaceTextGenerationProvider(ModelProvider):
     ) -> list[ProviderGeneration]:
         pipeline = self._get_pipeline()
         prompt_texts = [prompt.prompt_text for prompt in prompts]
+        hf_generation_config = self._build_generation_config(pipeline, generation_config)
         outputs = pipeline(
             prompt_texts,
             batch_size=self.config.batch_size,
-            max_new_tokens=generation_config.max_new_tokens,
-            do_sample=generation_config.do_sample,
-            temperature=generation_config.temperature,
-            top_p=generation_config.top_p,
             return_full_text=False,
+            generation_config=hf_generation_config,
         )
 
         generations: list[ProviderGeneration] = []
@@ -106,6 +105,22 @@ class HuggingFaceTextGenerationProvider(ModelProvider):
             token=token,
         )
         return self._pipeline
+
+    @staticmethod
+    def _build_generation_config(pipeline, generation_config: GenerationConfig):
+        hf_generation_config = copy.deepcopy(pipeline.model.generation_config)
+        hf_generation_config.max_new_tokens = generation_config.max_new_tokens
+        hf_generation_config.max_length = None
+        hf_generation_config.do_sample = generation_config.do_sample
+        if generation_config.do_sample:
+            hf_generation_config.temperature = generation_config.temperature
+            hf_generation_config.top_p = generation_config.top_p
+        else:
+            hf_generation_config.temperature = None
+            hf_generation_config.top_p = None
+            if hasattr(hf_generation_config, "top_k"):
+                hf_generation_config.top_k = None
+        return hf_generation_config
 
     @staticmethod
     def _extract_generated_text(output) -> str:
