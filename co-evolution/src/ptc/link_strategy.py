@@ -23,9 +23,9 @@ STRATEGY_KEYS: dict[LinkStrategy, str] = {
     LinkStrategy.LCBA: "lcba",
     LinkStrategy.LC: "lc",
     LinkStrategy.MAX: "max",
-    LinkStrategy.LLM_GPT_OSS_20B: "gpt_oss_20b",
-    LinkStrategy.LLM_GPT_OSS_120B: "gpt_oss_120b",
-    LinkStrategy.LLM_QWEN_2D5B: "qwen_2d5b",
+    LinkStrategy.LLM_GPT_OSS_20B: "gpt-oss-20b",
+    LinkStrategy.LLM_GPT_OSS_120B: "gpt-oss-120b",
+    LinkStrategy.LLM_QWEN_2D5B: "qwen-2d5b",
 }
 
 # Reverse lookup (also no hardcoding elsewhere)
