@@ -29,7 +29,6 @@ mhc scan-method \
     --data-directory ".cache/data" \
     --jar-directory ".cache/jar" \
     --java-options "-Xmx2g" \
-    --timeout-seconds 1800 \
     --project "checkstyle"
     
 mhc history \

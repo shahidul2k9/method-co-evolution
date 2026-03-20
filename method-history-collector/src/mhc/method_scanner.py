@@ -1,5 +1,6 @@
 import os.path
 import os
+import shlex
 import traceback
 from pathlib import Path
 from git import Repo, GitCommandError
@@ -191,9 +192,10 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                     os.remove(output_method_error_file)
 
 
-def start_java_jar(jars: [str]):
+def start_java_jar(jars: [str], java_options: str | None = None):
     if not jpype.isJVMStarted():
-        jpype.startJVM(classpath=jars)
+        jvm_args = shlex.split(java_options) if java_options else []
+        jpype.startJVM(*jvm_args, classpath=jars)
         # class MethodLister(VoidVisitorAdapter):
         #     def __init__(self):
         #         self.methods = []

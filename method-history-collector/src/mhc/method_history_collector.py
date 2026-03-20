@@ -35,9 +35,9 @@ class MethodHistoryCollector:
                 if pattern.lower() in file.replace("-", "").lower():
                     self.jar_file_map[pattern] = file
 
-    def scan_method(self, repositories: list[str]):
+    def scan_method(self, repositories: list[str], java_options: str | None = None):
         try:
-            ms.start_java_jar([self.jar_file_map["methodParser"]])
+            ms.start_java_jar([self.jar_file_map["methodParser"]], java_options)
             ms.scan_method(
                 self.repository_df[self.repository_df["project"].isin(repositories)],
                 self.repository_directory,
