@@ -7,12 +7,15 @@ set -euo pipefail
 usage() {
     cat <<'EOF'
 Usage:
-  job.sh --command history --tool-name codeShovel --projects "checkstyle,commons-io"
+  job.sh --command history --tool-name codeShovel --java-options "-Xmx4g" --timeout-seconds 1800 --command-options "--flag value" --projects "checkstyle,commons-io"
   job.sh --command llm-m2m-link --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --projects "commons-io" --input-kind t2p
 
 Options:
   --command               Command to run: history, call-graph, scan-method, complexity-analyzer, llm-m2m-link
   --tool-name             Tool name for non-LLM commands
+  --java-options          Optional JVM arguments for history commands, e.g. "-Xmx4g"
+  --timeout-seconds       Optional history command timeout in seconds (default: 30*60 = 1800)
+  --command-options       Optional extra arguments forwarded to the selected command
   --model-name-or-path    Hugging Face model id or local path for llm-m2m-link
   --short-model-name      Short model directory name for llm-m2m-link outputs
   --projects              Comma-separated project list for the array job
@@ -32,6 +35,9 @@ module load java/21.0.1
 export PROJECT_DIRECTORY="$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution"
 COMMAND_NAME=""
 TOOL_NAME=""
+JAVA_OPTIONS=""
+TIMEOUT_SECONDS="1800"
+COMMAND_OPTIONS=""
 MODEL_NAME_OR_PATH=""
 SHORT_MODEL_NAME=""
 PROJECTS_CSV=""
@@ -46,6 +52,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         --tool-name)
             TOOL_NAME="$2"
+            shift 2
+            ;;
+        --java-options)
+            JAVA_OPTIONS="$2"
+            shift 2
+            ;;
+        --timeout-seconds)
+            TIMEOUT_SECONDS="$2"
+            shift 2
+            ;;
+        --command-options)
+            COMMAND_OPTIONS="$2"
             shift 2
             ;;
         --model-name-or-path)
@@ -129,6 +147,9 @@ else
         --data-directory "$CACHE_DIRECTORY/data" \
         --jar-directory "$CACHE_DIRECTORY/jar" \
         --tool-name "$TOOL_NAME" \
+        --java-options "$JAVA_OPTIONS" \
+        --timeout-seconds "$TIMEOUT_SECONDS" \
+        --command-options "$COMMAND_OPTIONS" \
         --project "$PROJECT"
     echo "Task started on $(hostname) at $(date) for tool name $TOOL_NAME and project $PROJECT"
 fi

@@ -16,17 +16,10 @@ python -m venv .venv
 
 ```bash
 source .venv/bin/activate
-pip install -e ./method-history-collector --upgrade
-pip install -e ./co-evolution --upgrade
+pip install -e ./method-history-collector
+pip install -e ./co-evolution
+pip install -e ./co-evolution[llm]
 ```
-
-For LLM method-to-method linking:
-
-```bash
-pip install -e ./co-evolution[llm] --upgrade
-```
-
-The `llm` extra includes `torch`, `transformers`, and `accelerate`. On some GPU systems you may still prefer installing a cluster-specific `torch` wheel manually first if you need a particular CUDA build.
 
 ### Run
 ```bash
@@ -35,6 +28,8 @@ mhc scan-method \
     --repository-directory ".cache/repository" \
     --data-directory ".cache/data" \
     --jar-directory ".cache/jar" \
+    --java-options "-Xmx2g" \
+    --timeout-seconds 1800 \
     --project "checkstyle"
     
 mhc history \
@@ -43,6 +38,8 @@ mhc history \
     --data-directory ".cache/data" \
     --jar-directory ".cache/jar" \
     --tool-name "codeShovel" \
+    --java-options "-Xmx2g" \
+    --timeout-seconds 1800 \
     --project "checkstyle"
     
 mhc call-graph \

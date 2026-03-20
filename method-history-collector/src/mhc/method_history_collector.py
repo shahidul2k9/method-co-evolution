@@ -49,7 +49,14 @@ class MethodHistoryCollector:
         finally:
             ms.stop_java_jar()
 
-    def collect_method_history(self, repositories: list[str], tool_names: list[str]):
+    def collect_method_history(
+        self,
+        repositories: list[str],
+        tool_names: list[str],
+        command_options: str | None = None,
+        java_options: str | None = None,
+        timeout_seconds: int = 30 * 60,
+    ):
         execute_method_history_if_missing(
             self.repository_df[self.repository_df["project"].isin(repositories)],
             self.repository_directory,
@@ -57,6 +64,9 @@ class MethodHistoryCollector:
             self.cache_directory,
             tool_names,
             self.jar_file_map,
+            command_options,
+            java_options,
+            timeout_seconds,
         )
 
     def update_repository_index(self):

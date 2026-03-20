@@ -1,4 +1,5 @@
 import os
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -12,7 +13,10 @@ from mhc.zip import load_zip_index, merge_folder_into_tar_gz
 
 def execute_method_history_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,
                                       cache_directory: str, tool_names: list[str],
-                                      jar_file_map: dict[str, str]) -> None:
+                                      jar_file_map: dict[str, str],
+                                      command_options: str | None = None,
+                                      java_options: str | None = None,
+                                      timeout_seconds: int = 30 * 60) -> None:
     for tool_name in tool_names:
         for _, repository in repository_df.iterrows():
             repository_name = repository["project"]
@@ -44,7 +48,8 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                     if method_history_file_suffix not in zip_index and method_history_file_suffix not in unzip_index:
                         execute_cmd_method_history_jar(tool_name, jar_file_map[tool_name],
                                                        os.path.join(repository_directory, repository_name),
-                                                       url, hash, file, method_name, start_line, method_history_file)
+                                                       url, hash, file, method_name, start_line, method_history_file,
+                                                       command_options, java_options, timeout_seconds)
                         unzip_index.add(method_history_file_suffix)
                 if len(unzip_index) >= 5000:
                     merge_folder_into_tar_gz(method_history_path)
@@ -100,10 +105,17 @@ def execute_cmd_method_history_jar(tool_name: str,
                                    file: str,
                                    method_name: str,
                                    start_line: int,
-                                   output_file: str):
+                                   output_file: str,
+                                   command_options: str | None = None,
+                                   java_options: str | None = None,
+                                   timeout_seconds: int = 30 * 60):
+    java_cmd = ["java"]
+    if java_options:
+        java_cmd.extend(shlex.split(java_options))
+
     if tool_name == 'codeShovel':
-        cmd = [
-            "java", "-jar", jar_file,
+        cmd = java_cmd + [
+            "-jar", jar_file,
             "-repopath", git_project_directory,
             "-startcommit", start_commit,
             "-filepath", file,
@@ -112,8 +124,8 @@ def execute_cmd_method_history_jar(tool_name: str,
             "-outfile", output_file
         ]
     if tool_name == 'historyFinder':
-        cmd = [
-            "java", "-jar", jar_file,
+        cmd = java_cmd + [
+            "-jar", jar_file,
             "-clone-directory", os.path.dirname(git_project_directory),
             "-repository-url", repository_url,
             "-start-commit", start_commit,
@@ -123,8 +135,8 @@ def execute_cmd_method_history_jar(tool_name: str,
             "-output-file", output_file
         ]
     if tool_name == 'codeTracker':
-        cmd = [
-            "java", "-jar", jar_file,
+        cmd = java_cmd + [
+            "-jar", jar_file,
             "-clone-directory", os.path.dirname(git_project_directory),
             "-repository-url", repository_url,
             "-start-commit", start_commit,
@@ -134,9 +146,12 @@ def execute_cmd_method_history_jar(tool_name: str,
             "-output-file", output_file
         ]
 
+    if command_options:
+        cmd.extend(shlex.split(command_options))
+
     if not os.path.exists(output_file):
         print(f"Executing .. {file}")
         try:
-            subprocess.run(cmd, check=True, timeout=30 * 60)
+            subprocess.run(cmd, check=True, timeout=timeout_seconds)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
             print(f"Execution failed: {tool_name} {file} {e}")

@@ -39,11 +39,29 @@ def main():
         "--tool-name", dest="tool_name", type=str, help="Tool name (required for history command)"
     )
     parser.add_argument(
-        "--project",
-        "--repository-name",
-        dest="repository_name",
+        "--command-options",
+        dest="command_options",
         type=str,
-        help="Repository name (required for history command)",
+        help="Optional extra arguments forwarded to the underlying command or jar.",
+    )
+    parser.add_argument(
+        "--java-options",
+        dest="java_options",
+        type=str,
+        help="Optional JVM arguments passed before -jar, for example '-Xmx4g'.",
+    )
+    parser.add_argument(
+        "--timeout-seconds",
+        dest="timeout_seconds",
+        type=int,
+        default=30 * 60,
+        help="Subprocess timeout in seconds for history jar execution (default: 1800).",
+    )
+    parser.add_argument(
+        "--project",
+        dest="project",
+        type=str,
+        help="Project name (required for project-scoped commands)",
     )
 
     args = parser.parse_args()
@@ -56,33 +74,39 @@ def main():
     )
 
     if args.command.lower() == "history":
-        if not args.tool_name or not args.repository_name:
+        if not args.tool_name or not args.project:
             print(
-                "Error: tool_name and repository_name are required for history command."
+                "Error: tool_name and project are required for history command."
             )
             sys.exit(1)
-        mhc.collect_method_history([args.repository_name], [args.tool_name])
+        mhc.collect_method_history(
+            [args.project],
+            [args.tool_name],
+            args.command_options,
+            args.java_options,
+            args.timeout_seconds,
+        )
     elif args.command.lower() == "call-graph":
-        if not args.tool_name or not args.repository_name:
+        if not args.tool_name or not args.project:
             print(
-                "Error: tool_name and repository_name are required for call graph command."
+                "Error: tool_name and project are required for call graph command."
             )
             sys.exit(1)
-        mhc.generate_call_graph([args.repository_name], [args.tool_name])
+        mhc.generate_call_graph([args.project], [args.tool_name])
     elif args.command.lower() == "scan-method":
-        if not args.repository_name:
-            print("Error: repository_name are required to scan methods.")
+        if not args.project:
+            print("Error: project are required to scan methods.")
             sys.exit(1)
-        mhc.scan_method([args.repository_name])
+        mhc.scan_method([args.project])
     elif args.command.lower() == "index":
         mhc.update_repository_index()
     elif args.command.lower() == "complexity-analyzer":
-        if not args.tool_name or not args.repository_name:
+        if not args.tool_name or not args.project:
             print(
-                "Error: tool_name and repository_name are required for complexity analyzer command."
+                "Error: tool_name and project are required for complexity analyzer command."
             )
             sys.exit(1)
-        mhc.run_complexity_analyzer([args.repository_name], args.tool_name)
+        mhc.run_complexity_analyzer([args.project], args.tool_name)
     else:
         print(f"Unknown command: {args.command}")
         sys.exit(1)
