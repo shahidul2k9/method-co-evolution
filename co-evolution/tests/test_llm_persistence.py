@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 import sys
 import csv
+from unittest.mock import patch
 
 SRC_DIRECTORY = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIRECTORY) not in sys.path:
@@ -10,6 +11,11 @@ if str(SRC_DIRECTORY) not in sys.path:
 
 from ptc.llm.models import PromptContentText, PromptInput, PromptMessage
 from ptc.llm.persistence import CsvRunStore
+
+try:
+    import pandas as pd
+except ImportError:  # pragma: no cover - local shell may not have pandas installed
+    pd = None
 
 
 class TestCsvRunStore(unittest.TestCase):
@@ -108,12 +114,68 @@ class TestCsvRunStore(unittest.TestCase):
                 ],
             )
 
-            store.append_request(prompt)
+            with patch("ptc.llm.persistence._timestamp_now", return_value="2026-03-23T10:00:00+00:00"):
+                store.append_request(prompt)
 
             with store.requests_file.open("r", encoding="utf-8", newline="") as handle:
                 row = next(csv.DictReader(handle))
 
             self.assertIn('"role": "system"', row["messages_json"])
+            self.assertEqual("2026-03-23T10:00:00+00:00", row["created_at"])
+            self.assertEqual("2026-03-23T10:00:00+00:00", row["updated_at"])
+
+    def test_append_failure_persists_timestamps(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = CsvRunStore(tmpdir, "t2p", "openai/gpt-oss-20b", "commons-io.csv")
+
+            with patch("ptc.llm.persistence._timestamp_now", return_value="2026-03-23T11:00:00+00:00"):
+                store.append_failure("id-1", "provider", "boom")
+
+            with store.failures_file.open("r", encoding="utf-8", newline="") as handle:
+                row = next(csv.DictReader(handle))
+
+            self.assertEqual("id-1", row["id"])
+            self.assertEqual("provider", row["stage"])
+            self.assertEqual("boom", row["error"])
+            self.assertEqual("2026-03-23T11:00:00+00:00", row["created_at"])
+            self.assertEqual("2026-03-23T11:00:00+00:00", row["updated_at"])
+
+    @unittest.skipIf(pd is None, "pandas is required for prediction persistence tests")
+    def test_write_prediction_snapshot_sets_and_preserves_timestamps(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = CsvRunStore(tmpdir, "t2p", "openai/gpt-oss-20b", "commons-io.csv")
+            snapshot_df = pd.DataFrame(
+                [
+                    {
+                        "project": "commons-io",
+                        "from_name": "testSaveItem",
+                        "to_name": "saveItem",
+                        "from_url": "https://example/source#L1",
+                        "to_url": "https://example/prod#L10",
+                        "from_fqs": "org.example.Test.testSaveItem()",
+                        "to_fqs": "org.example.Prod.saveItem()",
+                        "llm_id": "https://example/source#L1",
+                        "llm_pred": 1,
+                        "llm_confidences": "[0.9]",
+                        "llm_fqses": "[\"org.example.Prod.saveItem()\"]",
+                        "llm_output_count": 1,
+                        "llm_rationales": "[\"test rationale\"]",
+                        "llm_output": "{}",
+                    }
+                ]
+            )
+
+            with patch("ptc.llm.persistence._timestamp_now", return_value="2026-03-23T12:00:00+00:00"):
+                store.write_prediction_snapshot(snapshot_df)
+
+            with patch("ptc.llm.persistence._timestamp_now", return_value="2026-03-23T13:00:00+00:00"):
+                store.write_prediction_snapshot(snapshot_df)
+
+            with store.predictions_file.open("r", encoding="utf-8", newline="") as handle:
+                row = next(csv.DictReader(handle))
+
+            self.assertEqual("2026-03-23T12:00:00+00:00", row["created_at"])
+            self.assertEqual("2026-03-23T13:00:00+00:00", row["updated_at"])
 
 
 if __name__ == "__main__":
