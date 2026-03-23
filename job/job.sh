@@ -8,7 +8,7 @@ usage() {
     cat <<'EOF'
 Usage:
   job.sh --command history --tool-name codeShovel --java-options "-Xmx4g" --timeout-seconds 1800 --command-options "--flag value" --projects "checkstyle,commons-io"
-  job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --prompt-format text --projects "commons-io" --input-kind t2p
+  job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --prompt-format text --max-new-tokens 256 --projects "commons-io" --input-kind t2p
 
 Options:
   --command               Command to run: history, call-graph, scan-method, complexity-analyzer, llm-m2m-link
@@ -20,6 +20,7 @@ Options:
   --model-name-or-path    Hugging Face model id or local path for llm-m2m-link
   --short-model-name      Short model directory name for llm-m2m-link outputs
   --prompt-format         LLM prompt format: auto, json, or text (default: auto)
+  --max-new-tokens        LLM generation cap per grouped case (default: 256)
   --projects              Comma-separated project list for the array job
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
   --cache-directory       Relative or absolute cache directory (default: .cache)
@@ -44,6 +45,7 @@ API_TYPE="auto"
 MODEL_NAME_OR_PATH=""
 SHORT_MODEL_NAME=""
 PROMPT_FORMAT="auto"
+MAX_NEW_TOKENS="256"
 PROJECTS_CSV=""
 INPUT_KIND="t2p"
 CACHE_DIRECTORY="$PROJECT_DIRECTORY/.cache"
@@ -84,6 +86,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --prompt-format)
             PROMPT_FORMAT="$2"
+            shift 2
+            ;;
+        --max-new-tokens)
+            MAX_NEW_TOKENS="$2"
             shift 2
             ;;
         --projects)
@@ -151,6 +157,7 @@ if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
         --model-name-or-path "$MODEL_NAME_OR_PATH" \
         --short-model-name "$SHORT_MODEL_NAME" \
         --prompt-format "$PROMPT_FORMAT" \
+        --max-new-tokens "$MAX_NEW_TOKENS" \
         --input-kind "$INPUT_KIND" \
         --project "$PROJECT"
     echo "Task started on $(hostname) at $(date) for model $MODEL_NAME_OR_PATH, input kind $INPUT_KIND, and project $PROJECT"

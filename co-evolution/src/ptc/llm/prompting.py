@@ -204,10 +204,14 @@ class JsonPredictionParser:
         stripped_output = output_text.strip()
         if not stripped_output:
             return None
-        answer_match = re.search(r"(?is)\banswer\s*:\s*(.+)", stripped_output)
-        if answer_match is None:
+        answer_matches = re.findall(r"(?is)(?:^|[\s\"'])answer\s*:\s*([^\n\r\"']+)", stripped_output)
+        if not answer_matches:
             return None
-        return {"answer": JsonPredictionParser._clean_answer_value(answer_match.group(1))}
+        for raw_answer in reversed(answer_matches):
+            cleaned_answer = JsonPredictionParser._clean_answer_value(raw_answer)
+            if cleaned_answer:
+                return {"answer": cleaned_answer}
+        return None
 
     @staticmethod
     def _extract_json(output_text: str) -> dict:
@@ -296,6 +300,8 @@ class JsonPredictionParser:
     @staticmethod
     def _clean_answer_value(value: str) -> str:
         cleaned = str(value).strip().strip("`'\"")
+        cleaned = re.split(r"(?i)\bassistantfinalanswer\s*:", cleaned, maxsplit=1)[0].strip()
+        cleaned = re.sub(r"(?is)^answer\s*:\s*", "", cleaned).strip()
         return re.sub(r"[\s\.;:,]+$", "", cleaned)
 
 

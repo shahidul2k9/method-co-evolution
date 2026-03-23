@@ -242,6 +242,62 @@ class TestJsonPredictionParser(unittest.TestCase):
         self.assertEqual(["c1"], prediction.selected_candidate_ids)
         self.assertIsNone(prediction.confidence)
 
+    def test_parse_prediction_recovers_from_quoted_answer_with_trailing_assistant_token(self):
+        prompt_input = PromptInput(
+            id="write-lines-case",
+            fqs=(
+                "org.apache.commons.io.FileUtilsTestCase."
+                "testWriteLines_5argsWithAppendOptionFalse_ShouldDeletePreviousFileLines()"
+            ),
+            url="https://example/test#L20",
+            prompt_text="",
+            candidate_lookup={
+                "c1": {
+                    "fqs": "org.apache.commons.io.FileUtils.forceDelete(File)",
+                    "sig": "org.apache.commons.io.FileUtils.forceDelete(File)",
+                    "url": "https://example/prod#L10",
+                },
+                "c2": {
+                    "fqs": "org.apache.commons.io.FileUtils.writeStringToFile(File, String, Charset)",
+                    "sig": "org.apache.commons.io.FileUtils.writeStringToFile(File, String, Charset)",
+                    "url": "https://example/prod#L20",
+                },
+                "c3": {
+                    "fqs": "org.apache.commons.io.FileUtils.readFileToString(File, Charset)",
+                    "sig": "org.apache.commons.io.FileUtils.readFileToString(File, Charset)",
+                    "url": "https://example/prod#L30",
+                },
+                "c4": {
+                    "fqs": "org.apache.commons.io.FileUtils.writeLines(File, String, Collection, String, boolean)",
+                    "sig": "org.apache.commons.io.FileUtils.writeLines(File, String, Collection, String, boolean)",
+                    "url": "https://example/prod#L40",
+                },
+            },
+        )
+
+        prediction = JsonPredictionParser().parse(
+            prompt_input,
+            (
+                "\"\n\n"
+                "We need to determine which production method is being tested by the test method. "
+                "The test method name: testWriteLines_5argsWithAppendOptionFalse_ShouldDeletePreviousFileLines. "
+                "So it's testing writeLines with 5 args, append option false, should delete previous file lines. "
+                "So likely the method under test is writeLines(File, String, Collection, String, boolean). "
+                "That is the candidate. The other methods are forceDelete, writeStringToFile, readFileToString. "
+                "The test likely calls writeLines. So answer: "
+                "\"Answer: org.apache.commons.io.FileUtils.writeLines(File, String, Collection, String, boolean)\"."
+                "assistantfinalAnswer: org.apache.commons.io.FileUtils.writeLines(File, String, Collection, String, boolean)"
+            ),
+        )
+
+        self.assertEqual("match", prediction.label)
+        self.assertEqual(["c4"], prediction.selected_candidate_ids)
+        self.assertEqual(
+            "org.apache.commons.io.FileUtils.writeLines(File, String, Collection, String, boolean)",
+            prediction.selected_candidate_fqs,
+        )
+        self.assertIsNone(prediction.confidence)
+
 
 if __name__ == "__main__":
     unittest.main()
