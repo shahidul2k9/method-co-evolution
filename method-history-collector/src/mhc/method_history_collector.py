@@ -91,3 +91,10 @@ class MethodHistoryCollector:
             self.jar_file_map[tool_name],
         )
         ca.run_complexity_analyzer()
+
+    def generate_method_code(self, repositories: list[str]):
+        ms.generate_method_code(
+            self.repository_df[self.repository_df["project"].isin(repositories)],
+            self.repository_directory,
+            self.data_directory,
+        )

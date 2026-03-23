@@ -56,6 +56,45 @@ mhc complexity-analyzer \
     --jar-directory ".cache/jar" \
     --tool-name "complexityAnalyzer" \
     --project "checkstyle"
+
+mhc method-code \
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --project "checkstyle"
+```
+
+### Method Code Output
+
+`mhc method-code` reads `<data_directory>/method/{project}.csv`, checks out the repository at the indexed `updated_hash`, extracts the source lines from `start_line` through `end_line` inclusive for each method, and writes:
+
+- `<data_directory>/method-code/{project}.csv`
+
+The output columns are:
+
+- `project`
+- `name`
+- `url`
+- `artifact`
+- `start_line`
+- `end_line`
+- `code`
+
+For batch execution through Slurm:
+
+```bash
+sbatch \
+    --job-name=method-code \
+    --time=00:05:00 \
+    --array=1-2 \
+    --mem=8GB \
+    --output=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.out \
+    --error=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.err \
+    job/job.sh \
+    --command method-code \
+    --cache-directory "$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache" \
+    --projects "checkstyle,commons-io"
 ```
 
 ### LLM M2M Link

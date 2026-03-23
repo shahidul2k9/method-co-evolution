@@ -100,6 +100,15 @@ METHOD_SCAN_COLUMNS = [
     "hash",
     "parser",
 ]
+METHOD_CODE_COLUMNS = [
+    "project",
+    "name",
+    "url",
+    "artifact",
+    "start_line",
+    "end_line",
+    "code",
+]
 SCAN_METHOD_FLUSH_INTERVAL_SECONDS = 1 * 60 * 60
 SCAN_MARKER_PARSER = "__scan_marker__"
 SCAN_MARKER_EXPRESSION = "__file_scanned__"
@@ -198,6 +207,74 @@ def _finalize_method_scan_outputs(
         os.remove(method_cache_file)
     else:
         _write_dataframe_csv(output_method_file, pd.DataFrame(columns=METHOD_SCAN_COLUMNS), METHOD_SCAN_COLUMNS)
+
+
+def _extract_method_code(repository_root: str, file_path: str, start_line, end_line) -> str:
+    if pd.isna(start_line) or pd.isna(end_line) or not file_path:
+        return ""
+
+    start_line_number = int(start_line)
+    end_line_number = int(end_line)
+    if start_line_number <= 0 or end_line_number < start_line_number:
+        return ""
+
+    absolute_file_path = os.path.join(repository_root, file_path)
+    if not os.path.exists(absolute_file_path):
+        return ""
+
+    with open(absolute_file_path, "r", encoding="utf-8") as source_file:
+        lines = source_file.readlines()
+
+    start_index = start_line_number - 1
+    end_index = min(end_line_number, len(lines))
+    if start_index >= len(lines):
+        return ""
+
+    return "".join(lines[start_index:end_index]).rstrip("\n")
+
+
+def generate_method_code(
+    repository_df: DataFrame,
+    repository_directory: str,
+    data_directory: str,
+) -> list[str]:
+    output_files = []
+
+    for _, repository in repository_df.iterrows():
+        repository_name = repository["project"]
+        repository_url = repository["url"]
+        commit_hash = repository["updated_hash"]
+        repository_root = util.format_git_project_directory(repository_directory, repository_name)
+        input_file = util.format_method_list_file(data_directory, repository_name)
+        output_file = util.format_method_code_file(data_directory, repository_name)
+
+        clone_and_checkout_commit(repository_url, repository_root, commit_hash)
+
+        method_df = pd.read_csv(input_file)
+
+        missing_columns = [
+            column for column in METHOD_CODE_COLUMNS if column != "code" and column not in method_df.columns
+        ]
+        if missing_columns:
+            raise ValueError(
+                f"Missing required columns in {input_file}: {', '.join(missing_columns)}"
+            )
+
+        output_df = method_df[[column for column in METHOD_CODE_COLUMNS if column != "code"]].copy()
+        output_df["code"] = method_df.apply(
+            lambda row: _extract_method_code(
+                repository_root,
+                row.get("file"),
+                row.get("start_line"),
+                row.get("end_line"),
+            ),
+            axis=1,
+        )
+        output_df = util.convert_float_int_columns_to_nullable_int(output_df)
+        _write_dataframe_csv(output_file, output_df, METHOD_CODE_COLUMNS)
+        output_files.append(output_file)
+
+    return output_files
 
 
 def _is_method_output_current(output_method_file: str, commit_hash: str) -> bool:

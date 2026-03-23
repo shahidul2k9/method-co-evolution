@@ -8,10 +8,11 @@ usage() {
     cat <<'EOF'
 Usage:
   job.sh --command history --tool-name codeShovel --java-options "-Xmx4g" --timeout-seconds 1800 --command-options "--flag value" --projects "checkstyle,commons-io"
+  job.sh --command method-code --projects "commons-io"
   job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --prompt-format text --max-new-tokens 256 --projects "commons-io" --input-kind t2p
 
 Options:
-  --command               Command to run: history, call-graph, scan-method, complexity-analyzer, llm-m2m-link
+  --command               Command to run: history, call-graph, scan-method, method-code, complexity-analyzer, llm-m2m-link
   --tool-name             Tool name for non-LLM commands
   --java-options          Optional JVM arguments for history commands, e.g. "-Xmx4g"
   --timeout-seconds       Optional history command timeout in seconds (default: 30*60 = 1800)
@@ -128,7 +129,7 @@ if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
         usage
         exit 1
     fi
-else
+elif [[ "$COMMAND_NAME" != "scan-method" && "$COMMAND_NAME" != "method-code" && "$COMMAND_NAME" != "index" ]]; then
     if [[ -z "$TOOL_NAME" ]]; then
         echo "Error: --tool-name is required for $COMMAND_NAME."
         usage
