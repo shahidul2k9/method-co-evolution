@@ -98,6 +98,11 @@ def main():
             print("Error: project are required to scan methods.")
             sys.exit(1)
         mhc.scan_method([args.project], args.java_options)
+    elif args.command.lower() == "method-code":
+        if not args.project:
+            print("Error: project is required to generate method code.")
+            sys.exit(1)
+        mhc.generate_method_code([args.project])
     elif args.command.lower() == "index":
         mhc.update_repository_index()
     elif args.command.lower() == "complexity-analyzer":
