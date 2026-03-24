@@ -2,6 +2,8 @@ import os
 import pandas as pd
 import numpy as np
 from pathlib import Path
+import cliffs_delta
+from scipy.stats import mannwhitneyu
 
 def format_git_project_directory(repository_directory: str, repository_name: str) -> str:
     return os.path.join(f"{repository_directory}", repository_name)
@@ -91,3 +93,13 @@ def find_root(start: Path) -> Path:
         if (path / ".git").exists():
             return path
     return current
+
+
+def man_utest(x, y):
+    d, size = cliffs_delta.cliffs_delta(x, y)
+    stat, p_value = mannwhitneyu(x, y, alternative='two-sided')
+    return stat, p_value, d, size
+
+
+def manu_test(x, y):
+    return man_utest(x, y)
