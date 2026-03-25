@@ -5,7 +5,7 @@ import pandas as pd
 
 from mhc.config import CACHE_DIRECTORY
 from ptc.constants import ALL_REPOSITORY
-from ptc.plot.graph_util import ecdf, GRAPH_MARKER_SIZES, GRAPH_MARKS, GRAPH_STYLES, GRAPH_WIDTHS
+from ptc.plot_util import ecdf, GRAPH_MARKER_SIZES, GRAPH_MARKS, GRAPH_STYLES, GRAPH_WIDTHS
 
 STATS_FILE = f"{CACHE_DIRECTORY}/data/aggregate/t2p-change-scatter-stats.csv"
 SIZE_ORDER = ["negligible", "small", "medium", "large"]

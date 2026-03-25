@@ -1,4 +1,6 @@
 import numpy as np
+import cliffs_delta
+from scipy.stats import mannwhitneyu
 
 def ecdf_with_rank(series):
     s = series.sort_values()
@@ -10,6 +12,15 @@ def ecdf(a):
     x, counts = np.unique(a, return_counts=True)
     cusum = np.cumsum(counts)
     return x, cusum / cusum[-1]
+
+def man_utest(x, y):
+    d, size = cliffs_delta.cliffs_delta(x, y)
+    stat, p_value = mannwhitneyu(x, y, alternative='two-sided')
+    return stat, p_value, d, size
+
+
+def manu_test(x, y):
+    return man_utest(x, y)
 
 
 GRAPH_STYLES = ["-", "--", "-.", ":", "--", "--", "-.", ":"]

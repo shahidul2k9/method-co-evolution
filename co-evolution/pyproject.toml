@@ -13,7 +13,8 @@ dependencies = [
     "scipy",
     "levenshtein",
     "scikit-learn",
-    "pytctracer"
+    "pytctracer",
+    "cliffs-delta"
 ]
 
 [project.optional-dependencies]

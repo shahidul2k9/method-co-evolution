@@ -4,7 +4,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from graph_util import *
+from ptc.plot_util import *
 from mhc.config import DATA_DIRECTORY, CACHE_DIRECTORY
 from ptc.constants import *
 

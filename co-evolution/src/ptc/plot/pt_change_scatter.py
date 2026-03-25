@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import mhc.util as util
-from ptc.plot.graph_util import *
+from ptc.plot_util import *
 from mhc.config import DATA_DIRECTORY, CACHE_DIRECTORY
 from ptc.constants import *
 
@@ -39,7 +39,7 @@ def build_stat_row(
     if unsupported or x.empty or y.empty:
         return row
 
-    stat, p_value, d, size = util.man_utest(x, y)
+    stat, p_value, d, size = man_utest(x, y)
     row["stat_stat"] = round(stat, 2)
     row["stat_p"] = round(p_value, 2)
     row["stat_d"] = round(d, 2)
