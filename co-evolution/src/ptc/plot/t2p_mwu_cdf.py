@@ -7,7 +7,7 @@ from mhc.config import CACHE_DIRECTORY
 from ptc.constants import ALL_REPOSITORY
 from ptc.plot_util import ecdf, GRAPH_GAPS, GRAPH_MARKER_SIZES, GRAPH_MARKS, GRAPH_STYLES, GRAPH_WIDTHS
 
-STATS_FILE = f"{CACHE_DIRECTORY}/data/aggregate/t2p-change-scatter-stats.csv"
+STATS_FILE = f"{CACHE_DIRECTORY}/data/aggregate/t2p-mwu.csv"
 SIZE_ORDER = ["negligible", "small", "medium", "large"]
 
 
@@ -46,35 +46,45 @@ if os.path.exists(STATS_FILE):
                 corr_values = change_df["corr"].dropna()
                 if not corr_values.empty:
                     x, y = ecdf(corr_values)
-                    corr_ax.plot(
+                    corr_ax.step(
                         x, y,
                         linewidth=GRAPH_WIDTHS[line_index % len(GRAPH_WIDTHS)],
-                        ls=GRAPH_STYLES[line_index % len(GRAPH_STYLES)],
-                        marker=GRAPH_MARKS[line_index % len(GRAPH_MARKS)],
-                        markevery=max(1, GRAPH_GAPS[line_index % len(GRAPH_GAPS)]),
-                        markersize=GRAPH_MARKER_SIZES[line_index % len(GRAPH_MARKER_SIZES)],
+                        linestyle=GRAPH_STYLES[line_index % len(GRAPH_STYLES)],
+                        where="post",
                         label=change,
                     )
-
-                p_values = change_df["stat_p"].dropna()
-                if not p_values.empty:
-                    x, y = ecdf(p_values)
-                    p_ax.plot(
+                    corr_ax.plot(
                         x, y,
-                        linewidth=GRAPH_WIDTHS[line_index % len(GRAPH_WIDTHS)],
-                        ls=GRAPH_STYLES[line_index % len(GRAPH_STYLES)],
+                        linestyle="None",
                         marker=GRAPH_MARKS[line_index % len(GRAPH_MARKS)],
                         markevery=max(1, GRAPH_GAPS[line_index % len(GRAPH_GAPS)]),
                         markersize=GRAPH_MARKER_SIZES[line_index % len(GRAPH_MARKER_SIZES)],
+                    )
+
+                p_values = change_df["mwu_p"].dropna()
+                if not p_values.empty:
+                    x, y = ecdf(p_values)
+                    p_ax.step(
+                        x, y,
+                        linewidth=GRAPH_WIDTHS[line_index % len(GRAPH_WIDTHS)],
+                        linestyle=GRAPH_STYLES[line_index % len(GRAPH_STYLES)],
+                        where="post",
                         label=change,
+                    )
+                    p_ax.plot(
+                        x, y,
+                        linestyle="None",
+                        marker=GRAPH_MARKS[line_index % len(GRAPH_MARKS)],
+                        markevery=max(1, GRAPH_GAPS[line_index % len(GRAPH_GAPS)]),
+                        markersize=GRAPH_MARKER_SIZES[line_index % len(GRAPH_MARKER_SIZES)],
                     )
 
             if strategy_index == 0:
                 legend_handles, legend_labels = corr_ax.get_legend_handles_labels()
 
             size_counts = (
-                strategy_df.dropna(subset=["stat_size"])
-                .groupby(["change", "stat_size"])
+                strategy_df.dropna(subset=["mwu_size"])
+                .groupby(["change", "mwu_size"])
                 .size()
                 .unstack(fill_value=0)
                 .reindex(columns=SIZE_ORDER, fill_value=0)
@@ -92,7 +102,7 @@ if os.path.exists(STATS_FILE):
                          rotation=90, va="center", ha="center", fontsize=18)
 
             p_ax.set_title("P-value CDF", fontsize=18)
-            p_ax.set_xlabel("stat_p", fontsize=14)
+            p_ax.set_xlabel("mwu_p", fontsize=14)
             p_ax.set_ylabel("ECDF", fontsize=14)
             p_ax.set_xlim(-0.02, 1.02)
             p_ax.axvspan(0, 0.05, color="tomato", alpha=0.08)
@@ -101,7 +111,7 @@ if os.path.exists(STATS_FILE):
                       ha="left", va="top", fontsize=10, color="tomato")
             p_ax.grid(True, alpha=0.25)
 
-            size_ax.set_title("Cliff's Delta Size", fontsize=18)
+            size_ax.set_title("MWU Effect Size", fontsize=18)
             size_ax.set_xlabel("change", fontsize=14)
             size_ax.set_ylabel("count", fontsize=14)
             size_ax.tick_params(axis="x", labelrotation=45)
@@ -113,7 +123,7 @@ if os.path.exists(STATS_FILE):
             fig.legend(legend_handles, legend_labels, loc="upper center", ncol=min(4, len(legend_labels)), fontsize=10)
 
         fig.tight_layout(rect=(0, 0, 1, 0.97))
-        fig_file = f"{CACHE_DIRECTORY}/figure/t2p-change-mannwhitneyu-cdf--{tool}.pdf"
+        fig_file = f"{CACHE_DIRECTORY}/figure/t2p-mwu-cdf/t2p-mwu-cdf--{tool}.pdf"
         os.makedirs(os.path.dirname(fig_file), exist_ok=True)
         fig.savefig(fig_file, bbox_inches="tight")
         plt.close(fig)

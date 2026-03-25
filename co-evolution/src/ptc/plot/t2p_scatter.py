@@ -95,7 +95,7 @@ for tool in tools:
                     ax.grid(True, alpha=0.25)
 
             fig.tight_layout()
-            fig_file = f"{CACHE_DIRECTORY}/figure/t2p-change-scatter--{tool}--{link_strategy}.pdf"
+            fig_file = f"{CACHE_DIRECTORY}/figure/t2p-scatter/t2p-scatter--{tool}--{link_strategy}.pdf"
             os.makedirs(os.path.dirname(fig_file), exist_ok=True)
             fig.savefig(fig_file,
                         bbox_inches="tight")

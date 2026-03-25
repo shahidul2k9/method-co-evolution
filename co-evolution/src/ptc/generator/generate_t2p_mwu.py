@@ -3,13 +3,27 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.stats import kendalltau
 
 import mhc.util as util
 from mhc.config import CACHE_DIRECTORY, DATA_DIRECTORY
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
 from ptc.plot_util import man_utest
 
-STAT_COLUMNS = ["project", "tool", "strategy", "change", "corr", "stat_stat", "stat_p", "stat_d", "stat_size"]
+STAT_COLUMNS = [
+    "project",
+    "tool",
+    "strategy",
+    "size",
+    "change",
+    "corr",
+    "corr_p",
+    "mwu_u1",
+    "mwu_u2",
+    "mwu_p",
+    "mwu_d",
+    "mwu_size",
+]
 code_shovel_unsupported_change_set = {
     f"ch_{change_type.name.lower()}" for change_type in CODE_SHOVEL_UNSUPPORTED_CHANGES
 }
@@ -19,27 +33,34 @@ def build_stat_row(project: str, tool: str, strategy: str, change: str, pair_df:
     if pair_df.empty:
         return None
 
-    x = pair_df[f"to_{change}"]
-    y = pair_df[f"from_{change}"]
-    if x.empty or y.empty:
+    production_change = pair_df[f"to_{change}"]
+    test_change = pair_df[f"from_{change}"]
+    if production_change.empty or test_change.empty:
         return None
 
-    if len(pair_df) < 2 or x.std() == 0 or y.std() == 0:
+    if len(pair_df) < 2 or production_change.std() == 0 or test_change.std() == 0:
         corr = np.nan
+        corr_p = np.nan
     else:
-        corr = x.corr(y, method="kendall")
+        corr_result = kendalltau(production_change, test_change)
+        corr = corr_result.statistic
+        corr_p = corr_result.pvalue
 
-    stat, p_value, d, size = man_utest(x, y)
+    mwu_u1, mwu_p, mwu_d, mwu_size = man_utest(production_change, test_change)
+    mwu_u2 = len(production_change) * len(test_change) - mwu_u1
     return {
         "project": project,
         "tool": tool,
         "strategy": strategy,
+        "size": len(pair_df),
         "change": change.replace("ch_", ""),
         "corr": round(corr, 2) if pd.notna(corr) else np.nan,
-        "stat_stat": round(stat, 2),
-        "stat_p": round(p_value, 2),
-        "stat_d": round(d, 2),
-        "stat_size": size,
+        "corr_p": round(corr_p, 2) if pd.notna(corr_p) else np.nan,
+        "mwu_u1": round(mwu_u1, 2),
+        "mwu_u2": round(mwu_u2, 2),
+        "mwu_p": round(mwu_p, 2),
+        "mwu_d": round(mwu_d, 2),
+        "mwu_size": mwu_size,
     }
 
 
@@ -78,7 +99,7 @@ def main() -> None:
                     if stat_row is not None:
                         stats_rows.append(stat_row)
 
-    stats_output_file = f"{CACHE_DIRECTORY}/data/aggregate/t2p-change-scatter-stats.csv"
+    stats_output_file = f"{CACHE_DIRECTORY}/data/aggregate/t2p-mwu.csv"
     os.makedirs(os.path.dirname(stats_output_file), exist_ok=True)
     stats_df = pd.DataFrame(stats_rows, columns=STAT_COLUMNS)
     stats_df = stats_df.sort_values(["project", "tool", "strategy", "change"]).reset_index(drop=True)

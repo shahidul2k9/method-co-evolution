@@ -60,7 +60,7 @@ for repository_index, project in enumerate(projects):
         ax.grid(True, alpha=0.25)
 
 fig.tight_layout()
-fig_file = f"{CACHE_DIRECTORY}/figure/fan-in-out-cdf.pdf"
+fig_file = f"{CACHE_DIRECTORY}/figure/call-graph-cdf.pdf"
 os.makedirs(os.path.dirname(fig_file), exist_ok=True)
 fig.savefig(fig_file,
             bbox_inches="tight")
