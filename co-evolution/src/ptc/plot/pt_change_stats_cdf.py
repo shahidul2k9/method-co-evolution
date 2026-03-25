@@ -5,7 +5,7 @@ import pandas as pd
 
 from mhc.config import CACHE_DIRECTORY
 from ptc.constants import ALL_REPOSITORY
-from ptc.plot_util import ecdf, GRAPH_MARKER_SIZES, GRAPH_MARKS, GRAPH_STYLES, GRAPH_WIDTHS
+from ptc.plot_util import ecdf, GRAPH_GAPS, GRAPH_MARKER_SIZES, GRAPH_MARKS, GRAPH_STYLES, GRAPH_WIDTHS
 
 STATS_FILE = f"{CACHE_DIRECTORY}/data/aggregate/t2p-change-scatter-stats.csv"
 SIZE_ORDER = ["negligible", "small", "medium", "large"]
@@ -51,6 +51,7 @@ if os.path.exists(STATS_FILE):
                         linewidth=GRAPH_WIDTHS[line_index % len(GRAPH_WIDTHS)],
                         ls=GRAPH_STYLES[line_index % len(GRAPH_STYLES)],
                         marker=GRAPH_MARKS[line_index % len(GRAPH_MARKS)],
+                        markevery=max(1, GRAPH_GAPS[line_index % len(GRAPH_GAPS)]),
                         markersize=GRAPH_MARKER_SIZES[line_index % len(GRAPH_MARKER_SIZES)],
                         label=change,
                     )
@@ -63,6 +64,7 @@ if os.path.exists(STATS_FILE):
                         linewidth=GRAPH_WIDTHS[line_index % len(GRAPH_WIDTHS)],
                         ls=GRAPH_STYLES[line_index % len(GRAPH_STYLES)],
                         marker=GRAPH_MARKS[line_index % len(GRAPH_MARKS)],
+                        markevery=max(1, GRAPH_GAPS[line_index % len(GRAPH_GAPS)]),
                         markersize=GRAPH_MARKER_SIZES[line_index % len(GRAPH_MARKER_SIZES)],
                         label=change,
                     )
@@ -93,6 +95,10 @@ if os.path.exists(STATS_FILE):
             p_ax.set_xlabel("stat_p", fontsize=14)
             p_ax.set_ylabel("ECDF", fontsize=14)
             p_ax.set_xlim(-0.02, 1.02)
+            p_ax.axvspan(0, 0.05, color="tomato", alpha=0.08)
+            p_ax.axvline(0.05, color="tomato", linestyle="--", linewidth=2)
+            p_ax.text(0.05, 0.98, "p=0.05", transform=p_ax.get_xaxis_transform(),
+                      ha="left", va="top", fontsize=10, color="tomato")
             p_ax.grid(True, alpha=0.25)
 
             size_ax.set_title("Cliff's Delta Size", fontsize=18)
