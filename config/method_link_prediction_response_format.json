@@ -6,12 +6,36 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "answer": {
+      "methods": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "confidence": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "confidence",
+            "rationale"
+          ]
+        }
+      },
+      "overall_rationale": {
         "type": "string"
       }
     },
     "required": [
-      "answer"
+      "methods",
+      "overall_rationale"
     ]
   }
 }

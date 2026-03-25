@@ -1,6 +1,8 @@
 import os
 import pandas as pd
 import numpy as np
+import subprocess
+import sys
 from pathlib import Path
 
 def format_git_project_directory(repository_directory: str, repository_name: str) -> str:
@@ -91,3 +93,11 @@ def find_root(start: Path) -> Path:
         if (path / ".git").exists():
             return path
     return current
+
+def run_module(module_name: str, project_root: Path = find_root(Path.cwd())):
+    subprocess.run(
+        [sys.executable, "-m", module_name],
+        check=True,
+        cwd=project_root,
+    )
+

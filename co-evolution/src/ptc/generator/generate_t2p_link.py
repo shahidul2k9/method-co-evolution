@@ -190,12 +190,12 @@ def main() -> None:
 
         for link_strategy in METHOD_LINK_STRATEGIES:
             keep_mask = select_links_cascade(t2p_link_df, link_strategy)
-            change_df = t2p_link_df.loc[keep_mask].copy()
-            print(repository_name, link_strategy, strategy_output_key(link_strategy), len(change_df))
-            counts = change_df["from_url"].value_counts()
+            unique_t2p_link_df = t2p_link_df.loc[keep_mask].copy()
+            unique_t2p_link_df = unique_t2p_link_df.drop_duplicates(subset=["from_url", "to_url"])
+            print(repository_name, strategy_output_key(link_strategy), len(unique_t2p_link_df))
             t2p_file = f"{DATA_DIRECTORY}/t2p-link/{strategy_output_key(link_strategy)}/{repository_name}.csv"
             os.makedirs(os.path.dirname(t2p_file), exist_ok=True)
-            change_df.to_csv(t2p_file, index=False)
+            unique_t2p_link_df.to_csv(t2p_file, index=False)
 
 
 if __name__ == "__main__":

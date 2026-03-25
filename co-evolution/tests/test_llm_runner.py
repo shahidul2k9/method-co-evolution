@@ -8,6 +8,7 @@ if str(SRC_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SRC_DIRECTORY))
 
 from ptc.llm.models import GenerationConfig, ProviderGeneration
+from ptc.llm.main import load_method_code_lookup
 from ptc.llm.persistence import CsvRunStore
 from ptc.llm.prompting import JsonPredictionParser, MethodLinkingPromptFactory
 from ptc.llm.runner import DataFrameMethodLinker, ModelProvider
@@ -20,6 +21,7 @@ except ImportError:  # pragma: no cover - local shell may not have pandas instal
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 FAN_OUT_FILE = REPOSITORY_ROOT / ".white" / "data" / "fan-out" / "commons-io.csv"
+METHOD_CODE_FILE = REPOSITORY_ROOT / ".white" / "data" / "method-code" / "commons-io.csv"
 
 MATCH_SOURCE_URL = (
     "https://github.com/apache/commons-io/blob/"
@@ -58,7 +60,7 @@ class FakeProvider(ModelProvider):
         return [
             ProviderGeneration(
                 id=prompt.id,
-                output_text='{"answer":"org.apache.commons.io.ByteOrderMark.getCharsetName()"}',
+                output_text='{"methods":[{"name":"getCharsetName","confidence":0.9,"rationale":"Direct getter under test"}],"overall_rationale":"One clear match."}',
             )
             for prompt in prompts
         ]
@@ -71,7 +73,7 @@ class TestDataFrameMethodLinker(unittest.TestCase):
             provider = FakeProvider()
             linker = DataFrameMethodLinker(
                 provider=provider,
-                prompt_factory=MethodLinkingPromptFactory(),
+                prompt_factory=MethodLinkingPromptFactory(method_code_lookup=load_method_code_lookup(METHOD_CODE_FILE)),
                 parser=JsonPredictionParser(),
                 run_store=CsvRunStore(tmpdir, "t2p", "openai/gpt-oss-20b", "commons-io.csv"),
                 batch_size=2,
@@ -87,7 +89,7 @@ class TestDataFrameMethodLinker(unittest.TestCase):
             self.assertTrue(prediction_csv.exists())
             prediction_text = prediction_csv.read_text(encoding="utf-8")
             self.assertIn("llm_pred", prediction_text)
-            self.assertIn("llm_fqs", prediction_text)
+            self.assertIn("llm_names", prediction_text)
             self.assertNotIn("llm_predicted_sigs", prediction_text)
 
             linker.link_dataframe(edge_df, "t2p", GenerationConfig())
@@ -98,7 +100,7 @@ class TestDataFrameMethodLinker(unittest.TestCase):
             provider = FakeProvider()
             linker = DataFrameMethodLinker(
                 provider=provider,
-                prompt_factory=MethodLinkingPromptFactory(),
+                prompt_factory=MethodLinkingPromptFactory(method_code_lookup=load_method_code_lookup(METHOD_CODE_FILE)),
                 parser=JsonPredictionParser(),
                 run_store=CsvRunStore(tmpdir, "t2p", "openai/gpt-oss-20b", "commons-io.csv"),
                 batch_size=2,

@@ -83,14 +83,15 @@ class DataFrameMethodLinker:
                 prediction = LinkPrediction(
                     id=prompt.id,
                     fqs=prompt.fqs,
+                    name=prompt.name,
                     url=prompt.url,
                     label="none",
                     raw_output_text="",
                     confidence=1.0,
                     selected_candidate_ids=[],
-                    selected_candidate_fqs="",
-                    selected_candidate_sig="",
-                    selected_candidate_url="",
+                    selected_candidate_names=[],
+                    selected_candidate_sigs=[],
+                    selected_candidate_urls=[],
                     rationale="No candidate methods were present in this grouped case.",
                     metadata={"generated_without_model": True},
                 )
@@ -189,10 +190,10 @@ class DataFrameMethodLinker:
                 {
                     "llm_id": prediction.id,
                     "llm_label": prediction.label,
-                    "llm_fqs": prediction.selected_candidate_fqs,
+                    "llm_names": "|".join(prediction.selected_candidate_names),
                     "llm_output": prediction.raw_output_text,
-                    "llm_predicted_sigs": prediction.selected_candidate_sig,
-                    "llm_predicted_urls": prediction.selected_candidate_url,
+                    "llm_predicted_sigs": "|".join(prediction.selected_candidate_sigs),
+                    "llm_predicted_urls": "|".join(prediction.selected_candidate_urls),
                 }
             )
         return pd.DataFrame(rows)
@@ -209,7 +210,7 @@ class DataFrameMethodLinker:
             merged_df = working_df.copy()
             for column in [
                 "llm_label",
-                "llm_fqs",
+                "llm_names",
                 "llm_output",
                 "llm_predicted_sigs",
                 "llm_predicted_urls",
@@ -223,20 +224,17 @@ class DataFrameMethodLinker:
             )
 
         row_candidate_sig_column = f"{candidate_prefix}_sig"
-        row_candidate_fqs_column = f"{candidate_prefix}_fqs"
-        row_candidate_fqs_alt_column = f"{candidate_prefix}_fqs_alt"
+        row_candidate_name_column = f"{candidate_prefix}_name"
         row_candidate_url_column = f"{candidate_prefix}_url"
         merged_df["llm_predicted_match"] = (
             (
                 (merged_df[row_candidate_sig_column] != "")
-                | (merged_df[row_candidate_fqs_column] != "")
-                | (merged_df[row_candidate_fqs_alt_column] != "")
+                | (merged_df[row_candidate_name_column] != "")
             )
             & (
                 merged_df.apply(
-                    lambda row: row[row_candidate_sig_column] in _split_pipe_value(row["llm_predicted_sigs"])
-                    or row[row_candidate_fqs_column] == row.get("llm_fqs", "")
-                    or row[row_candidate_fqs_alt_column] == row.get("llm_fqs", "")
+                    lambda row: row[row_candidate_name_column] in _split_pipe_value(row.get("llm_names", ""))
+                    or row[row_candidate_sig_column] in _split_pipe_value(row["llm_predicted_sigs"])
                     or row[row_candidate_url_column] in _split_pipe_value(row["llm_predicted_urls"]),
                     axis=1,
                 )

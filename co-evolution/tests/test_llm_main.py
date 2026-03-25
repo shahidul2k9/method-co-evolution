@@ -10,7 +10,7 @@ for source_directory in (PTC_SRC_DIRECTORY, MHC_SRC_DIRECTORY):
         sys.path.insert(0, str(source_directory))
 
 from mhc.constant import CACHE_DIRECTORY
-from ptc.llm.main import default_output_root, resolve_api_type, resolve_input_file
+from ptc.llm.main import default_output_root, resolve_api_type, resolve_input_file, resolve_method_code_file
 from ptc.llm.providers.openai_responses import (
     normalize_openai_model_name,
     translate_provider_error,
@@ -40,6 +40,14 @@ class TestLlmMainHelpers(unittest.TestCase):
         self.assertEqual(
             TEST_CACHE_DIRECTORY / "data" / "llm",
             default_output_root(str(TEST_CACHE_DIRECTORY)),
+        )
+
+    def test_resolve_method_code_file_from_cache_directory(self):
+        method_code_file = resolve_method_code_file(str(TEST_CACHE_DIRECTORY), "commons-io")
+
+        self.assertEqual(
+            TEST_CACHE_DIRECTORY / "data" / "method-code" / "commons-io.csv",
+            method_code_file,
         )
 
     def test_resolve_api_type_uses_openai_responses_for_gpt_oss(self):

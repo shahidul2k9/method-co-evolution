@@ -55,34 +55,36 @@ class CsvRunStore:
                 if not row_id:
                     continue
                 if "llm_output" in row:
-                    selected_candidate_fqs = row.get("llm_fqs", "")
+                    selected_candidate_names = _split_pipe(row.get("llm_names", ""))
                     llm_pred = _coerce_int(row.get("llm_pred", ""))
                     predictions[row_id] = LinkPrediction(
                         id=row_id,
                         fqs=row.get(f"{source_prefix}_fqs", ""),
+                        name=row.get(f"{source_prefix}_name", ""),
                         url=row.get(f"{source_prefix}_url", ""),
-                        label="match" if llm_pred == 1 and selected_candidate_fqs else "none",
+                        label="match" if llm_pred == 1 and selected_candidate_names else "none",
                         raw_output_text=row.get("llm_output", ""),
                         confidence=None,
-                        selected_candidate_ids=["c1"] if llm_pred == 1 and selected_candidate_fqs else [],
-                        selected_candidate_fqs=selected_candidate_fqs,
-                        selected_candidate_sig=selected_candidate_fqs,
-                        selected_candidate_url="",
+                        selected_candidate_ids=[f"c{index + 1}" for index, _ in enumerate(selected_candidate_names)],
+                        selected_candidate_names=selected_candidate_names,
+                        selected_candidate_sigs=[],
+                        selected_candidate_urls=[],
                         rationale="",
                         metadata={},
                     )
                 elif row.get("llm_label", ""):
                     predictions[row_id] = LinkPrediction(
                         id=row_id,
-                        fqs=row.get("llm_fqs", ""),
+                        fqs=row.get(f"{source_prefix}_fqs", ""),
+                        name=row.get(f"{source_prefix}_name", ""),
                         url=row.get("llm_url", ""),
                         label=row.get("llm_label", ""),
                         raw_output_text=row.get("llm_raw_output", ""),
                         confidence=_coerce_float(row.get("llm_confidence", "")),
                         selected_candidate_ids=_split_pipe(row.get("llm_predicted_candidate_ids", "")),
-                        selected_candidate_fqs=_first_pipe_value(row.get("llm_predicted_fqses", "")),
-                        selected_candidate_sig=_first_pipe_value(row.get("llm_predicted_sigs", "")),
-                        selected_candidate_url=_first_pipe_value(row.get("llm_predicted_urls", "")),
+                        selected_candidate_names=_split_pipe(row.get("llm_predicted_names", "")),
+                        selected_candidate_sigs=_split_pipe(row.get("llm_predicted_sigs", "")),
+                        selected_candidate_urls=_split_pipe(row.get("llm_predicted_urls", "")),
                         rationale=row.get("llm_rationale", ""),
                         metadata={},
                     )
@@ -157,7 +159,7 @@ class CsvRunStore:
             "to_fqs",
             "llm_id",
             "llm_pred",
-            "llm_fqs",
+            "llm_names",
             "llm_output",
             "created_at",
             "updated_at",
@@ -172,7 +174,7 @@ class CsvRunStore:
             "to_fqs": "",
             "llm_id": "",
             "llm_pred": 0,
-            "llm_fqs": "",
+            "llm_names": "",
             "llm_output": "",
             "created_at": "",
             "updated_at": "",
@@ -230,13 +232,6 @@ def _coerce_float(value: str) -> float | None:
         return float(value)
     except ValueError:
         return None
-
-
-def _first_pipe_value(value: str) -> str:
-    values = _split_pipe(value)
-    if values:
-        return values[0]
-    return ""
 
 
 def _coerce_int(value: str) -> int | None:

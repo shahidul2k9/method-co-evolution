@@ -37,7 +37,7 @@ class TestCsvRunStore(unittest.TestCase):
                         "to_fqs",
                         "llm_id",
                         "llm_pred",
-                        "llm_fqs",
+                        "llm_names",
                         "llm_output",
                         "created_at",
                         "updated_at",
@@ -55,7 +55,7 @@ class TestCsvRunStore(unittest.TestCase):
                         "to_fqs": "org.example.Prod.saveItem()",
                         "llm_id": "https://example/source#L1",
                         "llm_pred": "1",
-                        "llm_fqs": "org.example.Prod.one()",
+                        "llm_names": "saveItem|validateItem",
                         "llm_output": "{}",
                         "created_at": "2026-03-23T10:00:00+00:00",
                         "updated_at": "2026-03-23T10:00:00+00:00",
@@ -66,7 +66,7 @@ class TestCsvRunStore(unittest.TestCase):
             csv_text = store.predictions_file.read_text(encoding="utf-8")
             self.assertIn("llm_id", csv_text)
             self.assertIn("https://example/source#L1", csv_text)
-            self.assertIn("org.example.Prod.one()", csv_text)
+            self.assertIn("saveItem|validateItem", csv_text)
             self.assertEqual("t2p", store.input_kind)
             self.assertEqual(
                 Path(tmpdir) / "t2p" / "gpt-oss-20b" / "prediction" / "commons-io.csv",
@@ -102,6 +102,8 @@ class TestCsvRunStore(unittest.TestCase):
             prompt = PromptInput(
                 id="id-1",
                 fqs="org.example.Test.testThing()",
+                name="testThing",
+                code="void testThing() {}",
                 url="https://example/test#L1",
                 prompt_text="SYSTEM:\nhello",
                 messages=[
@@ -154,7 +156,7 @@ class TestCsvRunStore(unittest.TestCase):
                         "to_fqs": "org.example.Prod.saveItem()",
                         "llm_id": "https://example/source#L1",
                         "llm_pred": 1,
-                        "llm_fqs": "org.example.Prod.saveItem()",
+                        "llm_names": "saveItem|validateItem",
                         "llm_output": "{}",
                     }
                 ]

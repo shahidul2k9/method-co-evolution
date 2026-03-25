@@ -143,6 +143,9 @@ def main() -> None:
     input_path = resolve_input_file(args.cache_directory, args.project, input_kind)
     if not input_path.exists():
         parser.error(f"Input file not found: {input_path}")
+    method_code_path = resolve_method_code_file(args.cache_directory, args.project)
+    if not method_code_path.exists():
+        parser.error(f"Method code file not found: {method_code_path}")
 
     output_root = default_output_root(args.cache_directory)
     run_store = CsvRunStore(
@@ -154,10 +157,11 @@ def main() -> None:
     )
 
     edge_df = pd.read_csv(input_path, keep_default_na=False, na_filter=False)
+    method_code_lookup = load_method_code_lookup(method_code_path)
     provider = build_provider(args)
     linker = DataFrameMethodLinker(
         provider=provider,
-        prompt_factory=MethodLinkingPromptFactory(),
+        prompt_factory=MethodLinkingPromptFactory(method_code_lookup=method_code_lookup),
         parser=JsonPredictionParser(),
         run_store=run_store,
         batch_size=args.batch_size,
@@ -184,6 +188,25 @@ def default_output_root(cache_directory: str) -> Path:
 def resolve_input_file(cache_directory: str, project: str, input_kind: str) -> Path:
     fan_directory = "t2p-candidate" if input_kind == "t2p" else "fan-in"
     return Path(cache_directory) / "data" / fan_directory / f"{project}.csv"
+
+
+def resolve_method_code_file(cache_directory: str, project: str) -> Path:
+    return Path(cache_directory) / "data" / "method-code" / f"{project}.csv"
+
+
+def load_method_code_lookup(method_code_path: Path) -> dict[str, dict[str, str]]:
+    import pandas as pd
+
+    method_code_df = pd.read_csv(method_code_path, keep_default_na=False, na_filter=False)
+    lookup: dict[str, dict[str, str]] = {}
+    for row in method_code_df.itertuples(index=False):
+        url = getattr(row, "url", "")
+        if url:
+            lookup[url] = {
+                "name": getattr(row, "name", ""),
+                "code": getattr(row, "code", ""),
+            }
+    return lookup
 
 
 def _require_pandas() -> None:

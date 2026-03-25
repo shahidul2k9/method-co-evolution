@@ -20,6 +20,8 @@ class PromptMessage:
 class PromptInput:
     id: str
     fqs: str
+    name: str
+    code: str
     url: str
     prompt_text: str
     messages: list[PromptMessage] = field(default_factory=list)
@@ -47,13 +49,14 @@ class ProviderGeneration:
 class LinkPrediction:
     id: str
     fqs: str
+    name: str
     url: str
     label: str
     raw_output_text: str
     confidence: float | None = None
     selected_candidate_ids: list[str] = field(default_factory=list)
-    selected_candidate_fqs: str = ""
-    selected_candidate_sig: str = ""
-    selected_candidate_url: str = ""
+    selected_candidate_names: list[str] = field(default_factory=list)
+    selected_candidate_sigs: list[str] = field(default_factory=list)
+    selected_candidate_urls: list[str] = field(default_factory=list)
     rationale: str = ""
     metadata: dict[str, Any] = field(default_factory=dict)
