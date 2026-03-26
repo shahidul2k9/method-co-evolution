@@ -55,6 +55,30 @@ def sorted_directory_names(path: str | Path) -> list[str]:
     return sorted(entry.name for entry in os.scandir(path) if entry.is_dir())
 
 
+def aggregate_csv_files(
+    input_dir: str | Path,
+    output_file_name: str,
+    output_dir: str | Path | None = None,
+) -> None:
+    if output_dir is None:
+        from mhc.config import DATA_DIRECTORY
+
+        output_dir = Path(DATA_DIRECTORY) / "aggregate"
+
+    dfs = [
+        pd.read_csv(file, keep_default_na=False, na_filter=False)
+        for file in Path(input_dir).rglob("*.csv")
+    ]
+    dfs = [df for df in dfs if not df.empty]
+
+    if not dfs:
+        return
+
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    pd.concat(dfs, ignore_index=True).to_csv(output_path / output_file_name, index=False)
+
+
 def lcs(s1, s2):
     n = len(s1)
     m = len(s2)
@@ -100,4 +124,3 @@ def run_module(module_name: str, project_root: Path = find_root(Path.cwd())):
         check=True,
         cwd=project_root,
     )
-
