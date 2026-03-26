@@ -9,8 +9,8 @@ from ptc.llm.models import LinkPrediction, PromptInput
 
 
 RUN_FIELDNAMES = [
+    "project",
     "name",
-    "fqs",
     "url",
     "prompt_text",
     "messages_json",
@@ -81,7 +81,7 @@ class CsvRunStore:
 
                 predictions[row_url] = LinkPrediction(
                     id=row_url,
-                    fqs=row.get("fqs", ""),
+                    fqs="",
                     name=row.get("name", ""),
                     url=row_url,
                     label="match" if selected_candidate_names else "none",
@@ -105,8 +105,8 @@ class CsvRunStore:
         existing_row = rows_by_url.get(prompt_input.url, {})
 
         row = {
+            "project": Path(self.input_file_name).stem,
             "name": prompt_input.name,
-            "fqs": prompt_input.fqs,
             "url": prompt_input.url,
             "prompt_text": prompt_input.prompt_text,
             "messages_json": json.dumps(
@@ -148,8 +148,8 @@ class CsvRunStore:
         rows_by_url = self._load_rows_by_url()
         existing_row = rows_by_url.get(prompt_input.url, {})
         rows_by_url[prompt_input.url] = {
+            "project": existing_row.get("project", "") or Path(self.input_file_name).stem,
             "name": prompt_input.name,
-            "fqs": prompt_input.fqs,
             "url": prompt_input.url,
             "prompt_text": existing_row.get("prompt_text", prompt_input.prompt_text),
             "messages_json": existing_row.get("messages_json", ""),

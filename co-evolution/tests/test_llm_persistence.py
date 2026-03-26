@@ -22,8 +22,8 @@ class TestCsvRunStore(unittest.TestCase):
                 writer = csv.DictWriter(
                     handle,
                     fieldnames=[
+                        "project",
                         "name",
-                        "fqs",
                         "url",
                         "prompt_text",
                         "messages_json",
@@ -38,8 +38,8 @@ class TestCsvRunStore(unittest.TestCase):
                 writer.writeheader()
                 writer.writerow(
                     {
+                        "project": "commons-io",
                         "name": "testSaveItem",
-                        "fqs": "org.example.Test.testSaveItem()",
                         "url": "https://example/source#L1",
                         "prompt_text": "SYSTEM:\nhello",
                         "messages_json": "[]",
@@ -102,6 +102,7 @@ class TestCsvRunStore(unittest.TestCase):
                 row = next(csv.DictReader(handle))
 
             self.assertIn('"role": "system"', row["messages_json"])
+            self.assertEqual("commons-io", row["project"])
             self.assertEqual("2026-03-23T10:00:00+00:00", row["created_at"])
             self.assertEqual("2026-03-23T10:00:00+00:00", row["updated_at"])
             self.assertEqual("null", row["output_json"])
