@@ -9,8 +9,8 @@ usage() {
 Usage:
   job.sh --command history --tool-name codeShovel --java-options "-Xmx4g" --timeout-seconds 1800 --command-options "--flag value" --projects "checkstyle,commons-io"
   job.sh --command method-code --projects "commons-io"
-  job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --prompt-format text --max-new-tokens 256 --resume none --projects "commons-io" --input-kind t2p
-  job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --resume error --projects "commons-io" --input-kind t2p
+  job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --prompt-format text --batch-size 1 --max-new-tokens 256 --resume none --projects "commons-io" --input-kind t2p
+  job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --batch-size 1 --resume error --projects "commons-io" --input-kind t2p
   job.sh --command llm-m2m-link --stage parse --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --projects "commons-io"
 
 Options:
@@ -24,6 +24,7 @@ Options:
   --model-name-or-path    Hugging Face model id or local path for llm-m2m-link
   --short-model-name      Short model directory name for llm-m2m-link outputs
   --prompt-format         LLM prompt format: auto, json, or text (default: auto)
+  --batch-size            LLM grouped case batch size (default: 4)
   --max-new-tokens        LLM generation cap per grouped case (default: 256)
   --resume                Resume mode: none, all, or error (default: none)
   --projects              Comma-separated project list for the array job
@@ -51,6 +52,7 @@ API_TYPE="auto"
 MODEL_NAME_OR_PATH=""
 SHORT_MODEL_NAME=""
 PROMPT_FORMAT="auto"
+BATCH_SIZE="4"
 MAX_NEW_TOKENS="256"
 RESUME_MODE="none"
 PROJECTS_CSV=""
@@ -97,6 +99,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --prompt-format)
             PROMPT_FORMAT="$2"
+            shift 2
+            ;;
+        --batch-size)
+            BATCH_SIZE="$2"
             shift 2
             ;;
         --max-new-tokens)
@@ -178,6 +184,7 @@ if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
         --model-name-or-path "$MODEL_NAME_OR_PATH" \
         --short-model-name "$SHORT_MODEL_NAME" \
         --prompt-format "$PROMPT_FORMAT" \
+        --batch-size "$BATCH_SIZE" \
         --max-new-tokens "$MAX_NEW_TOKENS" \
         --resume "$RESUME_MODE" \
         --input-kind "$INPUT_KIND" \
