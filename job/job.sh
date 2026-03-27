@@ -10,6 +10,7 @@ Usage:
   job.sh --command history --tool-name codeShovel --java-options "-Xmx4g" --timeout-seconds 1800 --command-options "--flag value" --projects "checkstyle,commons-io"
   job.sh --command method-code --projects "commons-io"
   job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --prompt-format text --max-new-tokens 256 --no-resume --projects "commons-io" --input-kind t2p
+  job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --resume-errors --projects "commons-io" --input-kind t2p
   job.sh --command llm-m2m-link --stage parse --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --projects "commons-io"
 
 Options:
@@ -25,6 +26,7 @@ Options:
   --prompt-format         LLM prompt format: auto, json, or text (default: auto)
   --max-new-tokens        LLM generation cap per grouped case (default: 256)
   --resume                Resume from existing LLM predictions (default: enabled)
+  --resume-errors         Rerun only rows whose existing LLM run CSV has a non-empty error value
   --no-resume             Ignore existing LLM predictions and rerun all groups
   --projects              Comma-separated project list for the array job
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
@@ -53,6 +55,7 @@ SHORT_MODEL_NAME=""
 PROMPT_FORMAT="auto"
 MAX_NEW_TOKENS="256"
 RESUME="true"
+RESUME_ERRORS="false"
 PROJECTS_CSV=""
 INPUT_KIND="t2p"
 CACHE_DIRECTORY="$PROJECT_DIRECTORY/.cache"
@@ -107,8 +110,13 @@ while [[ $# -gt 0 ]]; do
             RESUME="true"
             shift 1
             ;;
+        --resume-errors)
+            RESUME_ERRORS="true"
+            shift 1
+            ;;
         --no-resume)
             RESUME="false"
+            RESUME_ERRORS="false"
             shift 1
             ;;
         --projects)
@@ -173,6 +181,8 @@ if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
     RESUME_FLAG="--resume"
     if [[ "$RESUME" == "false" ]]; then
         RESUME_FLAG="--no-resume"
+    elif [[ "$RESUME_ERRORS" == "true" ]]; then
+        RESUME_FLAG="--resume-errors"
     fi
     srun ptc-llm llm-m2m-link \
         --cache-directory "$CACHE_DIRECTORY" \

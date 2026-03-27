@@ -93,6 +93,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Resume from previous persisted predictions when available.",
     )
     parser.add_argument(
+        "--resume-errors",
+        dest="resume_errors",
+        action="store_true",
+        help="Rerun only rows whose existing LLM run CSV has a non-empty error value.",
+    )
+    parser.add_argument(
         "--device-map",
         dest="device_map",
         default="auto",
@@ -180,6 +186,7 @@ def main() -> int:
             run_store=run_store,
             batch_size=args.batch_size,
             resume=args.resume,
+            resume_errors=args.resume_errors,
             prompt_format=args.prompt_format,
         )
         result_df = linker.link_dataframe(

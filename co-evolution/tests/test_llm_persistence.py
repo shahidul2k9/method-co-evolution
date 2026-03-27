@@ -53,6 +53,7 @@ class TestCsvRunStore(unittest.TestCase):
                 )
 
             self.assertEqual({"https://example/source#L1"}, store.load_completed_example_ids())
+            self.assertEqual(set(), store.load_error_example_ids())
             csv_text = store.runs_file.read_text(encoding="utf-8")
             self.assertIn("output_json", csv_text)
             self.assertIn("saveItem", csv_text)
@@ -137,6 +138,7 @@ class TestCsvRunStore(unittest.TestCase):
             self.assertEqual("parser: boom", row["error"])
             self.assertEqual("2026-03-23T10:00:00+00:00", row["created_at"])
             self.assertEqual("2026-03-23T11:00:00+00:00", row["updated_at"])
+            self.assertEqual({"https://example/test#L1"}, store.load_error_example_ids())
 
     def test_no_resume_reset_clears_previous_output_and_error(self):
         with tempfile.TemporaryDirectory() as tmpdir:

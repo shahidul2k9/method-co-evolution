@@ -99,6 +99,20 @@ class CsvRunStore:
     def load_completed_example_ids(self) -> set[str]:
         return set(self.load_predictions().keys())
 
+    def load_error_example_ids(self) -> set[str]:
+        if not self.runs_file.exists():
+            return set()
+
+        error_ids: set[str] = set()
+        with self.runs_file.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            for row in reader:
+                row_url = row.get("url", "")
+                error = row.get("error", "")
+                if row_url and error:
+                    error_ids.add(row_url)
+        return error_ids
+
     def upsert_request(self, prompt_input: PromptInput, overwrite_existing: bool = False) -> None:
         timestamp = _timestamp_now()
         rows_by_url = self._load_rows_by_url()
