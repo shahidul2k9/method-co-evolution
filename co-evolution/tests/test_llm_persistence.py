@@ -1,4 +1,5 @@
 import csv
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,6 +14,9 @@ if str(SRC_DIRECTORY) not in sys.path:
 
 from ptc.llm.models import PromptContentText, PromptInput, PromptMessage
 from ptc.llm.persistence import CsvRunStore
+from ptc.llm.runner import DataFrameMethodLinker, ModelProvider
+from ptc.llm.prompting import JsonPredictionParser, MethodLinkingPromptFactory
+from ptc.llm.models import GenerationConfig, ProviderGeneration
 
 
 class TestCsvRunStore(unittest.TestCase):
@@ -110,6 +114,58 @@ class TestCsvRunStore(unittest.TestCase):
             self.assertTrue(pd.isna(row["output_raw"]))
             self.assertTrue(pd.isna(row["output_json"]))
             self.assertEqual("unknown", row["error"])
+
+    def test_runner_persists_batch_size_and_max_new_tokens_in_metadata_json(self):
+        class FakeProvider(ModelProvider):
+            def prompt_mode(self):
+                return "json"
+
+            def generate_batch(self, prompts, generation_config):
+                return [
+                    ProviderGeneration(
+                        id=prompt.id,
+                        output_text='{"methods":[],"overall_rationale":"No direct match."}',
+                    )
+                    for prompt in prompts
+                ]
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            store = CsvRunStore(tmpdir, "t2p", "openai/gpt-oss-20b", "commons-io.csv")
+            edge_df = pd.DataFrame(
+                [
+                    {
+                        "project": "commons-io",
+                        "from_name": "testThing",
+                        "to_name": "saveItem",
+                        "from_url": "https://example/test#L1",
+                        "to_url": "https://example/main#L1",
+                        "from_file": "src/test/java/Test.java",
+                        "to_file": "src/main/java/Main.java",
+                        "from_fqs": "org.example.Test.testThing()",
+                        "to_fqs": "org.example.Main.saveItem()",
+                        "from_sig": "org.example.Test.testThing()",
+                        "to_sig": "org.example.Main.saveItem()",
+                    }
+                ]
+            )
+            method_code_lookup = {
+                "https://example/test#L1": {"name": "testThing", "code": "void testThing() {}"}
+            }
+            linker = DataFrameMethodLinker(
+                provider=FakeProvider(),
+                prompt_factory=MethodLinkingPromptFactory(method_code_lookup=method_code_lookup),
+                parser=JsonPredictionParser(),
+                run_store=store,
+                batch_size=1,
+                resume_mode="none",
+            )
+
+            linker.link_dataframe(edge_df, "t2p", GenerationConfig(max_new_tokens=2048))
+
+            row = pd.read_csv(store.runs_file).iloc[0]
+            metadata_json = json.loads(row["metadata_json"])
+            self.assertEqual(1, metadata_json["batch_size"])
+            self.assertEqual(2048, metadata_json["max_new_tokens"])
 
     def test_upsert_result_persists_error_and_output_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:

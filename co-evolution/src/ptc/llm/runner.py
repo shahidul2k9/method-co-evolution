@@ -88,6 +88,8 @@ class DataFrameMethodLinker:
                     normalized_input_kind,
                     prompt_format=prompt_format,
                 )
+                prompt.metadata["batch_size"] = self.batch_size
+                prompt.metadata["max_new_tokens"] = generation_config.max_new_tokens
                 if prompt.candidate_lookup:
                     prompts.append(prompt)
                     if self.run_store:
