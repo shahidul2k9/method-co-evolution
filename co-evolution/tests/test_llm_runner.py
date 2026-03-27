@@ -77,7 +77,7 @@ class TestDataFrameMethodLinker(unittest.TestCase):
                 parser=JsonPredictionParser(),
                 run_store=CsvRunStore(tmpdir, "t2p", "openai/gpt-oss-20b", "commons-io.csv"),
                 batch_size=2,
-                resume=True,
+                resume_mode="all",
             )
             edge_df = _load_group(MATCH_SOURCE_URL)
 
@@ -104,7 +104,7 @@ class TestDataFrameMethodLinker(unittest.TestCase):
                 parser=JsonPredictionParser(),
                 run_store=CsvRunStore(tmpdir, "t2p", "openai/gpt-oss-20b", "commons-io.csv"),
                 batch_size=2,
-                resume=True,
+                resume_mode="all",
             )
             edge_df = _load_group(EMPTY_SOURCE_URL)
 
@@ -124,8 +124,34 @@ class TestDataFrameMethodLinker(unittest.TestCase):
                 parser=JsonPredictionParser(),
                 run_store=run_store,
                 batch_size=2,
-                resume=True,
-                resume_errors=True,
+                resume_mode="error",
+            )
+            edge_df = _load_group(MATCH_SOURCE_URL)
+            prompt = linker.prompt_factory.build_prompt(edge_df, "t2p", prompt_format="json")
+            run_store.upsert_request(prompt)
+            run_store.upsert_result(
+                prompt_input=prompt,
+                output_raw="broken",
+                output_json=None,
+                error="parser: boom",
+            )
+
+            result_df = linker.link_dataframe(edge_df, "t2p", GenerationConfig())
+
+            self.assertEqual(1, provider.calls)
+            self.assertTrue((result_df["llm_predicted_match"] == 1).all())
+
+    def test_resume_none_reruns_all_rows_even_with_existing_error_rows(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            run_store = CsvRunStore(tmpdir, "t2p", "openai/gpt-oss-20b", "commons-io.csv")
+            provider = FakeProvider()
+            linker = DataFrameMethodLinker(
+                provider=provider,
+                prompt_factory=MethodLinkingPromptFactory(method_code_lookup=load_method_code_lookup(METHOD_CODE_FILE)),
+                parser=JsonPredictionParser(),
+                run_store=run_store,
+                batch_size=2,
+                resume_mode="none",
             )
             edge_df = _load_group(MATCH_SOURCE_URL)
             prompt = linker.prompt_factory.build_prompt(edge_df, "t2p", prompt_format="json")

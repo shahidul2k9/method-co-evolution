@@ -34,8 +34,7 @@ class DataFrameMethodLinker:
         parser,
         run_store: CsvRunStore | None = None,
         batch_size: int = 4,
-        resume: bool = True,
-        resume_errors: bool = False,
+        resume_mode: str = "none",
         prompt_format: str = "auto",
     ):
         self.provider = provider
@@ -43,8 +42,7 @@ class DataFrameMethodLinker:
         self.parser = parser
         self.run_store = run_store
         self.batch_size = batch_size
-        self.resume = resume
-        self.resume_errors = resume_errors
+        self.resume_mode = resume_mode
         self.prompt_format = prompt_format
 
     def link_dataframe(
@@ -59,21 +57,23 @@ class DataFrameMethodLinker:
         source_prefix, candidate_prefix, group_column = _layout(normalized_input_kind)
         working_df["llm_id"] = working_df[group_column]
         grouped_cases = [case_df for _, case_df in working_df.groupby(group_column, sort=False)]
+        resume_all = self.resume_mode == "all"
+        resume_errors = self.resume_mode == "error"
 
         completed_predictions = (
             self.run_store.load_predictions()
-            if self.run_store and (self.resume or self.resume_errors)
+            if self.run_store and (resume_all or resume_errors)
             else {}
         )
         error_example_ids = (
             self.run_store.load_error_example_ids()
-            if self.run_store and self.resume_errors
+            if self.run_store and resume_errors
             else set()
         )
         pending_cases = []
         for case_df in grouped_cases:
             row_id = case_df.iloc[0][group_column]
-            if self.resume_errors:
+            if resume_errors:
                 if row_id in error_example_ids:
                     pending_cases.append(case_df)
             elif row_id not in completed_predictions:
@@ -93,7 +93,7 @@ class DataFrameMethodLinker:
                     if self.run_store:
                         self.run_store.upsert_request(
                             prompt,
-                            overwrite_existing=(not self.resume) or self.resume_errors,
+                            overwrite_existing=(self.resume_mode == "none") or resume_errors,
                         )
                     continue
 
@@ -116,7 +116,7 @@ class DataFrameMethodLinker:
                 if self.run_store:
                     self.run_store.upsert_request(
                         prompt,
-                        overwrite_existing=(not self.resume) or self.resume_errors,
+                        overwrite_existing=(self.resume_mode == "none") or resume_errors,
                     )
                     self.run_store.upsert_result(
                         prompt_input=prompt,

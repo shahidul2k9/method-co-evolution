@@ -5,6 +5,8 @@ from pathlib import Path
 import sys
 from unittest.mock import patch
 
+import pandas as pd
+
 SRC_DIRECTORY = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SRC_DIRECTORY))
@@ -46,7 +48,7 @@ class TestCsvRunStore(unittest.TestCase):
                         "metadata_json": "{}",
                         "output_raw": '{"methods":[{"name":"saveItem","confidence":0.9,"rationale":"Direct call"}],"overall_rationale":"One clear match."}',
                         "output_json": '{"methods":[{"name":"saveItem","confidence":0.9,"rationale":"Direct call"}],"overall_rationale":"One clear match."}',
-                        "error": "",
+                        "error": "null",
                         "created_at": "2026-03-23T10:00:00+00:00",
                         "updated_at": "2026-03-23T10:00:00+00:00",
                     }
@@ -99,14 +101,15 @@ class TestCsvRunStore(unittest.TestCase):
             with patch("ptc.llm.persistence._timestamp_now", return_value="2026-03-23T10:00:00+00:00"):
                 store.upsert_request(prompt)
 
-            with store.runs_file.open("r", encoding="utf-8", newline="") as handle:
-                row = next(csv.DictReader(handle))
+            row = pd.read_csv(store.runs_file).iloc[0]
 
             self.assertIn('"role": "system"', row["messages_json"])
             self.assertEqual("commons-io", row["project"])
             self.assertEqual("2026-03-23T10:00:00+00:00", row["created_at"])
             self.assertEqual("2026-03-23T10:00:00+00:00", row["updated_at"])
-            self.assertEqual("null", row["output_json"])
+            self.assertTrue(pd.isna(row["output_raw"]))
+            self.assertTrue(pd.isna(row["output_json"]))
+            self.assertEqual("unknown", row["error"])
 
     def test_upsert_result_persists_error_and_output_json(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -130,8 +133,7 @@ class TestCsvRunStore(unittest.TestCase):
                     error="parser: boom",
                 )
 
-            with store.runs_file.open("r", encoding="utf-8", newline="") as handle:
-                row = next(csv.DictReader(handle))
+            row = pd.read_csv(store.runs_file).iloc[0]
 
             self.assertEqual("raw-output", row["output_raw"])
             self.assertIn('"overall_rationale": "No direct match."', row["output_json"])
@@ -159,12 +161,11 @@ class TestCsvRunStore(unittest.TestCase):
             with patch("ptc.llm.persistence._timestamp_now", return_value="2026-03-23T12:00:00+00:00"):
                 store.upsert_request(prompt, overwrite_existing=True)
 
-            with store.runs_file.open("r", encoding="utf-8", newline="") as handle:
-                row = next(csv.DictReader(handle))
+            row = pd.read_csv(store.runs_file).iloc[0]
 
-            self.assertEqual("", row["output_raw"])
-            self.assertEqual("null", row["output_json"])
-            self.assertEqual("", row["error"])
+            self.assertTrue(pd.isna(row["output_raw"]))
+            self.assertTrue(pd.isna(row["output_json"]))
+            self.assertEqual("unknown", row["error"])
             self.assertEqual("2026-03-23T10:00:00+00:00", row["created_at"])
             self.assertEqual("2026-03-23T12:00:00+00:00", row["updated_at"])
 
