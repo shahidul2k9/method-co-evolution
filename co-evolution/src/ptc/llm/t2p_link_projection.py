@@ -64,15 +64,15 @@ def project_t2p_links(
 
 
 def _load_output_payload(row: dict[str, str]) -> dict | None:
-    output_json = row.get("output_json", "")
-    if output_json not in {"", "null"}:
+    output_json = _nullable_value(row.get("output_json"))
+    if output_json is not None:
         try:
             return json.loads(output_json)
         except json.JSONDecodeError:
             pass
 
-    output_raw = row.get("output_raw", "")
-    if output_raw:
+    output_raw = _nullable_value(row.get("output_raw"))
+    if output_raw is not None:
         return JsonPredictionParser.extract_payload_or_none(output_raw)
     return None
 
@@ -102,3 +102,14 @@ def _method_lookup(payload: dict | None) -> dict[str, dict[str, object]]:
                 "rationale": rationale,
             }
     return method_lookup
+
+
+def _nullable_value(value):
+    try:
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    if isinstance(value, str) and value.strip().lower() in {"", "null"}:
+        return None
+    return value

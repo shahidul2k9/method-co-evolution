@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import csv
 import datetime
 import json
 from pathlib import Path
@@ -48,56 +47,71 @@ class CsvRunStore:
         if not self.runs_file.exists():
             return {}
 
+        import pandas as pd
+
         predictions: dict[str, LinkPrediction] = {}
-        with self.runs_file.open("r", encoding="utf-8", newline="") as handle:
-            reader = csv.DictReader(handle)
-            for row in reader:
-                row_url = row.get("url", "")
-                output_json = row.get("output_json", "")
-                error = row.get("error", "")
-                if not row_url or error or output_json in {"", "null"}:
-                    continue
+        run_df = pd.read_csv(self.runs_file)
+        for row in run_df.to_dict(orient="records"):
+            row_url = _nullable_value(row.get("url"))
+            output_json = _nullable_value(row.get("output_json"))
+            error = _nullable_value(row.get("error"))
+            if not row_url or error is not None or output_json is None:
+                continue
 
-                try:
-                    payload = json.loads(output_json)
-                except json.JSONDecodeError:
-                    continue
+            try:
+                payload = json.loads(output_json)
+            except json.JSONDecodeError:
+                continue
 
-                methods_payload = payload.get("methods", [])
-                if not isinstance(methods_payload, list):
-                    continue
+            methods_payload = payload.get("methods", [])
+            if not isinstance(methods_payload, list):
+                continue
 
-                selected_candidate_names = [
-                    method_payload.get("name", "")
-                    for method_payload in methods_payload
-                    if isinstance(method_payload, dict) and method_payload.get("name", "")
-                ]
-                confidence_values = [
-                    _coerce_float(method_payload.get("confidence"))
-                    for method_payload in methods_payload
-                    if isinstance(method_payload, dict)
-                ]
-                confidence_values = [value for value in confidence_values if value is not None]
+            selected_candidate_names = [
+                method_payload.get("name", "")
+                for method_payload in methods_payload
+                if isinstance(method_payload, dict) and method_payload.get("name", "")
+            ]
+            confidence_values = [
+                _coerce_float(method_payload.get("confidence"))
+                for method_payload in methods_payload
+                if isinstance(method_payload, dict)
+            ]
+            confidence_values = [value for value in confidence_values if value is not None]
 
-                predictions[row_url] = LinkPrediction(
-                    id=row_url,
-                    fqs="",
-                    name=row.get("name", ""),
-                    url=row_url,
-                    label="match" if selected_candidate_names else "none",
-                    raw_output_text=row.get("output_raw", ""),
-                    confidence=max(confidence_values) if confidence_values else None,
-                    selected_candidate_ids=[f"c{index + 1}" for index, _ in enumerate(selected_candidate_names)],
-                    selected_candidate_names=selected_candidate_names,
-                    selected_candidate_sigs=[],
-                    selected_candidate_urls=[],
-                    rationale=str(payload.get("overall_rationale", "")).strip(),
-                    metadata={"raw_json": payload},
-                )
+            predictions[row_url] = LinkPrediction(
+                id=row_url,
+                fqs="",
+                name=_nullable_value(row.get("name")) or "",
+                url=row_url,
+                label="match" if selected_candidate_names else "none",
+                raw_output_text=_nullable_value(row.get("output_raw")) or "",
+                confidence=max(confidence_values) if confidence_values else None,
+                selected_candidate_ids=[f"c{index + 1}" for index, _ in enumerate(selected_candidate_names)],
+                selected_candidate_names=selected_candidate_names,
+                selected_candidate_sigs=[],
+                selected_candidate_urls=[],
+                rationale=str(payload.get("overall_rationale", "")).strip(),
+                metadata={"raw_json": payload},
+            )
         return predictions
 
     def load_completed_example_ids(self) -> set[str]:
         return set(self.load_predictions().keys())
+
+    def load_error_example_ids(self) -> set[str]:
+        if not self.runs_file.exists():
+            return set()
+
+        import pandas as pd
+
+        run_df = pd.read_csv(self.runs_file)
+        return {
+            row_url
+            for row in run_df.to_dict(orient="records")
+            for row_url in [_nullable_value(row.get("url"))]
+            if row_url and _nullable_value(row.get("error")) is not None
+        }
 
     def upsert_request(self, prompt_input: PromptInput, overwrite_existing: bool = False) -> None:
         timestamp = _timestamp_now()
@@ -123,16 +137,16 @@ class CsvRunStore:
                 ensure_ascii=True,
             ),
             "metadata_json": json.dumps(prompt_input.metadata, ensure_ascii=True),
-            "output_raw": existing_row.get("output_raw", ""),
-            "output_json": existing_row.get("output_json", "null") or "null",
-            "error": existing_row.get("error", ""),
+            "output_raw": _nullable_value(existing_row.get("output_raw")),
+            "output_json": _nullable_value(existing_row.get("output_json")),
+            "error": _nullable_value(existing_row.get("error")) or "unknown",
             "created_at": existing_row.get("created_at", "") or timestamp,
             "updated_at": timestamp,
         }
         if overwrite_existing:
-            row["output_raw"] = ""
-            row["output_json"] = "null"
-            row["error"] = ""
+            row["output_raw"] = None
+            row["output_json"] = None
+            row["error"] = "unknown"
 
         rows_by_url[prompt_input.url] = row
         self._write_rows(rows_by_url)
@@ -154,9 +168,9 @@ class CsvRunStore:
             "prompt_text": existing_row.get("prompt_text", prompt_input.prompt_text),
             "messages_json": existing_row.get("messages_json", ""),
             "metadata_json": existing_row.get("metadata_json", ""),
-            "output_raw": output_raw,
-            "output_json": json.dumps(output_json, ensure_ascii=True) if output_json is not None else "null",
-            "error": error,
+            "output_raw": output_raw or None,
+            "output_json": json.dumps(output_json, ensure_ascii=True) if output_json is not None else None,
+            "error": error or ("unknown" if output_json is None and not output_raw else None),
             "created_at": existing_row.get("created_at", "") or timestamp,
             "updated_at": timestamp,
         }
@@ -166,21 +180,22 @@ class CsvRunStore:
         if not self.runs_file.exists():
             return {}
 
+        import pandas as pd
+
         rows_by_url: dict[str, dict[str, str]] = {}
-        with self.runs_file.open("r", encoding="utf-8", newline="") as handle:
-            reader = csv.DictReader(handle)
-            for row in reader:
-                row_url = row.get("url", "")
-                if row_url:
-                    rows_by_url[row_url] = row
+        run_df = pd.read_csv(self.runs_file)
+        for row in run_df.to_dict(orient="records"):
+            row_url = _nullable_value(row.get("url"))
+            if row_url:
+                rows_by_url[row_url] = row
         return rows_by_url
 
     def _write_rows(self, rows_by_url: dict[str, dict[str, str]]) -> None:
-        with self.runs_file.open("w", encoding="utf-8", newline="") as handle:
-            writer = csv.DictWriter(handle, fieldnames=RUN_FIELDNAMES)
-            writer.writeheader()
-            for row in rows_by_url.values():
-                writer.writerow({field: row.get(field, "") for field in RUN_FIELDNAMES})
+        import pandas as pd
+
+        rows = [{field: row.get(field, "") for field in RUN_FIELDNAMES} for row in rows_by_url.values()]
+        run_df = pd.DataFrame(rows, columns=RUN_FIELDNAMES)
+        run_df.to_csv(self.runs_file, index=False)
 
 
 def _coerce_float(value) -> float | None:
@@ -190,6 +205,19 @@ def _coerce_float(value) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _nullable_value(value):
+    try:
+        import pandas as pd
+
+        if pd.isna(value):
+            return None
+    except Exception:
+        pass
+    if isinstance(value, str) and value.strip().lower() in {"", "null"}:
+        return None
+    return value
 
 
 def model_directory_name(model_name_or_path: str, short_model_name: str | None = None) -> str:

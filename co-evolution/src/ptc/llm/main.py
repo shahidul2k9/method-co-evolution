@@ -88,9 +88,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--resume",
-        action=argparse.BooleanOptionalAction,
-        default=True,
-        help="Resume from previous persisted predictions when available.",
+        dest="resume",
+        choices=["none", "all", "error"],
+        default="none",
+        help="Resume mode: `none` reruns all rows, `all` skips completed rows, `error` reruns only rows with existing non-empty errors.",
     )
     parser.add_argument(
         "--device-map",
@@ -179,7 +180,7 @@ def main() -> int:
             parser=JsonPredictionParser(),
             run_store=run_store,
             batch_size=args.batch_size,
-            resume=args.resume,
+            resume_mode=args.resume,
             prompt_format=args.prompt_format,
         )
         result_df = linker.link_dataframe(

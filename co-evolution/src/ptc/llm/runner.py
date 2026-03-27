@@ -34,7 +34,7 @@ class DataFrameMethodLinker:
         parser,
         run_store: CsvRunStore | None = None,
         batch_size: int = 4,
-        resume: bool = True,
+        resume_mode: str = "none",
         prompt_format: str = "auto",
     ):
         self.provider = provider
@@ -42,7 +42,7 @@ class DataFrameMethodLinker:
         self.parser = parser
         self.run_store = run_store
         self.batch_size = batch_size
-        self.resume = resume
+        self.resume_mode = resume_mode
         self.prompt_format = prompt_format
 
     def link_dataframe(
@@ -57,12 +57,26 @@ class DataFrameMethodLinker:
         source_prefix, candidate_prefix, group_column = _layout(normalized_input_kind)
         working_df["llm_id"] = working_df[group_column]
         grouped_cases = [case_df for _, case_df in working_df.groupby(group_column, sort=False)]
+        resume_all = self.resume_mode == "all"
+        resume_errors = self.resume_mode == "error"
 
-        completed_predictions = self.run_store.load_predictions() if self.run_store and self.resume else {}
+        completed_predictions = (
+            self.run_store.load_predictions()
+            if self.run_store and (resume_all or resume_errors)
+            else {}
+        )
+        error_example_ids = (
+            self.run_store.load_error_example_ids()
+            if self.run_store and resume_errors
+            else set()
+        )
         pending_cases = []
         for case_df in grouped_cases:
             row_id = case_df.iloc[0][group_column]
-            if row_id not in completed_predictions:
+            if resume_errors:
+                if row_id in error_example_ids:
+                    pending_cases.append(case_df)
+            elif row_id not in completed_predictions:
                 pending_cases.append(case_df)
 
         for batch_cases in _chunked(pending_cases, self.batch_size):
@@ -74,10 +88,15 @@ class DataFrameMethodLinker:
                     normalized_input_kind,
                     prompt_format=prompt_format,
                 )
+                prompt.metadata["batch_size"] = self.batch_size
+                prompt.metadata["max_new_tokens"] = generation_config.max_new_tokens
                 if prompt.candidate_lookup:
                     prompts.append(prompt)
                     if self.run_store:
-                        self.run_store.upsert_request(prompt, overwrite_existing=not self.resume)
+                        self.run_store.upsert_request(
+                            prompt,
+                            overwrite_existing=(self.resume_mode == "none") or resume_errors,
+                        )
                     continue
 
                 prediction = LinkPrediction(
@@ -97,7 +116,10 @@ class DataFrameMethodLinker:
                 )
                 completed_predictions[prompt.id] = prediction
                 if self.run_store:
-                    self.run_store.upsert_request(prompt, overwrite_existing=not self.resume)
+                    self.run_store.upsert_request(
+                        prompt,
+                        overwrite_existing=(self.resume_mode == "none") or resume_errors,
+                    )
                     self.run_store.upsert_result(
                         prompt_input=prompt,
                         output_raw="",
