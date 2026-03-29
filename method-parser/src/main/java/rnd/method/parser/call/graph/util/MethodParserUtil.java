@@ -109,11 +109,11 @@ public class MethodParserUtil {
     }
 
     private static Optional<String> extractPackageName(Path javaFile) {
-        Optional<String> packageFromParser = extractPackageNameWithJavaParser(javaFile);
-        if (packageFromParser.isPresent()) {
-            return packageFromParser;
+        Optional<String> packageFromHeader = extractPackageNameFromFileHeader(javaFile);
+        if (packageFromHeader.isPresent()) {
+            return packageFromHeader;
         }
-        return extractPackageNameFromFileHeader(javaFile);
+        return extractPackageNameWithJavaParser(javaFile);
     }
 
     private static Optional<String> extractPackageNameWithJavaParser(Path javaFile) {
@@ -127,7 +127,7 @@ public class MethodParserUtil {
                     .flatMap(CompilationUnit::getPackageDeclaration)
                     .map(packageDeclaration -> packageDeclaration.getName().asString())
                     .filter(packageName -> !packageName.isBlank());
-        } catch (Exception ignored) {
+        } catch (Throwable ignored) {
             return Optional.empty();
         }
     }
