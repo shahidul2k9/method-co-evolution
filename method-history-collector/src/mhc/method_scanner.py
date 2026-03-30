@@ -109,7 +109,7 @@ METHOD_CODE_COLUMNS = [
     "end_line",
     "code",
 ]
-SCAN_METHOD_FLUSH_INTERVAL_SECONDS = 1 * 60 * 60
+SCAN_METHOD_FLUSH_INTERVAL_SECONDS = 1 * 30 * 60
 SCAN_MARKER_PARSER = "__scan_marker__"
 SCAN_MARKER_EXPRESSION = "__file_scanned__"
 
