@@ -21,10 +21,6 @@ def format_method_cache_file(data_directory: str, repository_name: str, commit_h
     return os.path.join(f"{data_directory}/method-cache", f"{repository_name}.csv")
 
 
-def format_repository_history_index_file(cache_dir: str) -> str:
-    return os.path.join(f"{cache_dir}", f"repository-history-index.csv")
-
-
 def format_method_history_path(cache_directory: str, tool_name: str, repository_name) -> str:
     return os.path.join(f"{cache_directory}/history/{tool_name}/{repository_name}")
 

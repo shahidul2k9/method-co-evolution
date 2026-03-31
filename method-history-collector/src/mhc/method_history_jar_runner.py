@@ -59,9 +59,9 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
             merge_folder_into_tar_gz(method_history_path)
 
 
-def update_repository_index(repository_df: DataFrame, cache_dir: str) -> None:
+def update_repository_index(repository_df: DataFrame, cache_dir: str, data_dir: str) -> None:
     repository_statistics = {}
-    for method_file in Path(f"{cache_dir}/data/method").rglob("*.csv"):
+    for method_file in Path(data_dir, "method").rglob("*.csv"):
         repository_name = method_file.stem.split("--")[0]
         if repository_name not in repository_statistics:
             repository_statistics[repository_name] = {}
@@ -76,7 +76,7 @@ def update_repository_index(repository_df: DataFrame, cache_dir: str) -> None:
             zip_index = set(filter(lambda file: file.endswith(".json"), zip_index))
             repository_statistics[repository_name][f"history_{tooName}"] = len(zip_index)
     for fan in ["fan-in", "fan-out"]:
-        for zip_file in Path(f"{cache_dir}/data/{fan}").rglob("*.tar.gz"):
+        for zip_file in Path(data_dir, fan).rglob("*.tar.gz"):
             repository_name = zip_file.name[:-len(".tar.gz")]
             if repository_name not in repository_statistics:
                 repository_statistics[repository_name] = {}
@@ -93,8 +93,9 @@ def update_repository_index(repository_df: DataFrame, cache_dir: str) -> None:
     num_cols = index_df.select_dtypes(include="number").columns
     index_df[num_cols] = index_df[num_cols].astype("Int64")
 
-    index_df.to_csv(
-        util.format_repository_history_index_file(cache_dir), index=False)
+    output_file = Path(data_dir) / "aggregate" / "repository-history-index.csv"
+    output_file.parent.mkdir(parents=True, exist_ok=True)
+    index_df.to_csv(output_file, index=False)
 
 
 def execute_cmd_method_history_jar(tool_name: str,

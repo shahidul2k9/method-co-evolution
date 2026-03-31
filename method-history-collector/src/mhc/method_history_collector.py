@@ -70,7 +70,11 @@ class MethodHistoryCollector:
         )
 
     def update_repository_index(self):
-        update_repository_index(self.repository_df, self.cache_directory)
+        update_repository_index(
+            self.repository_df,
+            self.cache_directory,
+            self.data_directory,
+        )
 
     def generate_call_graph(self, repositories: list[str], tool_names: list[str]):
         execute_call_graph_if_missing(

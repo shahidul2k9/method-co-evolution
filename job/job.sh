@@ -30,6 +30,7 @@ Options:
   --projects              Comma-separated project list for the array job
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
   --cache-directory       Relative or absolute cache directory (default: .cache)
+  --data-directory        Relative or absolute data directory (default: <cache-directory>/data)
   --help                  Show this message
 EOF
 }
@@ -58,6 +59,7 @@ RESUME_MODE="none"
 PROJECTS_CSV=""
 INPUT_KIND="t2p"
 CACHE_DIRECTORY="$PROJECT_DIRECTORY/.cache"
+DATA_DIRECTORY=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -125,6 +127,10 @@ while [[ $# -gt 0 ]]; do
             CACHE_DIRECTORY="$2"
             shift 2
             ;;
+        --data-directory)
+            DATA_DIRECTORY="$2"
+            shift 2
+            ;;
         --help|-h)
             usage
             exit 0
@@ -136,6 +142,10 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ -z "$DATA_DIRECTORY" ]]; then
+    DATA_DIRECTORY="$CACHE_DIRECTORY/data"
+fi
 
 if [[ -z "$COMMAND_NAME" || -z "$PROJECTS_CSV" ]]; then
     echo "Error: --command and --projects are required."
@@ -194,7 +204,7 @@ else
     srun mhc "$COMMAND_NAME" \
         --cache-directory "$CACHE_DIRECTORY" \
         --repository-directory "$SLURM_TMPDIR/repository" \
-        --data-directory "$CACHE_DIRECTORY/data" \
+        --data-directory "$DATA_DIRECTORY" \
         --jar-directory "$CACHE_DIRECTORY/jar" \
         --tool-name "$TOOL_NAME" \
         --java-options="$JAVA_OPTIONS" \
