@@ -8,7 +8,7 @@ from scipy.stats import kendalltau
 import mhc.util as util
 from mhc.config import CACHE_DIRECTORY, DATA_DIRECTORY
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
-from ptc.plot_util import man_utest
+from ptc.plot_util import list_csv_files, man_utest, resolve_experiment_filters, select_named_items
 
 STAT_COLUMNS = [
     "project",
@@ -67,14 +67,27 @@ def build_stat_row(project: str, tool: str, strategy: str, change: str, pair_df:
 def main() -> None:
     stats_rows = []
 
-    tools = util.sorted_directory_names(f"{DATA_DIRECTORY}/t2p-change")
+    selected_tools, selected_projects, selected_strategies = resolve_experiment_filters()
+    tools = select_named_items(
+        util.sorted_directory_names(f"{DATA_DIRECTORY}/t2p-change"),
+        selected_tools,
+        item_label="tool",
+    )
     for tool in tools:
-        for strategy in util.sorted_directory_names(f"{DATA_DIRECTORY}/t2p-change/{tool}"):
+        strategies = select_named_items(
+            util.sorted_directory_names(f"{DATA_DIRECTORY}/t2p-change/{tool}"),
+            selected_strategies,
+            item_label="strategy",
+        )
+        for strategy in strategies:
+            csv_files = list_csv_files(
+                Path(f"{DATA_DIRECTORY}/t2p-change/{tool}/{strategy}"),
+                selected_projects,
+                strict=False,
+            )
             history_repository_dfs = [
                 pd.read_csv(repository_history_file, keep_default_na=False, na_filter=False)
-                for repository_history_file in list(Path(f"{DATA_DIRECTORY}/t2p-change/{tool}/{strategy}").rglob("*.csv"))[
-                    :int(os.getenv("METHOD_EVOLUTION_EXPERIMENT_REPOSITORY_COUNT", -1))
-                ]
+                for repository_history_file in csv_files
             ]
             history_repository_dfs = [df for df in history_repository_dfs if not df.empty]
             if not history_repository_dfs:
@@ -85,7 +98,12 @@ def main() -> None:
                 df[f"{prefix}artifact"] = df[f"{prefix}artifact"].map(lambda mt: "test" if mt == "test_util" else mt)
 
             change_cols = [c[len("from_"):] for c in df.columns if c.startswith("from_ch_")]
-            projects = sorted(df["project"].unique(), key=lambda x: x.lower())
+            projects = select_named_items(
+                sorted(df["project"].unique(), key=str.lower),
+                selected_projects,
+                item_label="project",
+                strict=False,
+            )
             projects.append(ALL_REPOSITORY)
 
             for project in projects:

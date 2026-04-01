@@ -1,9 +1,11 @@
 import os
-import pandas as pd
-import numpy as np
 import subprocess
 import sys
+from collections.abc import Sequence
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
 
 def format_git_project_directory(repository_directory: str, repository_name: str) -> str:
     return os.path.join(f"{repository_directory}", repository_name)
@@ -114,9 +116,18 @@ def find_root(start: Path) -> Path:
             return path
     return current
 
-def run_module(module_name: str, project_root: Path = find_root(Path.cwd())):
+
+def run_module(
+    module_name: str,
+    project_root: Path = find_root(Path.cwd()),
+    args: Sequence[str] | None = None,
+):
+    command = [sys.executable, "-m", module_name]
+    if args:
+        command.extend(args)
+
     subprocess.run(
-        [sys.executable, "-m", module_name],
+        command,
         check=True,
         cwd=project_root,
     )

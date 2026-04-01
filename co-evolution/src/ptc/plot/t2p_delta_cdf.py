@@ -11,6 +11,7 @@ from ptc.plot_util import (
     GRAPH_STYLES,
     GRAPH_WIDTHS,
     build_experiment_plot_parser,
+    ecdf,
     list_csv_files,
     resolve_experiment_filters,
     select_named_items,
@@ -22,7 +23,7 @@ code_shovel_unsupported_change_set = {
 
 
 def build_parser():
-    return build_experiment_plot_parser("Plot production-vs-test scatter charts.")
+    return build_experiment_plot_parser("Plot positive test-to-production deltas as CDFs.")
 
 
 def load_history_repository_dfs(
@@ -89,15 +90,18 @@ def main(argv: list[str] | None = None) -> None:
                 figsize=(4 * len(change_cols), 3.2 * len(projects)),
                 squeeze=False,
             )
+            fig.supxlabel("test - production (> 0)", fontsize=20)
+            fig.supylabel("CDF", fontsize=20)
 
             for repository_index, project in enumerate(projects):
                 project_df = df if project == ALL_REPOSITORY else df[df["project"] == project]
 
                 for change_index, change in enumerate(change_cols):
                     ax = axes[repository_index][change_index]
-                    unsupported = tool == "codeShovel" and change in code_shovel_unsupported_change_set
                     ax.set_title(f"{change.replace('ch_', '')}".capitalize(), fontsize=24)
+                    ax.set_ylim(0, 1)
 
+                    unsupported = tool == "codeShovel" and change in code_shovel_unsupported_change_set
                     if unsupported:
                         ax.text(
                             0.5,
@@ -114,24 +118,30 @@ def main(argv: list[str] | None = None) -> None:
                             .apply(pd.to_numeric, errors="coerce")
                             .dropna()
                         )
-                        x = pair_df[f"to_{change}"]
-                        y = pair_df[f"from_{change}"]
+                        delta = pair_df[f"from_{change}"] - pair_df[f"to_{change}"]
+                        delta = delta[delta > 0]
 
-                        ax.scatter(
-                            x.values,
-                            y.values,
-                            linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
-                            ls=GRAPH_STYLES[change_index % len(GRAPH_STYLES)],
-                        )
-                        if (x > 0).any():
-                            ax.set_xscale("log")
+                        if delta.empty:
+                            ax.text(
+                                0.5,
+                                0.5,
+                                "No positive delta",
+                                ha="center",
+                                va="center",
+                                fontsize=18,
+                                transform=ax.transAxes,
+                            )
+                        else:
+                            x, y = ecdf(delta)
+                            ax.plot(
+                                x,
+                                y,
+                                linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
+                                ls=GRAPH_STYLES[0],
+                            )
 
-                        if (y > 0).any():
-                            ax.set_yscale("log")
-
-                        if change_index == 0:
-                            ax.set_xlabel("Production", fontsize=20)
-                            ax.set_ylabel("Test", fontsize=20)
+                            if max(x) > 50:
+                                ax.set_xscale("log")
 
                     if change_index == 0:
                         ax.text(
@@ -146,8 +156,8 @@ def main(argv: list[str] | None = None) -> None:
                         )
                     ax.grid(True, alpha=0.25)
 
-            fig.tight_layout()
-            fig_file = f"{CACHE_DIRECTORY}/figure/t2p-scatter/t2p-scatter--{tool}--{link_strategy}.pdf"
+            fig.tight_layout(rect=(0.03, 0.03, 1, 1))
+            fig_file = f"{CACHE_DIRECTORY}/figure/t2p-delta-cdf/t2p-delta-cdf--{tool}--{link_strategy}.pdf"
             os.makedirs(os.path.dirname(fig_file), exist_ok=True)
             fig.savefig(fig_file, bbox_inches="tight")
             plt.close(fig)
