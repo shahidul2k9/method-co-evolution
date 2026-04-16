@@ -740,7 +740,7 @@ class HistoryViewerApp:
 
     def _render_home(self) -> str:
         cache_dir = html.escape(str(self.repository.cache_directory))
-        sample_hint = html.escape(str(self.repository.data_directory / "t2p-change-sample" / "historyFinder" / "omc--nc--ncc"))
+        sample_hint = html.escape(str(self.repository.data_directory / "aggregate"))
         return f"""
 <main>
   <section class="hero">
