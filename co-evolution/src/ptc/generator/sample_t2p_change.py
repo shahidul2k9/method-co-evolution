@@ -178,7 +178,8 @@ def main(
         n=sample_size,
         random_state=random_generator.randint(0, 10**9),
     ).copy()
-    sampled_df["note"] = ""
+    sampled_df["notes"] = ""
+    sampled_df["tags"] = ""
 
     extreme_method_counts = candidate_df["project"].value_counts().to_dict()
     sampled_method_counts = sampled_df["project"].value_counts().to_dict()

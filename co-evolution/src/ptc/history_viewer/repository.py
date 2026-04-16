@@ -87,8 +87,12 @@ class SampleRow:
     values: dict[str, str]
 
     @property
-    def note(self) -> str:
-        return self.values.get("note", "")
+    def notes(self) -> str:
+        return self.values.get("notes", "")
+
+    @property
+    def tags(self) -> str:
+        return self.values.get("tags", "")
 
 
 @dataclass
@@ -512,19 +516,30 @@ class HistoryRepository:
             writer.writerows(rows)
         return len(rows)
 
-    def update_sample_note(self, csv_path: str | Path, *, from_url: str, to_url: str, note: str) -> SampleRow:
+    def update_sample_note(
+        self,
+        csv_path: str | Path,
+        *,
+        from_url: str,
+        to_url: str,
+        notes: str,
+        tags: str = "",
+    ) -> SampleRow:
         path = Path(csv_path).expanduser()
         with path.open("r", encoding="utf-8", newline="") as handle:
             reader = csv.DictReader(handle)
             fieldnames = list(reader.fieldnames or [])
-            if "note" not in fieldnames:
-                fieldnames.append("note")
+            if "notes" not in fieldnames:
+                fieldnames.append("notes")
+            if "tags" not in fieldnames:
+                fieldnames.append("tags")
             rows = [{key: value or "" for key, value in row.items()} for row in reader]
 
         matched_row: SampleRow | None = None
         for index, row in enumerate(rows):
             if row.get("from_url", "") == from_url and row.get("to_url", "") == to_url:
-                row["note"] = note
+                row["notes"] = notes
+                row["tags"] = tags
                 matched_row = SampleRow(csv_path=path, row_index=index, values=row)
                 break
 
