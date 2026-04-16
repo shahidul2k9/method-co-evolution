@@ -193,7 +193,7 @@ The viewer supports:
 
 - Comparing two methods by GitHub blob URL plus `tool` (`historyFinder` or `codeShovel`)
 - Comparing two cached method-history JSON files directly
-- Browsing a sample directory under `.cache/data/t2p-change-sample/...`, then choosing one CSV in the browser
+- Browsing a sample directory under `.cache/data/aggregate`, then choosing one CSV in the browser
 - Writing a `revision_url` column back into a sampled CSV so DBeaver can open each row in the browser
 - Saving manual review notes from the browser back into the sampled CSV `note` column
 
@@ -201,6 +201,6 @@ To write `revision_url` into a sampled CSV from the command line:
 
 ```bash
 ptc-history-viewer add-revision-links \
-    --csv ".cache/data/t2p-change-sample/historyFinder/omc--nc--ncc/cucumber-jvm.csv" \
+    --csv ".cache/data/aggregate/t2p-extreme-test-historyFinder-ncc.csv" \
     --base-url "http://127.0.0.1:8765"
 ```

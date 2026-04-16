@@ -208,13 +208,16 @@ class TestHistoryViewer(unittest.TestCase):
             temp_csv,
             from_url=first_row["from_url"],
             to_url=first_row["to_url"],
-            note="Strong same-commit coupling",
+            notes="Strong same-commit coupling",
+            tags="same-commit,strong-signal",
         )
-        self.assertEqual("Strong same-commit coupling", updated.note)
+        self.assertEqual("Strong same-commit coupling", updated.notes)
+        self.assertEqual("same-commit,strong-signal", updated.tags)
 
         with temp_csv.open("r", encoding="utf-8", newline="") as handle:
             rows = list(csv.DictReader(handle))
-        self.assertEqual("Strong same-commit coupling", rows[0]["note"])
+        self.assertEqual("Strong same-commit coupling", rows[0]["notes"])
+        self.assertEqual("same-commit,strong-signal", rows[0]["tags"])
 
     def test_find_related_production_methods_uses_t2p_change_before_fallbacks(self) -> None:
         with SAMPLE_CSV.open("r", encoding="utf-8", newline="") as handle:
@@ -289,7 +292,7 @@ class TestHistoryViewer(unittest.TestCase):
 
         self.assertEqual("200 OK", status_holder[0])
         self.assertIn("Revision Viewer", body)
-        self.assertIn("Save manual review notes back to the sampled CSV", body)
+        self.assertIn("Save manual review notes and tags back to the sampled CSV", body)
         self.assertIn("UTF8PrintWriterTest.java:17", body)
         self.assertIn("Tested Production Methods", body)
         self.assertIn("Calling Test Methods", body)

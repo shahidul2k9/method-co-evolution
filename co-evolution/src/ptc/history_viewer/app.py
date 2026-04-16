@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import math
 import re
 import traceback
 from dataclasses import dataclass
@@ -691,8 +692,23 @@ class HistoryViewerApp:
         if not sample_csv:
             raise ValueError("Pass sample_dir=<sample directory> or sample_csv=<absolute path to a sampled CSV>")
         rows = self.repository.read_sample_rows(sample_csv)
-        limit = int(params.get("limit", "50"))
-        content = self._render_sample_table(sample_csv=sample_csv, rows=rows[:limit], total_rows=len(rows), base_url=_request_base_url(environ))
+        page_size = 20
+        page = max(1, int(params.get("page", "1")))
+        total_rows = len(rows)
+        total_pages = max(1, math.ceil(total_rows / page_size))
+        page = min(page, total_pages)
+        start_index = (page - 1) * page_size
+        end_index = start_index + page_size
+        content = self._render_sample_table(
+            sample_csv=sample_csv,
+            rows=rows[start_index:end_index],
+            total_rows=total_rows,
+            base_url=_request_base_url(environ),
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+            start_index=start_index,
+        )
         return self._respond_html(start_response, render_page("Sample CSV", content))
 
     def _handle_update_note(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
@@ -701,13 +717,15 @@ class HistoryViewerApp:
             payload["sample_csv"],
             from_url=payload["from_url"],
             to_url=payload["to_url"],
-            note=payload.get("note", ""),
+            notes=payload.get("notes", ""),
+            tags=payload.get("tags", ""),
         )
         response = {
             "ok": True,
             "row_index": updated.row_index,
             "row_token": build_row_token(updated.csv_path, updated.values.get("from_url", ""), updated.values.get("to_url", "")),
-            "note": updated.note,
+            "notes": updated.notes,
+            "tags": updated.tags,
         }
         return self._respond_json(start_response, response)
 
@@ -740,7 +758,7 @@ class HistoryViewerApp:
 
     def _render_home(self) -> str:
         cache_dir = html.escape(str(self.repository.cache_directory))
-        sample_hint = html.escape(str(self.repository.data_directory / "t2p-change-sample" / "historyFinder" / "omc--nc--ncc"))
+        sample_hint = html.escape(str(self.repository.data_directory / "aggregate"))
         return f"""
 <main>
   <section class="hero">
@@ -1079,25 +1097,39 @@ class HistoryViewerApp:
         token = build_row_token(sample_row.csv_path, sample_row.values.get("from_url", ""), sample_row.values.get("to_url", ""))
         return f"""
 <section class="panel">
-  <div class="eyebrow">Research Note</div>
-  <h2 style="margin-top:10px;">Save manual review notes back to the sampled CSV</h2>
-  <p class="muted" style="margin-top:8px;">This updates the <span class="mono">note</span> column in place for the current row.</p>
+  <div class="eyebrow">Research Notes</div>
+  <h2 style="margin-top:10px;">Save manual review notes and tags back to the sampled CSV</h2>
+  <p class="muted" style="margin-top:8px;">This updates the <span class="mono">notes</span> and <span class="mono">tags</span> columns in place for the current row.</p>
   <form id="note-form" data-row-token="{html.escape(token)}">
     <input type="hidden" name="sample_csv" value="{html.escape(sample_csv)}" />
     <input type="hidden" name="from_url" value="{html.escape(sample_row.values.get('from_url', ''))}" />
     <input type="hidden" name="to_url" value="{html.escape(sample_row.values.get('to_url', ''))}" />
-    <label>Note
-      <textarea name="note">{html.escape(sample_row.note)}</textarea>
+    <label>Tags
+      <input type="text" name="tags" value="{html.escape(sample_row.tags)}" placeholder="coupled, flaky, review-later" />
+    </label>
+    <label>Notes
+      <textarea name="notes">{html.escape(sample_row.notes)}</textarea>
     </label>
     <div class="button-row">
-      <button type="submit">Save note</button>
+      <button type="submit">Save notes and tags</button>
       <span id="note-status" class="flash" style="display:none;"></span>
     </div>
   </form>
 </section>
 """
 
-    def _render_sample_table(self, *, sample_csv: str, rows: list[SampleRow], total_rows: int, base_url: str) -> str:
+    def _render_sample_table(
+        self,
+        *,
+        sample_csv: str,
+        rows: list[SampleRow],
+        total_rows: int,
+        base_url: str,
+        page: int,
+        page_size: int,
+        total_pages: int,
+        start_index: int,
+    ) -> str:
         table_rows = []
         for row in rows:
             values = row.values
@@ -1119,9 +1151,26 @@ class HistoryViewerApp:
   <td><strong title="{html.escape(to_name)}">{html.escape(truncate_display_text(to_name))}</strong></td>
   <td>{html.escape(values.get('tool', ''))}</td>
   <td><a href="{html.escape(revision_url)}" target="_blank" rel="noreferrer">Open revision</a></td>
-  <td>{html.escape(values.get('note', '')) or '<span class="muted">No note</span>'}</td>
+  <td>{html.escape(values.get('tags', '')) or '<span class="muted">No tags</span>'}</td>
+  <td>{html.escape(values.get('notes', '')) or '<span class="muted">No notes</span>'}</td>
 </tr>
 """
+            )
+
+        end_index = start_index + len(rows)
+        previous_link = ""
+        next_link = ""
+        if page > 1:
+            previous_link = (
+                f'<a class="secondary" href="/sample?sample_csv={quote(sample_csv, safe="")}&page={page - 1}">'
+                "Previous"
+                "</a>"
+            )
+        if page < total_pages:
+            next_link = (
+                f'<a class="secondary" href="/sample?sample_csv={quote(sample_csv, safe="")}&page={page + 1}">'
+                "Next"
+                "</a>"
             )
 
         return f"""
@@ -1129,10 +1178,15 @@ class HistoryViewerApp:
   <section class="hero">
     <div class="eyebrow">Sample Browser</div>
     <h1>{html.escape(sample_csv)}</h1>
-    <p>Showing {len(rows)} row(s) out of {total_rows}. Open a row directly from here, or persist a <span class="mono">revision_url</span> column for DBeaver.</p>
+    <p>Showing rows {start_index + 1}-{end_index} of {total_rows}. Open a row directly from here, or persist a <span class="mono">revision_url</span> column for DBeaver.</p>
     <div class="button-row" style="margin-top:12px;">
       <button class="secondary" id="revision-link-button" data-sample-csv="{html.escape(sample_csv)}" data-base-url="{html.escape(base_url)}">Write revision_url column</button>
       <span id="revision-link-status" class="flash" style="display:none;"></span>
+    </div>
+    <div class="button-row" style="margin-top:12px;">
+      {previous_link}
+      <span class="muted">Page {page} of {total_pages} · 20 methods per page</span>
+      {next_link}
     </div>
   </section>
 
@@ -1146,7 +1200,8 @@ class HistoryViewerApp:
           <th>To</th>
           <th>Tool</th>
           <th>Revision</th>
-          <th>Note</th>
+          <th>Tags</th>
+          <th>Notes</th>
         </tr>
       </thead>
       <tbody>
@@ -2078,7 +2133,7 @@ if (noteForm) {
     const response = await fetch("/api/notes", { method: "POST", body: new URLSearchParams(formData) });
     const payload = await response.json();
     status.style.display = "inline-flex";
-    status.textContent = payload.ok ? "Note saved to CSV" : "Save failed";
+    status.textContent = payload.ok ? "Notes and tags saved to CSV" : "Save failed";
     status.classList.toggle("error", !payload.ok);
   });
 }
