@@ -55,7 +55,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                                                        url, hash, file, method_name, start_line, method_history_file,
                                                        command_options, java_options, timeout_seconds)
                         unzip_index.add(method_history_file_suffix)
-                if len(unzip_index) >= 5000:
+                if len(unzip_index) >= 2000:
                     merge_folder_into_tar_gz(method_history_path)
                     zip_index = util.remove_prefix_if_exists(load_zip_index(method_history_tar_gz),
                                                              repository_name_prefix)
