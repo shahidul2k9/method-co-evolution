@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import html
 import math
 import re
@@ -420,6 +421,16 @@ summary::-webkit-details-marker { display: none; }
 .diff-cell-change.diff-code {
   background: #fff8c5;
 }
+.diff-inline-del {
+  background: #ffd8d3;
+  color: #7f1d1d;
+  border-radius: 4px;
+}
+.diff-inline-add {
+  background: #c7f0d2;
+  color: #14532d;
+  border-radius: 4px;
+}
 .diff-code-empty {
   background: transparent;
 }
@@ -839,6 +850,12 @@ class HistoryViewerApp:
         rows = build_timeline_rows(from_history.entries, to_history.entries)
         summary = build_pair_summary(from_history.entries, to_history.entries)
         change_count_summary = build_change_count_summary(from_history.raw, to_history.raw)
+        source_options = self.repository.related_source_options(
+            tool=from_history.tool or to_history.tool,
+            sample_csv=sample_csv,
+        )
+        effective_related_source = related_source or (source_options[0] if source_options else "")
+        effective_calling_source = calling_source or (source_options[0] if source_options else "")
         query_params = {
             "tool": from_history.tool or to_history.tool,
             "sample_csv": sample_csv,
@@ -846,8 +863,8 @@ class HistoryViewerApp:
             "to_url": to_history.input_url,
             "from_file": from_history.input_file,
             "to_file": to_history.input_file,
-            "related_source": related_source,
-            "calling_source": calling_source,
+            "related_source": effective_related_source,
+            "calling_source": effective_calling_source,
         }
         related_methods: list[RelatedMethod] = []
         related_source_label = ""
@@ -864,7 +881,7 @@ class HistoryViewerApp:
                 from_url=current_from_url,
                 tool=from_history.tool or to_history.tool,
                 sample_csv=sample_csv,
-                selected_source=related_source,
+                selected_source=effective_related_source,
             )
             if related_methods:
                 related_source_label = related_methods[0].source_label
@@ -874,7 +891,7 @@ class HistoryViewerApp:
                 to_url=current_to_url,
                 tool=from_history.tool or to_history.tool,
                 sample_csv=sample_csv,
-                selected_source=calling_source,
+                selected_source=effective_calling_source,
             )
             if calling_methods:
                 calling_source_label = calling_methods[0].source_label
@@ -965,10 +982,7 @@ class HistoryViewerApp:
                 related_source_label=related_source_label,
                 searched_related_labels=searched_related_labels or [],
                 query_params=query_params,
-                source_options=self.repository.related_source_options(
-                    tool=history.tool,
-                    sample_csv=query_params.get("sample_csv", ""),
-                ),
+                source_options=self.repository.related_source_options(tool=history.tool, sample_csv=query_params.get("sample_csv", "")),
             )
         elif side == "to":
             related_html = self._render_calling_methods(
@@ -976,10 +990,7 @@ class HistoryViewerApp:
                 calling_source_label=calling_source_label,
                 searched_calling_labels=searched_calling_labels or [],
                 query_params=query_params,
-                source_options=self.repository.related_source_options(
-                    tool=history.tool,
-                    sample_csv=query_params.get("sample_csv", ""),
-                ),
+                source_options=self.repository.related_source_options(tool=history.tool, sample_csv=query_params.get("sample_csv", "")),
             )
         method_name = html.escape(history.function_name or history.function_id or "Unknown method")
         method_heading = method_name
@@ -1016,7 +1027,7 @@ class HistoryViewerApp:
         query_params: dict[str, str],
         source_options: list[str],
     ) -> str:
-        selected_source = query_params.get("related_source", "")
+        selected_source = query_params.get("related_source", "") or (source_options[0] if source_options else "")
         option_html = "".join(
             f'<option value="{html.escape(option)}"{" selected" if option == selected_source else ""}>{html.escape(option)}</option>'
             for option in source_options
@@ -1041,7 +1052,7 @@ class HistoryViewerApp:
 </div>
 """
 
-        searched = ", ".join(searched_related_labels) if searched_related_labels else "t2p-change, t2p-candidate, m2m-tech, fan-out"
+        searched = ", ".join(searched_related_labels) if searched_related_labels else "t2p-link, t2p-candidate, m2m-tech, fan-out"
         return f"""
 <div style="margin-top:16px;">
   <div class="eyebrow">Tested Production Methods</div>
@@ -1059,7 +1070,7 @@ class HistoryViewerApp:
         query_params: dict[str, str],
         source_options: list[str],
     ) -> str:
-        selected_source = query_params.get("calling_source", "")
+        selected_source = query_params.get("calling_source", "") or (source_options[0] if source_options else "")
         option_html = "".join(
             f'<option value="{html.escape(option)}"{" selected" if option == selected_source else ""}>{html.escape(option)}</option>'
             for option in source_options
@@ -1084,7 +1095,7 @@ class HistoryViewerApp:
 </div>
 """
 
-        searched = ", ".join(searched_calling_labels) if searched_calling_labels else "t2p-change, t2p-candidate, m2m-tech, fan-out"
+        searched = ", ".join(searched_calling_labels) if searched_calling_labels else "t2p-link, t2p-candidate, m2m-tech, fan-out"
         return f"""
 <div style="margin-top:16px;">
   <div class="eyebrow">Calling Test Methods</div>
@@ -1672,24 +1683,21 @@ def render_diff_html(diff_text: str, *, modal_id: str, title: str = "") -> str:
     rows = parse_unified_diff(diff_text)
     compact_rows = []
     table_rows = []
+    word_rows = []
     inline_scroll_id = f"{modal_id}-inline-scroll"
     source_versions_html = render_source_versions_html(rows)
     for row in rows:
         if row["kind"] == "hunk":
-            compact_rows.append(
-                f'<tr class="diff-hunk"><td class="diff-line-no"></td><td class="diff-code" colspan="2">{html.escape(row["text"])}</td></tr>'
-            )
-            table_rows.append(
-                f'<tr class="diff-hunk"><td class="diff-line-no"></td><td class="diff-code" colspan="2">{html.escape(row["text"])}</td></tr>'
-            )
+            hunk_row = f'<tr class="diff-hunk"><td class="diff-line-no"></td><td class="diff-code" colspan="2">{html.escape(row["text"])}</td></tr>'
+            compact_rows.append(hunk_row)
+            table_rows.append(hunk_row)
+            word_rows.append(hunk_row)
             continue
         if row["kind"] == "meta":
-            compact_rows.append(
-                f'<tr class="diff-meta"><td class="diff-line-no"></td><td class="diff-code" colspan="2">{html.escape(row["text"])}</td></tr>'
-            )
-            table_rows.append(
-                f'<tr class="diff-meta"><td class="diff-line-no"></td><td class="diff-code" colspan="2">{html.escape(row["text"])}</td></tr>'
-            )
+            meta_row = f'<tr class="diff-meta"><td class="diff-line-no"></td><td class="diff-code" colspan="2">{html.escape(row["text"])}</td></tr>'
+            compact_rows.append(meta_row)
+            table_rows.append(meta_row)
+            word_rows.append(meta_row)
             continue
 
         compact_prefix = " "
@@ -1718,6 +1726,16 @@ def render_diff_html(diff_text: str, *, modal_id: str, title: str = "") -> str:
 </tr>
 """
             )
+            left_word_html, right_word_html = render_word_diff_cells(row.get("left_text", ""), row.get("right_text", ""))
+            word_rows.append(
+                f"""
+<tr class="diff-{html.escape(row['kind'])}">
+  <td class="diff-line-no diff-cell-{html.escape(row.get('left_kind', 'context'))}">{html.escape(row.get('left_no') or row.get('right_no', ''))}</td>
+  <td class="diff-code diff-cell-{html.escape(row.get('left_kind', 'context'))} {'diff-code-empty' if not row.get('left_text') else ''}">{left_word_html}</td>
+  <td class="diff-code diff-cell-{html.escape(row.get('right_kind', 'context'))} {'diff-code-empty' if not row.get('right_text') else ''}">{right_word_html}</td>
+</tr>
+"""
+            )
             continue
         elif row.get("left_kind") == "del":
             compact_prefix = "-"
@@ -1738,6 +1756,15 @@ def render_diff_html(diff_text: str, *, modal_id: str, title: str = "") -> str:
 """
         )
         table_rows.append(
+            f"""
+<tr class="diff-{html.escape(row['kind'])}">
+  <td class="diff-line-no diff-cell-{html.escape(row.get('left_kind', 'context'))}">{html.escape(row.get('left_no') or row.get('right_no', ''))}</td>
+  <td class="diff-code diff-cell-{html.escape(row.get('left_kind', 'context'))} {'diff-code-empty' if not row.get('left_text') else ''}">{highlight_java_code(row.get('left_text', ''))}</td>
+  <td class="diff-code diff-cell-{html.escape(row.get('right_kind', 'context'))} {'diff-code-empty' if not row.get('right_text') else ''}">{highlight_java_code(row.get('right_text', ''))}</td>
+</tr>
+"""
+        )
+        word_rows.append(
             f"""
 <tr class="diff-{html.escape(row['kind'])}">
   <td class="diff-line-no diff-cell-{html.escape(row.get('left_kind', 'context'))}">{html.escape(row.get('left_no') or row.get('right_no', ''))}</td>
@@ -1777,6 +1804,7 @@ def render_diff_html(diff_text: str, *, modal_id: str, title: str = "") -> str:
     <div class="diff-modal-body">
       <div class="diff-modal-controls">
         <button type="button" class="secondary diff-view-toggle active" data-modal-id="{html.escape(modal_id)}" data-view="diff">Split diff</button>
+        <button type="button" class="secondary diff-view-toggle" data-modal-id="{html.escape(modal_id)}" data-view="word">Word diff</button>
         <button type="button" class="secondary diff-view-toggle" data-modal-id="{html.escape(modal_id)}" data-view="source">Source versions</button>
       </div>
       <div class="diff-modal-view open" data-modal-id="{html.escape(modal_id)}" data-view="diff">
@@ -1788,6 +1816,19 @@ def render_diff_html(diff_text: str, *, modal_id: str, title: str = "") -> str:
           <table class="diff-table">
             <tbody>
               {''.join(table_rows)}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="diff-modal-view" data-modal-id="{html.escape(modal_id)}" data-view="word">
+        <div class="diff-panel github-split">
+          <div class="diff-toolbar">
+            <span>{html.escape(title or "Diff")}</span>
+            <span>Word View</span>
+          </div>
+          <table class="diff-table">
+            <tbody>
+              {''.join(word_rows)}
             </tbody>
           </table>
         </div>
@@ -1864,6 +1905,35 @@ def render_source_versions_html(rows: list[dict[str, str]]) -> str:
   </div>
 </div>
 """
+
+
+def render_word_diff_cells(left_text: str, right_text: str) -> tuple[str, str]:
+    left_tokens = tokenize_diff_text(left_text)
+    right_tokens = tokenize_diff_text(right_text)
+    matcher = difflib.SequenceMatcher(a=left_tokens, b=right_tokens)
+    left_parts: list[str] = []
+    right_parts: list[str] = []
+
+    for tag, left_start, left_end, right_start, right_end in matcher.get_opcodes():
+        left_chunk = "".join(left_tokens[left_start:left_end])
+        right_chunk = "".join(right_tokens[right_start:right_end])
+        if tag == "equal":
+            rendered = highlight_java_code(left_chunk)
+            left_parts.append(rendered)
+            right_parts.append(rendered)
+            continue
+        if tag in {"replace", "delete"} and left_chunk:
+            left_parts.append(f'<span class="diff-inline-del">{highlight_java_code(left_chunk)}</span>')
+        if tag in {"replace", "insert"} and right_chunk:
+            right_parts.append(f'<span class="diff-inline-add">{highlight_java_code(right_chunk)}</span>')
+
+    return "".join(left_parts) or "&nbsp;", "".join(right_parts) or "&nbsp;"
+
+
+def tokenize_diff_text(text: str) -> list[str]:
+    if not text:
+        return []
+    return re.findall(r"\s+|\w+|[^\w\s]", text)
 
 
 def parse_unified_diff(diff_text: str) -> list[dict[str, str]]:

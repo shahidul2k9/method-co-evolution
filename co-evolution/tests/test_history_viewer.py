@@ -119,9 +119,13 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("Open split view", html_output)
         self.assertIn('id="diff-modal-test"', html_output)
         self.assertIn("Split Diff View", html_output)
+        self.assertIn("Word diff", html_output)
+        self.assertIn("Word View", html_output)
         self.assertIn("Example.java", html_output)
         self.assertIn("github-split", html_output)
         self.assertIn("Source versions", html_output)
+        self.assertIn("diff-inline-del", html_output)
+        self.assertIn("diff-inline-add", html_output)
         self.assertIn('class="syntax-keyword"', html_output)
         self.assertIn('class="syntax-number"', html_output)
         self.assertIn('data-scroll-direction="left"', html_output)
@@ -231,17 +235,29 @@ class TestHistoryViewer(unittest.TestCase):
         )
 
         self.assertTrue(related_methods)
-        self.assertEqual("t2p-change/historyFinder/omc--nc--ncc", related_methods[0].source_label)
-        self.assertEqual("t2p-change/historyFinder/omc--nc--ncc", searched_labels[0])
+        self.assertEqual("t2p-link/omc--nc--ncc", related_methods[0].source_label)
+        self.assertEqual("t2p-link/omc--nc--ncc", searched_labels[0])
 
     def test_related_source_options_include_requested_directory_order(self) -> None:
         options = self.repository.related_source_options(tool="historyFinder", sample_csv=str(SAMPLE_CSV))
 
         self.assertEqual(
             [
-                "t2p-change/historyFinder/omc--nc--ncc",
-                "t2p-candidate",
+                "t2p-link/ncc",
                 "m2m-tech",
+                "t2p-link/gpt-oss-120b",
+                "t2p-link/gpt-oss-20b",
+                "t2p-link/lc",
+                "t2p-link/lcba",
+                "t2p-link/max",
+                "t2p-link/nc",
+                "t2p-link/omc",
+                "t2p-link/omc--nc",
+                "t2p-link/omc--nc--ncc",
+                "t2p-link/omc--nc--ncc--lcba",
+                "t2p-link/omc--nc--ncc--max",
+                "t2p-link/qwen-2d5b",
+                "t2p-candidate",
                 "fan-out",
             ],
             options,
@@ -259,8 +275,8 @@ class TestHistoryViewer(unittest.TestCase):
         )
 
         self.assertTrue(calling_methods)
-        self.assertEqual("t2p-change/historyFinder/omc--nc--ncc", calling_methods[0].source_label)
-        self.assertEqual("t2p-change/historyFinder/omc--nc--ncc", searched_labels[0])
+        self.assertEqual("t2p-link/omc--nc--ncc", calling_methods[0].source_label)
+        self.assertEqual("t2p-link/omc--nc--ncc", searched_labels[0])
         self.assertEqual(first_row["from_url"], calling_methods[0].from_url)
 
     def test_revision_route_renders_comparison_page(self) -> None:
@@ -296,7 +312,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("UTF8PrintWriterTest.java:17", body)
         self.assertIn("Tested Production Methods", body)
         self.assertIn("Calling Test Methods", body)
-        self.assertIn("t2p-change/historyFinder/omc--nc--ncc", body)
+        self.assertIn("t2p-link/omc--nc--ncc", body)
         self.assertIn('name="related_source"', body)
         self.assertIn('name="calling_source"', body)
         self.assertIn("Change count summary", body)
@@ -310,6 +326,37 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertNotIn("<th>Link</th>", body)
         self.assertNotIn("<th>File</th>", body)
         self.assertNotIn("Actual Source", body)
+
+    def test_revision_route_uses_first_source_option_as_real_default(self) -> None:
+        app = create_app(cache_directory=str(CACHE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        environ = {
+            "REQUEST_METHOD": "GET",
+            "PATH_INFO": "/revision",
+            "QUERY_STRING": (
+                "tool=historyFinder&sample_csv="
+                f"{SAMPLE_CSV}"
+                "&from_url=https%3A%2F%2Fgithub.com%2Fcucumber%2Fcucumber-jvm%2Fblob%2F4d9dd9304fe05e15c445c6f3b4d0e364d7c70223%2F"
+                "cucumber-core%2Fsrc%2Ftest%2Fjava%2Fio%2Fcucumber%2Fcore%2Fplugin%2FUTF8PrintWriterTest.java%23L17"
+                "&to_url=https%3A%2F%2Fgithub.com%2Fcucumber%2Fcucumber-jvm%2Fblob%2F4d9dd9304fe05e15c445c6f3b4d0e364d7c70223%2F"
+                "cucumber-core%2Fsrc%2Fmain%2Fjava%2Fio%2Fcucumber%2Fcore%2Fplugin%2FUTF8PrintWriter.java%23L29"
+            ),
+            "wsgi.input": BytesIO(b""),
+            "CONTENT_LENGTH": "0",
+            "SERVER_NAME": "127.0.0.1",
+            "SERVER_PORT": "8765",
+            "wsgi.url_scheme": "http",
+        }
+
+        status_holder: list[str] = []
+
+        def start_response(status: str, _headers: list[tuple[str, str]]) -> None:
+            status_holder.append(status)
+
+        body = b"".join(app(environ, start_response)).decode("utf-8")
+
+        self.assertEqual("200 OK", status_holder[0])
+        self.assertIn('<option value="t2p-link/ncc" selected>', body)
+        self.assertIn("Loaded from <span class=\"mono\">t2p-link/ncc</span>", body)
 
     def test_sample_directory_route_lists_csv_files(self) -> None:
         app = create_app(cache_directory=str(CACHE_DIRECTORY), data_directory=str(DATA_DIRECTORY))

@@ -476,13 +476,15 @@ class HistoryRepository:
         return [], searched_labels
 
     def related_source_options(self, *, tool: str, sample_csv: str) -> list[str]:
-        sample_context = self._sample_context(sample_csv)
         options: list[str] = []
-        if sample_context and sample_context["kind"] == "t2p-change-sample":
-            options.append(f"t2p-change/{sample_context['tool']}/{sample_context['strategy']}")
-        elif tool:
-            options.append(f"t2p-change/{tool}/<strategy>")
-        options.extend(["t2p-candidate", "m2m-tech", "fan-out"])
+        for preferred_option in ("t2p-link/ncc", "m2m-tech"):
+            if preferred_option in self._available_source_options():
+                options.append(preferred_option)
+        options.extend(
+            option
+            for option in self._available_source_options()
+            if option not in options
+        )
         return options
 
     def read_sample_row(self, csv_path: str | Path, *, from_url: str, to_url: str) -> SampleRow:
@@ -597,21 +599,13 @@ class HistoryRepository:
 
         exact_t2p_change = None
         if sample_context and sample_context["kind"] == "t2p-change-sample":
-            exact_t2p_change = (
-                data_directory
-                / "t2p-change"
-                / sample_context["tool"]
-                / sample_context["strategy"]
-                / f"{project}.csv"
-            )
+            exact_t2p_change = data_directory / "t2p-link" / sample_context["strategy"] / f"{project}.csv"
             candidates.append((exact_t2p_change, self._source_label(exact_t2p_change)))
 
-        t2p_change_root = data_directory / "t2p-change"
-        if tool:
-            for csv_file in sorted((t2p_change_root / tool).glob(f"*/{project}.csv")):
-                if exact_t2p_change is not None and csv_file == exact_t2p_change:
-                    continue
-                candidates.append((csv_file, self._source_label(csv_file)))
+        for csv_file in self._iter_t2p_link_csv_files(project):
+            if exact_t2p_change is not None and csv_file == exact_t2p_change:
+                continue
+            candidates.append((csv_file, self._source_label(csv_file)))
 
         for root_name in ("t2p-candidate", "m2m-tech", "fan-out"):
             csv_file = data_directory / root_name / f"{project}.csv"
@@ -635,20 +629,18 @@ class HistoryRepository:
         selected_source: str,
     ) -> list[tuple[Path, str]]:
         data_directory = self.data_directory
-        if selected_source.startswith("t2p-change/"):
+        if selected_source.startswith("t2p-link/"):
             parts = selected_source.split("/")
-            if len(parts) >= 3 and parts[2] != "<strategy>":
-                csv_file = data_directory / parts[0] / parts[1] / parts[2] / f"{project}.csv"
+            if len(parts) >= 2:
+                csv_file = data_directory / parts[0] / parts[1] / f"{project}.csv"
                 return [(csv_file, selected_source)]
             if sample_context and sample_context["kind"] == "t2p-change-sample":
-                csv_file = data_directory / "t2p-change" / sample_context["tool"] / sample_context["strategy"] / f"{project}.csv"
+                csv_file = data_directory / "t2p-link" / sample_context["strategy"] / f"{project}.csv"
                 return [(csv_file, self._source_label(csv_file))]
-            if tool:
-                return [
-                    (csv_file, self._source_label(csv_file))
-                    for csv_file in sorted((data_directory / "t2p-change" / tool).glob(f"*/{project}.csv"))
-                ]
-            return []
+            return [
+                (csv_file, self._source_label(csv_file))
+                for csv_file in self._iter_t2p_link_csv_files(project)
+            ]
 
         csv_file = data_directory / selected_source / f"{project}.csv"
         return [(csv_file, selected_source)]
@@ -713,6 +705,29 @@ class HistoryRepository:
             return str(relative_parent).replace("\\", "/")
         except ValueError:
             return str(csv_file.parent)
+
+    def _iter_t2p_link_csv_files(self, project: str) -> list[Path]:
+        t2p_link_root = self.data_directory / "t2p-link"
+        if not t2p_link_root.exists():
+            return []
+        return sorted(t2p_link_root.glob(f"*/{project}.csv"))
+
+    def _t2p_link_options(self) -> list[str]:
+        t2p_link_root = self.data_directory / "t2p-link"
+        if not t2p_link_root.exists():
+            return []
+        return [
+            f"t2p-link/{directory.name}"
+            for directory in sorted(path for path in t2p_link_root.iterdir() if path.is_dir())
+        ]
+
+    def _available_source_options(self) -> list[str]:
+        return [
+            *self._t2p_link_options(),
+            "t2p-candidate",
+            "m2m-tech",
+            "fan-out",
+        ]
 
     def _resolve_member_name(self, *, tool: str, project: str, file_path: str, line: int) -> str:
         extracted_root = self.history_directory / tool / project / Path(file_path).parent

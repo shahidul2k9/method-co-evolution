@@ -1,6 +1,7 @@
 import os
 import os.path
 import shlex
+import shutil
 import time
 from pathlib import Path
 
@@ -465,24 +466,42 @@ def clone_and_checkout_commit(repo_url, repository_directory, commit_hash):
     """Clone a GitHub repository and checkout a specific commit hash.
        Raises an exception if cloning or checking out fails.
     """
+    clone_attempts = 3
     try:
-        if os.path.exists(repository_directory):
-            print(f"Repository already exists at {repository_directory}. Pulling latest changes...")
-            repo = Repo(repository_directory)
+        repo = None
+        last_error: GitCommandError | None = None
+        for attempt in range(1, clone_attempts + 1):
+            try:
+                if os.path.exists(repository_directory):
+                    print(f"Repository already exists at {repository_directory}. Opening local checkout...")
+                    repo = Repo(repository_directory)
+                    if repo.bare:
+                        raise Exception(f"Error: The repository at {repository_directory} is corrupted or incomplete.")
+                else:
+                    print(f"Cloning repository {repo_url} into {repository_directory} (attempt {attempt}/{clone_attempts})...")
+                    repo = Repo.clone_from(
+                        repo_url,
+                        repository_directory,
+                        multi_options=["--filter=blob:none", "--no-tags"],
+                    )
+                break
+            except GitCommandError as error:
+                last_error = error
+                if os.path.exists(repository_directory):
+                    shutil.rmtree(repository_directory, ignore_errors=True)
+                if attempt == clone_attempts:
+                    raise
+                time.sleep(min(5, attempt))
 
-            # Ensure the repository is valid
-            if repo.bare:
-                raise Exception(
-                    f"Error: The repository at {repository_directory} is corrupted or incomplete.")
-
-            # repo.remotes.origin.pull()
-        else:
-            print(f"Cloning repository {repo_url} into {repository_directory}...")
-            repo = Repo.clone_from(repo_url, repository_directory)
+        if repo is None:
+            raise Exception(f"Failed to clone repository after {clone_attempts} attempts: {last_error}")
 
         # Checkout specific commit hash
         print(f"Checking out commit {commit_hash}...")
-        repo.remotes.origin.fetch()
+        try:
+            repo.git.fetch("origin", commit_hash, "--depth", "1")
+        except GitCommandError:
+            repo.remotes.origin.fetch()
         repo.git.checkout(commit_hash)
 
         # Verify checkout success

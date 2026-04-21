@@ -1,5 +1,7 @@
 import os
 import os.path
+import shutil
+import time
 
 from git import Repo, GitCommandError
 import requests
@@ -17,24 +19,41 @@ def clone_and_checkout_commit(repo_url, repository_directory, commit_hash):
        Raises an exception if cloning or checking out fails.
     """
     try:
-        if os.path.exists(repository_directory):
-            # Check for a stale lock file and remove it
-            # lock_file = os.path.join(repository_directory, ".git", "index.lock")
-            # if os.path.exists(lock_file):
-            #     print(f"Removing stale lock file at {lock_file}")
-            #     os.remove(lock_file)
-            print(f"Opening existing repo at {repository_directory}")
-            repo = Repo(repository_directory)
-        else:
-            print(f"Cloning {repo_url}...")
-            repo = Repo.clone_from(repo_url, repository_directory)
+        repo = None
+        clone_attempts = 3
+        last_error: GitCommandError | None = None
+        for attempt in range(1, clone_attempts + 1):
+            try:
+                if os.path.exists(repository_directory):
+                    print(f"Opening existing repo at {repository_directory}")
+                    repo = Repo(repository_directory)
+                    if repo.bare:
+                        raise Exception(f"Error: The repository at {repository_directory} is corrupted or incomplete.")
+                else:
+                    print(f"Cloning {repo_url} (attempt {attempt}/{clone_attempts})...")
+                    repo = Repo.clone_from(
+                        repo_url,
+                        repository_directory,
+                        multi_options=["--filter=blob:none", "--no-tags"],
+                    )
+                break
+            except GitCommandError as error:
+                last_error = error
+                if os.path.exists(repository_directory):
+                    shutil.rmtree(repository_directory, ignore_errors=True)
+                if attempt == clone_attempts:
+                    raise
+                time.sleep(min(5, attempt))
 
-            # 1. Fetch to ensure we have the latest metadata
-        print(f"Fetching updates...")
-        # repo.git.fetch('--all')
+        if repo is None:
+            raise Exception(f"Failed to clone repository after {clone_attempts} attempts: {last_error}")
 
         # 2. Force checkout to bypass dirty state or index issues
         print(f"Checking out commit {commit_hash}...")
+        try:
+            repo.git.fetch("origin", commit_hash, "--depth", "1")
+        except GitCommandError:
+            repo.remotes.origin.fetch()
         repo.git.checkout(commit_hash)
         # repo.git.checkout(commit_hash, force=True)
 

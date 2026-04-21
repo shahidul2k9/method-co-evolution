@@ -2,9 +2,10 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
+from git import GitCommandError
 
 SRC_DIRECTORY = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIRECTORY) not in sys.path:
@@ -101,6 +102,36 @@ class MethodScannerCacheTestCase(unittest.TestCase):
     def _create_java_file(self, file_path: Path) -> None:
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text("class Demo { void run() {} }", encoding="utf-8")
+
+    def test_clone_and_checkout_commit_retries_after_failed_clone(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            repository_directory = Path(temp_directory) / "demo-project"
+            repo = MagicMock()
+            repo.head.object.hexsha = "abc123"
+
+            clone_calls: list[str] = []
+
+            def clone_side_effect(_repo_url, target_directory, multi_options=None):
+                clone_calls.append(target_directory)
+                Path(target_directory).mkdir(parents=True, exist_ok=True)
+                if len(clone_calls) == 1:
+                    raise GitCommandError("clone", 128, stderr="early EOF")
+                return repo
+
+            with patch.object(ms.Repo, "clone_from", side_effect=clone_side_effect), patch.object(
+                ms, "time"
+            ) as mock_time:
+                current_commit = ms.clone_and_checkout_commit(
+                    "https://github.com/example/demo-project",
+                    str(repository_directory),
+                    "abc123",
+                )
+
+            self.assertEqual("abc123", current_commit)
+            self.assertEqual(2, len(clone_calls))
+            repo.git.fetch.assert_called_once_with("origin", "abc123", "--depth", "1")
+            repo.git.checkout.assert_called_once_with("abc123")
+            mock_time.sleep.assert_called_once()
 
     def test_scan_method_uses_method_cache_file_on_resume(self):
         with tempfile.TemporaryDirectory() as temp_directory:
