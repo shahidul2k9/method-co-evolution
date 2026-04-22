@@ -3,6 +3,7 @@ import os
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from mhc.config import CACHE_DIRECTORY
@@ -118,6 +119,18 @@ def main(argv: list[str] | None = None) -> None:
                             markevery=sparse_marker_indices(len(x)),
                             markersize=GRAPH_MARKER_SIZES[change_index % len(GRAPH_MARKER_SIZES)],
                         )
+                        target_y = 0.8
+                        target_index = np.searchsorted(y, target_y, side="left")
+                        if target_index < len(x):
+                            target_x = x[target_index]
+                            ax.scatter(target_x, target_y, color="black", s=30, zorder=3)
+                            ax.annotate(
+                                f"x={target_x:.1f}%",
+                                xy=(target_x, target_y),
+                                xytext=(8, 8),
+                                textcoords="offset points",
+                                fontsize=10,
+                            )
                         plotted = True
 
                 if strategy_index == 0:

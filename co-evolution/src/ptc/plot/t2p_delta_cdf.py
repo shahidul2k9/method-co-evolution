@@ -2,6 +2,8 @@ import os
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
+import numpy as np
 import pandas as pd
 
 import mhc.util as util
@@ -100,6 +102,7 @@ def main(argv: list[str] | None = None) -> None:
                     ax = axes[repository_index][change_index]
                     ax.set_title(f"{change.replace('ch_', '')}".capitalize(), fontsize=24)
                     ax.set_ylim(0, 1)
+                    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
                     unsupported = tool == "codeShovel" and change in code_shovel_unsupported_change_set
                     if unsupported:
@@ -139,6 +142,19 @@ def main(argv: list[str] | None = None) -> None:
                                 linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
                                 ls=GRAPH_STYLES[0],
                             )
+
+                            target_y = 0.8
+                            target_index = np.searchsorted(y, target_y, side="left")
+                            if target_index < len(x):
+                                target_x = x[target_index]
+                                ax.scatter(target_x, target_y, color="black", s=40, zorder=3)
+                                ax.annotate(
+                                    f"x={target_x:g}",
+                                    xy=(target_x, target_y),
+                                    xytext=(8, 8),
+                                    textcoords="offset points",
+                                    fontsize=12,
+                                )
 
                             if max(x) > 50:
                                 ax.set_xscale("log")
