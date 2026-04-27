@@ -12,7 +12,10 @@ SRC_DIRECTORY = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SRC_DIRECTORY))
 
-from mhc.method_history_jar_runner import execute_method_history_if_missing, update_repository_index
+from mhc.method_history_jar_runner import (
+    execute_method_history_if_missing,
+    update_repository_index,
+)
 from mhc.repair_duplicate_history_archives import repair_folder_into_tar_gz
 from mhc.zip import merge_folder_into_tar_gz
 
@@ -29,6 +32,105 @@ def _write_tar_gz(tar_path: Path, members: dict[str, str] | list[tuple[str, str]
 
 
 class TestIndexOutput(unittest.TestCase):
+    def test_merge_only_skips_history_generation(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            repository_df = pd.DataFrame(
+                [
+                    {
+                        "project": "checkstyle",
+                        "url": "https://example.com/checkstyle",
+                        "updated_hash": "abc123",
+                    }
+                ]
+            )
+
+            with (
+                patch("mhc.method_history_jar_runner.ms.clone_and_checkout_commit") as mock_clone,
+                patch("mhc.method_history_jar_runner.execute_cmd_method_history_jar") as mock_execute,
+                patch("mhc.method_history_jar_runner.merge_folder_into_tar_gz") as mock_merge,
+            ):
+                execute_method_history_if_missing(
+                    repository_df,
+                    str(temp_path / "repository"),
+                    str(temp_path / "data"),
+                    str(temp_path / "cache"),
+                    ["codeShovel"],
+                    {"codeShovel": "codeShovel.jar"},
+                    merge_only=True,
+                )
+
+            mock_merge.assert_called_once_with(
+                str(temp_path / "cache" / "history" / "codeShovel" / "checkstyle")
+            )
+            mock_clone.assert_not_called()
+            mock_execute.assert_not_called()
+
+    def test_merge_only_removes_empty_project_folder_after_merge(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            folder = temp_path / "cache" / "history" / "codeShovel" / "checkstyle"
+            loose_file = folder / "src" / "Foo--a--1.json"
+            loose_file.parent.mkdir(parents=True)
+            loose_file.write_text("{}", encoding="utf-8")
+
+            repository_df = pd.DataFrame(
+                [
+                    {
+                        "project": "checkstyle",
+                        "url": "https://example.com/checkstyle",
+                        "updated_hash": "abc123",
+                    }
+                ]
+            )
+
+            execute_method_history_if_missing(
+                repository_df,
+                str(temp_path / "repository"),
+                str(temp_path / "data"),
+                str(temp_path / "cache"),
+                ["codeShovel"],
+                {"codeShovel": "codeShovel.jar"},
+                merge_only=True,
+            )
+
+            self.assertFalse(folder.exists())
+            self.assertTrue(Path(f"{folder}.tar.gz").exists())
+
+    def test_merge_only_preserves_non_empty_project_folder_after_merge(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            folder = temp_path / "cache" / "history" / "codeShovel" / "checkstyle"
+            leftover_file = folder / "src" / "Foo.tmp"
+            loose_file = folder / "src" / "Foo--a--1.json"
+            leftover_file.parent.mkdir(parents=True)
+            leftover_file.write_text("partial", encoding="utf-8")
+            loose_file.write_text("{}", encoding="utf-8")
+
+            repository_df = pd.DataFrame(
+                [
+                    {
+                        "project": "checkstyle",
+                        "url": "https://example.com/checkstyle",
+                        "updated_hash": "abc123",
+                    }
+                ]
+            )
+
+            execute_method_history_if_missing(
+                repository_df,
+                str(temp_path / "repository"),
+                str(temp_path / "data"),
+                str(temp_path / "cache"),
+                ["codeShovel"],
+                {"codeShovel": "codeShovel.jar"},
+                merge_only=True,
+            )
+
+            self.assertTrue(folder.exists())
+            self.assertTrue(leftover_file.exists())
+            self.assertFalse(loose_file.exists())
+
     def test_zero_merge_threshold_disables_intermediate_merge_only(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)

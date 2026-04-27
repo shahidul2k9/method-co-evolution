@@ -9,7 +9,7 @@ from pandas import DataFrame
 
 import mhc.method_scanner as ms
 import mhc.util as util
-from mhc.zip import load_zip_index, merge_folder_into_tar_gz
+from mhc.zip import load_zip_index, merge_folder_into_tar_gz, remove_empty_directory_tree
 
 DEFAULT_MERGE_THRESHOLD = 10_000
 
@@ -22,7 +22,8 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                                       timeout_seconds: int = 30 * 60,
                                       shards: int = 1,
                                       shard: int = 1,
-                                      merge_threshold: int = DEFAULT_MERGE_THRESHOLD) -> None:
+                                      merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
+                                      merge_only: bool = False) -> None:
     for tool_name in tool_names:
         for _, repository in repository_df.iterrows():
             repository_name = repository["project"]
@@ -30,41 +31,45 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
             hash = repository['updated_hash']
             method_history_path = util.format_method_history_path(cache_directory, tool_name, repository_name)
 
-            method_history_tar_gz = f"{method_history_path}.tar.gz"
-            repository_name_prefix = f"{repository_name}/"
-            zip_index = util.remove_prefix_if_exists(load_zip_index(method_history_tar_gz),
-                                                     repository_name_prefix) if os.path.exists(
-                method_history_tar_gz) else set()
-
-            method_df = pd.read_csv(util.format_method_list_file(data_directory, repository_name),
-                                    keep_default_na=False, na_filter=False)
-            method_df = method_df[method_df["expression"] == "method"]
-            ms.clone_and_checkout_commit(url, os.path.join(repository_directory, repository_name), hash)
-            repo_path = Path(method_history_path)
-            unzip_index = set(str(p.relative_to(repo_path)) for p in repo_path.rglob("*.json"))
-
-            for _, method in method_df.iterrows():
-                method_name = method['name']
-                start_line = method['start_line']
-                file = method['file']
-                if pd.notna(method_name) and pd.notna(start_line):
-                    method_history_file_suffix = util.format_method_history_file_suffix(file, method_name, start_line)
-                    if util.stable_shard_for_key(method_history_file_suffix, shards) != shard:
-                        continue
-                    method_history_file = os.path.join(method_history_path, method_history_file_suffix)
-                    if method_history_file_suffix not in zip_index and method_history_file_suffix not in unzip_index:
-                        execute_cmd_method_history_jar(tool_name, jar_file_map[tool_name],
-                                                       os.path.join(repository_directory, repository_name),
-                                                       url, hash, file, method_name, start_line, method_history_file,
-                                                       command_options, java_options, timeout_seconds)
-                        unzip_index.add(method_history_file_suffix)
-                if merge_threshold > 0 and len(unzip_index) >= merge_threshold:
-                    merge_folder_into_tar_gz(method_history_path)
-                    zip_index = util.remove_prefix_if_exists(load_zip_index(method_history_tar_gz),
-                                                             repository_name_prefix)
-                    unzip_index = set(str(p.relative_to(repo_path)) for p in repo_path.rglob("*.json"))
-            if merge_threshold >= 0:
+            if merge_only:
                 merge_folder_into_tar_gz(method_history_path)
+                remove_empty_directory_tree(method_history_path)
+            else:
+                method_history_tar_gz = f"{method_history_path}.tar.gz"
+                repository_name_prefix = f"{repository_name}/"
+                zip_index = util.remove_prefix_if_exists(load_zip_index(method_history_tar_gz),
+                                                         repository_name_prefix) if os.path.exists(
+                    method_history_tar_gz) else set()
+
+                method_df = pd.read_csv(util.format_method_list_file(data_directory, repository_name),
+                                        keep_default_na=False, na_filter=False)
+                method_df = method_df[method_df["expression"] == "method"]
+                ms.clone_and_checkout_commit(url, os.path.join(repository_directory, repository_name), hash)
+                repo_path = Path(method_history_path)
+                unzip_index = set(str(p.relative_to(repo_path)) for p in repo_path.rglob("*.json"))
+
+                for _, method in method_df.iterrows():
+                    method_name = method['name']
+                    start_line = method['start_line']
+                    file = method['file']
+                    if pd.notna(method_name) and pd.notna(start_line):
+                        method_history_file_suffix = util.format_method_history_file_suffix(file, method_name, start_line)
+                        if util.stable_shard_for_key(method_history_file_suffix, shards) != shard:
+                            continue
+                        method_history_file = os.path.join(method_history_path, method_history_file_suffix)
+                        if method_history_file_suffix not in zip_index and method_history_file_suffix not in unzip_index:
+                            execute_cmd_method_history_jar(tool_name, jar_file_map[tool_name],
+                                                           os.path.join(repository_directory, repository_name),
+                                                           url, hash, file, method_name, start_line, method_history_file,
+                                                           command_options, java_options, timeout_seconds)
+                            unzip_index.add(method_history_file_suffix)
+                    if merge_threshold > 0 and len(unzip_index) >= merge_threshold:
+                        merge_folder_into_tar_gz(method_history_path)
+                        zip_index = util.remove_prefix_if_exists(load_zip_index(method_history_tar_gz),
+                                                                 repository_name_prefix)
+                        unzip_index = set(str(p.relative_to(repo_path)) for p in repo_path.rglob("*.json"))
+                if merge_threshold >= 0:
+                    merge_folder_into_tar_gz(method_history_path)
 
 
 def update_repository_index(repository_df: DataFrame, cache_dir: str, data_dir: str) -> None:

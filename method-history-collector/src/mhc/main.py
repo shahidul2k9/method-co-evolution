@@ -14,6 +14,7 @@ _KNOWN_OPTION_FLAGS = {
     "--java-options",
     "--timeout-seconds",
     "--merge-threshold",
+    "--merge-only",
     "--project",
     "--projects",
     "--project-range",
@@ -164,6 +165,12 @@ def main(argv: list[str] | None = None):
         ),
     )
     parser.add_argument(
+        "--merge-only",
+        dest="merge_only",
+        action="store_true",
+        help="For history command, merge existing loose history JSON files without generating new history.",
+    )
+    parser.add_argument(
         "--project",
         dest="project",
         type=str,
@@ -242,6 +249,7 @@ def main(argv: list[str] | None = None):
             args.shards,
             args.shard,
             args.merge_threshold,
+            args.merge_only,
         )
     elif args.command.lower() == "call-graph":
         if not args.tool_name:

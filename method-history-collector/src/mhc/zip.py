@@ -81,3 +81,18 @@ def merge_folder_into_tar_gz(folder_path: str, include_suffixes: tuple[str, ...]
         for abs_path, _ in files_to_merge:
             if os.path.exists(abs_path):
                 os.remove(abs_path)
+
+
+def remove_empty_directory_tree(folder_path: str) -> None:
+    if os.path.isdir(folder_path):
+        for root, dirs, _ in os.walk(folder_path, topdown=False):
+            for dirname in dirs:
+                directory = os.path.join(root, dirname)
+                try:
+                    os.rmdir(directory)
+                except OSError:
+                    pass
+        try:
+            os.rmdir(folder_path)
+        except OSError:
+            pass
