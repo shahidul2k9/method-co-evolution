@@ -13,6 +13,7 @@ if str(SRC_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SRC_DIRECTORY))
 
 from mhc.method_history_jar_runner import execute_method_history_if_missing, update_repository_index
+from mhc.repair_duplicate_history_archives import repair_folder_into_tar_gz
 from mhc.zip import merge_folder_into_tar_gz
 
 
@@ -209,6 +210,53 @@ class TestIndexOutput(unittest.TestCase):
 
             self.assertEqual(1, member_names.count("checkstyle/src/Foo--a--1.json"))
             self.assertEqual(1, member_names.count("checkstyle/src/Foo--b--2.json"))
+
+    def test_repair_folder_into_tar_gz_removes_zero_byte_loose_json_files(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            folder = Path(temp_dir) / "history" / "codeShovel" / "checkstyle"
+            empty_file = folder / "src" / "Foo--empty--1.json"
+            valid_file = folder / "src" / "Foo--valid--2.json"
+            empty_file.parent.mkdir(parents=True)
+            empty_file.write_bytes(b"")
+            valid_file.write_text("{}", encoding="utf-8")
+
+            repair_folder_into_tar_gz(str(folder))
+
+            tar_path = Path(f"{folder}.tar.gz")
+            self.assertFalse(empty_file.exists())
+            self.assertFalse(valid_file.exists())
+
+            with tarfile.open(tar_path, "r:gz") as archive:
+                member_names = archive.getnames()
+
+            self.assertNotIn("checkstyle/src/Foo--empty--1.json", member_names)
+            self.assertIn("checkstyle/src/Foo--valid--2.json", member_names)
+
+    def test_repair_folder_into_tar_gz_removes_zero_byte_archive_members(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            folder = Path(temp_dir) / "history" / "codeShovel" / "checkstyle"
+            tar_path = Path(f"{folder}.tar.gz")
+            _write_tar_gz(
+                tar_path,
+                [
+                    ("checkstyle/src/Foo--empty--1.json", ""),
+                    ("checkstyle/src/Foo--duplicate--2.json", ""),
+                    ("checkstyle/src/Foo--duplicate--2.json", '{"value": 2}'),
+                    ("checkstyle/src/Foo--valid--3.json", '{"value": 3}'),
+                ],
+            )
+
+            repair_folder_into_tar_gz(str(folder))
+
+            with tarfile.open(tar_path, "r:gz") as archive:
+                members = {
+                    member.name: member.size
+                    for member in archive.getmembers()
+                }
+
+            self.assertNotIn("checkstyle/src/Foo--empty--1.json", members)
+            self.assertEqual(12, members["checkstyle/src/Foo--duplicate--2.json"])
+            self.assertEqual(12, members["checkstyle/src/Foo--valid--3.json"])
 
 
 if __name__ == "__main__":
