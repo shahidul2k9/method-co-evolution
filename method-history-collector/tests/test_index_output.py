@@ -16,10 +16,11 @@ from mhc.method_history_jar_runner import execute_method_history_if_missing, upd
 from mhc.zip import merge_folder_into_tar_gz
 
 
-def _write_tar_gz(tar_path: Path, members: dict[str, str]) -> None:
+def _write_tar_gz(tar_path: Path, members: dict[str, str] | list[tuple[str, str]]) -> None:
     tar_path.parent.mkdir(parents=True, exist_ok=True)
+    member_items = members.items() if isinstance(members, dict) else members
     with tarfile.open(tar_path, "w:gz") as archive:
-        for member_name, content in members.items():
+        for member_name, content in member_items:
             data = content.encode("utf-8")
             tar_info = tarfile.TarInfo(name=member_name)
             tar_info.size = len(data)
@@ -187,6 +188,27 @@ class TestIndexOutput(unittest.TestCase):
                     "checkstyle/src/Foo--a--1.json",
                     archive.getnames(),
                 )
+
+    def test_merge_folder_into_tar_gz_deduplicates_existing_archive_members(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            folder = Path(temp_dir) / "history" / "codeShovel" / "checkstyle"
+            tar_path = Path(f"{folder}.tar.gz")
+            _write_tar_gz(
+                tar_path,
+                [
+                    ("checkstyle/src/Foo--a--1.json", '{"value": 1}'),
+                    ("checkstyle/src/Foo--a--1.json", '{"value": 2}'),
+                    ("checkstyle/src/Foo--b--2.json", '{"value": 3}'),
+                ],
+            )
+
+            merge_folder_into_tar_gz(str(folder))
+
+            with tarfile.open(tar_path, "r:gz") as archive:
+                member_names = archive.getnames()
+
+            self.assertEqual(1, member_names.count("checkstyle/src/Foo--a--1.json"))
+            self.assertEqual(1, member_names.count("checkstyle/src/Foo--b--2.json"))
 
 
 if __name__ == "__main__":
