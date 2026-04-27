@@ -1,0 +1,23 @@
+<idea-plugin>
+    <id>rnd.intellij.method.history.batch</id>
+    <name>Method History Batch Exporter</name>
+    <vendor email="shahidul@example.com">Shahidul</vendor>
+
+    <description><![CDATA[
+        Batch-export method history from a directory of oracle JSON files using
+        IntelliJ PSI and VCS APIs.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.java</depends>
+
+    <actions>
+        <action
+                id="rnd.intellij.method.history.batch.ExportAction"
+                class="rnd.intellij.method.history.ExportMethodHistoryAction"
+                text="Export Method History Batch"
+                description="Export method history for oracle JSON files">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
