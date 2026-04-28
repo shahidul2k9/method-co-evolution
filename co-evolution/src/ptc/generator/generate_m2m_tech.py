@@ -1,13 +1,19 @@
 import os
+from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
+from pytctracer.techniques.combined import Combined
+from pytctracer.techniques.last_call_before_assert import LastCallBeforeAssert
 from pytctracer.techniques.levenshtein_distance import *
 from pytctracer.techniques.longest_common_subsequence import *
 from pytctracer.techniques.naming_conventions import *
+from pytctracer.techniques.tarantula import Tarantula
+from pytctracer.techniques.tfidf import TFIDF
 
 import mhc.util as util
 from mhc.config import *
+from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, select_named_items
 from ptc.link_strategy import LinkStrategy, STRATEGY_KEYS
 
 # ---------------------------
@@ -33,7 +39,11 @@ nc = NamingConventions()
 ncc = NamingConventionsContains()
 ld = LevenshteinDistance()
 lcsUnit = LongestCommonSubsequenceUnit()
-lcsBoth = LongestCommonSubsequenceUnit()
+lcsBoth = LongestCommonSubsequenceBoth()
+lcba = LastCallBeforeAssert()
+tarantula = Tarantula()
+tfidf = TFIDF()
+combined = Combined()
 
 def llm_strategy_directory_names() -> list[str]:
     return [
@@ -41,6 +51,15 @@ def llm_strategy_directory_names() -> list[str]:
         for strategy in STRATEGY_KEYS
         if strategy.name.startswith("LLM_")
     ]
+
+
+def build_parser():
+    return build_experiment_parser(
+        "Generate method-to-method technique scores.",
+        include_tools=False,
+        include_strategies=False,
+        projects_help="Comma-separated project names to process.",
+    )
 
 
 def apply_llm_techniques(
@@ -52,7 +71,8 @@ def apply_llm_techniques(
     enriched_df = t2p_candidate_df.copy()
 
     for directory_name in llm_directory_names:
-        column_name = f"tech_{directory_name}"
+        technique_name = directory_name if directory_name.startswith("llm_") else f"llm_{directory_name}"
+        column_name = f"tech_{technique_name}"
         prediction_file = llm_prediction_root / directory_name / f"{project}.csv"
 
         if not prediction_file.exists():
@@ -82,25 +102,162 @@ def apply_llm_techniques(
 # Confidence computation
 # ---------------------------
 
-def establish_confidence(row):
-    test_name = row["from_name"].lower()
-    production_name = row["to_name"].lower()
+TECHNIQUE_COLUMNS = [
+    "tech_nc",
+    "tech_ncc",
+    "tech_lcs_b",
+    "tech_lcs_u",
+    "tech_leven",
+    "tech_lcba",
+    "tech_tarantula",
+    "tech_tfidf",
+    "tech_combined",
+]
 
-    return pd.Series({
-        "tech_nc": nc._compute_nc_score(production_name, test_name),
-        "tech_ncc": ncc._compute_nc_score(production_name, test_name),
-        "tech_lcs_b": lcsBoth._compute_lcs_score(production_name, test_name),
-        "tech_lcs_u": lcsUnit._compute_lcs_score(production_name, test_name),
-        "tech_leven": ld._compute_levenshtein_score(production_name, test_name)
-    })
+
+def _method_name(value: object) -> str:
+    return str(value or "").lower()
+
+
+def _call_depth(row: pd.Series) -> int:
+    if "to_call_depth" not in row or row["to_call_depth"] == "":
+        return 1
+
+    depth = pd.to_numeric(row["to_call_depth"], errors="coerce")
+    if pd.isna(depth) or depth < 1:
+        return 1
+
+    return int(depth)
+
+
+def build_traceability_inputs(t2p_candidate_df: pd.DataFrame):
+    function_names = {}
+    test_names = {}
+    functions_called_by_tests = defaultdict(set)
+    tests_that_call_functions = defaultdict(set)
+    functions_called_by_test_depth = defaultdict(dict)
+    functions_called_by_test_before_assert = defaultdict(set)
+
+    for _, row in t2p_candidate_df.iterrows():
+        test_key = row["from_url"]
+        function_key = row["to_url"]
+        test_names[test_key] = _method_name(row["from_name"])
+        function_names[function_key] = _method_name(row["to_name"])
+        functions_called_by_tests[test_key].add(function_key)
+        tests_that_call_functions[function_key].add(test_key)
+
+        if "to_lcba" in row and pd.to_numeric(row["to_lcba"], errors="coerce") > 0:
+            functions_called_by_test_before_assert[test_key].add(function_key)
+
+        depth = _call_depth(row)
+        existing_depth = functions_called_by_test_depth[test_key].get(function_key)
+        if existing_depth is None or depth < existing_depth:
+            functions_called_by_test_depth[test_key][function_key] = depth
+
+    function_names_tuple = list(function_names.items())
+    test_names_tuple = list(test_names.items())
+
+    return (
+        function_names_tuple,
+        test_names_tuple,
+        functions_called_by_tests,
+        tests_that_call_functions,
+        functions_called_by_test_depth,
+        functions_called_by_test_before_assert,
+    )
+
+
+def compute_technique_scores(t2p_candidate_df: pd.DataFrame) -> dict[str, dict[str, dict[str, float]]]:
+    (
+        function_names_tuple,
+        test_names_tuple,
+        functions_called_by_tests,
+        tests_that_call_functions,
+        functions_called_by_test_depth,
+        functions_called_by_test_before_assert,
+    ) = build_traceability_inputs(t2p_candidate_df)
+
+    scores = {
+        "tech_nc": nc.run(
+            function_names_tuple=function_names_tuple,
+            test_names_tuple=test_names_tuple,
+            functions_called_by_tests=functions_called_by_tests,
+        ),
+        "tech_ncc": ncc.run(
+            function_names_tuple=function_names_tuple,
+            test_names_tuple=test_names_tuple,
+            functions_called_by_tests=functions_called_by_tests,
+        ),
+        "tech_lcs_b": lcsBoth.run(
+            function_names_tuple=function_names_tuple,
+            test_names_tuple=test_names_tuple,
+            functions_called_by_tests=functions_called_by_tests,
+            functions_called_by_test_depth=functions_called_by_test_depth,
+        ),
+        "tech_lcs_u": lcsUnit.run(
+            function_names_tuple=function_names_tuple,
+            test_names_tuple=test_names_tuple,
+            functions_called_by_tests=functions_called_by_tests,
+            functions_called_by_test_depth=functions_called_by_test_depth,
+        ),
+        "tech_leven": ld.run(
+            function_names_tuple=function_names_tuple,
+            test_names_tuple=test_names_tuple,
+            functions_called_by_tests=functions_called_by_tests,
+            functions_called_by_test_depth=functions_called_by_test_depth,
+        ),
+        "tech_lcba": lcba.run(
+            function_names_tuple=function_names_tuple,
+            test_names_tuple=test_names_tuple,
+            functions_called_by_tests=functions_called_by_tests,
+            functions_called_by_test_before_assert=functions_called_by_test_before_assert,
+        ),
+        "tech_tarantula": tarantula.run(
+            function_names_tuple=function_names_tuple,
+            test_names_tuple=test_names_tuple,
+            functions_called_by_tests=functions_called_by_tests,
+            tests_that_call_functions=tests_that_call_functions,
+            functions_called_by_test_depth=functions_called_by_test_depth,
+        ),
+        "tech_tfidf": tfidf.run(
+            function_names_tuple=function_names_tuple,
+            test_names_tuple=test_names_tuple,
+            functions_called_by_tests=functions_called_by_tests,
+            tests_that_call_functions=tests_that_call_functions,
+            functions_called_by_test_depth=functions_called_by_test_depth,
+        ),
+    }
+    scores["tech_combined"] = combined.run(scores)
+
+    return scores
+
+
+def apply_traceability_techniques(t2p_candidate_df: pd.DataFrame) -> pd.DataFrame:
+    scored_df = t2p_candidate_df.copy()
+    scores = compute_technique_scores(scored_df)
+
+    for column_name in TECHNIQUE_COLUMNS:
+        scored_df[column_name] = [
+            scores[column_name].get(row["from_url"], {}).get(row["to_url"], 0)
+            for _, row in scored_df.iterrows()
+        ]
+
+    return scored_df
 
 
 # ---------------------------
 # Main Processing
 # ---------------------------
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    _, selected_projects, _ = resolve_experiment_filters(
+        use_filters=args.use_filters,
+        projects=args.projects,
+    )
     repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
+    projects = select_named_items(repository_df["project"].tolist(), selected_projects, item_label="project")
+    repository_df = repository_df[repository_df["project"].isin(projects)]
     llm_directory_names = llm_strategy_directory_names()
 
     for _, repo in repository_df.iterrows():
@@ -119,23 +276,14 @@ def main() -> None:
             # Apply Techniques
             # ---------------------------
 
-            t2p_candidate_df[[
-                "tech_nc",
-                "tech_ncc",
-                "tech_lcs_b",
-                "tech_lcs_u",
-                "tech_leven"
-            ]] = t2p_candidate_df.apply(
-                establish_confidence,
-                axis=1
-            ).round(2)
+            t2p_candidate_df = apply_traceability_techniques(t2p_candidate_df)
+            t2p_candidate_df[TECHNIQUE_COLUMNS] = t2p_candidate_df[TECHNIQUE_COLUMNS].round(2)
 
             t2p_candidate_df["tech_lc"] = (
                     t2p_candidate_df.groupby("from_url").cumcount()
                     == t2p_candidate_df.groupby("from_url")["from_url"].transform("size") - 1
             ).astype(int)
 
-            t2p_candidate_df["tech_lcba"] = t2p_candidate_df["to_lcba"].astype(int)
             t2p_candidate_df = apply_llm_techniques(
                 t2p_candidate_df=t2p_candidate_df,
                 project=project,

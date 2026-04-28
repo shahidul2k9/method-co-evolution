@@ -8,7 +8,7 @@ from scipy.stats import kendalltau
 import mhc.util as util
 from mhc.config import CACHE_DIRECTORY, DATA_DIRECTORY
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
-from ptc.experiment_util import list_csv_files, resolve_experiment_filters, select_named_items
+from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, select_named_items
 from ptc.plot_util import man_utest
 
 STAT_COLUMNS = [
@@ -28,6 +28,13 @@ STAT_COLUMNS = [
 code_shovel_unsupported_change_set = {
     f"ch_{change_type.name.lower()}" for change_type in CODE_SHOVEL_UNSUPPORTED_CHANGES
 }
+
+
+def build_parser():
+    return build_experiment_parser(
+        "Aggregate Mann-Whitney U statistics for linked test/production changes.",
+        projects_help="Comma-separated project names to process.",
+    )
 
 
 def build_stat_row(project: str, tool: str, strategy: str, change: str, pair_df: pd.DataFrame) -> dict | None:
@@ -65,10 +72,16 @@ def build_stat_row(project: str, tool: str, strategy: str, change: str, pair_df:
     }
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
     stats_rows = []
 
-    selected_tools, selected_projects, selected_strategies = resolve_experiment_filters()
+    selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
+        use_filters=args.use_filters,
+        tools=args.tools,
+        projects=args.projects,
+        strategies=args.strategies,
+    )
     tools = select_named_items(
         util.sorted_directory_names(f"{DATA_DIRECTORY}/t2p-change"),
         selected_tools,

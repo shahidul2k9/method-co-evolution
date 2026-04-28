@@ -14,12 +14,75 @@ except ImportError:  # pragma: no cover
 from ptc.generator.generate_t2p_link import (
     _llm_stage_column_name,
     select_one_stage_indices,
+    strategy_output_key,
 )
-from ptc.link_strategy import LinkStrategy
+from ptc.link_strategy import LinkStrategy, strategies_from_keys
 
 
 @unittest.skipIf(pd is None, "pandas is required for generate_t2p_link tests")
 class TestGenerateT2PLink(unittest.TestCase):
+    def test_score_stages_select_threshold_scores_in_rank_order(self):
+        frame = pd.DataFrame(
+            [
+                {
+                    "from_url": "f1",
+                    "tech_lcs_u": 0.74,
+                    "tech_lcs_b": 0.54,
+                    "tech_leven": 0.94,
+                    "tech_tarantula": 0.94,
+                    "tech_tfidf": 0.89,
+                    "tech_combined": 0.84,
+                },
+                {
+                    "from_url": "f1",
+                    "tech_lcs_u": 0.90,
+                    "tech_lcs_b": 0.60,
+                    "tech_leven": 0.98,
+                    "tech_tarantula": 0.99,
+                    "tech_tfidf": 0.95,
+                    "tech_combined": 0.90,
+                },
+                {
+                    "from_url": "f2",
+                    "tech_lcs_u": 0.80,
+                    "tech_lcs_b": 0.70,
+                    "tech_leven": 0.96,
+                    "tech_tarantula": 0.96,
+                    "tech_tfidf": 0.91,
+                    "tech_combined": 0.86,
+                },
+            ]
+        )
+
+        self.assertEqual([1, 2], list(select_one_stage_indices(frame, LinkStrategy.LCS_U)))
+        self.assertEqual([1, 2], list(select_one_stage_indices(frame, LinkStrategy.LCS_B)))
+        self.assertEqual([1, 2], list(select_one_stage_indices(frame, LinkStrategy.LEVEN)))
+        self.assertEqual([1, 2], list(select_one_stage_indices(frame, LinkStrategy.TARANTULA)))
+        self.assertEqual([1, 2], list(select_one_stage_indices(frame, LinkStrategy.TFIDF)))
+        self.assertEqual([1, 2], list(select_one_stage_indices(frame, LinkStrategy.COMBINED)))
+
+    def test_lcs_u_and_lcs_b_use_different_thresholds(self):
+        frame = pd.DataFrame(
+            [
+                {"from_url": "f1", "tech_lcs_u": 0.70, "tech_lcs_b": 0.70},
+            ]
+        )
+
+        self.assertEqual([], list(select_one_stage_indices(frame, LinkStrategy.LCS_U)))
+        self.assertEqual([0], list(select_one_stage_indices(frame, LinkStrategy.LCS_B)))
+
+    def test_all_tc_tracer_technique_stages_have_strategy_keys(self):
+        self.assertEqual(LinkStrategy.NC, strategies_from_keys(["nc"]))
+        self.assertEqual(LinkStrategy.NCC, strategies_from_keys(["ncc"]))
+        self.assertEqual(LinkStrategy.LCS_U, strategies_from_keys(["lcs-u"]))
+        self.assertEqual(LinkStrategy.LCS_B, strategies_from_keys(["lcs-b"]))
+        self.assertEqual(LinkStrategy.LEVEN, strategies_from_keys(["leven"]))
+        self.assertEqual(LinkStrategy.LCBA, strategies_from_keys(["lcba"]))
+        self.assertEqual(LinkStrategy.TARANTULA, strategies_from_keys(["tarantula"]))
+        self.assertEqual(LinkStrategy.TFIDF, strategies_from_keys(["tfidf"]))
+        self.assertEqual(LinkStrategy.COMBINED, strategies_from_keys(["combined"]))
+        self.assertEqual("tarantula--combined", strategy_output_key(LinkStrategy.TARANTULA | LinkStrategy.COMBINED))
+
     def test_llm_stage_uses_hyphenated_column_name(self):
         frame = pd.DataFrame(
             [

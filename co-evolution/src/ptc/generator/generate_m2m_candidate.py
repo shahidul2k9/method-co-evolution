@@ -7,6 +7,7 @@ from pytctracer.techniques.naming_conventions import *
 
 import mhc.util as util
 from mhc.config import *
+from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, select_named_items
 
 # ---------------------------
 # Config
@@ -18,13 +19,18 @@ FANOUT_DIR = f"{DATA_DIRECTORY}/fan-out"
 METHOD_DIR = f"{DATA_DIRECTORY}/method"
 EXPANDED_FANOUT_DIR = f"{DATA_DIRECTORY}/t2p-candidate"
 OUTPUT_DIR = f"{DATA_DIRECTORY}/m2m-tech"
-GROUND_TRUTH_DIR = f"{DATA_DIRECTORY}/t2p-ground-truth-updated"
 
 os.makedirs(EXPANDED_FANOUT_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
+def build_parser():
+    return build_experiment_parser(
+        "Generate method-to-method candidate links.",
+        include_tools=False,
+        include_strategies=False,
+        projects_help="Comma-separated project names to process.",
+    )
 
 
 
@@ -65,61 +71,70 @@ def expand_test_calls(row, from_url_graph, method_artifact_mapping, max_depth):
 
 
 # ---------------------------
-# Main Processing
-# ---------------------------
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    _, selected_projects, _ = resolve_experiment_filters(
+        use_filters=args.use_filters,
+        projects=args.projects,
+    )
+    repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
+    projects = select_named_items(repository_df["project"].tolist(), selected_projects, item_label="project")
+    repository_df = repository_df[repository_df["project"].isin(projects)]
 
-for _, repo in repository_df.iterrows():
+    # ---------------------------
+    # Main Processing
+    # ---------------------------
 
-    project = repo["project"]
-    commit_hash = repo["updated_hash"]
+    for _, repo in repository_df.iterrows():
 
-    fanout_file = f"{FANOUT_DIR}/{project}.csv"
-    method_file = f"{METHOD_DIR}/{project}.csv"
+        project = repo["project"]
+        commit_hash = repo["updated_hash"]
 
-    if os.path.exists(fanout_file) and os.path.exists(method_file):
-        print("Processing:", project)
+        fanout_file = f"{FANOUT_DIR}/{project}.csv"
+        method_file = f"{METHOD_DIR}/{project}.csv"
 
-        fan_out_df = pd.read_csv(fanout_file, na_filter=False, keep_default_na=False)
-        method_df = pd.read_csv(method_file, na_filter=False, keep_default_na=False)
+        if os.path.exists(fanout_file) and os.path.exists(method_file):
+            print("Processing:", project)
 
-        fan_out_df = fan_out_df[fan_out_df["to_url"].str.strip() != ""]
+            fan_out_df = pd.read_csv(fanout_file, na_filter=False, keep_default_na=False)
+            method_df = pd.read_csv(method_file, na_filter=False, keep_default_na=False)
 
-        # Build artifact lookup
-        method_artifact = dict(zip(method_df["url"], method_df["artifact"]))
+            fan_out_df = fan_out_df[fan_out_df["to_url"].str.strip() != ""]
 
-        # Build call graph
-        from_url_graph = defaultdict(list)
+            # Build artifact lookup
+            method_artifact = dict(zip(method_df["url"], method_df["artifact"]))
 
-        for _, row in fan_out_df.iterrows():
-            from_url_graph[row["from_url"]].append(row)
+            # Build call graph
+            from_url_graph = defaultdict(list)
 
-        expanded_rows = []
+            for _, row in fan_out_df.iterrows():
+                from_url_graph[row["from_url"]].append(row)
 
-        for _, row in fan_out_df.iterrows():
+            expanded_rows = []
 
-            from_artifact = method_artifact.get(row["from_url"], "")
-            to_artifact = method_artifact.get(row["to_url"], "")
+            for _, row in fan_out_df.iterrows():
 
-            # only expand test → test/test util
-            if from_artifact == "test" and (to_artifact == "test" or to_artifact == "test_util"):
-                expansions = expand_test_calls(
-                    row,
-                    from_url_graph,
-                    method_artifact,
-                    MAX_EXPANSION_DEPTH
-                )
-                expanded_rows.extend(expansions)
-            else:
-                expanded_rows.append(row)
+                from_artifact = method_artifact.get(row["from_url"], "")
+                to_artifact = method_artifact.get(row["to_url"], "")
 
-        expanded_df = pd.DataFrame(expanded_rows)
-        ground_truth_file  = f"{GROUND_TRUTH_DIR}/{project}.csv"
-        if os.path.exists(ground_truth_file):
-            print("Applying ground truth:", project)
-            ground_truth_df = pd.read_csv(ground_truth_file, na_filter=False, keep_default_na=False)
-            expanded_df = expanded_df[expanded_df["from_url"].isin(ground_truth_df["from_url"])]
-        expanded_file = f"{EXPANDED_FANOUT_DIR}/{project}.csv"
-        expanded_df.to_csv(expanded_file, index=False)
+                # only expand test → test/test util
+                if from_artifact == "test" and (to_artifact == "test" or to_artifact == "test_util"):
+                    expansions = expand_test_calls(
+                        row,
+                        from_url_graph,
+                        method_artifact,
+                        MAX_EXPANSION_DEPTH
+                    )
+                    expanded_rows.extend(expansions)
+                else:
+                    expanded_rows.append(row)
+
+            expanded_df = pd.DataFrame(expanded_rows)
+            expanded_file = f"{EXPANDED_FANOUT_DIR}/{project}.csv"
+            expanded_df.to_csv(expanded_file, index=False)
+
+    print("Finished.")
 
 
-print("Finished.")
+if __name__ == "__main__":
+    main()

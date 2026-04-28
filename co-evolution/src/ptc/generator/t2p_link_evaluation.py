@@ -1,6 +1,7 @@
 from sklearn.metrics import precision_score, recall_score, f1_score, matthews_corrcoef
 from mhc.config import *
 from mhc.util import *
+from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters
 
 ground_truth_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-ground-truth-updated")
 link_root_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-link")
@@ -11,6 +12,18 @@ output_dir.mkdir(parents=True, exist_ok=True)
 mismatch_root_dir.mkdir(parents=True, exist_ok=True)
 
 output_file = output_dir / "t2p_link_overall_metric.csv"
+
+TCTRACER_AVG_PROJECTS = {"commons-io", "commons-lang", "gson", "jfreechart"}
+TESTLINKER_AVG_PROJECTS = {"commons-io", "commons-lang", "gson", "jfreechart", "dubbo", "jenkins"}
+
+
+def build_parser():
+    return build_experiment_parser(
+        "Evaluate generated test-to-production links.",
+        include_tools=False,
+        include_strategies=False,
+        projects_help="Comma-separated project names to process.",
+    )
 
 
 def load_link_df(csv_file: Path) -> pd.DataFrame:
@@ -90,36 +103,75 @@ def calculate_score(project: str, strategy_name: str, pred_detail_df: pd.DataFra
     mismatch_df.to_csv(strategy_mismatch_dir / f"{project}.csv", index=False)
     return score
 
-if __name__ == "__main__":
+
+def aggregate_project_groups(project_names: set[str]) -> list[tuple[str, set[str]]]:
+    groups = []
+
+    if TCTRACER_AVG_PROJECTS.issubset(project_names):
+        groups.append(("avg-tctracer", TCTRACER_AVG_PROJECTS))
+
+    if TESTLINKER_AVG_PROJECTS.issubset(project_names):
+        groups.append(("avg-testlinker", TESTLINKER_AVG_PROJECTS))
+
+    if not groups and project_names:
+        groups.append(("avg", project_names))
+
+    return groups
+
+
+def calculate_aggregate_score(
+    project_label: str,
+    strategy_name: str,
+    project_pairs: dict[str, tuple[pd.DataFrame, pd.DataFrame]],
+) -> dict:
+    pred_df, gt_df = (
+        pd.concat(items, ignore_index=True)
+        for items in zip(*project_pairs.values())
+    )
+
+    pred_df["project"] = project_label
+    gt_df["project"] = project_label
+    return calculate_score(project_label, strategy_name, pred_df, gt_df)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    _, selected_projects, _ = resolve_experiment_filters(
+        use_filters=args.use_filters,
+        projects=args.projects,
+    )
     rows = []
     for strategy_dir in link_root_dir.iterdir():
         if strategy_dir.is_dir():
             strategy_name = strategy_dir.name
-            pred_gt_tuples = []
-            for pred_file in list(strategy_dir.glob("*.csv")) + ["all"]:
-                if str(pred_file) == 'all':
-                    all_pred_df, all_gt_df = (
-                        pd.concat(items, ignore_index=True)
-                        for items in zip(*pred_gt_tuples)
-                    )
+            project_pairs = {}
+            for pred_file in list_csv_files(strategy_dir, selected_projects, strict=False):
+                pred_detail_df = load_link_df(pred_file)
+                project = pred_file.stem
+                gt_file = ground_truth_dir / pred_file.name
+                if gt_file.exists() and str(gt_file.stem):
+                    gt_detail_df = load_link_df(gt_file)
+                    gt_detail_df.dropna(subset=["from_url", "to_url"], inplace=True)
 
-                    all_pred_df["project"] = "all"
-                    all_gt_df["project"] = "all"
-                    rows.append(calculate_score('all', strategy_name, all_pred_df, all_gt_df))
-                else:
-                    pred_detail_df = load_link_df(pred_file)
-                    project = pred_file.stem
-                    gt_file = ground_truth_dir / pred_file.name
-                    if gt_file.exists() and str(gt_file.stem):
-                        gt_detail_df = load_link_df(gt_file)
-                        gt_detail_df.dropna(subset=["from_url", "to_url"], inplace=True)
+                    pred_detail_df = pred_detail_df[pred_detail_df["from_url"].isin(gt_detail_df["from_url"])]
 
-                        pred_detail_df = pred_detail_df[pred_detail_df["from_url"].isin(gt_detail_df["from_url"])]
+                    project_pairs[project] = (pred_detail_df, gt_detail_df)
+                    rows.append(calculate_score(project, strategy_name, pred_detail_df, gt_detail_df))
 
-                        pred_gt_tuples.append([pred_detail_df, gt_detail_df])
-                        rows.append(calculate_score(project, strategy_name, pred_detail_df, gt_detail_df))
+            for project_label, projects in aggregate_project_groups(set(project_pairs)):
+                aggregate_pairs = {
+                    project: pair
+                    for project, pair in project_pairs.items()
+                    if project in projects
+                }
+                if aggregate_pairs:
+                    rows.append(calculate_aggregate_score(project_label, strategy_name, aggregate_pairs))
 
     result_df = pd.DataFrame(rows)
     result_df = convert_float_int_columns_to_nullable_int(result_df)
     result_df = result_df.sort_values(["project", "strategy"]).reset_index(drop=True)
     result_df.to_csv(output_file, index=False)
+
+
+if __name__ == "__main__":
+    main()

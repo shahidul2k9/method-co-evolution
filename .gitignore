@@ -210,3 +210,6 @@ __marimo__/
 .DS_Store
 .env
 .vscode
+
+# Project files
+paper/

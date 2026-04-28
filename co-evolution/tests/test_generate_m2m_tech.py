@@ -12,11 +12,110 @@ try:
 except ImportError:  # pragma: no cover - local shell may not have pandas installed
     pd = None
 
-from ptc.generator.generate_m2m_tech import apply_llm_techniques, llm_strategy_directory_names
+from ptc.generator.generate_m2m_tech import (
+    apply_llm_techniques,
+    apply_traceability_techniques,
+    llm_strategy_directory_names,
+)
 
 
 @unittest.skipIf(pd is None, "pandas is required for generate_m2m_tech tests")
 class TestApplyLlmTechniques(unittest.TestCase):
+    def test_traceability_techniques_score_all_pairs_in_batch(self):
+        candidate_df = pd.DataFrame(
+            [
+                {
+                    "from_url": "test://CalculatorTest.testAdd",
+                    "from_name": "testadd",
+                    "to_url": "prod://Calculator.add",
+                    "to_name": "add",
+                    "to_call_depth": 1,
+                    "to_lcba": 1,
+                },
+                {
+                    "from_url": "test://CalculatorTest.testAdd",
+                    "from_name": "testadd",
+                    "to_url": "prod://Calculator.format",
+                    "to_name": "format",
+                    "to_call_depth": 2,
+                    "to_lcba": 0,
+                },
+                {
+                    "from_url": "test://CalculatorTest.testFormat",
+                    "from_name": "testformat",
+                    "to_url": "prod://Calculator.format",
+                    "to_name": "format",
+                    "to_call_depth": 1,
+                    "to_lcba": 1,
+                },
+            ]
+        )
+
+        result_df = apply_traceability_techniques(candidate_df)
+
+        for column_name in [
+            "tech_nc",
+            "tech_ncc",
+            "tech_lcs_b",
+            "tech_lcs_u",
+            "tech_leven",
+            "tech_lcba",
+            "tech_tarantula",
+            "tech_tfidf",
+            "tech_combined",
+        ]:
+            self.assertIn(column_name, result_df.columns)
+
+        self.assertEqual(1, result_df.loc[0, "tech_nc"])
+        self.assertEqual(0, result_df.loc[1, "tech_nc"])
+        self.assertEqual(1, result_df.loc[2, "tech_nc"])
+        self.assertEqual(1, result_df.loc[0, "tech_lcba"])
+        self.assertEqual(0, result_df.loc[1, "tech_lcba"])
+        self.assertGreater(result_df.loc[0, "tech_tarantula"], result_df.loc[1, "tech_tarantula"])
+        self.assertGreater(result_df.loc[0, "tech_tfidf"], result_df.loc[1, "tech_tfidf"])
+        self.assertGreater(result_df.loc[0, "tech_combined"], result_df.loc[1, "tech_combined"])
+
+    def test_name_similarity_techniques_use_pytctracer_scaling(self):
+        candidate_df = pd.DataFrame(
+            [
+                {
+                    "from_url": "test://CalculatorTest.testThing",
+                    "from_name": "testthing",
+                    "to_url": "prod://Util.thing",
+                    "to_name": "thing",
+                    "to_call_depth": 1,
+                    "to_lcba": 0,
+                },
+                {
+                    "from_url": "test://CalculatorTest.testThing",
+                    "from_name": "testthing",
+                    "to_url": "prod://Util.thin",
+                    "to_name": "thin",
+                    "to_call_depth": 2,
+                    "to_lcba": 0,
+                },
+                {
+                    "from_url": "test://OtherTest.testOther",
+                    "from_name": "testother",
+                    "to_url": "prod://Util.other",
+                    "to_name": "other",
+                    "to_call_depth": 1,
+                    "to_lcba": 0,
+                }
+            ]
+        )
+
+        result_df = apply_traceability_techniques(candidate_df)
+
+        self.assertEqual(1, result_df.loc[0, "tech_nc"])
+        self.assertEqual(1, result_df.loc[0, "tech_ncc"])
+        self.assertAlmostEqual(1.0, result_df.loc[0, "tech_lcs_b"])
+        self.assertAlmostEqual(1.0, result_df.loc[0, "tech_lcs_u"])
+        self.assertAlmostEqual(1.0, result_df.loc[0, "tech_leven"])
+        self.assertLess(result_df.loc[1, "tech_lcs_b"], 1.0)
+        self.assertLess(result_df.loc[1, "tech_lcs_u"], 1.0)
+        self.assertLess(result_df.loc[1, "tech_leven"], 1.0)
+
     def test_existing_prediction_file_maps_rows_to_zero_or_one(self):
         candidate_df = pd.DataFrame(
             [

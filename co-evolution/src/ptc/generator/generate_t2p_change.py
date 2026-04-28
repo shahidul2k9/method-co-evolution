@@ -5,13 +5,30 @@ import pandas as pd
 
 from mhc.config import *
 from ptc.constants import MethodChangeType
-if __name__ == "__main__":
+from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters
+
+
+def build_parser():
+    return build_experiment_parser(
+        "Merge test-to-production links with method change data.",
+        include_tools=False,
+        include_strategies=False,
+        projects_help="Comma-separated project names to process.",
+    )
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    _, selected_projects, _ = resolve_experiment_filters(
+        use_filters=args.use_filters,
+        projects=args.projects,
+    )
     tool_dirs = [
         name for name in os.listdir(f"{DATA_DIRECTORY}/history")
         if os.path.isdir(os.path.join(f"{DATA_DIRECTORY}/history", name))
     ]
     for tooName in tool_dirs:
-        for change_file in Path(f"{DATA_DIRECTORY}/history", tooName).rglob("*.csv"):
+        for change_file in list_csv_files(Path(f"{DATA_DIRECTORY}/history", tooName), selected_projects, strict=False):
             change_df = pd.read_csv(change_file, keep_default_na=False, na_filter=False)
             change_df = change_df[
                 ["url", "ch_all", "ch_diff"] + [f"ch_{change_type.name.lower()}" for change_type in MethodChangeType]]
@@ -34,3 +51,7 @@ if __name__ == "__main__":
                     t2p_change_df.to_csv(t2p_change_file, index=False)
                 else:
                     warnings.warn(f"{t2p_file} does not exist")
+
+
+if __name__ == "__main__":
+    main()

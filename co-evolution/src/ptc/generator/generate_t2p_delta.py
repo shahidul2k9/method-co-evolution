@@ -28,8 +28,7 @@ CODE_SHOVEL_UNSUPPORTED_CHANGE_SET = {
 def build_parser() -> argparse.ArgumentParser:
     return build_experiment_parser(
         "Aggregate counts where test changes exceed production changes.",
-        filter_default=False,
-        filters_help="Apply tool, project, and strategy filters. Defaults to disabled so all data is processed.",
+        filters_help="Apply tool, project, and strategy filters.",
         tools_help="Comma-separated tool names to include.",
         projects_help="Comma-separated project names to include.",
         strategies_help="Comma-separated strategy names to include.",
@@ -64,9 +63,8 @@ def build_row(tool: str, strategy: str, project: str, df: pd.DataFrame) -> dict:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
-    has_explicit_filters = any(value is not None for value in (args.tools, args.projects, args.strategies))
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
-        use_filters=args.use_filters or has_explicit_filters,
+        use_filters=args.use_filters,
         tools=args.tools,
         projects=args.projects,
         strategies=args.strategies,

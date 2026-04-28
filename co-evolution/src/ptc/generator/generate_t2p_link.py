@@ -2,8 +2,10 @@ import logging
 from pathlib import Path
 
 import pandas as pd
+from pytctracer.config.constants.technique_threshold import TechniqueThreshold
 
 from mhc.config import *
+from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters
 from ptc.link_strategy import *
 
 LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
@@ -13,6 +15,12 @@ LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
     LinkStrategy.LCBA,
     LinkStrategy.LC,
     LinkStrategy.MAX,
+    LinkStrategy.LCS_U,
+    LinkStrategy.LCS_B,
+    LinkStrategy.LEVEN,
+    LinkStrategy.TARANTULA,
+    LinkStrategy.TFIDF,
+    LinkStrategy.COMBINED,
     LinkStrategy.LLM_GPT_OSS_20B,
     LinkStrategy.LLM_GPT_OSS_120B,
     LinkStrategy.LLM_QWEN_2D5B,
@@ -24,15 +32,43 @@ METHOD_LINK_STRATEGIES: list[LinkStrategy] = [
     LinkStrategy.LC,
     LinkStrategy.LCBA,
     LinkStrategy.MAX,
+    LinkStrategy.LCS_U,
+    LinkStrategy.LCS_B,
+    LinkStrategy.LEVEN,
+    LinkStrategy.TARANTULA,
+    LinkStrategy.TFIDF,
+    LinkStrategy.COMBINED,
     LinkStrategy.OMC | LinkStrategy.NC,
     LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC,
     LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.LCBA,
     LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.MAX,
+    LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.LCS_U,
+    LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.LCS_B,
+    LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.LEVEN,
+    LinkStrategy.OMC | LinkStrategy.NC | LinkStrategy.NCC | LinkStrategy.COMBINED,
     LinkStrategy.LLM_GPT_OSS_20B,
     LinkStrategy.LLM_GPT_OSS_120B,
     LinkStrategy.LLM_QWEN_2D5B,
 
 ]
+
+SCORE_STAGE_THRESHOLDS: dict[LinkStrategy, tuple[str, float]] = {
+    LinkStrategy.LCS_U: ("tech_lcs_u", TechniqueThreshold.THRESHOLD_FOR_LCSU.value),
+    LinkStrategy.LCS_B: ("tech_lcs_b", TechniqueThreshold.THRESHOLD_FOR_LCSB.value),
+    LinkStrategy.LEVEN: ("tech_leven", TechniqueThreshold.THRESHOLD_FOR_LEVENSHTEIN.value),
+    LinkStrategy.TARANTULA: ("tech_tarantula", TechniqueThreshold.THRESHOLD_FOR_LEVENSHTEIN.value),
+    LinkStrategy.TFIDF: ("tech_tfidf", TechniqueThreshold.THRESHOLD_FOR_TFIDF.value),
+    LinkStrategy.COMBINED: ("tech_combined", TechniqueThreshold.THRESHOLD_FOR_COMBINED.value),
+}
+
+
+def build_parser():
+    return build_experiment_parser(
+        "Generate test-to-production links from method-to-method technique scores.",
+        include_tools=False,
+        include_strategies=False,
+        projects_help="Comma-separated project names to process.",
+    )
 
 
 def iter_atomic_strategies(mask: LinkStrategy) -> list[LinkStrategy]:
@@ -71,7 +107,17 @@ def select_one_stage_indices(
             indexes = pt_link_df.loc[pt_link_df["tech_lcba"] > 0].index
 
         case LinkStrategy.MAX:
-            score_cols = ["tech_nc", "tech_ncc", "tech_lcs_b", "tech_lcs_u", "tech_leven", "tech_lcba"]
+            score_cols = [
+                "tech_nc",
+                "tech_ncc",
+                "tech_lcs_u",
+                "tech_lcs_b",
+                "tech_leven",
+                "tech_lcba",
+                "tech_tarantula",
+                "tech_tfidf",
+                "tech_combined",
+            ]
             candidates = pt_link_df.loc[pt_link_df[score_cols].max(axis=1) > 0]
             indexes = (
                 candidates.assign(_idx=candidates.index)
@@ -82,6 +128,10 @@ def select_one_stage_indices(
                 .astype(int)
                 .pipe(pd.Index)
             )
+        case _ if stage in SCORE_STAGE_THRESHOLDS:
+            column_name, threshold = SCORE_STAGE_THRESHOLDS[stage]
+            indexes = _select_score_stage_indices(pt_link_df, column_name, threshold)
+
         case _ if stage in {
             LinkStrategy.LLM_GPT_OSS_20B,
             LinkStrategy.LLM_GPT_OSS_120B,
@@ -91,6 +141,26 @@ def select_one_stage_indices(
         case _:
             raise ValueError(f"Unsupported stage: {stage}")
     return indexes
+
+
+def _select_score_stage_indices(pt_link_df: pd.DataFrame, column_name: str, threshold: float) -> pd.Index:
+    if column_name not in pt_link_df.columns:
+        return pt_link_df.iloc[:0].index
+
+    score_values = pd.to_numeric(pt_link_df[column_name], errors="coerce")
+    candidates = pt_link_df.loc[score_values >= threshold].copy()
+    if candidates.empty:
+        return candidates.index
+
+    return (
+        candidates.assign(_score=score_values.loc[candidates.index], _idx=candidates.index)
+        .sort_values(
+            by=["from_url", "_score", "_idx"],
+            ascending=[True, False, True],
+        )["_idx"]
+        .astype(int)
+        .pipe(pd.Index)
+    )
 
 
 def _select_llm_stage_indices(pt_link_df: pd.DataFrame, stage: LinkStrategy) -> pd.Index:
@@ -103,8 +173,12 @@ def _select_llm_stage_indices(pt_link_df: pd.DataFrame, stage: LinkStrategy) -> 
 
 def _llm_stage_column_name(pt_link_df: pd.DataFrame, stage: LinkStrategy) -> str | None:
     strategy_name = strategy_key(stage)
+    underscore_strategy_name = strategy_name.replace("-", "_")
     candidates = [
-        f"tech_{strategy_name}"
+        f"tech_llm_{strategy_name}",
+        f"tech_llm_{underscore_strategy_name}",
+        f"tech_{strategy_name}",
+        f"tech_{underscore_strategy_name}",
     ]
     for column_name in candidates:
         if column_name in pt_link_df.columns:
@@ -167,8 +241,13 @@ def strategy_output_key(mask: LinkStrategy) -> str:
     return "--".join(parts) if parts else "none"
 
 
-def main() -> None:
-    for m2m_link_file in list(Path(f"{DATA_DIRECTORY}/m2m-tech").rglob("*.csv")):
+def main(argv: list[str] | None = None) -> None:
+    args = build_parser().parse_args(argv)
+    _, selected_projects, _ = resolve_experiment_filters(
+        use_filters=args.use_filters,
+        projects=args.projects,
+    )
+    for m2m_link_file in list_csv_files(Path(f"{DATA_DIRECTORY}/m2m-tech"), selected_projects, strict=False):
         m2m_link_df = pd.read_csv(m2m_link_file, keep_default_na=False, na_filter=False)
         assert len(m2m_link_df["project"].unique()) == 1, "Each file must be for the same repository_name"
         repository_name = m2m_link_df["project"].iloc[0]
