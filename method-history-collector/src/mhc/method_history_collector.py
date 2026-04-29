@@ -61,6 +61,9 @@ class MethodHistoryCollector:
         shard: int = 1,
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_only: bool = False,
+        merge_only_delete_empty: bool = False,
+        merge_only_delete_tmp: bool = False,
+        merge_only_delete_lock: bool = False,
     ):
         execute_method_history_if_missing(
             self.repository_df[self.repository_df["project"].isin(repositories)],
@@ -76,6 +79,9 @@ class MethodHistoryCollector:
             shard,
             merge_threshold,
             merge_only,
+            merge_only_delete_empty,
+            merge_only_delete_tmp,
+            merge_only_delete_lock,
         )
 
     def update_repository_index(self):

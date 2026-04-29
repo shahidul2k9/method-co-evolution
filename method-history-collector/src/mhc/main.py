@@ -167,8 +167,12 @@ def main(argv: list[str] | None = None):
     parser.add_argument(
         "--merge-only",
         dest="merge_only",
-        action="store_true",
-        help="For history command, merge existing loose history JSON files without generating new history.",
+        nargs="*",
+        choices=("delete-empty", "delete-tmp", "delete-lock"),
+        help=(
+            "For history command, merge existing loose history JSON files without generating new history. "
+            "Optional cleanup modes: delete-empty, delete-tmp, delete-lock."
+        ),
     )
     parser.add_argument(
         "--project",
@@ -249,7 +253,10 @@ def main(argv: list[str] | None = None):
             args.shards,
             args.shard,
             args.merge_threshold,
-            args.merge_only,
+            args.merge_only is not None,
+            "delete-empty" in (args.merge_only or []),
+            "delete-tmp" in (args.merge_only or []),
+            "delete-lock" in (args.merge_only or []),
         )
     elif args.command.lower() == "call-graph":
         if not args.tool_name:

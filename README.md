@@ -115,6 +115,7 @@ For `mhc history`, you can additionally split method-history generation into det
 - `--shard K` selects the 1-based shard to run
 - `--merge-threshold N` sets how many unarchived history JSON files are kept before intermediate merging into the `.tar.gz` archive (default: `10000`; `0` disables intermediate merging; negative values disable the final merge too)
 - `--merge-only` merges existing loose history JSON files without cloning repositories or generating new history
+- `--merge-only delete-empty delete-tmp delete-lock` enables optional cleanup after merging. `delete-empty` removes empty history directories, `delete-tmp` removes leftover `.tmp` files, and `delete-lock` removes the archive lock file. Use `delete-tmp` and `delete-lock` only when no history generation process is running for the same cache.
 
 Examples:
 
@@ -148,6 +149,16 @@ mhc history \
     --tool-name "codeShovel" \
     --project "checkstyle" \
     --merge-only
+
+# Merge existing loose JSONs and opt into cleanup
+mhc history \
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --tool-name "codeShovel" \
+    --project "checkstyle" \
+    --merge-only delete-empty delete-tmp delete-lock
 
 # Run the same shard across an explicit project list
 mhc history \
