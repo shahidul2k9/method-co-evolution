@@ -83,6 +83,21 @@ def merge_folder_into_tar_gz(folder_path: str, include_suffixes: tuple[str, ...]
                 os.remove(abs_path)
 
 
+def remove_file_if_exists(file_path: str) -> None:
+    try:
+        os.remove(file_path)
+    except FileNotFoundError:
+        pass
+
+
+def remove_files_with_suffix(folder_path: str, suffix: str) -> None:
+    if os.path.isdir(folder_path):
+        for root, _, files in os.walk(folder_path):
+            for filename in files:
+                if filename.endswith(suffix):
+                    remove_file_if_exists(os.path.join(root, filename))
+
+
 def remove_empty_directory_tree(folder_path: str) -> None:
     if os.path.isdir(folder_path):
         for root, dirs, _ in os.walk(folder_path, topdown=False):

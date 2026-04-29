@@ -9,7 +9,13 @@ from pandas import DataFrame
 
 import mhc.method_scanner as ms
 import mhc.util as util
-from mhc.zip import load_zip_index, merge_folder_into_tar_gz, remove_empty_directory_tree
+from mhc.zip import (
+    load_zip_index,
+    merge_folder_into_tar_gz,
+    remove_empty_directory_tree,
+    remove_file_if_exists,
+    remove_files_with_suffix,
+)
 
 DEFAULT_MERGE_THRESHOLD = 10_000
 
@@ -23,7 +29,10 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                                       shards: int = 1,
                                       shard: int = 1,
                                       merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
-                                      merge_only: bool = False) -> None:
+                                      merge_only: bool = False,
+                                      merge_only_delete_empty: bool = False,
+                                      merge_only_delete_tmp: bool = False,
+                                      merge_only_delete_lock: bool = False) -> None:
     for tool_name in tool_names:
         for _, repository in repository_df.iterrows():
             repository_name = repository["project"]
@@ -33,7 +42,12 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
 
             if merge_only:
                 merge_folder_into_tar_gz(method_history_path)
-                remove_empty_directory_tree(method_history_path)
+                if merge_only_delete_tmp:
+                    remove_files_with_suffix(method_history_path, ".tmp")
+                if merge_only_delete_lock:
+                    remove_file_if_exists(f"{method_history_path}.tar.gz.lock")
+                if merge_only_delete_empty:
+                    remove_empty_directory_tree(method_history_path)
             else:
                 method_history_tar_gz = f"{method_history_path}.tar.gz"
                 repository_name_prefix = f"{repository_name}/"

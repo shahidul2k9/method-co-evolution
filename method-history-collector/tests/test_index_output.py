@@ -66,7 +66,7 @@ class TestIndexOutput(unittest.TestCase):
             mock_clone.assert_not_called()
             mock_execute.assert_not_called()
 
-    def test_merge_only_removes_empty_project_folder_after_merge(self):
+    def test_merge_only_only_merges_without_cleanup_by_default(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             folder = temp_path / "cache" / "history" / "codeShovel" / "checkstyle"
@@ -94,10 +94,43 @@ class TestIndexOutput(unittest.TestCase):
                 merge_only=True,
             )
 
+            self.assertTrue(folder.exists())
+            self.assertFalse(loose_file.exists())
+            self.assertTrue(Path(f"{folder}.tar.gz").exists())
+
+    def test_merge_only_delete_empty_removes_empty_project_folder_after_merge(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            folder = temp_path / "cache" / "history" / "codeShovel" / "checkstyle"
+            loose_file = folder / "src" / "Foo--a--1.json"
+            loose_file.parent.mkdir(parents=True)
+            loose_file.write_text("{}", encoding="utf-8")
+
+            repository_df = pd.DataFrame(
+                [
+                    {
+                        "project": "checkstyle",
+                        "url": "https://example.com/checkstyle",
+                        "updated_hash": "abc123",
+                    }
+                ]
+            )
+
+            execute_method_history_if_missing(
+                repository_df,
+                str(temp_path / "repository"),
+                str(temp_path / "data"),
+                str(temp_path / "cache"),
+                ["codeShovel"],
+                {"codeShovel": "codeShovel.jar"},
+                merge_only=True,
+                merge_only_delete_empty=True,
+            )
+
             self.assertFalse(folder.exists())
             self.assertTrue(Path(f"{folder}.tar.gz").exists())
 
-    def test_merge_only_preserves_non_empty_project_folder_after_merge(self):
+    def test_merge_only_delete_tmp_removes_tmp_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             folder = temp_path / "cache" / "history" / "codeShovel" / "checkstyle"
@@ -125,11 +158,79 @@ class TestIndexOutput(unittest.TestCase):
                 ["codeShovel"],
                 {"codeShovel": "codeShovel.jar"},
                 merge_only=True,
+                merge_only_delete_tmp=True,
             )
 
             self.assertTrue(folder.exists())
-            self.assertTrue(leftover_file.exists())
+            self.assertFalse(leftover_file.exists())
             self.assertFalse(loose_file.exists())
+
+    def test_merge_only_delete_tmp_and_empty_removes_project_folder(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            folder = temp_path / "cache" / "history" / "codeShovel" / "checkstyle"
+            leftover_file = folder / "src" / "Foo.tmp"
+            loose_file = folder / "src" / "Foo--a--1.json"
+            leftover_file.parent.mkdir(parents=True)
+            leftover_file.write_text("partial", encoding="utf-8")
+            loose_file.write_text("{}", encoding="utf-8")
+
+            repository_df = pd.DataFrame(
+                [
+                    {
+                        "project": "checkstyle",
+                        "url": "https://example.com/checkstyle",
+                        "updated_hash": "abc123",
+                    }
+                ]
+            )
+
+            execute_method_history_if_missing(
+                repository_df,
+                str(temp_path / "repository"),
+                str(temp_path / "data"),
+                str(temp_path / "cache"),
+                ["codeShovel"],
+                {"codeShovel": "codeShovel.jar"},
+                merge_only=True,
+                merge_only_delete_empty=True,
+                merge_only_delete_tmp=True,
+            )
+
+            self.assertFalse(folder.exists())
+            self.assertFalse(leftover_file.exists())
+            self.assertFalse(loose_file.exists())
+
+    def test_merge_only_delete_lock_removes_archive_lock_file(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            folder = temp_path / "cache" / "history" / "codeShovel" / "checkstyle"
+            loose_file = folder / "src" / "Foo--a--1.json"
+            loose_file.parent.mkdir(parents=True)
+            loose_file.write_text("{}", encoding="utf-8")
+
+            repository_df = pd.DataFrame(
+                [
+                    {
+                        "project": "checkstyle",
+                        "url": "https://example.com/checkstyle",
+                        "updated_hash": "abc123",
+                    }
+                ]
+            )
+
+            execute_method_history_if_missing(
+                repository_df,
+                str(temp_path / "repository"),
+                str(temp_path / "data"),
+                str(temp_path / "cache"),
+                ["codeShovel"],
+                {"codeShovel": "codeShovel.jar"},
+                merge_only=True,
+                merge_only_delete_lock=True,
+            )
+
+            self.assertFalse(Path(f"{folder}.tar.gz.lock").exists())
 
     def test_zero_merge_threshold_disables_intermediate_merge_only(self):
         with tempfile.TemporaryDirectory() as temp_dir:
