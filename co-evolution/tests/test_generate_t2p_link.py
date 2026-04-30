@@ -122,6 +122,20 @@ class TestGenerateT2PLink(unittest.TestCase):
 
         self.assertEqual([1], list(indexes))
 
+    def test_testlinker_stage_selects_positive_predictions(self):
+        frame = pd.DataFrame(
+            [
+                {"from_url": "f1", "tech_testlinker": ""},
+                {"from_url": "f2", "tech_testlinker": "1"},
+                {"from_url": "f3", "tech_testlinker": "0"},
+            ]
+        )
+
+        indexes = select_one_stage_indices(frame, LinkStrategy.TESTLINKER)
+
+        self.assertEqual([1], list(indexes))
+        self.assertEqual("testlinker", strategy_output_key(LinkStrategy.TESTLINKER))
+
 
 if __name__ == "__main__":
     unittest.main()

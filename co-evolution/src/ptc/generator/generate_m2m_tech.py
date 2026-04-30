@@ -27,6 +27,7 @@ METHOD_DIR = f"{DATA_DIRECTORY}/method"
 T2P_CANDIDATE_DIR = f"{DATA_DIRECTORY}/t2p-candidate"
 OUTPUT_DIR = f"{DATA_DIRECTORY}/m2m-tech"
 LLM_PREDICTION_DIR = Path(CACHE_DIRECTORY) / "data" / "llm" / "t2p-link"
+TESTLINKER_PREDICTION_DIR = Path(CACHE_DIRECTORY) / "data" / "testlinker" / "t2p-link" / "codet5"
 
 os.makedirs(T2P_CANDIDATE_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -96,6 +97,36 @@ def apply_llm_techniques(
         enriched_df = enriched_df.merge(llm_match_df, on=["from_url", "to_url"], how="left")
 
     return enriched_df
+
+
+def apply_testlinker_technique(
+    t2p_candidate_df: pd.DataFrame,
+    project: str,
+    testlinker_prediction_root: Path = TESTLINKER_PREDICTION_DIR,
+) -> pd.DataFrame:
+    enriched_df = t2p_candidate_df.copy()
+    column_name = "tech_testlinker"
+    prediction_file = testlinker_prediction_root / f"{project}.csv"
+
+    if not prediction_file.exists():
+        enriched_df[column_name] = pd.Series([pd.NA] * len(enriched_df), dtype="Int64")
+        return enriched_df
+
+    prediction_df = pd.read_csv(prediction_file, keep_default_na=False, na_filter=False)
+    required_columns = {"from_url", "to_url", "label_pred"}
+    missing_columns = required_columns.difference(prediction_df.columns)
+    if missing_columns:
+        raise ValueError(
+            f"Prediction file {prediction_file} is missing required columns: {sorted(missing_columns)}"
+        )
+
+    testlinker_match_df = (
+        prediction_df.loc[:, ["from_url", "to_url", "label_pred"]]
+        .drop_duplicates(subset=["from_url", "to_url"], keep="last")
+        .rename(columns={"label_pred": column_name})
+    )
+    testlinker_match_df[column_name] = pd.to_numeric(testlinker_match_df[column_name], errors="coerce").astype("Int64")
+    return enriched_df.merge(testlinker_match_df, on=["from_url", "to_url"], how="left")
 
 
 # ---------------------------
@@ -288,6 +319,10 @@ def main(argv: list[str] | None = None) -> None:
                 t2p_candidate_df=t2p_candidate_df,
                 project=project,
                 llm_directory_names=llm_directory_names,
+            )
+            t2p_candidate_df = apply_testlinker_technique(
+                t2p_candidate_df=t2p_candidate_df,
+                project=project,
             )
 
             expanded_df = util.convert_float_int_columns_to_nullable_int(t2p_candidate_df)

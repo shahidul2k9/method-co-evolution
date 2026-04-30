@@ -14,9 +14,10 @@ Usage:
   job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --prompt-format text --batch-size 1 --max-new-tokens 256 --resume none --projects "commons-io" --input-kind t2p
   job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --batch-size 1 --resume error --projects "commons-io" --input-kind t2p
   job.sh --command llm-m2m-link --stage parse --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --projects "commons-io"
+  job.sh --command testlinker --stage all --projects "commons-io" --top-k 1
 
 Options:
-  --command               Command to run: history, call-graph, scan-method, method-code, complexity-analyzer, llm-m2m-link
+  --command               Command to run: history, call-graph, scan-method, method-code, complexity-analyzer, llm-m2m-link, testlinker
   --tool-name             Tool name for non-LLM commands
   --java-options          Optional JVM arguments for history commands, e.g. "-Xmx4g"
   --timeout-seconds       Optional history command timeout in seconds (default: 30*60 = 1800)
@@ -35,6 +36,7 @@ Options:
   --project-range         1-based inclusive project range from repository.csv, for example 10:20
   --shards                Total method-history shards to run in parallel (default: 1)
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
+  --top-k                 TestLinker top-k invocation count (default: 1)
   --cache-directory       Relative or absolute cache directory (default: .cache)
   --data-directory        Relative or absolute data directory (default: <cache-directory>/data)
   --help                  Show this message
@@ -68,6 +70,7 @@ PROJECTS_CSV=""
 PROJECT_RANGE=""
 SHARDS="1"
 INPUT_KIND="t2p"
+TOP_K="1"
 CACHE_DIRECTORY="$PROJECT_DIRECTORY/.cache"
 DATA_DIRECTORY=""
 
@@ -149,6 +152,10 @@ while [[ $# -gt 0 ]]; do
             INPUT_KIND="$2"
             shift 2
             ;;
+        --top-k)
+            TOP_K="$2"
+            shift 2
+            ;;
         --cache-directory)
             CACHE_DIRECTORY="$2"
             shift 2
@@ -209,12 +216,18 @@ if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
         usage
         exit 1
     fi
-elif [[ "$COMMAND_NAME" != "scan-method" && "$COMMAND_NAME" != "method-code" && "$COMMAND_NAME" != "index" ]]; then
+elif [[ "$COMMAND_NAME" != "scan-method" && "$COMMAND_NAME" != "method-code" && "$COMMAND_NAME" != "index" && "$COMMAND_NAME" != "testlinker" ]]; then
     if [[ -z "$TOOL_NAME" ]]; then
         echo "Error: --tool-name is required for $COMMAND_NAME."
         usage
         exit 1
     fi
+fi
+
+if ! [[ "$TOP_K" =~ ^[0-9]+$ ]] || [[ "$TOP_K" -le 0 ]]; then
+    echo "Error: --top-k must be a positive integer."
+    usage
+    exit 1
 fi
 
 LOG_DIR="$CACHE_DIRECTORY/log/job"
@@ -274,6 +287,21 @@ if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
         --input-kind "$INPUT_KIND" \
         --project "$PROJECT"
     echo "Task finished on $(hostname) at $(date) for llm stage $STAGE, model $MODEL_NAME_OR_PATH, input kind $INPUT_KIND, and project $PROJECT"
+elif [[ "$COMMAND_NAME" == "testlinker" ]]; then
+    TESTLINKER_ARGS=(
+        testlinker
+        --cache-directory "$CACHE_DIRECTORY"
+        --stage "$STAGE"
+        --project "$PROJECT"
+        --top-k "$TOP_K"
+        --testlinker-directory "$CACHE_DIRECTORY/testlinker"
+        --checkpoint "best-acc_and_f1"
+        --model-mode "codet5"
+        --tokenizer-mode "original"
+        --include-labels
+    )
+    srun ptc-testlinker "${TESTLINKER_ARGS[@]}"
+    echo "Task finished on $(hostname) at $(date) for TestLinker stage $STAGE, project $PROJECT, and top-k $TOP_K"
 else
     MHC_ARGS=(
         "$COMMAND_NAME"

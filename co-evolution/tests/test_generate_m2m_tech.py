@@ -14,6 +14,7 @@ except ImportError:  # pragma: no cover - local shell may not have pandas instal
 
 from ptc.generator.generate_m2m_tech import (
     apply_llm_techniques,
+    apply_testlinker_technique,
     apply_traceability_techniques,
     llm_strategy_directory_names,
 )
@@ -215,6 +216,44 @@ class TestApplyLlmTechniques(unittest.TestCase):
             ["gpt-oss-20b", "gpt-oss-120b", "qwen-2d5b"],
             llm_strategy_directory_names(),
         )
+
+    def test_testlinker_prediction_file_maps_to_tech_column(self):
+        candidate_df = pd.DataFrame(
+            [
+                {"from_url": "f1", "to_url": "t1"},
+                {"from_url": "f1", "to_url": "t2"},
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            prediction_root = Path(tmpdir)
+            pd.DataFrame(
+                [
+                    {"from_url": "f1", "to_url": "t1", "label_pred": 1},
+                    {"from_url": "f1", "to_url": "t2", "label_pred": 0},
+                ]
+            ).to_csv(prediction_root / "demo.csv", index=False)
+
+            result_df = apply_testlinker_technique(
+                t2p_candidate_df=candidate_df,
+                project="demo",
+                testlinker_prediction_root=prediction_root,
+            )
+
+            self.assertEqual([1, 0], result_df["tech_testlinker"].tolist())
+
+    def test_missing_testlinker_prediction_file_creates_null_column(self):
+        candidate_df = pd.DataFrame([{"from_url": "f1", "to_url": "t1"}])
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result_df = apply_testlinker_technique(
+                t2p_candidate_df=candidate_df,
+                project="demo",
+                testlinker_prediction_root=Path(tmpdir),
+            )
+
+            self.assertIn("tech_testlinker", result_df.columns)
+            self.assertTrue(result_df["tech_testlinker"].isna().all())
 
 
 if __name__ == "__main__":

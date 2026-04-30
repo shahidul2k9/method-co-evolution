@@ -24,6 +24,7 @@ LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
     LinkStrategy.LLM_GPT_OSS_20B,
     LinkStrategy.LLM_GPT_OSS_120B,
     LinkStrategy.LLM_QWEN_2D5B,
+    LinkStrategy.TESTLINKER,
 ]
 METHOD_LINK_STRATEGIES: list[LinkStrategy] = [
     LinkStrategy.OMC,
@@ -49,6 +50,7 @@ METHOD_LINK_STRATEGIES: list[LinkStrategy] = [
     LinkStrategy.LLM_GPT_OSS_20B,
     LinkStrategy.LLM_GPT_OSS_120B,
     LinkStrategy.LLM_QWEN_2D5B,
+    LinkStrategy.TESTLINKER,
 
 ]
 
@@ -138,6 +140,8 @@ def select_one_stage_indices(
             LinkStrategy.LLM_QWEN_2D5B,
         }:
             indexes = _select_llm_stage_indices(pt_link_df, stage)
+        case LinkStrategy.TESTLINKER:
+            indexes = _select_binary_stage_indices(pt_link_df, "tech_testlinker")
         case _:
             raise ValueError(f"Unsupported stage: {stage}")
     return indexes
@@ -169,6 +173,13 @@ def _select_llm_stage_indices(pt_link_df: pd.DataFrame, stage: LinkStrategy) -> 
         return pt_link_df.iloc[:0].index
     llm_values = pd.to_numeric(pt_link_df[llm_column], errors="coerce")
     return pt_link_df.loc[llm_values > 0].index
+
+
+def _select_binary_stage_indices(pt_link_df: pd.DataFrame, column_name: str) -> pd.Index:
+    if column_name not in pt_link_df.columns:
+        return pt_link_df.iloc[:0].index
+    values = pd.to_numeric(pt_link_df[column_name], errors="coerce")
+    return pt_link_df.loc[values > 0].index
 
 
 def _llm_stage_column_name(pt_link_df: pd.DataFrame, stage: LinkStrategy) -> str | None:
