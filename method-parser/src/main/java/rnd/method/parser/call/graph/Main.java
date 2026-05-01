@@ -23,10 +23,11 @@ public class Main {
         String targetPath = commandLine.getOptionValue("target-path");
         String outputFanInFile = commandLine.getOptionValue("output-fan-in-file");
         String outputFanOutFile = commandLine.getOptionValue("output-fan-out-file");
+        String methodMappingFile = commandLine.getOptionValue("method-mapping-file");
         Set<String> allowed = Set.of("call-graph");
         if (allowed.contains(command)) {
             if ("call-graph".equalsIgnoreCase(command)) {
-                generateCallGraph(repositoryUrl, repositoryPath, commitHash, List.of(targetPath), outputFanInFile, outputFanOutFile);
+                generateCallGraph(repositoryUrl, repositoryPath, commitHash, List.of(targetPath), outputFanInFile, outputFanOutFile, methodMappingFile);
             }
         } else {
             throw new IllegalArgumentException("Invalid command: " + command + ". Allowed: " + allowed);
@@ -77,12 +78,22 @@ public class Main {
                         .hasArg(true)
                         .desc("Output fan out file")
                         .required(true)
+                        .build())
+                .addOption(Option.builder()
+                        .longOpt("method-mapping-file")
+                        .hasArg(true)
+                        .desc("Optional CSV/TSV method index used when JavaParser cannot resolve a called method")
+                        .required(false)
                         .build());
         return options;
     }
 
     public static void generateCallGraph(String repositoryUrl, String repositoryPath, String commitHash, List<String> targetPaths, String outputFanInFile, String outputFanOutFile) {
+        generateCallGraph(repositoryUrl, repositoryPath, commitHash, targetPaths, outputFanInFile, outputFanOutFile, null);
+    }
+
+    public static void generateCallGraph(String repositoryUrl, String repositoryPath, String commitHash, List<String> targetPaths, String outputFanInFile, String outputFanOutFile, String methodMappingFile) {
         CallGraphServiceImpl fanOutService = new CallGraphServiceImpl();
-        List<MethodCall> methodCallOut = fanOutService.findFanOut(repositoryUrl, repositoryPath, commitHash, targetPaths, outputFanInFile, outputFanOutFile);
+        List<MethodCall> methodCallOut = fanOutService.findFanOut(repositoryUrl, repositoryPath, commitHash, targetPaths, outputFanInFile, outputFanOutFile, methodMappingFile);
     }
 }

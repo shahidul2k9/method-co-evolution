@@ -15,7 +15,7 @@ import java.util.regex.Pattern;
 
 public class TestConfigurationBase {
     protected static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)}");
-    protected static final Path OPTIONAL_ENV_FILE = Paths.get("..", ".cache", ".env");
+    protected static final Path OPTIONAL_ENV_FILE = Paths.get("..", ".env");
     protected static final String DEFAULT_REPOSITORY_DIRECTORY = "../.cache";
     protected static final Map<String, String> RESOLVED_ENV = TestConfigurationBase.loadEnvironmentVariables();
 
@@ -26,7 +26,7 @@ public class TestConfigurationBase {
 
         while (matcher.find()) {
             String key = matcher.group(1);
-            String replacement = getEnv(key, "METHOD_EVOLUTION_CACHE_DIRECTORY".equals(key) ? DEFAULT_REPOSITORY_DIRECTORY : "");
+            String replacement = getEnv(key, "ME_CACHE_DIRECTORY".equals(key) ? DEFAULT_REPOSITORY_DIRECTORY : "");
             matcher.appendReplacement(resolved, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(resolved);

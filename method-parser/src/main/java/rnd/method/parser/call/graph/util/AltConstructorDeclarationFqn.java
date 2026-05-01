@@ -2,9 +2,7 @@ package rnd.method.parser.call.graph.util;
 
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
-import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
-import com.github.javaparser.resolution.UnsolvedSymbolException;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -13,13 +11,20 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class AltConstructorDeclarationFqn {
-
     public static String getMethodFqnSimpleParams(ConstructorDeclaration constructorDeclaration) {
+        return getMethodFqnParams(constructorDeclaration, false);
+    }
+
+    public static String getMethodFqnQualifiedParams(ConstructorDeclaration constructorDeclaration) {
+        return getMethodFqnParams(constructorDeclaration, true);
+    }
+
+    public static String getMethodFqnParams(ConstructorDeclaration constructorDeclaration, boolean qualifiedParams) {
         String classFqn = getDeclaringTypeFqnSafe(constructorDeclaration);
         String methodName = constructorDeclaration.getNameAsString();
 
         String params = IntStream.range(0, constructorDeclaration.getParameters().size())
-                .mapToObj(i -> getSimpleParamTypeSafe(constructorDeclaration, i))
+                .mapToObj(i -> ParamTypeNameUtil.getParamTypeSafe(constructorDeclaration.getParameter(i), qualifiedParams))
                 .collect(Collectors.joining(", "));
 
         return classFqn + "." + methodName + "(" + params + ")";
@@ -66,47 +71,4 @@ public class AltConstructorDeclarationFqn {
         return null;
     }
 
-    private static String getSimpleParamTypeSafe(ConstructorDeclaration methodDeclaration, int paramIndex) {
-        // First try resolved type
-        try {
-            String resolvedType = methodDeclaration.resolve().getParam(paramIndex).describeType();
-            return toSimpleTypeName(resolvedType);
-        } catch (UnsolvedSymbolException e) {
-            // fallback to source text, e.g. "Address", "List<Address>", "Foo[]"
-            return toSimpleTypeName(methodDeclaration.getParameter(paramIndex).getType().asString());
-        } catch (Exception e) {
-            return toSimpleTypeName(methodDeclaration.getParameter(paramIndex).getType().asString());
-        }
-    }
-
-    private static String toSimpleTypeName(String typeName) {
-        if (typeName == null || typeName.isBlank()) {
-            return typeName;
-        }
-
-        typeName = typeName.trim();
-
-        // varargs
-        if (typeName.endsWith("...")) {
-            String elementType = typeName.substring(0, typeName.length() - 3);
-//            return toSimpleTypeName(elementType) + "...";
-            return toSimpleTypeName(elementType) + "[]";
-        }
-
-        // arrays
-        if (typeName.endsWith("[]")) {
-            String elementType = typeName.substring(0, typeName.length() - 2);
-            return toSimpleTypeName(elementType) + "[]";
-        }
-
-        // remove generics: List<com.foo.Address> -> List
-        int genericStart = typeName.indexOf('<');
-        if (genericStart >= 0) {
-            typeName = typeName.substring(0, genericStart);
-        }
-
-        // remove package: java.util.List -> List
-        int lastDot = typeName.lastIndexOf('.');
-        return lastDot >= 0 ? typeName.substring(lastDot + 1) : typeName;
-    }
 }

@@ -16,6 +16,18 @@ def format_method_list_file(data_directory: str, repository_name: str) -> str:
     return os.path.join(f"{data_directory}/method", f"{repository_name}.csv")
 
 
+def format_method_mapping_file(cache_directory: str, data_directory: str, repository_name: str) -> str | None:
+    data_method_file = format_method_list_file(data_directory, repository_name)
+    if os.path.exists(data_method_file):
+        return data_method_file
+
+    cache_method_file = os.path.join(f"{cache_directory}/method", f"{repository_name}.csv")
+    if os.path.exists(cache_method_file):
+        return cache_method_file
+
+    return None
+
+
 def format_method_code_file(data_directory: str, repository_name: str) -> str:
     return os.path.join(f"{data_directory}/method-code", f"{repository_name}.csv")
 

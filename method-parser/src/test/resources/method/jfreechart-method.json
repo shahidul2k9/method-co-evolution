@@ -7,13 +7,18 @@
       "commitHash": "b3f5f21ba0fe32a8f7eccb6760a79df30628be3e",
       "cases": [
         {
-          "name": "MillisecondTest",
-          "targetPath": "tests/org/jfree/data/time/MillisecondTest.java",
+          "name": "JFreeChartTest",
+          "targetPath": "tests/org/jfree/chart/JFreeChartTest.java",
           "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
         },
         {
-          "name": "Millisecond",
-          "targetPath": "source/org/jfree/data/time/Millisecond.java",
+          "name": "CombinedXYPlotDemo1",
+          "targetPath": "experimental/org/jfree/experimental/chart/demo/CombinedXYPlotDemo1.java",
+          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+        },
+        {
+          "name": "ChartFactory",
+          "targetPath": "source/org/jfree/chart/ChartFactory.java",
           "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
         }
       ]

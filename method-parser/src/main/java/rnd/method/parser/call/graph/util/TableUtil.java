@@ -27,6 +27,7 @@ public class TableUtil {
         StringColumn fqnColumn = StringColumn.create("fqn");
         StringColumn fqsColumn = StringColumn.create("fqs");
         StringColumn fqsAltColumn = StringColumn.create("fqs_alt");
+        StringColumn resolverColumn = StringColumn.create("resolver");
         StringColumn hashColumn = StringColumn.create("hash");
         StringColumn parserColumn = StringColumn.create("parser");
 //        IntColumn invocationLineColumn = IntColumn.create("invocation_line");
@@ -66,6 +67,8 @@ public class TableUtil {
             if (m.getFqsAlt() == null) fqsAltColumn.appendMissing();
             else fqsAltColumn.append(m.getFqsAlt());
 
+            if (m.getResolver() == null) resolverColumn.appendMissing();
+            else resolverColumn.append(m.getResolver());
 
             if (m.getHash() == null) hashColumn.appendMissing();
             else hashColumn.append(m.getHash());
@@ -97,7 +100,8 @@ public class TableUtil {
                         fqsAltColumn,
                         fileColumn,
                         hashColumn,
-                        parserColumn
+                        parserColumn,
+                        resolverColumn
 //                        ,
 //                        invocationLineColumn,
 //                        lastAssertionLineColumn
@@ -118,6 +122,7 @@ public class TableUtil {
         StringColumn fromFqnColumn = StringColumn.create("from_fqn");
         StringColumn fromFqsColumn = StringColumn.create("from_fqs");
         StringColumn fromFqsAltColumn = StringColumn.create("from_fqs_alt");
+        StringColumn fromResolverColumn = StringColumn.create("from_resolver");
         IntColumn fromInvocationLineColumn = IntColumn.create("from_invocation");
         IntColumn fromLastCallBeforeAnAssertion = IntColumn.create("from_lcba");
         StringColumn fromCallerUrlColumn = StringColumn.create("from_caller_url");
@@ -135,6 +140,7 @@ public class TableUtil {
         StringColumn toFqnColumn = StringColumn.create("to_fqn");
         StringColumn toFqsColumn = StringColumn.create("to_fqs");
         StringColumn toFqsAltColumn = StringColumn.create("to_fqs_alt");
+        StringColumn toResolverColumn = StringColumn.create("to_resolver");
         IntColumn  toInvocationLineColumn = IntColumn.create("to_invocation");
         IntColumn toLastCallBeforeAnAssertion = IntColumn.create("to_lcba");
         StringColumn toCallerUrlColumn = StringColumn.create("to_caller_url");
@@ -197,6 +203,8 @@ public class TableUtil {
         allColumns.add(fromCallDepthColumn);
         allColumns.add(toCallDepthColumn);
         allColumns.add(commitHashColumn);
+        allColumns.add(fromResolverColumn);
+        allColumns.add(toResolverColumn);
         Table table = Table.create(allColumns);
         for (MethodCall mc : methodCalls) {
             Method one = mc.getMethod();
@@ -236,6 +244,9 @@ public class TableUtil {
 
                 fromFqsAltColumn.append(from.getFqsAlt());
                 toFqsAltColumn.append(to.getFqsAlt());
+
+                fromResolverColumn.append(from.getResolver());
+                toResolverColumn.append(to.getResolver());
 
                 fromExpressionColumn.append(from.getExpression());
                 toExpressionColumn.append(to.getExpression());

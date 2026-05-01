@@ -41,6 +41,11 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
 
             if fan_in_output_file_suffix not in fan_in_zip_index and fan_in_output_file_suffix not in fan_in_unzip_index:
                 logging.info(f"Executing call graph for {repository_name} {commit['hash']} {commit_index}/{len(commits)}")
+                method_mapping_file = util.format_method_mapping_file(
+                    cache_directory,
+                    data_directory,
+                    repository_name,
+                )
                 cmd = [
                     "java", "-jar", jar_file_map[tool_name],
                     "-command", "call-graph",
@@ -51,6 +56,15 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
                     "-output-fan-in-file", fan_in_output_file,
                     "-output-fan-out-file", fan_out_output_file
                 ]
+                if method_mapping_file:
+                    cmd.extend(["-method-mapping-file", method_mapping_file])
+                else:
+                    print(
+                        "Warning: method mapping file was not passed for "
+                        f"{repository_name}. Expected one of: "
+                        f"{util.format_method_list_file(data_directory, repository_name)} "
+                        f"or {os.path.join(cache_directory, 'method', repository_name + '.csv')}"
+                    )
                 try:
                     subprocess.run(cmd, check=True, timeout=24*30*60)
                     fan_in_unzip_index.add(fan_in_output_file_suffix)

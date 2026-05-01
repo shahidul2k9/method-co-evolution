@@ -100,6 +100,7 @@ METHOD_SCAN_COLUMNS = [
     "fqs_alt",
     "hash",
     "parser",
+    "resolver",
 ]
 METHOD_CODE_COLUMNS = [
     "project",
@@ -170,6 +171,7 @@ def _build_scan_marker_row(
         "fqs_alt": None,
         "hash": commit_hash,
         "parser": SCAN_MARKER_PARSER,
+        "resolver": None,
     }
 
 
@@ -337,6 +339,7 @@ def _scan_methods_in_file(
                     "fqs_alt": jm.getFqsAlt(),
                     "hash": jm.getHash(),
                     "parser": "javaparser",
+                    "resolver": jm.getResolver(),
                 }
             )
     except Exception:
@@ -364,6 +367,7 @@ def _scan_methods_in_file(
                             "file": file_without_base,
                             "hash": commit_hash,
                             "parser": "javalang",
+                            "resolver": None,
                         }
                     )
         except Exception:

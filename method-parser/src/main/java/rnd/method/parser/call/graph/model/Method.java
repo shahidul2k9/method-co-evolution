@@ -17,6 +17,7 @@ public class Method {
     String fqn;
     String fqs;
     String fqsAlt;
+    String resolver;
     String file;
     String url;
     String callerUrl;

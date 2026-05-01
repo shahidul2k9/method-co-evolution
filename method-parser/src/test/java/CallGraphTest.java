@@ -46,7 +46,7 @@ public class CallGraphTest extends TestConfigurationBase {
     @Test
     public void testSymbolResolverTest() throws FileNotFoundException {
         JavaParser javaParser = new JavaParser();
-        String repositoryDirectory = Paths.get(TestConfigurationBase.getEnv("METHOD_EVOLUTION_CACHE_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY), "repository/checkstyle").toString();
+        String repositoryDirectory = Paths.get(TestConfigurationBase.getEnv("ME_CACHE_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY), "repository/checkstyle").toString();
 
         ParseResult<CompilationUnit> cu = javaParser.parse(new File(repositoryDirectory + "/src/main/java/com/puppycrawl/tools/checkstyle/AuditEventDefaultFormatter.java"));
         MethodDeclaration md = cu.getResult()
@@ -127,8 +127,14 @@ public class CallGraphTest extends TestConfigurationBase {
                         projectConfig.cases.stream().map(testCase -> {
                             java.util.List<DynamicNode> caseNodes = new java.util.ArrayList<>();
                             String outputDirectory = TestConfigurationBase.resolvePlaceholders(testCase.outputDirectory);
-                            String fanOutFile = String.format(Locale.CANADA, "%s/fan-out/%s/%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash);
-                            String fanInFile = String.format(Locale.CANADA, "%s/fan-in/%s/%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash);
+                            String fanOutFile = String.format(Locale.CANADA, "%s/fan-out/%s--%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash);
+                            String fanInFile = String.format(Locale.CANADA, "%s/fan-in/%s--%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash);
+                            String methodMappingFile = TestConfigurationBase.getEnv(
+                                    "METHOD_MAPPING_FILE",
+                                    String.format(Locale.CANADA, "%s/data/method/%s.csv",
+                                            TestConfigurationBase.getEnv("ME_CACHE_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY),
+                                            projectConfig.name)
+                            );
 
                             caseNodes.add(DynamicTest.dynamicTest("Execution", () -> {
                                 CallGraphServiceImpl fanOutService = new CallGraphServiceImpl();
@@ -138,7 +144,8 @@ public class CallGraphTest extends TestConfigurationBase {
                                         projectConfig.commitHash,
                                         List.of(testCase.targetPath),
                                         fanInFile,
-                                        fanOutFile
+                                        fanOutFile,
+                                        methodMappingFile
                                 );
                                 Assertions.assertFalse(methodCallOut.isEmpty());
                             }));
@@ -170,7 +177,7 @@ public class CallGraphTest extends TestConfigurationBase {
 
     @Test
     public void testCommandLineCallGraph() {
-        java.lang.String repositoryPath = TestConfigurationBase.getEnv("METHOD_EVOLUTION_CACHE_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY) + "/repository/checkstyle";
+        java.lang.String repositoryPath = TestConfigurationBase.getEnv("ME_CACHE_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY) + "/repository/checkstyle";
         String[] args = {
                 "--command", "call-graph",
                 "--repository-url", "https://github.com/checkstyle/checkstyle",

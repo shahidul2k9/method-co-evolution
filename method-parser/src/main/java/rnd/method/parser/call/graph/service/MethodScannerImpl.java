@@ -179,12 +179,22 @@ public class MethodScannerImpl implements MethodScanner {
 
                 String fqn = null;
                 String fqs = null;
+                String resolver = "javaparser";
                 try {
                     ResolvedMethodDeclaration resolvedDec = md.resolve();
                     fqn = resolvedDec.getQualifiedName();
                     fqs = resolvedDec.getQualifiedSignature();
                 } catch (Exception ignored) {
 //                    log.error("Failed to resolve method {}", md.getNameAsString());
+                }
+                String fqsAlt = AltMethodDeclarationFqn.getMethodFqnSimpleParams(md);
+                if (fqn == null) {
+                    fqn = stripParameters(AltMethodDeclarationFqn.getMethodFqnQualifiedParams(md));
+                    resolver = "heuristics";
+                }
+                if (fqs == null) {
+                    fqs = AltMethodDeclarationFqn.getMethodFqnQualifiedParams(md);
+                    resolver = "heuristics";
                 }
                 
                 int start = md.getName().getBegin().map(p -> p.line).orElse(-1);
@@ -198,7 +208,8 @@ public class MethodScannerImpl implements MethodScanner {
                         .pkg(cu.findCompilationUnit().flatMap(CompilationUnit::getPackageDeclaration).map(pd -> pd.getNameAsString()).orElse(null))
                         .fqn(fqn)
                         .fqs(fqs)
-                        .fqsAlt(AltMethodDeclarationFqn.getMethodFqnSimpleParams(md))
+                        .fqsAlt(fqsAlt)
+                        .resolver(resolver)
                         .file(file)
                         .startLine(start)
                         .endLine(end)
@@ -214,12 +225,22 @@ public class MethodScannerImpl implements MethodScanner {
 
                 String fqn = null;
                 String fqs = null;
+                String resolver = "javaparser";
 
                 try {
                     ResolvedConstructorDeclaration resolvedDec = cd.resolve();
                     fqn = resolvedDec.getQualifiedName();
                     fqs = resolvedDec.getQualifiedSignature();
                 } catch (Exception ignored) {
+                }
+                String fqsAlt = AltConstructorDeclarationFqn.getMethodFqnSimpleParams(cd);
+                if (fqn == null) {
+                    fqn = stripParameters(AltConstructorDeclarationFqn.getMethodFqnQualifiedParams(cd));
+                    resolver = "heuristics";
+                }
+                if (fqs == null) {
+                    fqs = AltConstructorDeclarationFqn.getMethodFqnQualifiedParams(cd);
+                    resolver = "heuristics";
                 }
 
                 int start = cd.getName().getBegin().map(p -> p.line).orElse(-1);
@@ -233,7 +254,8 @@ public class MethodScannerImpl implements MethodScanner {
                         .pkg(cu.findCompilationUnit().flatMap(CompilationUnit::getPackageDeclaration).map(pd -> pd.getNameAsString()).orElse(null))
                         .fqn(fqn)
                         .fqs(fqs)
-                        .fqsAlt(AltConstructorDeclarationFqn.getMethodFqnSimpleParams(cd))
+                        .fqsAlt(fqsAlt)
+                        .resolver(resolver)
                         .file(file)
                         .startLine(start)
                         .endLine(end)
@@ -253,6 +275,14 @@ public class MethodScannerImpl implements MethodScanner {
         if (parserWithSymbolResolver == null) {
             throw new IllegalStateException("MethodScannerImpl.init must be called before scanMethod");
         }
+    }
+
+    private static String stripParameters(String signature) {
+        if (signature == null) {
+            return null;
+        }
+        int open = signature.lastIndexOf('(');
+        return open >= 0 ? signature.substring(0, open) : signature;
     }
 
     private String determineMethodType(

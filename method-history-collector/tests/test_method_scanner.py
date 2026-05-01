@@ -30,6 +30,7 @@ class FakeJavaMethod:
         self.fqs = [self.fqn]
         self.fqs_alt = [self.fqn]
         self.hash = commit_hash
+        self.resolver = "javaparser"
 
     def getName(self):
         return self.name
@@ -66,6 +67,9 @@ class FakeJavaMethod:
 
     def getHash(self):
         return self.hash
+
+    def getResolver(self):
+        return self.resolver
 
 
 class FakeMethodScannerImpl:
@@ -167,6 +171,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                         "fqs_alt": "['demo.pkg.Alpha']",
                         "hash": "abc123",
                         "parser": "javaparser",
+                        "resolver": "javaparser",
                     },
                     ms._build_scan_marker_row("demo-project", "src/Alpha.java", "abc123"),
                 ]
