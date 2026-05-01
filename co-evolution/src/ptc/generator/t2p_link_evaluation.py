@@ -13,7 +13,8 @@ mismatch_root_dir.mkdir(parents=True, exist_ok=True)
 
 output_file = output_dir / "t2p_link_overall_metric.csv"
 
-TCTRACER_AVG_PROJECTS = {"commons-io", "commons-lang", "gson", "jfreechart"}
+TCTRACER_2020_AVG_PROJECTS = {"commons-io", "commons-lang", "jfreechart"}
+TCTRACER_2022_AVG_PROJECTS = {"commons-io", "commons-lang", "gson", "jfreechart"}
 TESTLINKER_AVG_PROJECTS = {"commons-io", "commons-lang", "gson", "jfreechart", "dubbo", "jenkins"}
 
 
@@ -107,8 +108,11 @@ def calculate_score(project: str, strategy_name: str, pred_detail_df: pd.DataFra
 def aggregate_project_groups(project_names: set[str]) -> list[tuple[str, set[str]]]:
     groups = []
 
-    if TCTRACER_AVG_PROJECTS.issubset(project_names):
-        groups.append(("avg-tctracer", TCTRACER_AVG_PROJECTS))
+    if TCTRACER_2020_AVG_PROJECTS.issubset(project_names):
+        groups.append(("avg-tctracer-2020", TCTRACER_2020_AVG_PROJECTS))
+
+    if TCTRACER_2022_AVG_PROJECTS.issubset(project_names):
+        groups.append(("avg-tctracer-2022", TCTRACER_2022_AVG_PROJECTS))
 
     if TESTLINKER_AVG_PROJECTS.issubset(project_names):
         groups.append(("avg-testlinker", TESTLINKER_AVG_PROJECTS))
