@@ -188,6 +188,13 @@ public class MethodScannerImpl implements MethodScanner {
                 } catch (Exception ignored) {
 //                    log.error("Failed to resolve method {}", md.getNameAsString());
                 }
+                // Symbol solver names anonymous classes with a random UUID; replace with positional $N
+                if (fqn != null && fqn.contains("Anonymous-")) {
+                    fqn = stripParameters(AltMethodDeclarationFqn.getMethodFqnQualifiedParams(md));
+                }
+                if (fqs != null && fqs.contains("Anonymous-")) {
+                    fqs = AltMethodDeclarationFqn.getMethodFqnQualifiedParams(md);
+                }
                 String fqsAlt = AltMethodDeclarationFqn.getMethodFqnSimpleParams(md);
                 if (fqn == null) {
                     fqn = stripParameters(AltMethodDeclarationFqn.getMethodFqnQualifiedParams(md));
@@ -236,6 +243,13 @@ public class MethodScannerImpl implements MethodScanner {
                     fqn = resolvedDec.getQualifiedName();
                     fqs = resolvedDec.getQualifiedSignature();
                 } catch (Exception ignored) {
+                }
+                // Symbol solver names anonymous classes with a random UUID; replace with positional $N
+                if (fqn != null && fqn.contains("Anonymous-")) {
+                    fqn = stripParameters(AltConstructorDeclarationFqn.getMethodFqnQualifiedParams(cd));
+                }
+                if (fqs != null && fqs.contains("Anonymous-")) {
+                    fqs = AltConstructorDeclarationFqn.getMethodFqnQualifiedParams(cd);
                 }
                 String fqsAlt = AltConstructorDeclarationFqn.getMethodFqnSimpleParams(cd);
                 if (fqn == null) {

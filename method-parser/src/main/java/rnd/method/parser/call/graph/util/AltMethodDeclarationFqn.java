@@ -1,11 +1,15 @@
 package rnd.method.parser.call.graph.util;
 
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.expr.ObjectCreationExpr;
 
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Deque;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -54,10 +58,14 @@ public class AltMethodDeclarationFqn {
 
         Deque<String> typeNames = new ArrayDeque<>();
 
-        TypeDeclaration<?> current = methodDeclaration.findAncestor(TypeDeclaration.class).orElse(null);
-        while (current != null) {
-            typeNames.push(current.getNameAsString());
-            current = current.findAncestor(TypeDeclaration.class).orElse(null);
+        Node node = methodDeclaration.getParentNode().orElse(null);
+        while (node != null && !(node instanceof CompilationUnit)) {
+            if (node instanceof TypeDeclaration<?> td) {
+                typeNames.push(td.getNameAsString());
+            } else if (node instanceof ObjectCreationExpr oce && oce.getAnonymousClassBody().isPresent()) {
+                typeNames.push("$" + anonymousClassIndex(oce));
+            }
+            node = node.getParentNode().orElse(null);
         }
 
         String typePath = String.join(".", typeNames);
@@ -69,6 +77,20 @@ public class AltMethodDeclarationFqn {
             return typePath;
         }
         return null;
+    }
+
+    static int anonymousClassIndex(ObjectCreationExpr target) {
+        TypeDeclaration<?> enclosing = target.findAncestor(TypeDeclaration.class).orElse(null);
+        if (enclosing == null) {
+            return 1;
+        }
+        List<ObjectCreationExpr> anonymousClasses = enclosing.findAll(ObjectCreationExpr.class,
+                oce -> oce.getAnonymousClassBody().isPresent());
+        anonymousClasses.sort(Comparator
+                .comparingInt((ObjectCreationExpr oce) -> oce.getBegin().map(p -> p.line).orElse(0))
+                .thenComparingInt(oce -> oce.getBegin().map(p -> p.column).orElse(0)));
+        int idx = anonymousClasses.indexOf(target);
+        return idx >= 0 ? idx + 1 : 1;
     }
 
 }

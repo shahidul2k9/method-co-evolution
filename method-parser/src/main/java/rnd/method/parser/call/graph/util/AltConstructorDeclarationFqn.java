@@ -1,11 +1,15 @@
 package rnd.method.parser.call.graph.util;
 
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
+import com.github.javaparser.ast.expr.ObjectCreationExpr;
 
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Deque;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -54,10 +58,14 @@ public class AltConstructorDeclarationFqn {
 
         Deque<String> typeNames = new ArrayDeque<>();
 
-        TypeDeclaration<?> current = constructorDeclaration.findAncestor(TypeDeclaration.class).orElse(null);
-        while (current != null) {
-            typeNames.push(current.getNameAsString());
-            current = current.findAncestor(TypeDeclaration.class).orElse(null);
+        Node node = constructorDeclaration.getParentNode().orElse(null);
+        while (node != null && !(node instanceof CompilationUnit)) {
+            if (node instanceof TypeDeclaration<?> td) {
+                typeNames.push(td.getNameAsString());
+            } else if (node instanceof ObjectCreationExpr oce && oce.getAnonymousClassBody().isPresent()) {
+                typeNames.push("$" + AltMethodDeclarationFqn.anonymousClassIndex(oce));
+            }
+            node = node.getParentNode().orElse(null);
         }
 
         String typePath = String.join(".", typeNames);
