@@ -233,6 +233,8 @@ public class CallGraphServiceImpl implements CallGraphService {
             String expression = null;
             String resolvedUrl = null;
             String resolver = "javaparser";
+            String testlinkerFqs = null;
+            String testlinkerFqp = null;
 
             if (callNode instanceof MethodCallExpr) {
                 MethodCallExpr methodCallExpr = (MethodCallExpr) callNode;
@@ -422,6 +424,16 @@ public class CallGraphServiceImpl implements CallGraphService {
                     }*/
                 }
             }
+            List<String> invocationParamTypes = getInvocationArgumentTypes(callNode);
+            String testlinkerOwnerAndName = fqn != null ? fqn : stripParameters(fqs);
+            if (testlinkerOwnerAndName != null) {
+                testlinkerFqs = TestLinkerSignatureUtil.toSignatureKey(testlinkerOwnerAndName, invocationParamTypes);
+                testlinkerFqp = TestLinkerSignatureUtil.toFullyQualifiedParamArray(invocationParamTypes);
+            } else {
+                testlinkerFqs = TestLinkerSignatureUtil.toSignatureKey(fqs);
+                testlinkerFqp = TestLinkerSignatureUtil.toFullyQualifiedParamArray(fqs);
+            }
+
             if (filePath != null || fqn != null || fqs != null || methodName != null) {
                 String fileSuffix = filePath == null ? null : MethodParserUtil.stripFilePrefix(absoluteRepositoryPath, filePath);
                 return Method.builder()
@@ -432,8 +444,8 @@ public class CallGraphServiceImpl implements CallGraphService {
                         .fqn(fqn)
                         .fqs(fqs)
                         .fqsAlt(fqnSimple)
-                        .testlinkerFqs(TestLinkerSignatureUtil.toSignatureKey(fqs))
-                        .testlinkerFqp(TestLinkerSignatureUtil.toFullyQualifiedParamArray(fqs))
+                        .testlinkerFqs(testlinkerFqs)
+                        .testlinkerFqp(testlinkerFqp)
                         .resolver(resolver)
                         .url(resolvedUrl != null ? resolvedUrl : (fileSuffix == null ? null : MethodParserUtil.toMethodUrl(repositoryUrl, commitHash, fileSuffix, startLine)))
                         .file(fileSuffix)
@@ -484,7 +496,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                 ? methodName
                 : declaringType + "." + methodName;
         String params = call.getArguments().stream()
-                .map(CallGraphServiceImpl::guessArgumentType)
+                .map(arg -> guessArgumentType(arg, call, cu.orElse(null), pkg))
                 .reduce((left, right) -> left + ", " + right)
                 .orElse("");
         String fqs = fqn + "(" + params + ")";
@@ -505,7 +517,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                 ? typeName + "." + typeName
                 : declaringType + "." + typeName;
         String params = call.getArguments().stream()
-                .map(CallGraphServiceImpl::guessArgumentType)
+                .map(arg -> guessArgumentType(arg, call, cu.orElse(null), pkg))
                 .reduce((left, right) -> left + ", " + right)
                 .orElse("");
         String fqs = fqn + "(" + params + ")";
@@ -570,8 +582,8 @@ public class CallGraphServiceImpl implements CallGraphService {
         }
     }
 
-    private static Optional<String> findVariableType(String variableName, MethodCallExpr call, CompilationUnit cu, String pkg) {
-        Optional<CallableDeclaration> callable = call.findAncestor(CallableDeclaration.class);
+    private static Optional<String> findVariableType(String variableName, Node context, CompilationUnit cu, String pkg) {
+        Optional<CallableDeclaration> callable = context.findAncestor(CallableDeclaration.class);
         if (callable.isEmpty()) {
             return Optional.empty();
         }
@@ -587,7 +599,7 @@ public class CallGraphServiceImpl implements CallGraphService {
             }
         }
 
-        int callLine = call.getBegin().map(position -> position.line).orElse(Integer.MAX_VALUE);
+        int callLine = context.getBegin().map(position -> position.line).orElse(Integer.MAX_VALUE);
         return callable.get().findAll(VariableDeclarator.class).stream()
                 .filter(variable -> variable.getNameAsString().equals(variableName))
                 .filter(variable -> variable.getBegin().map(position -> position.line <= callLine).orElse(true))
@@ -596,8 +608,8 @@ public class CallGraphServiceImpl implements CallGraphService {
                 .findFirst();
     }
 
-    private static Optional<String> findFieldType(String fieldName, MethodCallExpr call, CompilationUnit cu, String pkg) {
-        Optional<TypeDeclaration> typeDeclaration = call.findAncestor(TypeDeclaration.class);
+    private static Optional<String> findFieldType(String fieldName, Node context, CompilationUnit cu, String pkg) {
+        Optional<TypeDeclaration> typeDeclaration = context.findAncestor(TypeDeclaration.class);
         if (typeDeclaration.isEmpty()) {
             return Optional.empty();
         }
@@ -679,7 +691,27 @@ public class CallGraphServiceImpl implements CallGraphService {
         return null;
     }
 
-    private static String guessArgumentType(Expression arg) {
+    private static List<String> getInvocationArgumentTypes(Node callNode) {
+        Optional<CompilationUnit> cu = callNode.findCompilationUnit();
+        String pkg = cu
+                .flatMap(CompilationUnit::getPackageDeclaration)
+                .map(NodeWithName::getNameAsString)
+                .orElse(null);
+
+        if (callNode instanceof MethodCallExpr methodCallExpr) {
+            return methodCallExpr.getArguments().stream()
+                    .map(arg -> guessArgumentType(arg, callNode, cu.orElse(null), pkg))
+                    .toList();
+        }
+        if (callNode instanceof ObjectCreationExpr objectCreationExpr) {
+            return objectCreationExpr.getArguments().stream()
+                    .map(arg -> guessArgumentType(arg, callNode, cu.orElse(null), pkg))
+                    .toList();
+        }
+        return List.of();
+    }
+
+    private static String guessArgumentType(Expression arg, Node context, CompilationUnit cu, String pkg) {
         try {
             return arg.calculateResolvedType().describe();
         } catch (Exception ignored) {
@@ -705,7 +737,27 @@ public class CallGraphServiceImpl implements CallGraphService {
                 return "null";
             }
             if (arg.isObjectCreationExpr()) {
-                return arg.asObjectCreationExpr().getTypeAsString();
+                String typeName = arg.asObjectCreationExpr().getTypeAsString();
+                String qualified = qualifySourceType(typeName, cu, pkg);
+                return qualified != null ? qualified : typeName;
+            }
+            if (arg.isNameExpr()) {
+                String name = arg.asNameExpr().getNameAsString();
+                Optional<String> localOrParameterType = findVariableType(name, context, cu, pkg);
+                if (localOrParameterType.isPresent()) {
+                    return localOrParameterType.get();
+                }
+                Optional<String> fieldType = findFieldType(name, context, cu, pkg);
+                if (fieldType.isPresent()) {
+                    return fieldType.get();
+                }
+            }
+            if (arg.isFieldAccessExpr()) {
+                String fieldName = arg.asFieldAccessExpr().getNameAsString();
+                Optional<String> fieldType = findFieldType(fieldName, context, cu, pkg);
+                if (fieldType.isPresent()) {
+                    return fieldType.get();
+                }
             }
             if (arg.isMethodCallExpr()) {
                 return "<UNKNOWN_RETURN>";

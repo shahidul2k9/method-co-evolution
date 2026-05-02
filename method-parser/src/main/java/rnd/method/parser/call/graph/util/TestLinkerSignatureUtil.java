@@ -13,10 +13,19 @@ public final class TestLinkerSignatureUtil {
             return null;
         }
 
-        List<String> simpleParams = parsed.params().stream()
+        return toSignatureKey(parsed.ownerAndName(), parsed.params());
+    }
+
+    public static String toSignatureKey(String ownerAndName, List<String> fullyQualifiedParams) {
+        if (ownerAndName == null || ownerAndName.isBlank()) {
+            return null;
+        }
+
+        List<String> params = fullyQualifiedParams == null ? List.of() : fullyQualifiedParams;
+        List<String> simpleParams = params.stream()
                 .map(TestLinkerSignatureUtil::toSimpleTypeName)
                 .toList();
-        return parsed.ownerAndName() + "(" + String.join(", ", simpleParams) + ")";
+        return ownerAndName.trim() + "(" + String.join(", ", simpleParams) + ")";
     }
 
     public static String toFullyQualifiedParamArray(String signature) {
@@ -25,7 +34,12 @@ public final class TestLinkerSignatureUtil {
             return null;
         }
 
-        List<String> escaped = parsed.params().stream()
+        return toFullyQualifiedParamArray(parsed.params());
+    }
+
+    public static String toFullyQualifiedParamArray(List<String> fullyQualifiedParams) {
+        List<String> params = fullyQualifiedParams == null ? List.of() : fullyQualifiedParams;
+        List<String> escaped = params.stream()
                 .map(TestLinkerSignatureUtil::jsonQuote)
                 .toList();
         return "[" + String.join(",", escaped) + "]";
