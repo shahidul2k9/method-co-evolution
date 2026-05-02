@@ -2,6 +2,7 @@ import os
 import subprocess
 import sys
 import hashlib
+import shlex
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -26,6 +27,19 @@ def format_method_mapping_file(cache_directory: str, data_directory: str, reposi
         return cache_method_file
 
     return None
+
+
+def format_logback_config_file(cache_directory: str) -> str | None:
+    logback_file = os.path.join(f"{cache_directory}/config", "logback.xml")
+    return logback_file if os.path.exists(logback_file) else None
+
+
+def java_options_with_logback_config(java_options: str | None, cache_directory: str) -> str | None:
+    options = shlex.split(java_options) if java_options else []
+    logback_file = format_logback_config_file(cache_directory)
+    if logback_file and not any(option.startswith("-Dlogback.configurationFile=") for option in options):
+        options.append(f"-Dlogback.configurationFile={logback_file}")
+    return " ".join(shlex.quote(option) for option in options) if options else None
 
 
 def format_method_code_file(data_directory: str, repository_name: str) -> str:

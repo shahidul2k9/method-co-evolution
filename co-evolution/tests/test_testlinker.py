@@ -15,6 +15,7 @@ except ImportError:  # pragma: no cover
     pd = None
 
 from ptc.testlinker.execute import execute_project
+from ptc.testlinker import main as testlinker_main
 from ptc.testlinker.convert_author_results import convert_author_result_directory
 from ptc.testlinker.model import _build_roberta_tokenizer_from_files
 from ptc.testlinker.paths import (
@@ -31,6 +32,44 @@ from ptc.testlinker.preprocess import preprocess_project
 
 @unittest.skipIf(pd is None, "pandas is required for TestLinker tests")
 class TestTestLinkerPipeline(unittest.TestCase):
+    def test_main_project_range_selects_repository_rows(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir)
+            repository_dir = cache_dir / "data" / "repository"
+            repository_dir.mkdir(parents=True)
+            pd.DataFrame(
+                [
+                    {"project": "commons-io"},
+                    {"project": "commons-lang"},
+                    {"project": "gson"},
+                ]
+            ).to_csv(repository_dir / "repository.csv", index=False)
+
+            with mock.patch(
+                "ptc.testlinker.main.preprocess_project",
+                side_effect=lambda **_: pd.DataFrame([{}]),
+            ) as preprocess:
+                with mock.patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "ptc-testlinker",
+                        "testlinker",
+                        "--stage",
+                        "preprocess",
+                        "--cache-directory",
+                        str(cache_dir),
+                        "--project-range",
+                        "2:",
+                    ],
+                ):
+                    self.assertEqual(0, testlinker_main.main())
+
+            self.assertEqual(
+                ["commons-lang", "gson"],
+                [call.kwargs["project"] for call in preprocess.call_args_list],
+            )
+
     def test_tokenizer_fallback_uses_installed_constructor_parameter_names(self):
         class NewTokenizer:
             def __init__(self, vocab=None, merges=None, **kwargs):

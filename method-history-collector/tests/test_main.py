@@ -142,6 +142,8 @@ class TestMhcScript(unittest.TestCase):
         mock_mhc_instance.generate_call_graph.assert_called_once_with(
             ["checkstyle"],
             ["methodParser"],
+            False,
+            None,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -184,6 +186,68 @@ class TestMhcScript(unittest.TestCase):
             4,
             2,
             10000,
+            False,
+        )
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_project_range_colon_selects_all_projects(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame(
+            [{"project": "ant"}, {"project": "checkstyle"}, {"project": "commons-io"}]
+        )
+
+        test_args = [
+            "main.py",
+            "scan-method",
+            "--cache-directory",
+            CACHE_DIRECTORY,
+            "--repository-directory",
+            REPOSITORY_DIRECTORY,
+            "--data-directory",
+            DATA_DIRECTORY,
+            "--jar-directory",
+            JAR_DIRECTORY,
+            "--project-range",
+            ":",
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            mhc_main.main()
+
+        mock_mhc_instance.scan_method.assert_called_once_with(
+            ["ant", "checkstyle", "commons-io"],
+            None,
+            False,
+        )
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_project_range_accepts_open_ended_bounds(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame(
+            [{"project": "ant"}, {"project": "checkstyle"}, {"project": "commons-io"}]
+        )
+
+        test_args = [
+            "main.py",
+            "scan-method",
+            "--cache-directory",
+            CACHE_DIRECTORY,
+            "--repository-directory",
+            REPOSITORY_DIRECTORY,
+            "--data-directory",
+            DATA_DIRECTORY,
+            "--jar-directory",
+            JAR_DIRECTORY,
+            "--project-range",
+            "2:",
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            mhc_main.main()
+
+        mock_mhc_instance.scan_method.assert_called_once_with(
+            ["checkstyle", "commons-io"],
+            None,
             False,
         )
 

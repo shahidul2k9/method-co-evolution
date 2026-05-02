@@ -22,6 +22,7 @@ import rnd.method.parser.call.graph.util.MethodParserUtil;
 import rnd.method.parser.call.graph.model.Method;
 import rnd.method.parser.call.graph.util.AltConstructorDeclarationFqn;
 import rnd.method.parser.call.graph.util.AltMethodDeclarationFqn;
+import rnd.method.parser.call.graph.util.TestLinkerSignatureUtil;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -209,6 +210,8 @@ public class MethodScannerImpl implements MethodScanner {
                         .fqn(fqn)
                         .fqs(fqs)
                         .fqsAlt(fqsAlt)
+                        .testlinkerFqs(TestLinkerSignatureUtil.toSignatureKey(fqs))
+                        .testlinkerFqp(TestLinkerSignatureUtil.toFullyQualifiedParamArray(fqs))
                         .resolver(resolver)
                         .file(file)
                         .startLine(start)
@@ -216,6 +219,7 @@ public class MethodScannerImpl implements MethodScanner {
                         .hash(commitHash)
                         .url(methodUrl)
                         .artifact(methodType)
+                        .abstractMethod(isAbstractMethod(md) ? 1 : 0)
                         .lcba(0)
                         .invocationLine(null)
                         .build()
@@ -255,6 +259,8 @@ public class MethodScannerImpl implements MethodScanner {
                         .fqn(fqn)
                         .fqs(fqs)
                         .fqsAlt(fqsAlt)
+                        .testlinkerFqs(TestLinkerSignatureUtil.toSignatureKey(fqs))
+                        .testlinkerFqp(TestLinkerSignatureUtil.toFullyQualifiedParamArray(fqs))
                         .resolver(resolver)
                         .file(file)
                         .startLine(start)
@@ -262,6 +268,7 @@ public class MethodScannerImpl implements MethodScanner {
                         .hash(commitHash)
                         .url(methodUrl)
                         .artifact(methodType)
+                        .abstractMethod(0)
                         .lcba(0)
                         .invocationLine(null)
                         .build()
@@ -283,6 +290,16 @@ public class MethodScannerImpl implements MethodScanner {
         }
         int open = signature.lastIndexOf('(');
         return open >= 0 ? signature.substring(0, open) : signature;
+    }
+
+    private static boolean isAbstractMethod(MethodDeclaration method) {
+        if (method.isAbstract()) {
+            return true;
+        }
+        return method.findAncestor(ClassOrInterfaceDeclaration.class)
+                .map(ClassOrInterfaceDeclaration::isInterface)
+                .orElse(false)
+                && method.getBody().isEmpty();
     }
 
     private String determineMethodType(

@@ -39,6 +39,66 @@ class TestCliArgs(unittest.TestCase):
         mock_mhc_instance.scan_method.assert_called_once_with(
             ["checkstyle"],
             "-Xmx2g",
+            False,
+        )
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_scan_method_accepts_replace(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
+
+        mhc_main.main(
+            [
+                "scan-method",
+                "--cache-directory",
+                ".cache",
+                "--repository-directory",
+                ".cache/repository",
+                "--data-directory",
+                ".cache/data",
+                "--jar-directory",
+                ".cache/jar",
+                "--project",
+                "checkstyle",
+                "--replace",
+            ]
+        )
+
+        mock_mhc_instance.scan_method.assert_called_once_with(
+            ["checkstyle"],
+            None,
+            True,
+        )
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_call_graph_accepts_replace(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
+
+        mhc_main.main(
+            [
+                "call-graph",
+                "--cache-directory",
+                ".cache",
+                "--repository-directory",
+                ".cache/repository",
+                "--data-directory",
+                ".cache/data",
+                "--jar-directory",
+                ".cache/jar",
+                "--tool-name",
+                "methodParser",
+                "--project",
+                "checkstyle",
+                "--replace",
+            ]
+        )
+
+        mock_mhc_instance.generate_call_graph.assert_called_once_with(
+            ["checkstyle"],
+            ["methodParser"],
+            True,
+            None,
         )
 
     @patch("mhc.main._build_method_history_collector")

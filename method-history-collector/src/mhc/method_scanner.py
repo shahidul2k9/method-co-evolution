@@ -98,9 +98,12 @@ METHOD_SCAN_COLUMNS = [
     "fqn",
     "fqs",
     "fqs_alt",
-    "hash",
+    "testlinker_fqs",
+    "testlinker_fqp",
+    "abstract",
     "parser",
     "resolver",
+    "hash",
 ]
 METHOD_CODE_COLUMNS = [
     "project",
@@ -169,9 +172,12 @@ def _build_scan_marker_row(
         "fqn": None,
         "fqs": None,
         "fqs_alt": None,
-        "hash": commit_hash,
+        "testlinker_fqs": None,
+        "testlinker_fqp": None,
+        "abstract": None,
         "parser": SCAN_MARKER_PARSER,
         "resolver": None,
+        "hash": commit_hash,
     }
 
 
@@ -337,9 +343,12 @@ def _scan_methods_in_file(
                     "fqn": jm.getFqn(),
                     "fqs": jm.getFqs(),
                     "fqs_alt": jm.getFqsAlt(),
-                    "hash": jm.getHash(),
+                    "testlinker_fqs": jm.getTestlinkerFqs(),
+                    "testlinker_fqp": jm.getTestlinkerFqp(),
+                    "abstract": jm.getAbstractMethod(),
                     "parser": "javaparser",
                     "resolver": jm.getResolver(),
+                    "hash": jm.getHash(),
                 }
             )
     except Exception:
@@ -364,10 +373,13 @@ def _scan_methods_in_file(
                             "fqn": None,
                             "fqs": None,
                             "fqs_alt": None,
+                            "testlinker_fqs": None,
+                            "testlinker_fqp": None,
+                            "abstract": None,
                             "file": file_without_base,
-                            "hash": commit_hash,
                             "parser": "javalang",
                             "resolver": None,
+                            "hash": commit_hash,
                         }
                     )
         except Exception:
@@ -376,7 +388,7 @@ def _scan_methods_in_file(
     return methods_in_file
 
 
-def scan_method(repository_df: DataFrame, repository_directory: str, data_directory: str, _cache_directory):
+def scan_method(repository_df: DataFrame, repository_directory: str, data_directory: str, _cache_directory, replace: bool = False):
     from jpype import JClass
     MethodScannerImpl = JClass(
         "rnd.method.parser.call.graph.service.MethodScannerImpl"
@@ -390,7 +402,11 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
         dot_file_directory = util.format_git_project_directory(repository_directory, repository_name)
         output_method_file = util.format_method_list_file(f"{data_directory}", repository_name)
         method_cache_file = util.format_method_cache_file(f"{data_directory}", repository_name, commit_hash)
-        if not os.path.exists(method_cache_file) and _is_method_output_current(output_method_file, commit_hash):
+        if replace:
+            for existing_file in (output_method_file, method_cache_file):
+                if os.path.exists(existing_file):
+                    os.remove(existing_file)
+        elif not os.path.exists(method_cache_file) and _is_method_output_current(output_method_file, commit_hash):
             continue
 
         clone_and_checkout_commit(url, dot_file_directory, commit_hash)

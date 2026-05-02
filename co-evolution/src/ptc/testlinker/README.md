@@ -141,7 +141,7 @@ the default experiment mode.
 Run the full TestLinker pipeline for one or more projects:
 
 ```bash
-job/job.sh \
+scripts/job.sh \
   --command testlinker \
   --stage all \
   --projects "commons-io" \
@@ -162,6 +162,40 @@ ptc-testlinker testlinker \
   --cache-directory .cache \
   --project commons-io \
   --order-production-method testlinker
+```
+
+Project selection supports the same single/list/range forms as `mhc`:
+
+```bash
+# explicit list
+ptc-testlinker testlinker \
+  --stage all \
+  --cache-directory .white \
+  --projects commons-io,commons-lang \
+  --tokenizer-mode auto \
+  --include-labels \
+  --order-production-method testlinker \
+  --model-name-or-path Salesforce/codet5-base
+
+# rows 10 through 20 from .white/data/repository/repository.csv
+ptc-testlinker testlinker \
+  --stage all \
+  --cache-directory .white \
+  --project-range "10:20" \
+  --tokenizer-mode auto \
+  --include-labels \
+  --order-production-method testlinker \
+  --model-name-or-path Salesforce/codet5-base
+
+# all projects
+ptc-testlinker testlinker \
+  --stage all \
+  --cache-directory .white \
+  --project-range ":" \
+  --tokenizer-mode auto \
+  --include-labels \
+  --order-production-method testlinker \
+  --model-name-or-path Salesforce/codet5-base
 ```
 
 ```bash

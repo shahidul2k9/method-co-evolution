@@ -69,11 +69,15 @@ def _parse_projects_csv(projects: str | None) -> list[str]:
 def _parse_project_range(project_range: str | None, known_projects: list[str]) -> list[str]:
     if not project_range:
         return []
+    if ":" not in project_range:
+        raise ValueError("project-range must use 1-based inclusive indexes like 10:20, :20, 10:, or :")
+
     start_text, end_text = project_range.split(":", maxsplit=1)
-    start_index = int(start_text)
-    end_index = int(end_text)
+    start_index = int(start_text) if start_text else 1
+    end_index = int(end_text) if end_text else len(known_projects)
+
     if start_index <= 0 or end_index <= 0 or start_index > end_index:
-        raise ValueError("project-range must use 1-based inclusive indexes like 10:20")
+        raise ValueError("project-range must use 1-based inclusive indexes like 10:20, :20, 10:, or :")
     if end_index > len(known_projects):
         raise ValueError(
             f"project-range end {end_index} exceeds repository count {len(known_projects)}"
@@ -206,6 +210,12 @@ def main(argv: list[str] | None = None):
         default=1,
         help="1-based shard number to run for history collection (default: 1).",
     )
+    parser.add_argument(
+        "--replace",
+        dest="replace",
+        action="store_true",
+        help="Regenerate outputs even when existing output/cache files are present. Supported by scan-method and call-graph.",
+    )
 
     normalized_argv = _normalize_dash_prefixed_option_values(
         list(sys.argv[1:] if argv is None else argv)
@@ -264,9 +274,9 @@ def main(argv: list[str] | None = None):
                 "Error: tool_name is required for call graph command."
             )
             sys.exit(1)
-        mhc.generate_call_graph(resolve_selected_projects(), [args.tool_name])
+        mhc.generate_call_graph(resolve_selected_projects(), [args.tool_name], args.replace, args.java_options)
     elif args.command.lower() == "scan-method":
-        mhc.scan_method(resolve_selected_projects(), args.java_options)
+        mhc.scan_method(resolve_selected_projects(), args.java_options, args.replace)
     elif args.command.lower() == "method-code":
         mhc.generate_method_code(resolve_selected_projects())
     elif args.command.lower() == "index":

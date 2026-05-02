@@ -27,6 +27,9 @@ public class TableUtil {
         StringColumn fqnColumn = StringColumn.create("fqn");
         StringColumn fqsColumn = StringColumn.create("fqs");
         StringColumn fqsAltColumn = StringColumn.create("fqs_alt");
+        StringColumn testlinkerFqsColumn = StringColumn.create("testlinker_fqs");
+        StringColumn testlinkerFqpColumn = StringColumn.create("testlinker_fqp");
+        IntColumn abstractColumn = IntColumn.create("abstract");
         StringColumn resolverColumn = StringColumn.create("resolver");
         StringColumn hashColumn = StringColumn.create("hash");
         StringColumn parserColumn = StringColumn.create("parser");
@@ -67,6 +70,15 @@ public class TableUtil {
             if (m.getFqsAlt() == null) fqsAltColumn.appendMissing();
             else fqsAltColumn.append(m.getFqsAlt());
 
+            if (m.getTestlinkerFqs() == null) testlinkerFqsColumn.appendMissing();
+            else testlinkerFqsColumn.append(m.getTestlinkerFqs());
+
+            if (m.getTestlinkerFqp() == null) testlinkerFqpColumn.appendMissing();
+            else testlinkerFqpColumn.append(m.getTestlinkerFqp());
+
+            if (m.getAbstractMethod() == null) abstractColumn.appendMissing();
+            else abstractColumn.append(m.getAbstractMethod());
+
             if (m.getResolver() == null) resolverColumn.appendMissing();
             else resolverColumn.append(m.getResolver());
 
@@ -98,10 +110,13 @@ public class TableUtil {
                         fqnColumn,
                         fqsColumn,
                         fqsAltColumn,
+                        testlinkerFqsColumn,
+                        testlinkerFqpColumn,
                         fileColumn,
-                        hashColumn,
+                        abstractColumn,
                         parserColumn,
-                        resolverColumn
+                        resolverColumn,
+                        hashColumn
 //                        ,
 //                        invocationLineColumn,
 //                        lastAssertionLineColumn
@@ -122,6 +137,8 @@ public class TableUtil {
         StringColumn fromFqnColumn = StringColumn.create("from_fqn");
         StringColumn fromFqsColumn = StringColumn.create("from_fqs");
         StringColumn fromFqsAltColumn = StringColumn.create("from_fqs_alt");
+        StringColumn fromTestlinkerFqsColumn = StringColumn.create("from_testlinker_fqs");
+        StringColumn fromTestlinkerFqpColumn = StringColumn.create("from_testlinker_fqp");
         StringColumn fromResolverColumn = StringColumn.create("from_resolver");
         IntColumn fromInvocationLineColumn = IntColumn.create("from_invocation");
         IntColumn fromLastCallBeforeAnAssertion = IntColumn.create("from_lcba");
@@ -140,6 +157,8 @@ public class TableUtil {
         StringColumn toFqnColumn = StringColumn.create("to_fqn");
         StringColumn toFqsColumn = StringColumn.create("to_fqs");
         StringColumn toFqsAltColumn = StringColumn.create("to_fqs_alt");
+        StringColumn toTestlinkerFqsColumn = StringColumn.create("to_testlinker_fqs");
+        StringColumn toTestlinkerFqpColumn = StringColumn.create("to_testlinker_fqp");
         StringColumn toResolverColumn = StringColumn.create("to_resolver");
         IntColumn  toInvocationLineColumn = IntColumn.create("to_invocation");
         IntColumn toLastCallBeforeAnAssertion = IntColumn.create("to_lcba");
@@ -179,6 +198,12 @@ public class TableUtil {
 
         allColumns.add(fromFqsAltColumn);
         allColumns.add(toFqsAltColumn);
+
+        allColumns.add(fromTestlinkerFqsColumn);
+        allColumns.add(toTestlinkerFqsColumn);
+
+        allColumns.add(fromTestlinkerFqpColumn);
+        allColumns.add(toTestlinkerFqpColumn);
 
         allColumns.add(fromMethodStartLineColumn);
         allColumns.add(fromMethodEndLineColumn);
@@ -244,6 +269,12 @@ public class TableUtil {
 
                 fromFqsAltColumn.append(from.getFqsAlt());
                 toFqsAltColumn.append(to.getFqsAlt());
+
+                fromTestlinkerFqsColumn.append(from.getTestlinkerFqs());
+                toTestlinkerFqsColumn.append(to.getTestlinkerFqs());
+
+                fromTestlinkerFqpColumn.append(from.getTestlinkerFqp());
+                toTestlinkerFqpColumn.append(to.getTestlinkerFqp());
 
                 fromResolverColumn.append(from.getResolver());
                 toResolverColumn.append(to.getResolver());

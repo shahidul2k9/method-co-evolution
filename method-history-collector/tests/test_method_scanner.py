@@ -27,8 +27,11 @@ class FakeJavaMethod:
         self.file = file_path
         self.pkg = "demo.pkg"
         self.fqn = f"demo.pkg.{method_name}"
-        self.fqs = [self.fqn]
-        self.fqs_alt = [self.fqn]
+        self.fqs = f"{self.fqn}(java.lang.String)"
+        self.fqs_alt = f"{self.fqn}(String)"
+        self.testlinker_fqs = f"{self.fqn}(String)"
+        self.testlinker_fqp = '["java.lang.String"]'
+        self.abstract_method = 0
         self.hash = commit_hash
         self.resolver = "javaparser"
 
@@ -64,6 +67,15 @@ class FakeJavaMethod:
 
     def getFqsAlt(self):
         return self.fqs_alt
+
+    def getTestlinkerFqs(self):
+        return self.testlinker_fqs
+
+    def getTestlinkerFqp(self):
+        return self.testlinker_fqp
+
+    def getAbstractMethod(self):
+        return self.abstract_method
 
     def getHash(self):
         return self.hash
@@ -167,11 +179,14 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                         "file": "src/Alpha.java",
                         "pkg": "demo.pkg",
                         "fqn": "demo.pkg.Alpha",
-                        "fqs": "['demo.pkg.Alpha']",
-                        "fqs_alt": "['demo.pkg.Alpha']",
-                        "hash": "abc123",
+                        "fqs": "demo.pkg.Alpha(java.lang.String)",
+                        "fqs_alt": "demo.pkg.Alpha(String)",
+                        "testlinker_fqs": "demo.pkg.Alpha(String)",
+                        "testlinker_fqp": '["java.lang.String"]',
+                        "abstract": 0,
                         "parser": "javaparser",
                         "resolver": "javaparser",
+                        "hash": "abc123",
                     },
                     ms._build_scan_marker_row("demo-project", "src/Alpha.java", "abc123"),
                 ]
@@ -250,6 +265,38 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             )
             self.assertGreaterEqual(flush_results.call_count, 3)
             self.assertTrue(output_method_file.exists())
+
+    def test_scan_method_replace_ignores_existing_output(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            repository_directory = root / "repositories"
+            data_directory = root / "data"
+            cache_directory = root / "cache"
+            project_directory = repository_directory / "demo-project"
+
+            self._create_java_file(project_directory / "src" / "Alpha.java")
+
+            repository_df = self._repository_df()
+            output_method_file = Path(util.format_method_list_file(str(data_directory), "demo-project"))
+            output_method_file.parent.mkdir(parents=True, exist_ok=True)
+            output_method_file.write_text("project,name,hash\nold,old,old\n", encoding="utf-8")
+
+            FakeMethodScannerImpl.init_calls = []
+            FakeMethodScannerImpl.scanned_files = []
+            with patch("jpype.JClass", return_value=FakeMethodScannerImpl), patch.object(
+                ms, "clone_and_checkout_commit"
+            ):
+                ms.scan_method(
+                    repository_df,
+                    str(repository_directory),
+                    str(data_directory),
+                    str(cache_directory),
+                    replace=True,
+                )
+
+            self.assertEqual(FakeMethodScannerImpl.scanned_files, ["src/Alpha.java"])
+            regenerated_df = pd.read_csv(output_method_file)
+            self.assertEqual(regenerated_df["project"].tolist(), ["demo-project"])
 
 
 if __name__ == "__main__":

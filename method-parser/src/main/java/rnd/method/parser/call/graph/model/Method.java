@@ -17,6 +17,8 @@ public class Method {
     String fqn;
     String fqs;
     String fqsAlt;
+    String testlinkerFqs;
+    String testlinkerFqp;
     String resolver;
     String file;
     String url;
@@ -28,6 +30,7 @@ public class Method {
     String artifact;
     String hash;
     Integer lcba;
+    Integer abstractMethod;
 
     @Override
     public String toString() {

@@ -36,6 +36,7 @@ import rnd.method.parser.call.graph.model.MethodCall;
 import rnd.method.parser.call.graph.util.AltConstructorDeclarationFqn;
 import rnd.method.parser.call.graph.util.AltMethodDeclarationFqn;
 import rnd.method.parser.call.graph.util.TableUtil;
+import rnd.method.parser.call.graph.util.TestLinkerSignatureUtil;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -182,6 +183,8 @@ public class CallGraphServiceImpl implements CallGraphService {
                                                         .fqn(fromFqn)
                                                         .fqs(fromFqs)
                                                         .fqsAlt(fromFqsAlt)
+                                                        .testlinkerFqs(TestLinkerSignatureUtil.toSignatureKey(fromFqs))
+                                                        .testlinkerFqp(TestLinkerSignatureUtil.toFullyQualifiedParamArray(fromFqs))
                                                         .resolver(fromResolver)
                                                         .startLine(targetMethodStartLine)
                                                         .endLine(fromMd.getEnd().get().line)
@@ -429,6 +432,8 @@ public class CallGraphServiceImpl implements CallGraphService {
                         .fqn(fqn)
                         .fqs(fqs)
                         .fqsAlt(fqnSimple)
+                        .testlinkerFqs(TestLinkerSignatureUtil.toSignatureKey(fqs))
+                        .testlinkerFqp(TestLinkerSignatureUtil.toFullyQualifiedParamArray(fqs))
                         .resolver(resolver)
                         .url(resolvedUrl != null ? resolvedUrl : (fileSuffix == null ? null : MethodParserUtil.toMethodUrl(repositoryUrl, commitHash, fileSuffix, startLine)))
                         .file(fileSuffix)

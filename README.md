@@ -108,6 +108,78 @@ All project-scoped `mhc` commands now support exactly one of:
 - `--project "checkstyle"` for a single project
 - `--projects "checkstyle,commons-io"` for an explicit list
 - `--project-range "10:20"` for a 1-based inclusive range from `repository.csv`
+- `--project-range ":"` for all projects
+- `--project-range ":20"` for the first 20 projects
+- `--project-range "10:"` for project 10 through the last project
+
+To run all projects, use the open range expression:
+
+```bash
+mhc scan-method \
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --java-options "-Xmx2g" \
+    --project-range ":"
+
+mhc call-graph \
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --tool-name "methodParser" \
+    --project-range ":"
+```
+
+The range is inclusive: `--project-range "10:20"` runs rows 10 through 20 from `repository.csv`.
+
+Use `--replace` with `scan-method` or `call-graph` when you want to regenerate outputs even if the CSV already exists:
+
+```bash
+mhc scan-method \
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --java-options "-Xmx2g" \
+    --project-range ":" \
+    --replace
+
+mhc call-graph \
+    --cache-directory ".cache" \
+    --repository-directory ".cache/repository" \
+    --data-directory ".cache/data" \
+    --jar-directory ".cache/jar" \
+    --tool-name "methodParser" \
+    --project-range ":" \
+    --replace
+```
+
+If `<cache-directory>/config/logback.xml` exists, `mhc scan-method` and `mhc call-graph` automatically pass it to the method-parser JVM as:
+
+```bash
+-Dlogback.configurationFile=<cache-directory>/config/logback.xml
+```
+
+For the default `.cache` directory, create:
+
+```xml
+<!-- .cache/config/logback.xml -->
+<configuration>
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{HH:mm:ss} %-5level %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="ERROR">
+    <appender-ref ref="STDOUT" />
+  </root>
+</configuration>
+```
+
+You can still pass extra JVM settings with `--java-options`; the logback configuration is appended unless you already supplied `-Dlogback.configurationFile=...`.
 
 For `mhc history`, you can additionally split method-history generation into deterministic shards:
 
@@ -203,7 +275,7 @@ sbatch \
     --mem=8GB \
     --output=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.out \
     --error=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.err \
-    job/job.sh \
+    scripts/job.sh \
     --command method-code \
     --cache-directory "$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache" \
     --projects "checkstyle,commons-io"
@@ -216,7 +288,7 @@ sbatch \
     --mem=8GB \
     --output=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.out \
     --error=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.err \
-    job/job.sh \
+    scripts/job.sh \
     --command history \
     --tool-name codeShovel \
     --cache-directory "$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache" \
@@ -224,14 +296,14 @@ sbatch \
     --shards 20
 ```
 
-`job/job.sh` now supports two history execution styles:
+`scripts/job.sh` now supports two history execution styles:
 
 - Project-array mode:
   Use `--projects` with `--shards 1` or omit `--shards`. Each array task selects one project and runs the normal single-shard command.
 - Shard mode:
   Use `--projects` with exactly one project and set `--shards N`. Submit the job as `--array=1-N`. Each array task maps directly to `--shard $SLURM_ARRAY_TASK_ID`.
 
-`--project-range` is also supported by `job/job.sh` for non-sharded runs when you want to target a contiguous slice from `repository.csv`.
+`--project-range` is also supported by `scripts/job.sh` for non-sharded runs when you want to target a contiguous slice from `repository.csv`.
 
 ### LLM M2M Link
 
