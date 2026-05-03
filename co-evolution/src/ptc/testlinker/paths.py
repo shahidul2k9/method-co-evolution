@@ -21,16 +21,16 @@ def mapped_input_json_directory(root: Path, project: str) -> Path:
     return root / "input" / "mapped-json" / project
 
 
-def raw_detail_path(root: Path, project: str) -> Path:
-    return root / "output" / "codet5" / "raw" / f"{project}_detail.json"
+def raw_detail_path(root: Path, project: str, mapping_mode: str = "testlinker-heuristics") -> Path:
+    return root / "output" / mapping_mode / "raw" / f"{project}_detail.json"
 
 
-def execute_csv_path(root: Path, project: str) -> Path:
-    return root / "output" / "codet5" / f"{project}.csv"
+def execute_csv_path(root: Path, project: str, mapping_mode: str = "testlinker-heuristics") -> Path:
+    return root / "output" / mapping_mode / f"{project}.csv"
 
 
-def final_prediction_path(cache_directory: str | Path, project: str) -> Path:
-    return Path(cache_directory) / "data" / "testlinker" / "t2p-link" / "codet5" / f"{project}.csv"
+def final_prediction_path(cache_directory: str | Path, project: str, mode: str = "testlinker-heuristics") -> Path:
+    return Path(cache_directory) / "data" / "testlinker" / "t2p-link" / mode / f"{project}.csv"
 
 
 def class_map_directory(root: Path) -> Path:
@@ -41,8 +41,8 @@ def projects_all_functions_directory(root: Path) -> Path:
     return root / "projects_all_functions"
 
 
-def t2p_ground_truth_updated_file(cache_directory: str | Path, project: str) -> Path:
-    return Path(cache_directory) / "data" / "t2p-ground-truth-updated" / f"{project}.csv"
+def t2p_ground_truth_updated_file(project_directory: str | Path, project: str) -> Path:
+    return Path(project_directory) / "data" / "ground-truth" / f"{project}.csv"
 
 
 def default_model_directory(root: Path) -> Path:

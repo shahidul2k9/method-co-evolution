@@ -2,12 +2,12 @@ from pathlib import Path
 
 import pandas as pd
 
-from mhc.config import DATA_DIRECTORY
+from mhc.config import DATA_DIRECTORY, PROJECT_DIRECTORY
 from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters
 
 
 T2P_CANDIDATE_DIR = Path(DATA_DIRECTORY) / "t2p-candidate"
-GROUND_TRUTH_DIR = Path(DATA_DIRECTORY) / "t2p-ground-truth-updated"
+GROUND_TRUTH_DIR = Path(PROJECT_DIRECTORY) / "data" / "ground-truth" / "testlinker-t2p-ground-truth"
 
 
 def filter_candidate_df(candidate_df: pd.DataFrame, ground_truth_df: pd.DataFrame) -> pd.DataFrame:
@@ -35,7 +35,7 @@ def main(argv: list[str] | None = None) -> None:
     for candidate_file in candidate_files:
         ground_truth_file = GROUND_TRUTH_DIR / candidate_file.name
         if not ground_truth_file.exists():
-            print(f"Skipping {candidate_file.stem}; no updated ground truth found.")
+            print(f"Skipping {candidate_file.stem}; no ground truth found.")
             continue
 
         candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)

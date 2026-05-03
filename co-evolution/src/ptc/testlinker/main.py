@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from ptc.testlinker.execute import execute_project
-from ptc.testlinker.postprocess import postprocess_project
+from ptc.testlinker.postprocess import POSTPROCESS_MODES, postprocess_project
 from ptc.testlinker.preprocess import preprocess_project
 
 
@@ -20,6 +20,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Pipeline stage to run.",
     )
     parser.add_argument("--cache-directory", required=True, help="Project cache directory.")
+    parser.add_argument(
+        "--project-directory",
+        dest="project_directory",
+        default=None,
+        help=(
+            "Project root directory (ME_PROJECT_DIRECTORY). Used to locate "
+            "data/ground-truth/ and data/testlinker/class-mapping/."
+        ),
+    )
     parser.add_argument("--project", default=None, help="Project name.")
     parser.add_argument("--projects", default=None, help="Comma-separated project names.")
     parser.add_argument(
@@ -70,6 +79,35 @@ def build_parser() -> argparse.ArgumentParser:
         "Defaults to testlinker/code/result/TestLink.",
     )
     parser.add_argument("--no-cuda", action="store_true", help="Force CPU inference.")
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="Re-run stages even when output files already exist.",
+    )
+    parser.add_argument(
+        "--postprocess-modes",
+        dest="postprocess_modes",
+        nargs="+",
+        choices=POSTPROCESS_MODES,
+        default=["testlinker-heuristics"],
+        help=(
+            "Postprocessing modes to run (default: testlinker-heuristics). "
+            "testlinker-heuristics writes label_pred-based output. "
+            "javaparser-symbolsolver writes testlinker_symbolsolver-based output."
+        ),
+    )
+    parser.add_argument(
+        "--mapping-mode",
+        dest="mapping_mode",
+        nargs="+",
+        choices=["testlinker-heuristics", "javaparser-symbolsolver"],
+        default=["testlinker-heuristics"],
+        help=(
+            "Signature mapping mode(s) for the execute step (default: testlinker-heuristics). "
+            "Multiple values produce separate output CSVs per mode. "
+            "Mapping files are always generated from data/class and data/method CSVs."
+        ),
+    )
     return parser
 
 
@@ -139,11 +177,14 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
             include_labels=args.include_labels,
             order_production_method=args.order_production_method,
             order_production_directory=args.order_production_directory,
+            mapping_mode=args.mapping_mode[0],
+            replace=args.replace,
+            project_directory=args.project_directory,
         )
         print(f"Wrote TestLinker input rows: {len(preprocess_df)}")
 
     if args.stage in {"execute", "all"}:
-        execute_df = execute_project(
+        execute_results = execute_project(
             cache_directory=args.cache_directory,
             project=project,
             top_k=args.top_k,
@@ -152,21 +193,27 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
             checkpoint_directory=args.checkpoint_directory,
             checkpoint=args.checkpoint,
             model_mode=args.model_mode,
+            mapping_modes=args.mapping_mode,
             eval_batch_size=args.eval_batch_size,
             max_source_length=args.max_source_length,
             tokenizer_mode=args.tokenizer_mode,
             only_model=args.only_model,
             no_cuda=args.no_cuda,
+            replace=args.replace,
         )
-        print(f"Wrote TestLinker execute rows: {len(execute_df)}")
+        for mode, mode_df in execute_results.items():
+            print(f"Wrote TestLinker [{mode}] execute rows: {len(mode_df)}")
 
     if args.stage in {"postprocess", "all"}:
-        postprocess_df = postprocess_project(
+        postprocess_results = postprocess_project(
             cache_directory=args.cache_directory,
             project=project,
             testlinker_directory=args.testlinker_directory,
+            modes=args.postprocess_modes,
+            replace=args.replace,
         )
-        print(f"Wrote TestLinker final prediction rows: {len(postprocess_df)}")
+        for mode, mode_df in postprocess_results.items():
+            print(f"Wrote TestLinker [{mode}] prediction rows: {len(mode_df)}")
 
 
 def main() -> int:

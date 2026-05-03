@@ -47,13 +47,34 @@ def execute_project(
     checkpoint_directory: str | Path | None = None,
     checkpoint: str = "best-acc_and_f1",
     model_mode: str = "codet5",
+    mapping_modes: list[str] | None = None,
     eval_batch_size: int = 16,
     max_source_length: int = 512,
     tokenizer_mode: str = "original",
     only_model: bool = False,
     no_cuda: bool = False,
-) -> pd.DataFrame:
+    replace: bool = False,
+) -> dict[str, pd.DataFrame]:
+    if mapping_modes is None:
+        mapping_modes = ["testlinker-heuristics"]
+
     root = testlinker_root(cache_directory, testlinker_directory)
+
+    if not replace:
+        results = {}
+        pending_modes = []
+        for mode in mapping_modes:
+            output_file = execute_csv_path(root, project, mode)
+            if output_file.exists():
+                results[mode] = pd.read_csv(output_file, keep_default_na=False, na_filter=False)
+            else:
+                pending_modes.append(mode)
+        if not pending_modes:
+            return results
+        mapping_modes = pending_modes
+    else:
+        results = {}
+
     input_file = input_csv_path(root, project)
     if not input_file.exists():
         raise FileNotFoundError(f"TestLinker input CSV not found: {input_file}")
@@ -70,6 +91,7 @@ def execute_project(
     )
     write_mapped_json(mapped_examples, root=root, project=project)
 
+    need_ranker = "testlinker-heuristics" in mapping_modes
     ranker = _build_ranker(
         root=root,
         model_name_or_path=model_name_or_path,
@@ -80,58 +102,76 @@ def execute_project(
         max_source_length=max_source_length,
         tokenizer_mode=tokenizer_mode,
         no_cuda=no_cuda,
-    )
+    ) if need_ranker else None
 
-    detail_rows = []
-    prediction_rows = []
+    mode_detail_rows: dict[str, list] = {mode: [] for mode in mapping_modes}
+    mode_prediction_rows: dict[str, list] = {mode: [] for mode in mapping_modes}
+
     for example in mapped_examples:
-        recom_by = "model"
-        sorted_invocations = None
-        invocation_scores: dict[str, float] = {}
-        recommended_signatures = None if only_model else recommend_signatures_by_name(example)
-        if recommended_signatures:
-            recom_by = "rule"
-        else:
-            invocation_scores = ranker.score_invocations(
-                body=str(example.get("body", "")),
-                test_name=str(example.get("test_name", "")),
-                invocations=list(example.get("invocations", [])),
+        # Compute ranker result once (shared by all heuristics modes)
+        ranker_signatures = None
+        ranker_recom_by = "model"
+        ranker_invocation_scores: dict[str, float] = {}
+        ranker_sorted_invocations = None
+        if need_ranker:
+            ranker_signatures = None if only_model else recommend_signatures_by_name(example)
+            if ranker_signatures:
+                ranker_recom_by = "rule"
+            else:
+                ranker_invocation_scores = ranker.score_invocations(
+                    body=str(example.get("body", "")),
+                    test_name=str(example.get("test_name", "")),
+                    invocations=list(example.get("invocations", [])),
+                )
+                ranker_sorted_invocations = [
+                    inv for inv, _ in sorted(ranker_invocation_scores.items(), key=lambda item: item[1], reverse=True)
+                ]
+                ranker_signatures = _signatures_for_invocations(example, ranker_sorted_invocations[:top_k])
+
+        for mode in mapping_modes:
+            if mode == "javaparser-symbolsolver":
+                recommended_signatures = sorted(set(_signatures_from_mapping(example)))
+                recom_by = "symbolsolver"
+                invocation_scores: dict[str, float] = {}
+                sorted_invocations = None
+            else:
+                recommended_signatures = sorted(set(ranker_signatures or []))
+                recom_by = ranker_recom_by
+                invocation_scores = ranker_invocation_scores
+                sorted_invocations = ranker_sorted_invocations
+
+            mode_detail_rows[mode].append(
+                {
+                    "id": example["id"],
+                    "from_url": example.get("from_url", ""),
+                    "test_name": example.get("test_name", ""),
+                    "invocations": example.get("invocations", []),
+                    "sorted_invocations": sorted_invocations,
+                    "signatures": example.get("signature", {}),
+                    "recom_signatures": recommended_signatures,
+                    "labels": example.get("label", []),
+                    "recom_by": recom_by,
+                    "is_recom_all": False,
+                }
             )
-            sorted_invocations = [
-                invocation
-                for invocation, _ in sorted(invocation_scores.items(), key=lambda item: item[1], reverse=True)
-            ]
-            recommended_signatures = _signatures_for_invocations(example, sorted_invocations[:top_k])
+            mode_prediction_rows[mode].extend(
+                _prediction_rows_for_example(example, recommended_signatures, recom_by, invocation_scores)
+            )
 
-        recommended_signatures = sorted(set(recommended_signatures))
-        detail_rows.append(
-            {
-                "id": example["id"],
-                "from_url": example.get("from_url", ""),
-                "test_name": example.get("test_name", ""),
-                "invocations": example.get("invocations", []),
-                "sorted_invocations": sorted_invocations,
-                "signatures": example.get("signature", {}),
-                "recom_signatures": recommended_signatures,
-                "labels": example.get("label", []),
-                "recom_by": recom_by,
-                "is_recom_all": False,
-            }
+    for mode in mapping_modes:
+        raw_file = raw_detail_path(root, project, mode)
+        raw_file.parent.mkdir(parents=True, exist_ok=True)
+        raw_file.write_text(
+            "".join(json.dumps(row, ensure_ascii=True) + "\n" for row in mode_detail_rows[mode]),
+            encoding="utf-8",
         )
-        prediction_rows.extend(_prediction_rows_for_example(example, recommended_signatures, recom_by, invocation_scores))
+        output_df = pd.DataFrame(mode_prediction_rows[mode], columns=EXECUTE_OUTPUT_COLUMNS)
+        output_file = execute_csv_path(root, project, mode)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        output_df.to_csv(output_file, index=False)
+        results[mode] = output_df
 
-    raw_file = raw_detail_path(root, project)
-    raw_file.parent.mkdir(parents=True, exist_ok=True)
-    raw_file.write_text(
-        "".join(json.dumps(row, ensure_ascii=True) + "\n" for row in detail_rows),
-        encoding="utf-8",
-    )
-
-    output_df = pd.DataFrame(prediction_rows, columns=EXECUTE_OUTPUT_COLUMNS)
-    output_file = execute_csv_path(root, project)
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    output_df.to_csv(output_file, index=False)
-    return output_df
+    return results
 
 
 def _warn_if_mapping_files_missing(*, root: Path, project: str) -> None:
@@ -214,6 +254,15 @@ def _looks_like_local_model_path(model_name_or_path: Path) -> bool:
         or value.startswith("~")
         or len(model_name_or_path.parts) > 2
     )
+
+
+def _signatures_from_mapping(example: dict[str, object]) -> list[str]:
+    """Return all detail_sigs produced by apply_signature_mapping for this example."""
+    recommendations = []
+    for payload in dict(example.get("signature", {})).values():
+        if isinstance(payload, dict):
+            recommendations.extend(payload.get("detail_sigs", []))
+    return recommendations
 
 
 def _signatures_for_invocations(example: dict[str, object], invocations: list[str]) -> list[str]:
