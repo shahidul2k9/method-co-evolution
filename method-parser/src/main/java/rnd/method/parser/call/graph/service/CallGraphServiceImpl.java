@@ -439,11 +439,15 @@ public class CallGraphServiceImpl implements CallGraphService {
             }
             List<String> invocationParamTypes = getInvocationArgumentTypes(callNode);
             String testlinkerOwnerAndName = fqn != null ? fqn : stripParameters(fqs);
-            if (testlinkerOwnerAndName != null) {
+            if (testlinkerOwnerAndName != null && "javaparser".equals(resolver)) {
+                // Symbol resolver succeeded: use actual call-site argument types.
+                // This is the key TestLinker distinction — params reflect what was *passed*, not declared.
                 testlinkerFqs = TestLinkerSignatureUtil.fromInvocationArgs(testlinkerOwnerAndName, invocationParamTypes);
                 testlinkerFqp = TestLinkerSignatureUtil.toParamTypeJson(invocationParamTypes);
             } else {
-                testlinkerFqs = TestLinkerSignatureUtil.fromDeclaredFqs(fqs);
+                // Heuristics fallback: the matched method may have different arity/types than the actual
+                // call site, so invocation arg types are unreliable. Use declared types instead.
+                testlinkerFqs = fqnSimple != null ? fqnSimple : TestLinkerSignatureUtil.fromDeclaredFqs(fqs);
                 testlinkerFqp = TestLinkerSignatureUtil.toParamTypeJson(fqs);
             }
 
