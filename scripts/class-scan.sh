@@ -19,5 +19,5 @@ mhc class-scan \
     --data-directory "$ME_CACHE_DIRECTORY/data" \
     --jar-directory "$ME_CACHE_DIRECTORY/jar" \
     --java-options "-Xmx2g -Dlogback.configurationFile=$ME_CACHE_DIRECTORY/config/logback.xml" \
-    --project-range "1:" \
+    --project-index ":" \
     --replace

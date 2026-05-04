@@ -28,8 +28,9 @@ Exactly one of the following must be provided:
 |------|---------|--------|
 | `--project` | `checkstyle` | Single project |
 | `--projects` | `checkstyle,commons-io` | Explicit comma-separated list |
-| `--project-range` | `10:20` | 1-based inclusive row range from `repository.csv` |
-| `--project-range` | `:` | All projects |
+| `--project-index` | `10:20` | Python-style 0-based row slice from `repository.csv` (`10` through `19`) |
+| `--project-index` | `-1` | Last project |
+| `--project-index` | `:` | All projects |
 
 ## Commands
 

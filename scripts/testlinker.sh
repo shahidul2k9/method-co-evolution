@@ -20,7 +20,7 @@ ptc-testlinker testlinker \
     --cache-directory "$ME_CACHE_DIRECTORY" \
     --tokenizer-mode auto \
     --include-labels \
-    --project-range "2:2" \
+    --project-index "1" \
     --order-production-method testlinker \
     --replace \
     --model-name-or-path Salesforce/codet5-base

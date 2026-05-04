@@ -179,11 +179,11 @@ ptc-testlinker testlinker \
   --order-production-method testlinker \
   --model-name-or-path Salesforce/codet5-base
 
-# rows 10 through 20 from .white/data/repository/repository.csv
+# rows 10 through 19 from .white/data/repository/repository.csv
 ptc-testlinker testlinker \
   --stage all \
   --cache-directory .white \
-  --project-range "10:20" \
+  --project-index "10:20" \
   --tokenizer-mode auto \
   --include-labels \
   --order-production-method testlinker \
@@ -193,7 +193,7 @@ ptc-testlinker testlinker \
 ptc-testlinker testlinker \
   --stage all \
   --cache-directory .white \
-  --project-range ":" \
+  --project-index ":" \
   --tokenizer-mode auto \
   --include-labels \
   --order-production-method testlinker \

@@ -32,7 +32,7 @@ from ptc.testlinker.preprocess import preprocess_project
 
 @unittest.skipIf(pd is None, "pandas is required for TestLinker tests")
 class TestTestLinkerPipeline(unittest.TestCase):
-    def test_main_project_range_selects_repository_rows(self):
+    def test_main_project_index_selects_repository_rows(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cache_dir = Path(tmpdir)
             repository_dir = cache_dir / "data" / "repository"
@@ -59,8 +59,8 @@ class TestTestLinkerPipeline(unittest.TestCase):
                         "preprocess",
                         "--cache-directory",
                         str(cache_dir),
-                        "--project-range",
-                        "2:",
+                        "--project-index",
+                        "1:",
                     ],
                 ):
                     self.assertEqual(0, testlinker_main.main())

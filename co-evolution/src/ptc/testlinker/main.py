@@ -32,10 +32,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project", default=None, help="Project name.")
     parser.add_argument("--projects", default=None, help="Comma-separated project names.")
     parser.add_argument(
-        "--project-range",
+        "--project-index",
         default=None,
-        help="1-based inclusive project index range from <cache-directory>/data/repository/repository.csv. "
-        "Examples: '10:20', ':20', '10:', ':'.",
+        help="Python-style project index or slice from <cache-directory>/data/repository/repository.csv. "
+        "Examples: '10', '-1', '10:20', ':10', '10:', ':'.",
     )
     parser.add_argument(
         "--testlinker-directory",
@@ -116,29 +116,40 @@ def _load_repository_projects(cache_directory: str | Path) -> list[str]:
     return repository_df["project"].dropna().astype(str).tolist()
 
 
-def _parse_project_range(project_range: str | None, known_projects: list[str]) -> list[str]:
-    if not project_range:
+def _parse_project_index(project_index: str | None, known_projects: list[str]) -> list[str]:
+    if not project_index:
         return []
-    if ":" not in project_range:
-        raise ValueError("project-range must use 1-based inclusive indexes like 10:20, :20, 10:, or :")
 
-    start_text, end_text = project_range.split(":", maxsplit=1)
-    start_index = int(start_text) if start_text else 1
-    end_index = int(end_text) if end_text else len(known_projects)
+    if ":" not in project_index:
+        try:
+            return [known_projects[int(project_index)]]
+        except (ValueError, IndexError):
+            raise ValueError(
+                "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+            )
 
-    if start_index <= 0 or end_index <= 0 or start_index > end_index:
-        raise ValueError("project-range must use 1-based inclusive indexes like 10:20, :20, 10:, or :")
-    if end_index > len(known_projects):
-        raise ValueError(f"project-range end {end_index} exceeds repository count {len(known_projects)}")
-    return known_projects[start_index - 1:end_index]
+    if project_index.count(":") != 1:
+        raise ValueError(
+            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+        )
+
+    start_text, end_text = project_index.split(":", maxsplit=1)
+    try:
+        start_index = int(start_text) if start_text else None
+        end_index = int(end_text) if end_text else None
+    except ValueError:
+        raise ValueError(
+            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+        )
+    return known_projects[start_index:end_index]
 
 
 def _resolve_projects(args: argparse.Namespace, parser: argparse.ArgumentParser) -> list[str]:
     provided_selection_count = sum(
-        value is not None for value in (args.project, args.projects, args.project_range)
+        value is not None for value in (args.project, args.projects, args.project_index)
     )
     if provided_selection_count != 1:
-        parser.error("exactly one of --project, --projects, or --project-range is required")
+        parser.error("exactly one of --project, --projects, or --project-index is required")
 
     if args.project is not None:
         return [args.project]
@@ -149,7 +160,7 @@ def _resolve_projects(args: argparse.Namespace, parser: argparse.ArgumentParser)
         return projects
 
     try:
-        return _parse_project_range(args.project_range, _load_repository_projects(args.cache_directory))
+        return _parse_project_index(args.project_index, _load_repository_projects(args.cache_directory))
     except ValueError as exc:
         parser.error(str(exc))
 

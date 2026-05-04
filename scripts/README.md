@@ -35,7 +35,8 @@ Use exactly one of:
 | Flag | Example |
 |------|---------|
 | `--projects` | `"checkstyle,commons-io"` |
-| `--project-range` | `"10:20"` |
+| `--project-index` | `"10:20"` |
+| `--project-index` | `"-1"` |
 
 ### Execution modes
 

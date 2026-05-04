@@ -19,7 +19,7 @@ _KNOWN_OPTION_FLAGS = {
     "--merge-only",
     "--project",
     "--projects",
-    "--project-range",
+    "--project-index",
     "--shards",
     "--shard",
 }
@@ -70,42 +70,51 @@ def _parse_projects_csv(projects: str | None) -> list[str]:
     return [project.strip() for project in projects.split(",") if project.strip()]
 
 
-def _parse_project_range(project_range: str | None, known_projects: list[str]) -> list[str]:
-    if not project_range:
+def _parse_project_index(project_index: str | None, known_projects: list[str]) -> list[str]:
+    if not project_index:
         return []
-    if ":" not in project_range:
-        raise ValueError("project-range must use 1-based inclusive indexes like 10:20, :20, 10:, or :")
 
-    start_text, end_text = project_range.split(":", maxsplit=1)
-    start_index = int(start_text) if start_text else 1
-    end_index = int(end_text) if end_text else len(known_projects)
+    if ":" not in project_index:
+        try:
+            return [known_projects[int(project_index)]]
+        except (ValueError, IndexError):
+            raise ValueError(
+                "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+            )
 
-    if start_index <= 0 or end_index <= 0 or start_index > end_index:
-        raise ValueError("project-range must use 1-based inclusive indexes like 10:20, :20, 10:, or :")
-    if end_index > len(known_projects):
+    if project_index.count(":") != 1:
         raise ValueError(
-            f"project-range end {end_index} exceeds repository count {len(known_projects)}"
+            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
         )
-    return known_projects[start_index - 1:end_index]
+
+    start_text, end_text = project_index.split(":", maxsplit=1)
+    try:
+        start_index = int(start_text) if start_text else None
+        end_index = int(end_text) if end_text else None
+    except ValueError:
+        raise ValueError(
+            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+        )
+    return known_projects[start_index:end_index]
 
 
 def _resolve_projects(
     project: str | None,
     projects: str | None,
-    project_range: str | None,
+    project_index: str | None,
     known_projects: list[str],
 ) -> list[str]:
     provided_selection_count = sum(
-        value is not None for value in (project, projects, project_range)
+        value is not None for value in (project, projects, project_index)
     )
     if provided_selection_count != 1:
-        raise ValueError("exactly one of --project, --projects, or --project-range is required")
+        raise ValueError("exactly one of --project, --projects, or --project-index is required")
 
     if project is not None:
         return [project]
     if projects is not None:
         return _parse_projects_csv(projects)
-    return _parse_project_range(project_range, known_projects)
+    return _parse_project_index(project_index, known_projects)
 
 
 def main(argv: list[str] | None = None):
@@ -200,10 +209,10 @@ def main(argv: list[str] | None = None):
         help="Comma-separated project names.",
     )
     parser.add_argument(
-        "--project-range",
-        dest="project_range",
+        "--project-index",
+        dest="project_index",
         type=str,
-        help="1-based inclusive project index range from repository.csv, for example '10:20'.",
+        help="Python-style project index or slice from repository.csv, for example '10', '-1', '10:20', ':10', '10:', or ':'.",
     )
     parser.add_argument(
         "--shards",
@@ -255,7 +264,7 @@ def main(argv: list[str] | None = None):
             return _resolve_projects(
                 args.project,
                 args.projects,
-                args.project_range,
+                args.project_index,
                 repository_projects,
             )
         except ValueError as exc:

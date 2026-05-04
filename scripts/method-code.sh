@@ -18,5 +18,5 @@ mhc method-code \
     --repository-directory "$ME_CACHE_DIRECTORY/repository" \
     --data-directory "$ME_CACHE_DIRECTORY/data" \
     --jar-directory "$ME_CACHE_DIRECTORY/jar" \
-    --project-range "1:" \
+    --project-index ":" \
     --replace

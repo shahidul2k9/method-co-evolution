@@ -33,7 +33,7 @@ Options:
   --max-new-tokens        LLM generation cap per grouped case (default: 256)
   --resume                Resume mode: none, all, or error (default: none)
   --projects              Comma-separated project list for the array job
-  --project-range         1-based inclusive project range from repository.csv, for example 10:20
+  --project-index         Python-style project index or slice from repository.csv, for example 10, -1, 10:20, :10, 10:, or :
   --shards                Total method-history shards to run in parallel (default: 1)
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
   --top-k                 TestLinker top-k invocation count (default: 1)
@@ -68,7 +68,7 @@ BATCH_SIZE="4"
 MAX_NEW_TOKENS="256"
 RESUME_MODE="none"
 PROJECTS_CSV=""
-PROJECT_RANGE=""
+PROJECT_INDEX=""
 SHARDS="1"
 INPUT_KIND="t2p"
 TOP_K="1"
@@ -142,8 +142,8 @@ while [[ $# -gt 0 ]]; do
             PROJECTS_CSV="$2"
             shift 2
             ;;
-        --project-range)
-            PROJECT_RANGE="$2"
+        --project-index)
+            PROJECT_INDEX="$2"
             shift 2
             ;;
         --shards)
@@ -208,14 +208,14 @@ case "$COMMAND_NAME" in
         ;;
 esac
 
-if [[ -z "$PROJECTS_CSV" && -z "$PROJECT_RANGE" && "$COMMAND_NAME" != "index" ]]; then
-    echo "Error: one of --projects or --project-range is required."
+if [[ -z "$PROJECTS_CSV" && -z "$PROJECT_INDEX" && "$COMMAND_NAME" != "index" ]]; then
+    echo "Error: one of --projects or --project-index is required."
     usage
     exit 1
 fi
 
-if [[ -n "$PROJECTS_CSV" && -n "$PROJECT_RANGE" ]]; then
-    echo "Error: use either --projects or --project-range, not both."
+if [[ -n "$PROJECTS_CSV" && -n "$PROJECT_INDEX" ]]; then
+    echo "Error: use either --projects or --project-index, not both."
     usage
     exit 1
 fi
@@ -314,7 +314,6 @@ elif [[ "$COMMAND_NAME" == "testlinker" ]]; then
         testlinker
         --cache-directory "$CACHE_DIRECTORY"
         --stage "$STAGE"
-        --project "$PROJECT"
         --top-k "$TOP_K"
         --testlinker-directory "$CACHE_DIRECTORY/testlinker"
         --checkpoint "best-acc_and_f1"
@@ -322,6 +321,13 @@ elif [[ "$COMMAND_NAME" == "testlinker" ]]; then
         --tokenizer-mode "original"
         --include-labels
     )
+    if [[ -n "$PROJECT" ]]; then
+        TESTLINKER_ARGS+=(--project "$PROJECT")
+    elif [[ -n "$PROJECTS_CSV" ]]; then
+        TESTLINKER_ARGS+=(--projects "$PROJECTS_CSV")
+    elif [[ -n "$PROJECT_INDEX" ]]; then
+        TESTLINKER_ARGS+=(--project-index "$PROJECT_INDEX")
+    fi
     srun ptc-testlinker "${TESTLINKER_ARGS[@]}"
     echo "Task finished on $(hostname) at $(date) for TestLinker stage $STAGE, project $PROJECT, and top-k $TOP_K"
 else
@@ -358,10 +364,10 @@ else
         else
             MHC_ARGS+=(--projects "$PROJECTS_CSV")
         fi
-    elif [[ -n "$PROJECT_RANGE" ]]; then
-        MHC_ARGS+=(--project-range "$PROJECT_RANGE")
+    elif [[ -n "$PROJECT_INDEX" ]]; then
+        MHC_ARGS+=(--project-index "$PROJECT_INDEX")
     fi
 
     srun mhc "${MHC_ARGS[@]}"
-    echo "Task finished on $(hostname) at $(date) for tool name $TOOL_NAME, project selection ${PROJECT:-$PROJECTS_CSV$PROJECT_RANGE}, shard $SHARD/$SHARDS"
+    echo "Task finished on $(hostname) at $(date) for tool name $TOOL_NAME, project selection ${PROJECT:-$PROJECTS_CSV$PROJECT_INDEX}, shard $SHARD/$SHARDS"
 fi
