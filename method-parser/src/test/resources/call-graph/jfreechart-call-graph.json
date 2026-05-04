@@ -3,18 +3,18 @@
     {
       "name": "jfreechart",
       "repositoryUrl": "https://github.com/jfree/jfreechart",
-      "repositoryPath": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/repository/jfreechart",
+      "repositoryPath": "${ME_CACHE_DIRECTORY}/repository/jfreechart",
       "commitHash": "b3f5f21ba0fe32a8f7eccb6760a79df30628be3e",
       "cases": [
         {
           "name": "MillisecondTest",
           "targetPath": "tests/org/jfree/data/time/MillisecondTest.java",
-          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
         },
         {
           "name": "Millisecond",
           "targetPath": "source/org/jfree/data/time/Millisecond.java",
-          "outputDirectory": "${METHOD_EVOLUTION_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
         }
       ]
     }

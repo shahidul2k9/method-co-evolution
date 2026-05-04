@@ -671,7 +671,7 @@ class HistoryRepository:
                     continue
                 if to_url not in methods_by_url:
                     methods_by_url[to_url] = RelatedMethod(
-                        to_name=row.get("to_name", "") or row.get("to_fqs_alt", "") or to_url,
+                        to_name=row.get("to_name", "") or row.get("to_tctracer_fqs", "") or to_url,
                         to_url=to_url,
                         to_file=row.get("to_file", "") or "",
                         source_label=source_label,
@@ -691,7 +691,7 @@ class HistoryRepository:
                     continue
                 if from_url not in methods_by_url:
                     methods_by_url[from_url] = CallingMethod(
-                        from_name=row.get("from_name", "") or row.get("from_fqs_alt", "") or from_url,
+                        from_name=row.get("from_name", "") or row.get("from_tctracer_fqs", "") or from_url,
                         from_url=from_url,
                         from_file=row.get("from_file", "") or "",
                         source_label=source_label,

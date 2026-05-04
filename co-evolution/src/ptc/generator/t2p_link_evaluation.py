@@ -3,7 +3,7 @@ from mhc.config import *
 from mhc.util import *
 from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters
 
-ground_truth_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-ground-truth-updated")
+ground_truth_dir = Path(f"{PROJECT_DIRECTORY}/data/ground-truth/testlinker-t2p-ground-truth")
 link_root_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-link")
 output_dir = Path(f"{CACHE_DIRECTORY}/data/aggregate")
 mismatch_root_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-link-metric")
@@ -13,7 +13,8 @@ mismatch_root_dir.mkdir(parents=True, exist_ok=True)
 
 output_file = output_dir / "t2p_link_overall_metric.csv"
 
-TCTRACER_AVG_PROJECTS = {"commons-io", "commons-lang", "gson", "jfreechart"}
+TCTRACER_2020_AVG_PROJECTS = {"commons-io", "commons-lang", "jfreechart"}
+TCTRACER_2022_AVG_PROJECTS = {"commons-io", "commons-lang", "gson", "jfreechart"}
 TESTLINKER_AVG_PROJECTS = {"commons-io", "commons-lang", "gson", "jfreechart", "dubbo", "jenkins"}
 
 
@@ -107,8 +108,11 @@ def calculate_score(project: str, strategy_name: str, pred_detail_df: pd.DataFra
 def aggregate_project_groups(project_names: set[str]) -> list[tuple[str, set[str]]]:
     groups = []
 
-    if TCTRACER_AVG_PROJECTS.issubset(project_names):
-        groups.append(("avg-tctracer", TCTRACER_AVG_PROJECTS))
+    if TCTRACER_2020_AVG_PROJECTS.issubset(project_names):
+        groups.append(("avg-tctracer-2020", TCTRACER_2020_AVG_PROJECTS))
+
+    if TCTRACER_2022_AVG_PROJECTS.issubset(project_names):
+        groups.append(("avg-tctracer-2022", TCTRACER_2022_AVG_PROJECTS))
 
     if TESTLINKER_AVG_PROJECTS.issubset(project_names):
         groups.append(("avg-testlinker", TESTLINKER_AVG_PROJECTS))
@@ -168,6 +172,9 @@ def main(argv: list[str] | None = None) -> None:
                     rows.append(calculate_aggregate_score(project_label, strategy_name, aggregate_pairs))
 
     result_df = pd.DataFrame(rows)
+    if result_df.empty:
+        print(f"No results: ground-truth dir={ground_truth_dir}, link dir={link_root_dir}")
+        return
     result_df = convert_float_int_columns_to_nullable_int(result_df)
     result_df = result_df.sort_values(["project", "strategy"]).reset_index(drop=True)
     result_df.to_csv(output_file, index=False)

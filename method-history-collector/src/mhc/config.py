@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=".env", override=True)
 
 REQUIRED_VARS = [
+    "ME_PROJECT_DIRECTORY",
     "ME_CACHE_DIRECTORY",
     "ME_DATA_DIRECTORY",
     "ME_REPOSITORY_DIRECTORY",
@@ -18,6 +19,7 @@ if missing:
         f"Missing required environment variables: {', '.join(missing)}"
     )
 
+PROJECT_DIRECTORY = os.environ["ME_PROJECT_DIRECTORY"]
 CACHE_DIRECTORY = os.environ["ME_CACHE_DIRECTORY"]
 DATA_DIRECTORY = os.environ["ME_DATA_DIRECTORY"]
 REPOSITORY_DIRECTORY = os.environ["ME_REPOSITORY_DIRECTORY"]

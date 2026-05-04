@@ -1,5 +1,6 @@
 import os
 import subprocess
+import shlex
 from pandas import DataFrame
 import  mhc.git_repository as git
 import logging
@@ -9,7 +10,9 @@ from mhc.zip import load_zip_index, merge_folder_into_tar_gz
 
 def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,
                                       cache_directory: str, tool_name: str,
-                                      jar_file_map: dict[str, str]) -> None:
+                                      jar_file_map: dict[str, str],
+                                      replace: bool = False,
+                                      java_options: str | None = None) -> None:
     for _, repository in repository_df.iterrows():
         repository_name = repository["project"]
         url = repository['url']
@@ -39,10 +42,18 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
             fan_out_output_file_suffix = f"{repository_name}.csv"
             fan_out_output_file = os.path.join(fan_out_path, fan_out_output_file_suffix)
 
-            if fan_in_output_file_suffix not in fan_in_zip_index and fan_in_output_file_suffix not in fan_in_unzip_index:
+            if replace or (fan_in_output_file_suffix not in fan_in_zip_index and fan_in_output_file_suffix not in fan_in_unzip_index):
                 logging.info(f"Executing call graph for {repository_name} {commit['hash']} {commit_index}/{len(commits)}")
-                cmd = [
-                    "java", "-jar", jar_file_map[tool_name],
+                method_mapping_file = util.format_method_mapping_file(
+                    cache_directory,
+                    data_directory,
+                    repository_name,
+                )
+                java_cmd = ["java"]
+                if java_options:
+                    java_cmd.extend(shlex.split(java_options))
+                cmd = java_cmd + [
+                    "-jar", jar_file_map[tool_name],
                     "-command", "call-graph",
                     "-repository-path", repository_path,
                     "-repository-url", url,
@@ -51,6 +62,15 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
                     "-output-fan-in-file", fan_in_output_file,
                     "-output-fan-out-file", fan_out_output_file
                 ]
+                if method_mapping_file:
+                    cmd.extend(["-method-mapping-file", method_mapping_file])
+                else:
+                    print(
+                        "Warning: method mapping file was not passed for "
+                        f"{repository_name}. Expected one of: "
+                        f"{util.format_method_list_file(data_directory, repository_name)} "
+                        f"or {os.path.join(cache_directory, 'method', repository_name + '.csv')}"
+                    )
                 try:
                     subprocess.run(cmd, check=True, timeout=24*30*60)
                     fan_in_unzip_index.add(fan_in_output_file_suffix)

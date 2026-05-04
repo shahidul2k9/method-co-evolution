@@ -412,7 +412,7 @@ def _layout(input_kind: str) -> tuple[str, str, str]:
 
 def _display_method_text(row, prefix: str) -> str:
     for field_name in (
-        f"{prefix}_fqs_alt",
+        f"{prefix}_tctracer_fqs",
         f"{prefix}_fqs",
         f"{prefix}_sig",
         f"{prefix}_fqn",

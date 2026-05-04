@@ -29,9 +29,9 @@ def update_ground_truth():
                         'to_url': None
                     }
 
-                    for url_key, fqs_key, fqs_value in [("from_url", "from_fqs_alt", row.get('from_fqs_alt')),
-                                                        ("to_url", "to_fqs_alt", row.get('to_fqs_alt'))]:
-                        matched_df = method_df[method_df["fqs_alt"] == fqs_value]
+                    for url_key, fqs_key, fqs_value in [("from_url", "from_tctracer_fqs", row.get('from_tctracer_fqs')),
+                                                        ("to_url", "to_tctracer_fqs", row.get('to_tctracer_fqs'))]:
+                        matched_df = method_df[method_df["tctracer_fqs"] == fqs_value]
                         if len(matched_df) == 1:
                             updated_row[url_key] = matched_df.iloc[0].get('url')
                     new_rows.append(updated_row)
@@ -73,7 +73,7 @@ def escape_ground_truth_of_author_sun(projects: [str]):
         # This is much safer for Slurm environments
         data_gen = parse_three_columns(input_file)
         df = pd.DataFrame(data_gen, columns=['project', 'test-fqn', 'tested-method-fqn'])
-        df.rename(columns={'test-fqn': 'from_fqs_alt', 'tested-method-fqn':'to_fqs_alt'}, inplace=True)
+        df.rename(columns={'test-fqn': 'from_tctracer_fqs', 'tested-method-fqn':'to_tctracer_fqs'}, inplace=True)
         output_file = f'{DATA_DIRECTORY}/ground-truth-escaped/{file_name}.csv'
         os.makedirs(os.path.basename(output_file), exist_ok=True)
         # Save with QUOTE_ALL (quoting=1) to ensure columns 2 and 3 are escaped

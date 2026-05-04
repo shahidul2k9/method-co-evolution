@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import json
+import re
+import shutil
 from pathlib import Path
 
 import pandas as pd
 
-from ptc.testlinker.paths import input_csv_path, t2p_ground_truth_updated_file, testlinker_root
+from ptc.testlinker.paths import (
+    class_map_directory,
+    input_csv_path,
+    projects_all_functions_directory,
+    t2p_ground_truth_updated_file,
+    testlinker_root,
+)
 from ptc.testlinker.signatures import compact_signature, invocation_name, split_signature_params
 
 
@@ -27,6 +35,126 @@ INPUT_COLUMNS = [
 ]
 
 
+def generate_mapping_files(
+    cache_directory: str | Path,
+    project: str,
+    testlinker_directory: str | Path | None = None,
+    project_directory: str | Path | None = None,
+) -> None:
+    """Generate TestLinker mapping files from our class/method scan data."""
+    cache_root = Path(cache_directory)
+    root = testlinker_root(cache_root, testlinker_directory)
+
+    class_file = cache_root / "data" / "class" / f"{project}.csv"
+    method_file = cache_root / "data" / "method" / f"{project}.csv"
+
+    cls_map_dir = class_map_directory(root)
+    functions_dir = projects_all_functions_directory(root)
+    cls_map_dir.mkdir(parents=True, exist_ok=True)
+    functions_dir.mkdir(parents=True, exist_ok=True)
+
+    if project_directory:
+        _copy_class_mapping_files(Path(project_directory), cls_map_dir)
+
+    _generate_class_map_files(class_file, cls_map_dir, project)
+    _generate_functions_file(method_file, functions_dir, project)
+
+
+def _copy_class_mapping_files(project_dir: Path, cls_map_dir: Path) -> None:
+    source_dir = project_dir / "data" / "testlinker" / "class-mapping"
+    if not source_dir.exists():
+        return
+    for src_file in source_dir.iterdir():
+        if src_file.is_file():
+            shutil.copy2(src_file, cls_map_dir / src_file.name)
+
+
+def _generate_class_map_files(class_file: Path, class_map_dir: Path, project: str) -> None:
+    class_list: dict[str, list[str]] = {}
+    class_list_fqn: dict[str, list[str]] = {}
+
+    if class_file.exists():
+        try:
+            class_df = pd.read_csv(class_file, keep_default_na=False, na_filter=False)
+        except Exception:
+            class_df = pd.DataFrame()
+        for row in class_df.to_dict(orient="records"):
+            name = str(row.get("name", "") or "").strip()
+            fqn = str(row.get("fqn", "") or "").strip()
+            parent_names = str(row.get("parent_names", "") or "").strip()
+            if not name:
+                continue
+            if parent_names:
+                existing = class_list.setdefault(name, [])
+                for p in (p.strip() for p in parent_names.split("|") if p.strip()):
+                    if p not in existing:
+                        existing.append(p)
+            if fqn:
+                existing_fqns = class_list_fqn.setdefault(name, [])
+                if fqn not in existing_fqns:
+                    existing_fqns.append(fqn)
+
+    _write_json_single_line(class_map_dir / f"{project}_class_list.json", class_list)
+    _write_json_single_line(class_map_dir / f"{project}_class_list_fqn.json", class_list_fqn)
+
+
+def _generate_functions_file(method_file: Path, functions_dir: Path, project: str) -> None:
+    # method_name → class_prefix → set of (method_name, tuple(params)) for dedup
+    seen: dict[str, dict[str, set[tuple[str, ...]]]] = {}
+    all_functions: dict[str, dict[str, list[dict[str, list[str]]]]] = {}
+
+    if method_file.exists():
+        try:
+            method_df = pd.read_csv(method_file, keep_default_na=False, na_filter=False)
+        except Exception:
+            method_df = pd.DataFrame()
+        for row in method_df.to_dict(orient="records"):
+            sig = _best_method_signature(row)
+            if not sig or "(" not in sig:
+                continue
+            paren_idx = sig.index("(")
+            owner_and_name = sig[:paren_idx]
+            params_str = sig[paren_idx + 1:].rstrip(")")
+            params = [_simple_param(p.strip()) for p in params_str.split(",") if p.strip()] if params_str.strip() else []
+
+            dot_idx = owner_and_name.rfind(".")
+            if dot_idx < 0:
+                continue
+            method_name = owner_and_name[dot_idx + 1:]
+            class_prefix = owner_and_name[:dot_idx]
+            if not method_name or not class_prefix:
+                continue
+
+            key = (method_name, tuple(params))
+            if key in seen.setdefault(method_name, {}).setdefault(class_prefix, set()):
+                continue
+            seen[method_name][class_prefix].add(key)
+            all_functions.setdefault(method_name, {}).setdefault(class_prefix, []).append(
+                {method_name: params}
+            )
+
+    _write_json_single_line(functions_dir / f"{project}_all_functions_full.json", all_functions)
+
+
+def _best_method_signature(row: dict[str, object]) -> str:
+    for col in ("testlinker_fqs", "tctracer_fqs", "fqs"):
+        val = str(row.get(col, "") or "").strip()
+        if val and "(" in val:
+            return val
+    return ""
+
+
+def _simple_param(type_name: str) -> str:
+    type_name = re.sub(r"<.*>", "", type_name).strip()
+    if type_name.endswith("..."):
+        type_name = type_name[:-3] + "[]"
+    return type_name.split(".")[-1]
+
+
+def _write_json_single_line(path: Path, data: object) -> None:
+    path.write_text(json.dumps(data, ensure_ascii=True), encoding="utf-8")
+
+
 def preprocess_project(
     *,
     cache_directory: str | Path,
@@ -35,16 +163,25 @@ def preprocess_project(
     include_labels: bool = False,
     order_production_method: str = "candidate",
     order_production_directory: str | Path | None = None,
+    mapping_mode: str = "testlinker-heuristics",
+    replace: bool = False,
+    project_directory: str | Path | None = None,
 ) -> pd.DataFrame:
     cache_root = Path(cache_directory)
     root = testlinker_root(cache_root, testlinker_directory)
+
+    output_file = input_csv_path(root, project)
+    if not replace and output_file.exists():
+        return pd.read_csv(output_file, keep_default_na=False, na_filter=False)
+
+    generate_mapping_files(cache_directory, project, testlinker_directory, project_directory)
     candidate_file = cache_root / "data" / "t2p-candidate" / f"{project}.csv"
     if not candidate_file.exists():
         raise FileNotFoundError(f"Candidate file not found: {candidate_file}")
 
     method_code_file = cache_root / "data" / "method-code" / f"{project}.csv"
     method_code_lookup = _load_method_code_lookup(method_code_file)
-    label_lookup = _load_label_lookup(t2p_ground_truth_updated_file(cache_root, project)) if include_labels else {}
+    label_lookup = _load_label_lookup(t2p_ground_truth_updated_file(project_directory or cache_root, project)) if include_labels else {}
     invocation_order_lookup = _load_invocation_order_lookup(project, order_production_method, order_production_directory)
     candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)
     required_columns = {"project", "from_url", "from_name", "from_file", "to_url", "to_name"}
@@ -132,7 +269,7 @@ def _load_label_lookup(ground_truth_path: Path) -> dict[str, dict[str, object]]:
     for row in ground_truth_df.to_dict(orient="records"):
         from_url = str(row.get("from_url", "") or "")
         to_url = str(row.get("to_url", "") or "")
-        label = compact_signature(row.get("to_fqs_alt", ""))
+        label = compact_signature(row.get("to_tctracer_fqs", ""))
         if not from_url or not to_url:
             continue
         payload = label_lookup.setdefault(from_url, {"signatures": [], "urls": set()})
@@ -193,7 +330,7 @@ def _strip_method_declaration(code: str) -> str:
 
 
 def _candidate_signature(row: dict[str, object]) -> str:
-    for column in ("to_fqs_alt", "to_fqs", "to_fqn", "to_name"):
+    for column in ("to_tctracer_fqs", "to_fqs", "to_fqn", "to_name"):
         value = str(row.get(column, "") or "").strip()
         if value:
             return value

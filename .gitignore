@@ -214,3 +214,7 @@ __marimo__/
 # Project files
 paper/
 /testlinker
+/pytracer
+/tctracer-2020
+/tctracer-2022
+CLAUDE.md

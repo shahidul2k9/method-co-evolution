@@ -50,7 +50,7 @@ public class MethodParserUtil {
                                 .forEach(p -> files.add(p.toString()));
                     }
                 } catch (IOException e) {
-                    log.error("Failed to scan path {}", path, e);
+                    log.warn("Failed to scan path {}", path, e);
                 }
             }
         }

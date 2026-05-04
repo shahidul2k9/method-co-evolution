@@ -1,25 +1,47 @@
 package rnd.method.parser.call.graph.util;
 
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
-import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
-import com.github.javaparser.resolution.UnsolvedSymbolException;
+import com.github.javaparser.ast.expr.ObjectCreationExpr;
 
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Deque;
+import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 public class AltConstructorDeclarationFqn {
 
-    public static String getMethodFqnSimpleParams(ConstructorDeclaration constructorDeclaration) {
+    /**
+     * Builds the TCTracer-style FQS for a declared constructor: fully-qualified class name,
+     * simple (unqualified) parameter type names, varargs as {@code []}.
+     *
+     * @see AltMethodDeclarationFqn#buildSimpleParamSignature
+     */
+    public static String buildSimpleParamSignature(ConstructorDeclaration constructorDeclaration) {
+        return buildSignature(constructorDeclaration, false);
+    }
+
+    /**
+     * Builds the fully-qualified FQS for a declared constructor: fully-qualified class name,
+     * fully-qualified parameter type names, varargs as {@code []}.
+     *
+     * @see AltMethodDeclarationFqn#buildQualifiedParamSignature
+     */
+    public static String buildQualifiedParamSignature(ConstructorDeclaration constructorDeclaration) {
+        return buildSignature(constructorDeclaration, true);
+    }
+
+    public static String buildSignature(ConstructorDeclaration constructorDeclaration, boolean qualifiedParams) {
         String classFqn = getDeclaringTypeFqnSafe(constructorDeclaration);
         String methodName = constructorDeclaration.getNameAsString();
 
         String params = IntStream.range(0, constructorDeclaration.getParameters().size())
-                .mapToObj(i -> getSimpleParamTypeSafe(constructorDeclaration, i))
+                .mapToObj(i -> ParamTypeNameUtil.getParamTypeSafe(constructorDeclaration.getParameter(i), qualifiedParams))
                 .collect(Collectors.joining(", "));
 
         return classFqn + "." + methodName + "(" + params + ")";
@@ -49,10 +71,14 @@ public class AltConstructorDeclarationFqn {
 
         Deque<String> typeNames = new ArrayDeque<>();
 
-        TypeDeclaration<?> current = constructorDeclaration.findAncestor(TypeDeclaration.class).orElse(null);
-        while (current != null) {
-            typeNames.push(current.getNameAsString());
-            current = current.findAncestor(TypeDeclaration.class).orElse(null);
+        Node node = constructorDeclaration.getParentNode().orElse(null);
+        while (node != null && !(node instanceof CompilationUnit)) {
+            if (node instanceof TypeDeclaration<?> td) {
+                typeNames.push(td.getNameAsString());
+            } else if (node instanceof ObjectCreationExpr oce && oce.getAnonymousClassBody().isPresent()) {
+                typeNames.push("$" + AltMethodDeclarationFqn.anonymousClassIndex(oce));
+            }
+            node = node.getParentNode().orElse(null);
         }
 
         String typePath = String.join(".", typeNames);
@@ -66,47 +92,4 @@ public class AltConstructorDeclarationFqn {
         return null;
     }
 
-    private static String getSimpleParamTypeSafe(ConstructorDeclaration methodDeclaration, int paramIndex) {
-        // First try resolved type
-        try {
-            String resolvedType = methodDeclaration.resolve().getParam(paramIndex).describeType();
-            return toSimpleTypeName(resolvedType);
-        } catch (UnsolvedSymbolException e) {
-            // fallback to source text, e.g. "Address", "List<Address>", "Foo[]"
-            return toSimpleTypeName(methodDeclaration.getParameter(paramIndex).getType().asString());
-        } catch (Exception e) {
-            return toSimpleTypeName(methodDeclaration.getParameter(paramIndex).getType().asString());
-        }
-    }
-
-    private static String toSimpleTypeName(String typeName) {
-        if (typeName == null || typeName.isBlank()) {
-            return typeName;
-        }
-
-        typeName = typeName.trim();
-
-        // varargs
-        if (typeName.endsWith("...")) {
-            String elementType = typeName.substring(0, typeName.length() - 3);
-//            return toSimpleTypeName(elementType) + "...";
-            return toSimpleTypeName(elementType) + "[]";
-        }
-
-        // arrays
-        if (typeName.endsWith("[]")) {
-            String elementType = typeName.substring(0, typeName.length() - 2);
-            return toSimpleTypeName(elementType) + "[]";
-        }
-
-        // remove generics: List<com.foo.Address> -> List
-        int genericStart = typeName.indexOf('<');
-        if (genericStart >= 0) {
-            typeName = typeName.substring(0, genericStart);
-        }
-
-        // remove package: java.util.List -> List
-        int lastDot = typeName.lastIndexOf('.');
-        return lastDot >= 0 ? typeName.substring(lastDot + 1) : typeName;
-    }
 }

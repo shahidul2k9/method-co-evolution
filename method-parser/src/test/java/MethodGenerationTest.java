@@ -25,8 +25,9 @@ public class MethodGenerationTest extends TestConfigurationBase {
     private String REPOSITORY_DIRECTORY;
 
     @TestFactory
-    public DynamicNode testGson() {
-        return generateTestCases("gson");
+    public DynamicNode testMethodParsing() {
+        String targetFile = TestConfigurationBase.getEnv("TEST_CONFIG_FILE", "gson");
+        return generateTestCases(targetFile);
     }
 
     private static @NonNull DynamicContainer generateTestCases(String fileNameInfix) {
@@ -63,7 +64,7 @@ public class MethodGenerationTest extends TestConfigurationBase {
                                 }
                             }
                             String outputDirectory = TestConfigurationBase.resolvePlaceholders(testCase.outputDirectory);
-                            TableUtil.toTable(methods, String.format(Locale.CANADA, "%s/method/%s/%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash));
+                            TableUtil.toTable(methods, String.format(Locale.CANADA, "%s/method/%s--%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash));
 
                         })))));
     }

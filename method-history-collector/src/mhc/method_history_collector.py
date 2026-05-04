@@ -1,9 +1,11 @@
 from mhc.method_history_jar_runner import *
 from mhc.call_graph import execute_call_graph_if_missing
+from mhc.class_scanner import scan_class as _scan_class
 from mhc.complexity_analyzer import ComplexityAnalyzer
 from pathlib import Path
 import os
 import pandas as pd
+import mhc.util as util
 from mhc.method_history_jar_runner import DEFAULT_MERGE_THRESHOLD
 
 
@@ -36,14 +38,36 @@ class MethodHistoryCollector:
                 if pattern.lower() in file.replace("-", "").lower():
                     self.jar_file_map[pattern] = file
 
-    def scan_method(self, repositories: list[str], java_options: str | None = None):
+    def scan_class(self, repositories: list[str], java_options: str | None = None, replace: bool = False):
         try:
-            ms.start_java_jar([self.jar_file_map["methodParser"]], java_options)
+            ms.start_java_jar(
+                [self.jar_file_map["methodParser"]],
+                util.java_options_with_logback_config(java_options, self.cache_directory),
+            )
+            _scan_class(
+                self.repository_df[self.repository_df["project"].isin(repositories)],
+                self.repository_directory,
+                self.data_directory,
+                self.cache_directory,
+                replace,
+            )
+        except Exception as e:
+            raise e
+        finally:
+            ms.stop_java_jar()
+
+    def scan_method(self, repositories: list[str], java_options: str | None = None, replace: bool = False):
+        try:
+            ms.start_java_jar(
+                [self.jar_file_map["methodParser"]],
+                util.java_options_with_logback_config(java_options, self.cache_directory),
+            )
             ms.scan_method(
                 self.repository_df[self.repository_df["project"].isin(repositories)],
                 self.repository_directory,
                 self.data_directory,
                 self.cache_directory,
+                replace,
             )
         except Exception as e:
             raise e
@@ -91,7 +115,7 @@ class MethodHistoryCollector:
             self.data_directory,
         )
 
-    def generate_call_graph(self, repositories: list[str], tool_names: list[str]):
+    def generate_call_graph(self, repositories: list[str], tool_names: list[str], replace: bool = False, java_options: str | None = None):
         execute_call_graph_if_missing(
             self.repository_df[self.repository_df["project"].isin(repositories)],
             self.repository_directory,
@@ -99,6 +123,8 @@ class MethodHistoryCollector:
             self.cache_directory,
             tool_names[-1],
             self.jar_file_map,
+            replace,
+            util.java_options_with_logback_config(java_options, self.cache_directory),
         )
 
     def run_complexity_analyzer(self, repositories: list[str], tool_name: str):

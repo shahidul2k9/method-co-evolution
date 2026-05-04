@@ -189,14 +189,14 @@ class DataFrameMethodLinker:
     def _normalize_dataframe(edge_df):
         column_aliases = {
             "project": ["project"],
-            "from_name": ["from_name", "from_fqs_alt", "from_fqs", "from_sig", "from_fqn"],
-            "to_name": ["to_name", "to_fqs_alt", "to_fqs", "to_sig", "to_fqn"],
+            "from_name": ["from_name", "from_tctracer_fqs", "from_fqs", "from_sig", "from_fqn"],
+            "to_name": ["to_name", "to_tctracer_fqs", "to_fqs", "to_sig", "to_fqn"],
             "from_fqs": ["from_fqs", "from_fqn", "from_name"],
             "to_fqs": ["to_fqs", "to_fqn", "to_name"],
-            "from_fqs_alt": ["from_fqs_alt", "from_fqs", "from_sig", "from_fqn", "from_name"],
-            "to_fqs_alt": ["to_fqs_alt", "to_fqs", "to_sig", "to_fqn", "to_name"],
-            "from_sig": ["from_sig", "from_fqs", "from_fqs_alt", "from_fqn"],
-            "to_sig": ["to_sig", "to_fqs", "to_fqs_alt", "to_fqn"],
+            "from_tctracer_fqs": ["from_tctracer_fqs", "from_fqs", "from_sig", "from_fqn", "from_name"],
+            "to_tctracer_fqs": ["to_tctracer_fqs", "to_fqs", "to_sig", "to_fqn", "to_name"],
+            "from_sig": ["from_sig", "from_fqs", "from_tctracer_fqs", "from_fqn"],
+            "to_sig": ["to_sig", "to_fqs", "to_tctracer_fqs", "to_fqn"],
         }
         for canonical_column, aliases in column_aliases.items():
             if canonical_column in edge_df.columns:

@@ -1,5 +1,6 @@
 package rnd.method.parser.call.graph.util;
 
+import rnd.method.parser.call.graph.model.ClassMapping;
 import rnd.method.parser.call.graph.model.Method;
 import rnd.method.parser.call.graph.model.MethodCall;
 import tech.tablesaw.api.IntColumn;
@@ -26,7 +27,11 @@ public class TableUtil {
         StringColumn pkgColumn = StringColumn.create("pkg");
         StringColumn fqnColumn = StringColumn.create("fqn");
         StringColumn fqsColumn = StringColumn.create("fqs");
-        StringColumn fqsAltColumn = StringColumn.create("fqs_alt");
+        StringColumn tcTracerFqsColumn = StringColumn.create("tctracer_fqs");
+        StringColumn testlinkerFqsColumn = StringColumn.create("testlinker_fqs");
+        StringColumn testlinkerFqpColumn = StringColumn.create("testlinker_fqp");
+        IntColumn abstractColumn = IntColumn.create("abstract");
+        StringColumn resolverColumn = StringColumn.create("resolver");
         StringColumn hashColumn = StringColumn.create("hash");
         StringColumn parserColumn = StringColumn.create("parser");
 //        IntColumn invocationLineColumn = IntColumn.create("invocation_line");
@@ -63,9 +68,20 @@ public class TableUtil {
             if (m.getFqs() == null) fqsColumn.appendMissing();
             else fqsColumn.append(m.getFqs());
 
-            if (m.getFqsAlt() == null) fqsAltColumn.appendMissing();
-            else fqsAltColumn.append(m.getFqsAlt());
+            if (m.getTcTracerFqs() == null) tcTracerFqsColumn.appendMissing();
+            else tcTracerFqsColumn.append(m.getTcTracerFqs());
 
+            if (m.getTestlinkerFqs() == null) testlinkerFqsColumn.appendMissing();
+            else testlinkerFqsColumn.append(m.getTestlinkerFqs());
+
+            if (m.getTestlinkerFqp() == null) testlinkerFqpColumn.appendMissing();
+            else testlinkerFqpColumn.append(m.getTestlinkerFqp());
+
+            if (m.getAbstractMethod() == null) abstractColumn.appendMissing();
+            else abstractColumn.append(m.getAbstractMethod());
+
+            if (m.getResolver() == null) resolverColumn.appendMissing();
+            else resolverColumn.append(m.getResolver());
 
             if (m.getHash() == null) hashColumn.appendMissing();
             else hashColumn.append(m.getHash());
@@ -94,10 +110,14 @@ public class TableUtil {
                         pkgColumn,
                         fqnColumn,
                         fqsColumn,
-                        fqsAltColumn,
+                        tcTracerFqsColumn,
+                        testlinkerFqsColumn,
+                        testlinkerFqpColumn,
                         fileColumn,
-                        hashColumn,
-                        parserColumn
+                        abstractColumn,
+                        parserColumn,
+                        resolverColumn,
+                        hashColumn
 //                        ,
 //                        invocationLineColumn,
 //                        lastAssertionLineColumn
@@ -117,7 +137,10 @@ public class TableUtil {
         StringColumn fromPkgColumn = StringColumn.create("from_pkg");
         StringColumn fromFqnColumn = StringColumn.create("from_fqn");
         StringColumn fromFqsColumn = StringColumn.create("from_fqs");
-        StringColumn fromFqsAltColumn = StringColumn.create("from_fqs_alt");
+        StringColumn fromTcTracerFqsColumn = StringColumn.create("from_tctracer_fqs");
+        StringColumn fromTestlinkerFqsColumn = StringColumn.create("from_testlinker_fqs");
+        StringColumn fromTestlinkerFqpColumn = StringColumn.create("from_testlinker_fqp");
+        StringColumn fromResolverColumn = StringColumn.create("from_resolver");
         IntColumn fromInvocationLineColumn = IntColumn.create("from_invocation");
         IntColumn fromLastCallBeforeAnAssertion = IntColumn.create("from_lcba");
         StringColumn fromCallerUrlColumn = StringColumn.create("from_caller_url");
@@ -134,7 +157,10 @@ public class TableUtil {
         StringColumn toMethodPkgColumn = StringColumn.create("to_pkg");
         StringColumn toFqnColumn = StringColumn.create("to_fqn");
         StringColumn toFqsColumn = StringColumn.create("to_fqs");
-        StringColumn toFqsAltColumn = StringColumn.create("to_fqs_alt");
+        StringColumn toTcTracerFqsColumn = StringColumn.create("to_tctracer_fqs");
+        StringColumn toTestlinkerFqsColumn = StringColumn.create("to_testlinker_fqs");
+        StringColumn toTestlinkerFqpColumn = StringColumn.create("to_testlinker_fqp");
+        StringColumn toResolverColumn = StringColumn.create("to_resolver");
         IntColumn  toInvocationLineColumn = IntColumn.create("to_invocation");
         IntColumn toLastCallBeforeAnAssertion = IntColumn.create("to_lcba");
         StringColumn toCallerUrlColumn = StringColumn.create("to_caller_url");
@@ -168,11 +194,14 @@ public class TableUtil {
 
 
         allColumns.add(fromFqsColumn);
+        allColumns.add(fromTcTracerFqsColumn);
+        allColumns.add(fromTestlinkerFqsColumn);
+        allColumns.add(fromTestlinkerFqpColumn);
+
         allColumns.add(toFqsColumn);
-
-
-        allColumns.add(fromFqsAltColumn);
-        allColumns.add(toFqsAltColumn);
+        allColumns.add(toTcTracerFqsColumn);
+        allColumns.add(toTestlinkerFqsColumn);
+        allColumns.add(toTestlinkerFqpColumn);
 
         allColumns.add(fromMethodStartLineColumn);
         allColumns.add(fromMethodEndLineColumn);
@@ -197,6 +226,8 @@ public class TableUtil {
         allColumns.add(fromCallDepthColumn);
         allColumns.add(toCallDepthColumn);
         allColumns.add(commitHashColumn);
+        allColumns.add(fromResolverColumn);
+        allColumns.add(toResolverColumn);
         Table table = Table.create(allColumns);
         for (MethodCall mc : methodCalls) {
             Method one = mc.getMethod();
@@ -234,8 +265,17 @@ public class TableUtil {
                 fromFqsColumn.append(from.getFqs());
                 toFqsColumn.append(to.getFqs());
 
-                fromFqsAltColumn.append(from.getFqsAlt());
-                toFqsAltColumn.append(to.getFqsAlt());
+                fromTcTracerFqsColumn.append(from.getTcTracerFqs());
+                toTcTracerFqsColumn.append(to.getTcTracerFqs());
+
+                fromTestlinkerFqsColumn.append(from.getTestlinkerFqs());
+                toTestlinkerFqsColumn.append(to.getTestlinkerFqs());
+
+                fromTestlinkerFqpColumn.append(from.getTestlinkerFqp());
+                toTestlinkerFqpColumn.append(to.getTestlinkerFqp());
+
+                fromResolverColumn.append(from.getResolver());
+                toResolverColumn.append(to.getResolver());
 
                 fromExpressionColumn.append(from.getExpression());
                 toExpressionColumn.append(to.getExpression());
@@ -255,6 +295,75 @@ public class TableUtil {
             }
         }
         boolean mkdirs = new File(outputPath).getParentFile().mkdirs();
+        table.write().csv(outputPath);
+    }
+
+    public static void toClassTable(List<ClassMapping> classes, String outputPath) {
+        StringColumn projectColumn      = StringColumn.create("project");
+        StringColumn nameColumn         = StringColumn.create("name");
+        StringColumn fqnColumn          = StringColumn.create("fqn");
+        StringColumn pkgColumn          = StringColumn.create("pkg");
+        StringColumn fileColumn         = StringColumn.create("file");
+        StringColumn urlColumn          = StringColumn.create("url");
+        IntColumn startLineColumn       = IntColumn.create("start_line");
+        IntColumn endLineColumn         = IntColumn.create("end_line");
+        StringColumn expressionColumn   = StringColumn.create("expression");
+        StringColumn artifactColumn     = StringColumn.create("artifact");
+        IntColumn abstractColumn        = IntColumn.create("abstract");
+        StringColumn parentNamesColumn  = StringColumn.create("parent_names");
+        StringColumn parentFqnsColumn   = StringColumn.create("parent_fqns");
+        StringColumn hashColumn         = StringColumn.create("hash");
+
+        for (ClassMapping c : classes) {
+            projectColumn.append(c.getRepositoryName());
+            nameColumn.append(c.getName());
+
+            if (c.getFqn() == null)       fqnColumn.appendMissing();
+            else                          fqnColumn.append(c.getFqn());
+
+            if (c.getPkg() == null)       pkgColumn.appendMissing();
+            else                          pkgColumn.append(c.getPkg());
+
+            if (c.getFile() == null)      fileColumn.appendMissing();
+            else                          fileColumn.append(c.getFile());
+
+            if (c.getUrl() == null)       urlColumn.appendMissing();
+            else                          urlColumn.append(c.getUrl());
+
+            if (c.getStartLine() == null) startLineColumn.appendMissing();
+            else                          startLineColumn.append(c.getStartLine());
+
+            if (c.getEndLine() == null)   endLineColumn.appendMissing();
+            else                          endLineColumn.append(c.getEndLine());
+
+            if (c.getExpression() == null) expressionColumn.appendMissing();
+            else                           expressionColumn.append(c.getExpression());
+
+            if (c.getArtifact() == null)  artifactColumn.appendMissing();
+            else                          artifactColumn.append(c.getArtifact());
+
+            if (c.getAbstractClass() == null) abstractColumn.appendMissing();
+            else                              abstractColumn.append(c.getAbstractClass());
+
+            if (c.getParentNames() == null) parentNamesColumn.appendMissing();
+            else                            parentNamesColumn.append(c.getParentNames());
+
+            if (c.getParentFqns() == null)  parentFqnsColumn.appendMissing();
+            else                            parentFqnsColumn.append(c.getParentFqns());
+
+            if (c.getHash() == null)      hashColumn.appendMissing();
+            else                          hashColumn.append(c.getHash());
+        }
+
+        Table table = Table.create("class")
+                .addColumns(
+                        projectColumn, nameColumn, fqnColumn, pkgColumn,
+                        fileColumn, urlColumn, startLineColumn, endLineColumn,
+                        expressionColumn, artifactColumn, abstractColumn,
+                        parentNamesColumn, parentFqnsColumn,
+                        hashColumn
+                );
+        new File(outputPath).getParentFile().mkdirs();
         table.write().csv(outputPath);
     }
 }

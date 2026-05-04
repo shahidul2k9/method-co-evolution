@@ -16,7 +16,10 @@ public class Method {
     String pkg;
     String fqn;
     String fqs;
-    String fqsAlt;
+    String tcTracerFqs;
+    String testlinkerFqs;
+    String testlinkerFqp;
+    String resolver;
     String file;
     String url;
     String callerUrl;
@@ -27,6 +30,7 @@ public class Method {
     String artifact;
     String hash;
     Integer lcba;
+    Integer abstractMethod;
 
     @Override
     public String toString() {
