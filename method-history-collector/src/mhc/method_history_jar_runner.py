@@ -106,7 +106,7 @@ def update_repository_index(repository_df: DataFrame, history_dir: str, data_dir
             zip_index = load_zip_index(zip_file)
             zip_index = set(filter(lambda file: file.endswith(".json"), zip_index))
             repository_statistics[repository_name][f"history_{tooName}"] = len(zip_index)
-    for fan in ["fan-in", "fan-out"]:
+    for fan in ["fanin", "callgraph"]:
         for zip_file in Path(data_dir, fan).rglob("*.tar.gz"):
             repository_name = zip_file.name[:-len(".tar.gz")]
             if repository_name not in repository_statistics:

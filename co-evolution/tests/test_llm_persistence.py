@@ -22,7 +22,7 @@ from ptc.llm.models import GenerationConfig, ProviderGeneration
 class TestCsvRunStore(unittest.TestCase):
     def test_completed_ids_and_csv_export(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            store = CsvRunStore(tmpdir, "fan-out", "openai/gpt-oss-20b", "commons-io.csv")
+            store = CsvRunStore(tmpdir, "callgraph", "openai/gpt-oss-20b", "commons-io.csv")
 
             with store.runs_file.open("w", encoding="utf-8", newline="") as handle:
                 writer = csv.DictWriter(

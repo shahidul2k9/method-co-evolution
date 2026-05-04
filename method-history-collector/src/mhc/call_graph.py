@@ -22,10 +22,10 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
         commits = git.get_all_commit_info(repository_path, hash)
         assert commits[0]['hash'] == hash, "The first commit should be the commit hash in the repository file"
         commit_index = 1
-        # fan_in_path = f"{data_directory}/fan-in-gz/{repository_name}"
-        # fan_out_path = f"{data_directory}/fan-out-gz/{repository_name}"
-        fan_in_path = f"{data_directory}/fan-in"
-        fan_out_path = f"{data_directory}/fan-out"
+        # fan_in_path = f"{data_directory}/fanin-gz/{repository_name}"
+        # fan_out_path = f"{data_directory}/callgraph-gz/{repository_name}"
+        fan_in_path = f"{data_directory}/fanin"
+        fan_out_path = f"{data_directory}/callgraph"
 
         fan_in_tar_gz = f"{fan_in_path}.tar.gz"
         repository_name_prefix = f"{repository_name}/"

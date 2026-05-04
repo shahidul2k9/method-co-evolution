@@ -15,7 +15,7 @@ pip install -e ./co-evolution[llm]     # adds OpenAI + HuggingFace backends
 
 ## `ptc-llm llm-m2m-link`
 
-Classifies test↔production method pairs as linked or not using an LLM. Inputs are candidate-pair CSVs produced by the generator scripts (`data/fan-out/` for `t2p`, `data/fan-in/` for `p2t`). Rows are grouped by source method URL; each group becomes one prompt.
+Classifies test↔production method pairs as linked or not using an LLM. Inputs are candidate-pair CSVs produced by the generator scripts (`data/callgraph/` for `t2p`, `data/fanin/` for `p2t`). Rows are grouped by source method URL; each group becomes one prompt.
 
 ```bash
 # OpenAI Responses API

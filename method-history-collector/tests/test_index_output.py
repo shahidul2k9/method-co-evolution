@@ -340,13 +340,13 @@ class TestIndexOutput(unittest.TestCase):
                 },
             )
             _write_tar_gz(
-                data_directory / "fan-in" / "checkstyle.tar.gz",
+                data_directory / "fanin" / "checkstyle.tar.gz",
                 {
                     "checkstyle/A.csv": "value\n1\n",
                 },
             )
             _write_tar_gz(
-                data_directory / "fan-out" / "checkstyle.tar.gz",
+                data_directory / "callgraph" / "checkstyle.tar.gz",
                 {
                     "checkstyle/A.csv": "value\n1\n",
                     "checkstyle/B.csv": "value\n2\n",
@@ -366,8 +366,8 @@ class TestIndexOutput(unittest.TestCase):
             self.assertEqual(["checkstyle"], output_df["project"].tolist())
             self.assertEqual([3], output_df["methods"].tolist())
             self.assertEqual([2], output_df["history_codeShovel"].tolist())
-            self.assertEqual([1], output_df["fan-in"].tolist())
-            self.assertEqual([2], output_df["fan-out"].tolist())
+            self.assertEqual([1], output_df["fanin"].tolist())
+            self.assertEqual([2], output_df["callgraph"].tolist())
 
     def test_merge_folder_into_tar_gz_only_removes_merged_json_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -258,7 +258,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "t2p-link/omc--nc--ncc--max",
                 "t2p-link/qwen-2d5b",
                 "t2p-candidate",
-                "fan-out",
+                "callgraph",
             ],
             options,
         )

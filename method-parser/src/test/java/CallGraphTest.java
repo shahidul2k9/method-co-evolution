@@ -127,8 +127,8 @@ public class CallGraphTest extends TestConfigurationBase {
                         projectConfig.cases.stream().map(testCase -> {
                             java.util.List<DynamicNode> caseNodes = new java.util.ArrayList<>();
                             String outputDirectory = TestConfigurationBase.resolvePlaceholders(testCase.outputDirectory);
-                            String fanOutFile = String.format(Locale.CANADA, "%s/fan-out/%s--%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash);
-                            String fanInFile = String.format(Locale.CANADA, "%s/fan-in/%s--%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash);
+                            String fanOutFile = String.format(Locale.CANADA, "%s/callgraph/%s--%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash);
+                            String fanInFile = String.format(Locale.CANADA, "%s/fanin/%s--%s--%s.csv", outputDirectory, projectConfig.name, testCase.name, projectConfig.commitHash);
                             String methodMappingFile = TestConfigurationBase.getEnv(
                                     "METHOD_MAPPING_FILE",
                                     String.format(Locale.CANADA, "%s/data/method/%s.csv",
@@ -184,8 +184,8 @@ public class CallGraphTest extends TestConfigurationBase {
                 "--repository-path", repositoryPath,
                 "--start-commit", "164a755af951cf0fd459d70873e1c199210d9d8b",
                 "--target-path", ".",
-                "--output-fan-in-file", "../.cache/test/fan-in/checkstyle/checkstyle--fan-in--164a755af951cf0fd459d70873e1c199210d9d8b.csv",
-                "--output-fan-out-file", "../.cache/test/fan-out/checkstyle/checkstyle--fan-out--164a755af951cf0fd459d70873e1c199210d9d8b.csv"
+                "--output-fan-in-file", "../.cache/test/fanin/checkstyle/checkstyle--fan-in--164a755af951cf0fd459d70873e1c199210d9d8b.csv",
+                "--output-fan-out-file", "../.cache/test/callgraph/checkstyle/checkstyle--fan-out--164a755af951cf0fd459d70873e1c199210d9d8b.csv"
         };
 
         assertDoesNotThrow(() -> Main.main(args));

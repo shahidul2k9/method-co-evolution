@@ -107,7 +107,7 @@ Key options:
 
 ### `mhc method-callgraph`
 
-Generates fan-out and fan-in call-graph CSVs via the method-parser JAR. See [method-parser/README.md](../method-parser/README.md) for the column schema.
+Generates callgraph (fan-out) and fanin call-graph CSVs via the method-parser JAR. See [method-parser/README.md](../method-parser/README.md) for the column schema.
 
 ```bash
 mhc method-callgraph \

@@ -42,10 +42,10 @@ cd method-parser && mvn clean install -DskipTests
 ```
 repository.csv
   → mhc method-scan        → data/method/{project}.csv
-  → mhc method-callgraph   → data/call-graph/{project}.csv (fan-in / fan-out)
+  → mhc method-callgraph   → data/callgraph/{project}.csv (fanin / callgraph)
   → mhc history            → history/{tool}/{project}/ (.tar.gz archives)
   → mhc method-code        → data/method-code/{project}.csv
-  → generator scripts      → data/fan-in/, data/fan-out/   (candidate pairs)
+  → generator scripts      → data/fanin/, data/callgraph/   (candidate pairs)
   → ptc-llm / testlinker   → data/llm/{model}/             (ranked predictions)
 ```
 

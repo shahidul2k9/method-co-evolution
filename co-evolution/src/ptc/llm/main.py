@@ -222,7 +222,7 @@ def default_output_root(cache_directory: str) -> Path:
 
 
 def resolve_input_file(cache_directory: str, project: str, input_kind: str) -> Path:
-    fan_directory = "t2p-candidate" if input_kind == "t2p" else "fan-in"
+    fan_directory = "t2p-candidate" if input_kind == "t2p" else "fanin"
     return Path(cache_directory) / "data" / fan_directory / f"{project}.csv"
 
 

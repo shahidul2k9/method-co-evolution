@@ -15,7 +15,7 @@ from ptc.experiment_util import build_experiment_parser, resolve_experiment_filt
 
 MAX_EXPANSION_DEPTH = 5
 
-FANOUT_DIR = f"{DATA_DIRECTORY}/fan-out"
+FANOUT_DIR = f"{DATA_DIRECTORY}/callgraph"
 METHOD_DIR = f"{DATA_DIRECTORY}/method"
 EXPANDED_FANOUT_DIR = f"{DATA_DIRECTORY}/t2p-candidate"
 OUTPUT_DIR = f"{DATA_DIRECTORY}/m2m-tech"

@@ -49,7 +49,7 @@ def update_ground_truth():
                 warnings.warn(f"Fail for {gt_file.name}: {e}")
 
         else:
-            warnings.warn(f"Skipping {gt_file.name}: no matching fan-out file found")
+            warnings.warn(f"Skipping {gt_file.name}: no matching callgraph file found")
 
 
 def parse_three_columns(file_path):

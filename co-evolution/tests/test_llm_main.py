@@ -32,7 +32,7 @@ class TestLlmMainHelpers(unittest.TestCase):
         input_file = resolve_input_file(str(TEST_CACHE_DIRECTORY), "commons-io", "p2t")
 
         self.assertEqual(
-            TEST_CACHE_DIRECTORY / "data" / "fan-in" / "commons-io.csv",
+            TEST_CACHE_DIRECTORY / "data" / "fanin" / "commons-io.csv",
             input_file,
         )
 

@@ -22,7 +22,7 @@ from ptc.link_strategy import LinkStrategy, STRATEGY_KEYS
 
 MAX_EXPANSION_DEPTH = 5
 
-FANOUT_DIR = f"{DATA_DIRECTORY}/fan-out"
+FANOUT_DIR = f"{DATA_DIRECTORY}/callgraph"
 METHOD_DIR = f"{DATA_DIRECTORY}/method"
 T2P_CANDIDATE_DIR = f"{DATA_DIRECTORY}/t2p-candidate"
 OUTPUT_DIR = f"{DATA_DIRECTORY}/m2m-tech"
