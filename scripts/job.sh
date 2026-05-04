@@ -187,7 +187,7 @@ if [[ -z "$DATA_DIRECTORY" ]]; then
 fi
 
 if [[ -z "$HISTORY_DIRECTORY" ]]; then
-    HISTORY_DIRECTORY="$HOME/scratch/$USER/method-co-evolution/.cache"
+    HISTORY_DIRECTORY="$HOME/scratch/$USER/method-co-evolution/.cache/history"
 fi
 
 if [[ -z "$COMMAND_NAME" ]]; then
