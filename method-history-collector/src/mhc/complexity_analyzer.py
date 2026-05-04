@@ -13,12 +13,14 @@ class ComplexityAnalyzer:
     def __init__(
         self,
         cache_directory: str,
+        history_directory: str,
         repository_directory: str,
         data_directory: str,
         repo_list: list[str],
         jar_file_path: str,
     ):
         self.cache_directory = cache_directory
+        self.history_directory = history_directory
         self.repository_directory = repository_directory
         self.data_directory = data_directory
         self.repo_list = repo_list
@@ -89,7 +91,7 @@ class ComplexityAnalyzer:
     def copy_extract_structure_history_tar(self):
         for project in self.repo_list:
             source_tar_path = os.path.join(
-                self.cache_directory, "history", "historyFinder", f"{project}.tar.gz"
+                self.history_directory, "historyFinder", f"{project}.tar.gz"
             )
 
             destination_tar_path = os.path.join(

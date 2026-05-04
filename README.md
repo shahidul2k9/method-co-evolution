@@ -43,10 +43,10 @@ cd method-parser && mvn clean install -DskipTests
 repository.csv
   → mhc scan-method        → data/method/{project}.csv
   → mhc call-graph         → data/call-graph/{project}.csv (fan-in / fan-out)
-  → mhc history            → data/history/{tool}/{project}/ (.tar.gz archives)
+  → mhc history            → history/{tool}/{project}/ (.tar.gz archives)
   → mhc method-code        → data/method-code/{project}.csv
   → generator scripts      → data/fan-in/, data/fan-out/   (candidate pairs)
   → ptc-llm / testlinker   → data/llm/{model}/             (ranked predictions)
 ```
 
-Cache layout is controlled by `--cache-directory` (default `.cache`). See `.env` for path overrides and API keys.
+Cache layout is controlled by `--cache-directory` (default `.cache`). Method history storage can be moved separately with `--history-directory` or `ME_HISTORY_DIRECTORY`; by default it remains `<cache-directory>/history`. See `.env` for path overrides and API keys.

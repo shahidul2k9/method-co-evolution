@@ -2,7 +2,7 @@ import argparse
 import os
 import tarfile
 from pathlib import Path
-from mhc.config import CACHE_DIRECTORY
+from mhc.config import HISTORY_DIRECTORY
 
 from mhc.zip import file_lock
 
@@ -97,8 +97,8 @@ def main() -> int:
         nargs="*",
         type=Path,
         default=[
-            Path(CACHE_DIRECTORY) / "history" / "historyFinder",
-            Path(CACHE_DIRECTORY) / "history" / "codeShovel",
+            Path(HISTORY_DIRECTORY) / "historyFinder",
+            Path(HISTORY_DIRECTORY) / "codeShovel",
         ],
         help="History tool directories to repair.",
     )

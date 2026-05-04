@@ -54,7 +54,7 @@ class TestIndexOutput(unittest.TestCase):
                     repository_df,
                     str(temp_path / "repository"),
                     str(temp_path / "data"),
-                    str(temp_path / "cache"),
+                    str(temp_path / "cache" / "history"),
                     ["codeShovel"],
                     {"codeShovel": "codeShovel.jar"},
                     merge_only=True,
@@ -88,7 +88,7 @@ class TestIndexOutput(unittest.TestCase):
                 repository_df,
                 str(temp_path / "repository"),
                 str(temp_path / "data"),
-                str(temp_path / "cache"),
+                str(temp_path / "cache" / "history"),
                 ["codeShovel"],
                 {"codeShovel": "codeShovel.jar"},
                 merge_only=True,
@@ -120,7 +120,7 @@ class TestIndexOutput(unittest.TestCase):
                 repository_df,
                 str(temp_path / "repository"),
                 str(temp_path / "data"),
-                str(temp_path / "cache"),
+                str(temp_path / "cache" / "history"),
                 ["codeShovel"],
                 {"codeShovel": "codeShovel.jar"},
                 merge_only=True,
@@ -154,7 +154,7 @@ class TestIndexOutput(unittest.TestCase):
                 repository_df,
                 str(temp_path / "repository"),
                 str(temp_path / "data"),
-                str(temp_path / "cache"),
+                str(temp_path / "cache" / "history"),
                 ["codeShovel"],
                 {"codeShovel": "codeShovel.jar"},
                 merge_only=True,
@@ -189,7 +189,7 @@ class TestIndexOutput(unittest.TestCase):
                 repository_df,
                 str(temp_path / "repository"),
                 str(temp_path / "data"),
-                str(temp_path / "cache"),
+                str(temp_path / "cache" / "history"),
                 ["codeShovel"],
                 {"codeShovel": "codeShovel.jar"},
                 merge_only=True,
@@ -223,7 +223,7 @@ class TestIndexOutput(unittest.TestCase):
                 repository_df,
                 str(temp_path / "repository"),
                 str(temp_path / "data"),
-                str(temp_path / "cache"),
+                str(temp_path / "cache" / "history"),
                 ["codeShovel"],
                 {"codeShovel": "codeShovel.jar"},
                 merge_only=True,
@@ -268,7 +268,7 @@ class TestIndexOutput(unittest.TestCase):
                     repository_df,
                     str(temp_path / "repository"),
                     str(data_directory),
-                    str(temp_path / "cache"),
+                    str(temp_path / "cache" / "history"),
                     ["codeShovel"],
                     {"codeShovel": "codeShovel.jar"},
                     merge_threshold=0,
@@ -312,7 +312,7 @@ class TestIndexOutput(unittest.TestCase):
                     repository_df,
                     str(temp_path / "repository"),
                     str(data_directory),
-                    str(temp_path / "cache"),
+                    str(temp_path / "cache" / "history"),
                     ["codeShovel"],
                     {"codeShovel": "codeShovel.jar"},
                     merge_threshold=-2,
@@ -357,7 +357,7 @@ class TestIndexOutput(unittest.TestCase):
                 [{"project": "checkstyle", "url": "https://example.com/checkstyle"}]
             )
 
-            update_repository_index(repository_df, str(cache_directory), str(data_directory))
+            update_repository_index(repository_df, str(cache_directory / "history"), str(data_directory))
 
             output_file = data_directory / "aggregate" / "repository-history-index.csv"
             self.assertTrue(output_file.exists())

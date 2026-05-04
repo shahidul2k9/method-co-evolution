@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 from mhc.method_history_collector import *
 from mhc.method_history_jar_runner import DEFAULT_MERGE_THRESHOLD
@@ -6,6 +7,7 @@ from mhc.method_history_jar_runner import DEFAULT_MERGE_THRESHOLD
 _DASH_VALUE_OPTIONS = {"--java-options", "--command-options"}
 _KNOWN_OPTION_FLAGS = {
     "--cache-directory",
+    "--history-directory",
     "--repository-directory",
     "--data-directory",
     "--jar-directory",
@@ -51,12 +53,14 @@ def _build_method_history_collector(
     repository_directory: str,
     data_directory: str,
     jar_directory: str,
+    history_directory: str | None = None,
 ) -> MethodHistoryCollector:
     return MethodHistoryCollector(
         cache_directory,
         repository_directory,
         data_directory,
         jar_directory,
+        history_directory,
     )
 
 
@@ -121,6 +125,11 @@ def main(argv: list[str] | None = None):
         type=str,
         required=True,
         help="Repository directory path",
+    )
+    parser.add_argument(
+        "--history-directory",
+        type=str,
+        help="Method history JSON/archive directory path. Defaults to ME_HISTORY_DIRECTORY or <cache-directory>/history.",
     )
     parser.add_argument(
         "--data-directory",
@@ -221,12 +230,17 @@ def main(argv: list[str] | None = None):
         list(sys.argv[1:] if argv is None else argv)
     )
     args = parser.parse_args(normalized_argv)
+    history_directory = args.history_directory or os.environ.get(
+        "ME_HISTORY_DIRECTORY",
+        os.path.join(args.cache_directory, "history"),
+    )
 
     mhc = _build_method_history_collector(
         args.cache_directory,
         args.repository_directory,
         args.data_directory,
         args.jar_directory,
+        history_directory,
     )
     if args.shards <= 0:
         print("Error: --shards must be positive.")

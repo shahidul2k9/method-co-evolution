@@ -14,6 +14,7 @@ All subcommands accept:
 
 ```
 --cache-directory       Root cache directory (default: .cache)
+--history-directory     Method history JSON/archive root (default: ME_HISTORY_DIRECTORY or <cache>/history)
 --repository-directory  Where repositories are cloned
 --data-directory        Where output CSVs are written (default: <cache>/data)
 --jar-directory         Directory containing the method-parser JAR
@@ -54,11 +55,12 @@ If `<cache-directory>/config/logback.xml` exists it is passed to the JVM automat
 
 ### `mhc history`
 
-Traces the change history of each method using a history tool (CodeShovel, HistoryFinder, or CodeTracker) and stores results as `.tar.gz` archives under `data/history/{tool}/{project}/`.
+Traces the change history of each method using a history tool (CodeShovel, HistoryFinder, or CodeTracker) and stores loose JSON files and `.tar.gz` archives under `<history-directory>/{tool}/{project}`. If `--history-directory` is omitted, MHC uses `ME_HISTORY_DIRECTORY`; if that environment variable is unset, it falls back to `<cache-directory>/history`.
 
 ```bash
 mhc history \
     --cache-directory ".cache" \
+    --history-directory "/scratch/method-history" \
     --repository-directory ".cache/repository" \
     --data-directory ".cache/data" \
     --jar-directory ".cache/jar" \
@@ -94,6 +96,7 @@ Key options:
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--tool-name` | required | `codeShovel`, `historyFinder`, or `codeTracker` |
+| `--history-directory` | `ME_HISTORY_DIRECTORY` or `<cache>/history` | Root directory for method history JSON files and archives |
 | `--timeout-seconds` | `1800` | Per-method timeout |
 | `--merge-threshold` | `10000` | Loose JSON files before an intermediate merge; `0` disables intermediate merges; negative disables final merge too |
 | `--shards` | `1` | Total shard count |

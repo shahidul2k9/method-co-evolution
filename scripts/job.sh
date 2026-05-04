@@ -38,6 +38,7 @@ Options:
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
   --top-k                 TestLinker top-k invocation count (default: 1)
   --cache-directory       Relative or absolute cache directory (default: .cache)
+  --history-directory     Relative or absolute method history directory (default: ME_HISTORY_DIRECTORY or $HOME/scratch/$USER/method-co-evolution/.cache)
   --data-directory        Relative or absolute data directory (default: <cache-directory>/data)
   --help                  Show this message
 EOF
@@ -72,6 +73,7 @@ SHARDS="1"
 INPUT_KIND="t2p"
 TOP_K="1"
 CACHE_DIRECTORY="$PROJECT_DIRECTORY/.cache"
+HISTORY_DIRECTORY="${ME_HISTORY_DIRECTORY:-}"
 DATA_DIRECTORY=""
 
 while [[ $# -gt 0 ]]; do
@@ -160,6 +162,10 @@ while [[ $# -gt 0 ]]; do
             CACHE_DIRECTORY="$2"
             shift 2
             ;;
+        --history-directory)
+            HISTORY_DIRECTORY="$2"
+            shift 2
+            ;;
         --data-directory)
             DATA_DIRECTORY="$2"
             shift 2
@@ -178,6 +184,10 @@ done
 
 if [[ -z "$DATA_DIRECTORY" ]]; then
     DATA_DIRECTORY="$CACHE_DIRECTORY/data"
+fi
+
+if [[ -z "$HISTORY_DIRECTORY" ]]; then
+    HISTORY_DIRECTORY="$HOME/scratch/$USER/method-co-evolution/.cache/history"
 fi
 
 if [[ -z "$COMMAND_NAME" ]]; then
@@ -306,6 +316,7 @@ else
     MHC_ARGS=(
         "$COMMAND_NAME"
         --cache-directory "$CACHE_DIRECTORY"
+        --history-directory "$HISTORY_DIRECTORY"
         --repository-directory "$SLURM_TMPDIR/repository"
         --data-directory "$DATA_DIRECTORY"
         --jar-directory "$CACHE_DIRECTORY/jar"

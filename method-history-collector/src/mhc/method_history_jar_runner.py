@@ -21,7 +21,7 @@ DEFAULT_MERGE_THRESHOLD = 10_000
 
 
 def execute_method_history_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,
-                                      cache_directory: str, tool_names: list[str],
+                                      history_directory: str, tool_names: list[str],
                                       jar_file_map: dict[str, str],
                                       command_options: str | None = None,
                                       java_options: str | None = None,
@@ -38,7 +38,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
             repository_name = repository["project"]
             url = repository['url']
             hash = repository['updated_hash']
-            method_history_path = util.format_method_history_path(cache_directory, tool_name, repository_name)
+            method_history_path = util.format_method_history_path(history_directory, tool_name, repository_name)
 
             if merge_only:
                 merge_folder_into_tar_gz(method_history_path)
@@ -86,7 +86,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                     merge_folder_into_tar_gz(method_history_path)
 
 
-def update_repository_index(repository_df: DataFrame, cache_dir: str, data_dir: str) -> None:
+def update_repository_index(repository_df: DataFrame, history_dir: str, data_dir: str) -> None:
     repository_statistics = {}
     for method_file in Path(data_dir, "method").rglob("*.csv"):
         repository_name = method_file.stem.split("--")[0]
@@ -94,8 +94,12 @@ def update_repository_index(repository_df: DataFrame, cache_dir: str, data_dir: 
             repository_statistics[repository_name] = {}
         repository_statistics[repository_name]["methods"] = len(pd.read_csv(method_file))
 
-    for tooName in os.listdir(f"{cache_dir}/history"):
-        for zip_file in Path(f"{cache_dir}/history/{tooName}").rglob("*.tar.gz"):
+    if os.path.exists(history_dir):
+        history_tools = os.listdir(history_dir)
+    else:
+        history_tools = []
+    for tooName in history_tools:
+        for zip_file in Path(history_dir, tooName).rglob("*.tar.gz"):
             repository_name = zip_file.name[:-len(".tar.gz")]
             if repository_name not in repository_statistics:
                 repository_statistics[repository_name] = {}

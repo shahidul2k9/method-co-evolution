@@ -106,6 +106,7 @@ sbatch --array=1-2 scripts/job.sh \
 | `--shards` | `1` | Total shard count |
 | `--top-k` | `1` | TestLinker top-k invocations |
 | `--cache-directory` | `.cache` | Cache root |
+| `--history-directory` | `ME_HISTORY_DIRECTORY` or `$HOME/scratch/$USER/method-co-evolution/.cache` | Method history JSON/archive root |
 | `--data-directory` | `<cache>/data` | Data output root |
 
 ---

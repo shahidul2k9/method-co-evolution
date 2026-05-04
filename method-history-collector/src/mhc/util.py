@@ -58,8 +58,8 @@ def format_method_cache_file(data_directory: str, repository_name: str, commit_h
     return os.path.join(f"{data_directory}/method-cache", f"{repository_name}.csv")
 
 
-def format_method_history_path(cache_directory: str, tool_name: str, repository_name) -> str:
-    return os.path.join(f"{cache_directory}/history/{tool_name}/{repository_name}")
+def format_method_history_path(history_directory: str, tool_name: str, repository_name) -> str:
+    return os.path.join(f"{history_directory}/{tool_name}/{repository_name}")
 
 
 def format_method_history_file_suffix(file: str, method_name: str, start_line: int) -> str:

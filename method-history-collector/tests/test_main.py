@@ -11,7 +11,7 @@ if str(SRC_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SRC_DIRECTORY))
 
 import mhc.main as mhc_main
-from mhc.config import CACHE_DIRECTORY, REPOSITORY_DIRECTORY, DATA_DIRECTORY, JAR_DIRECTORY
+from mhc.config import CACHE_DIRECTORY, REPOSITORY_DIRECTORY, DATA_DIRECTORY, JAR_DIRECTORY, HISTORY_DIRECTORY
 
 
 
@@ -51,6 +51,7 @@ class TestMhcScript(unittest.TestCase):
             REPOSITORY_DIRECTORY,
             DATA_DIRECTORY,
             JAR_DIRECTORY,
+            HISTORY_DIRECTORY,
         )
         mock_mhc_instance.collect_method_history.assert_called_once_with(
             ["checkstyle"],
@@ -61,6 +62,9 @@ class TestMhcScript(unittest.TestCase):
             1,
             1,
             10000,
+            False,
+            False,
+            False,
             False,
         )
 
@@ -186,6 +190,9 @@ class TestMhcScript(unittest.TestCase):
             4,
             2,
             10000,
+            False,
+            False,
+            False,
             False,
         )
 

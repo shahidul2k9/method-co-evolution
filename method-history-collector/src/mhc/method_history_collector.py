@@ -24,10 +24,12 @@ class MethodHistoryCollector:
         repository_directory,
         data_directory,
         jar_directory: str,
+        history_directory: str | None = None,
     ):
         self.cache_directory = cache_directory
         self.repository_directory = repository_directory
         self.data_directory = data_directory
+        self.history_directory = history_directory or str(Path(cache_directory) / "history")
         self.jar_file_map = {}
         self.repository_df = pd.read_csv(
             os.path.join(f"{data_directory}/repository/repository.csv")
@@ -93,7 +95,7 @@ class MethodHistoryCollector:
             self.repository_df[self.repository_df["project"].isin(repositories)],
             self.repository_directory,
             self.data_directory,
-            self.cache_directory,
+            self.history_directory,
             tool_names,
             self.jar_file_map,
             command_options,
@@ -111,7 +113,7 @@ class MethodHistoryCollector:
     def update_repository_index(self):
         update_repository_index(
             self.repository_df,
-            self.cache_directory,
+            self.history_directory,
             self.data_directory,
         )
 
@@ -130,6 +132,7 @@ class MethodHistoryCollector:
     def run_complexity_analyzer(self, repositories: list[str], tool_name: str):
         ca = ComplexityAnalyzer(
             self.cache_directory,
+            self.history_directory,
             self.repository_directory,
             self.data_directory,
             repositories,
