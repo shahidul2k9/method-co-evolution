@@ -1,5 +1,5 @@
 from mhc.method_history_jar_runner import *
-from mhc.call_graph import execute_call_graph_if_missing
+from mhc.callgraph import execute_callgraph_if_missing
 from mhc.class_scanner import scan_class as _scan_class
 from mhc.complexity_analyzer import ComplexityAnalyzer
 from pathlib import Path
@@ -117,8 +117,8 @@ class MethodHistoryCollector:
             self.data_directory,
         )
 
-    def generate_call_graph(self, repositories: list[str], tool_names: list[str], replace: bool = False, java_options: str | None = None):
-        execute_call_graph_if_missing(
+    def generate_callgraph(self, repositories: list[str], tool_names: list[str], replace: bool = False, java_options: str | None = None):
+        execute_callgraph_if_missing(
             self.repository_df[self.repository_df["project"].isin(repositories)],
             self.repository_directory,
             self.data_directory,

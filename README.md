@@ -46,7 +46,7 @@ repository.csv
   → mhc history            → history/{tool}/{project}/ (.tar.gz archives)
   → mhc method-code        → data/method-code/{project}.csv
   → generator scripts      → data/fanin/, data/callgraph/   (candidate pairs)
-  → generate_fan           → data/callgraph-degree/{project}.csv
+  → generate_callgraph_degree → data/callgraph-degree/{project}.csv
   → ptc-llm / testlinker   → data/llm/{model}/             (ranked predictions)
 ```
 

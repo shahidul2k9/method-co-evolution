@@ -6,7 +6,7 @@ import  mhc.git_repository as git
 import logging
 import mhc.util as util
 
-def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,
+def execute_callgraph_if_missing(repository_df: DataFrame, repository_directory: str, data_directory: str,
                                       cache_directory: str, tool_name: str,
                                       jar_file_map: dict[str, str],
                                       replace: bool = False,

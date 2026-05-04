@@ -290,7 +290,7 @@ def main(argv: list[str] | None = None):
                 "Error: tool_name is required for call graph command."
             )
             sys.exit(1)
-        mhc.generate_call_graph(resolve_selected_projects(), [args.tool_name], args.replace, args.java_options)
+        mhc.generate_callgraph(resolve_selected_projects(), [args.tool_name], args.replace, args.java_options)
     elif command in ("class-scan", "scan-class"):
         mhc.scan_class(resolve_selected_projects(), args.java_options, args.replace)
     elif command in ("method-scan", "scan-method"):

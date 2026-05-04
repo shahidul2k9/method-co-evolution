@@ -71,7 +71,7 @@ class TestCliArgs(unittest.TestCase):
         )
 
     @patch("mhc.main._build_method_history_collector")
-    def test_call_graph_accepts_replace(self, mock_build_collector):
+    def test_callgraph_accepts_replace(self, mock_build_collector):
         mock_mhc_instance = mock_build_collector.return_value
         mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
 
@@ -94,7 +94,7 @@ class TestCliArgs(unittest.TestCase):
             ]
         )
 
-        mock_mhc_instance.generate_call_graph.assert_called_once_with(
+        mock_mhc_instance.generate_callgraph.assert_called_once_with(
             ["checkstyle"],
             ["methodParser"],
             True,

@@ -115,10 +115,10 @@ class TestMhcScript(unittest.TestCase):
         mock_build_collector.assert_called_once()
 
     @patch("mhc.main._build_method_history_collector")
-    def test_call_graph_generation(self, mock_build_collector):
+    def test_callgraph_generation(self, mock_build_collector):
         mock_mhc_instance = mock_build_collector.return_value
         mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
-        mock_mhc_instance.generate_call_graph.return_value = None
+        mock_mhc_instance.generate_callgraph.return_value = None
 
         test_args = [
             "main.py",
@@ -143,7 +143,7 @@ class TestMhcScript(unittest.TestCase):
             except SystemExit as exc:
                 self.fail(f"main() exited unexpectedly with {exc}")
 
-        mock_mhc_instance.generate_call_graph.assert_called_once_with(
+        mock_mhc_instance.generate_callgraph.assert_called_once_with(
             ["checkstyle"],
             ["methodParser"],
             False,

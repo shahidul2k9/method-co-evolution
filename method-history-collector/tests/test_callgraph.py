@@ -10,7 +10,7 @@ SRC_DIRECTORY = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SRC_DIRECTORY))
 
-from mhc.call_graph import execute_call_graph_if_missing
+from mhc.callgraph import execute_callgraph_if_missing
 
 
 class CallGraphRunnerTest(unittest.TestCase):
@@ -32,11 +32,10 @@ class CallGraphRunnerTest(unittest.TestCase):
                 ]
             )
 
-            with patch("mhc.call_graph.git.clone_and_checkout_commit"), patch(
-                "mhc.call_graph.git.get_all_commit_info",
-                return_value=[{"hash": "abc123"}],
-            ), patch("mhc.call_graph.subprocess.run") as run_command:
-                execute_call_graph_if_missing(
+            with patch("mhc.callgraph.git.clone_and_checkout_commit"), patch(
+                "mhc.callgraph.subprocess.run"
+            ) as run_command:
+                execute_callgraph_if_missing(
                     repository_df,
                     str(root / "repository"),
                     str(data_directory),
