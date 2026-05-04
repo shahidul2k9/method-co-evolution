@@ -13,12 +13,11 @@ fi
 
 : "${ME_CACHE_DIRECTORY:?ME_CACHE_DIRECTORY must be set in .env}"
 
-mhc call-graph \
+mhc method-scan \
     --cache-directory "$ME_CACHE_DIRECTORY" \
     --repository-directory "$ME_CACHE_DIRECTORY/repository" \
     --data-directory "$ME_CACHE_DIRECTORY/data" \
     --jar-directory "$ME_CACHE_DIRECTORY/jar" \
     --java-options "-Xmx2g -Dlogback.configurationFile=$ME_CACHE_DIRECTORY/config/logback.xml" \
-    --tool-name methodParser \
     --project-range "1:" \
     --replace

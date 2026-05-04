@@ -179,7 +179,7 @@ public class CallGraphTest extends TestConfigurationBase {
     public void testCommandLineCallGraph() {
         java.lang.String repositoryPath = TestConfigurationBase.getEnv("ME_CACHE_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY) + "/repository/checkstyle";
         String[] args = {
-                "--command", "call-graph",
+                "--command", "method-callgraph",
                 "--repository-url", "https://github.com/checkstyle/checkstyle",
                 "--repository-path", repositoryPath,
                 "--start-commit", "164a755af951cf0fd459d70873e1c199210d9d8b",

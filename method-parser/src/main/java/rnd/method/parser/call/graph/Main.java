@@ -24,9 +24,9 @@ public class Main {
         String outputFanInFile = commandLine.getOptionValue("output-fan-in-file");
         String outputFanOutFile = commandLine.getOptionValue("output-fan-out-file");
         String methodMappingFile = commandLine.getOptionValue("method-mapping-file");
-        Set<String> allowed = Set.of("call-graph");
+        Set<String> allowed = Set.of("method-callgraph", "call-graph");
         if (allowed.contains(command)) {
-            if ("call-graph".equalsIgnoreCase(command)) {
+            if ("method-callgraph".equalsIgnoreCase(command) || "call-graph".equalsIgnoreCase(command)) {
                 generateCallGraph(repositoryUrl, repositoryPath, commitHash, List.of(targetPath), outputFanInFile, outputFanOutFile, methodMappingFile);
             }
         } else {

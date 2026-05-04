@@ -122,7 +122,7 @@ class TestMhcScript(unittest.TestCase):
 
         test_args = [
             "main.py",
-            "call-graph",
+            "method-callgraph",
             "--cache-directory",
             CACHE_DIRECTORY,
             "--repository-directory",
@@ -205,7 +205,7 @@ class TestMhcScript(unittest.TestCase):
 
         test_args = [
             "main.py",
-            "scan-method",
+            "method-scan",
             "--cache-directory",
             CACHE_DIRECTORY,
             "--repository-directory",
@@ -236,7 +236,7 @@ class TestMhcScript(unittest.TestCase):
 
         test_args = [
             "main.py",
-            "scan-method",
+            "method-scan",
             "--cache-directory",
             CACHE_DIRECTORY,
             "--repository-directory",

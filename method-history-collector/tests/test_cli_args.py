@@ -20,7 +20,7 @@ class TestCliArgs(unittest.TestCase):
 
         mhc_main.main(
             [
-                "scan-method",
+                "method-scan",
                 "--cache-directory",
                 ".cache",
                 "--repository-directory",
@@ -49,7 +49,7 @@ class TestCliArgs(unittest.TestCase):
 
         mhc_main.main(
             [
-                "scan-method",
+                "method-scan",
                 "--cache-directory",
                 ".cache",
                 "--repository-directory",
@@ -77,7 +77,7 @@ class TestCliArgs(unittest.TestCase):
 
         mhc_main.main(
             [
-                "call-graph",
+                "method-callgraph",
                 "--cache-directory",
                 ".cache",
                 "--repository-directory",

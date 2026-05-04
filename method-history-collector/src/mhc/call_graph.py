@@ -54,7 +54,7 @@ def execute_call_graph_if_missing(repository_df: DataFrame, repository_directory
                     java_cmd.extend(shlex.split(java_options))
                 cmd = java_cmd + [
                     "-jar", jar_file_map[tool_name],
-                    "-command", "call-graph",
+                    "-command", "method-callgraph",
                     "-repository-path", repository_path,
                     "-repository-url", url,
                     "-start-commit", commit['hash'],

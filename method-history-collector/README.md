@@ -33,12 +33,12 @@ Exactly one of the following must be provided:
 
 ## Commands
 
-### `mhc scan-method`
+### `mhc method-scan`
 
 Extracts all methods and constructors from a repository at its current HEAD and writes `data/method/{project}.csv`. See [method-parser/README.md](../method-parser/README.md) for the column schema.
 
 ```bash
-mhc scan-method \
+mhc method-scan \
     --cache-directory ".cache" \
     --repository-directory ".cache/repository" \
     --data-directory ".cache/data" \
@@ -105,12 +105,12 @@ Key options:
 
 ---
 
-### `mhc call-graph`
+### `mhc method-callgraph`
 
 Generates fan-out and fan-in call-graph CSVs via the method-parser JAR. See [method-parser/README.md](../method-parser/README.md) for the column schema.
 
 ```bash
-mhc call-graph \
+mhc method-callgraph \
     --cache-directory ".cache" \
     --repository-directory ".cache/repository" \
     --data-directory ".cache/data" \

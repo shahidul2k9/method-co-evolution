@@ -112,7 +112,7 @@ def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(description="Method History Collector (MHC)")
 
     parser.add_argument(
-        "command", type=str, help="Command to execute (e.g., history, call-graph)"
+        "command", type=str, help="Command to execute (e.g., history, method-callgraph)"
     )
     parser.add_argument(
         "--cache-directory",
@@ -223,7 +223,7 @@ def main(argv: list[str] | None = None):
         "--replace",
         dest="replace",
         action="store_true",
-        help="Regenerate outputs even when existing output/cache files are present. Supported by scan-method and call-graph.",
+        help="Regenerate outputs even when existing output/cache files are present. Supported by method-scan and method-callgraph.",
     )
 
     normalized_argv = _normalize_dash_prefixed_option_values(
@@ -262,7 +262,9 @@ def main(argv: list[str] | None = None):
             print(f"Error: {exc}")
             sys.exit(1)
 
-    if args.command.lower() == "history":
+    command = args.command.lower()
+
+    if command == "history":
         if not args.tool_name:
             print(
                 "Error: tool_name is required for history command."
@@ -282,22 +284,22 @@ def main(argv: list[str] | None = None):
             "delete-tmp" in (args.merge_only or []),
             "delete-lock" in (args.merge_only or []),
         )
-    elif args.command.lower() == "call-graph":
+    elif command in ("method-callgraph", "call-graph"):
         if not args.tool_name:
             print(
                 "Error: tool_name is required for call graph command."
             )
             sys.exit(1)
         mhc.generate_call_graph(resolve_selected_projects(), [args.tool_name], args.replace, args.java_options)
-    elif args.command.lower() == "scan-class":
+    elif command in ("class-scan", "scan-class"):
         mhc.scan_class(resolve_selected_projects(), args.java_options, args.replace)
-    elif args.command.lower() == "scan-method":
+    elif command in ("method-scan", "scan-method"):
         mhc.scan_method(resolve_selected_projects(), args.java_options, args.replace)
-    elif args.command.lower() == "method-code":
+    elif command == "method-code":
         mhc.generate_method_code(resolve_selected_projects())
-    elif args.command.lower() == "index":
+    elif command == "index":
         mhc.update_repository_index()
-    elif args.command.lower() == "complexity-analyzer":
+    elif command == "complexity-analyzer":
         if not args.tool_name:
             print(
                 "Error: tool_name is required for complexity analyzer command."

@@ -48,7 +48,7 @@ CACHE_DIRECTORY/testlinker/
 
 The mapping files (`class_map/` and `projects_all_functions/`) are always
 auto-generated during the preprocess stage from `data/class/<project>.csv` and
-`data/method/<project>.csv`. Run `mhc scan-class` and `mhc scan-method` first
+`data/method/<project>.csv`. Run `mhc class-scan` and `mhc method-scan` first
 to produce those CSVs.
 
 The default run uses:

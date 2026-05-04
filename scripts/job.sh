@@ -17,7 +17,7 @@ Usage:
   job.sh --command testlinker --stage all --projects "commons-io" --top-k 1
 
 Options:
-  --command               Command to run: history, call-graph, scan-method, method-code, complexity-analyzer, llm-m2m-link, testlinker
+  --command               Command to run: history, method-callgraph, method-scan, class-scan, method-code, complexity-analyzer, llm-m2m-link, testlinker
   --tool-name             Tool name for non-LLM commands
   --java-options          Optional JVM arguments for history commands, e.g. "-Xmx4g"
   --timeout-seconds       Optional history command timeout in seconds (default: 30*60 = 1800)
@@ -196,6 +196,18 @@ if [[ -z "$COMMAND_NAME" ]]; then
     exit 1
 fi
 
+case "$COMMAND_NAME" in
+    call-graph)
+        COMMAND_NAME="method-callgraph"
+        ;;
+    scan-method)
+        COMMAND_NAME="method-scan"
+        ;;
+    scan-class)
+        COMMAND_NAME="class-scan"
+        ;;
+esac
+
 if [[ -z "$PROJECTS_CSV" && -z "$PROJECT_RANGE" && "$COMMAND_NAME" != "index" ]]; then
     echo "Error: one of --projects or --project-range is required."
     usage
@@ -226,7 +238,7 @@ if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
         usage
         exit 1
     fi
-elif [[ "$COMMAND_NAME" != "scan-method" && "$COMMAND_NAME" != "method-code" && "$COMMAND_NAME" != "index" && "$COMMAND_NAME" != "testlinker" ]]; then
+elif [[ "$COMMAND_NAME" != "method-scan" && "$COMMAND_NAME" != "class-scan" && "$COMMAND_NAME" != "method-code" && "$COMMAND_NAME" != "index" && "$COMMAND_NAME" != "testlinker" ]]; then
     if [[ -z "$TOOL_NAME" ]]; then
         echo "Error: --tool-name is required for $COMMAND_NAME."
         usage

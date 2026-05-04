@@ -4,12 +4,12 @@ Helper scripts for building, distributed execution, and dataset maintenance.
 
 ---
 
-## `build_mp.sh`
+## `build-method-parser.sh`
 
 Builds the `method-parser` Maven module and copies the resulting fat JAR into the cache.
 
 ```bash
-scripts/build_mp.sh
+scripts/build-method-parser.sh
 ```
 
 Reads `ME_CACHE_DIRECTORY` from `.env` (defaults to `.white`). Copies the JAR to `<cache>/jar/`.
@@ -26,7 +26,7 @@ Slurm `sbatch` wrapper for all `mhc`, `ptc-llm`, and `ptc-testlinker` commands. 
 job.sh --command <cmd> [options]
 ```
 
-`--command` must be one of: `history`, `call-graph`, `scan-method`, `method-code`, `complexity-analyzer`, `llm-m2m-link`, `testlinker`.
+`--command` must be one of: `history`, `method-callgraph`, `method-scan`, `class-scan`, `method-code`, `complexity-analyzer`, `llm-m2m-link`, `testlinker`.
 
 ### Project selection
 
@@ -43,7 +43,7 @@ Use exactly one of:
 
 ```bash
 sbatch --array=1-2 scripts/job.sh \
-    --command scan-method \
+    --command method-scan \
     --projects "checkstyle,commons-io"
 ```
 
@@ -89,7 +89,7 @@ sbatch --array=1-2 scripts/job.sh \
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--command` | required | Command to run |
-| `--tool-name` | — | Tool name for `history`, `call-graph`, `complexity-analyzer` |
+| `--tool-name` | — | Tool name for `history`, `method-callgraph`, `complexity-analyzer` |
 | `--java-options` | — | Extra JVM flags (e.g. `"-Xmx4g"`) |
 | `--timeout-seconds` | `1800` | Per-method history timeout |
 | `--merge-threshold` | `10000` | History JSON merge threshold |
