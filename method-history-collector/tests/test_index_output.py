@@ -339,18 +339,14 @@ class TestIndexOutput(unittest.TestCase):
                     "checkstyle/src/Foo--m2--2.json": "{}",
                 },
             )
-            _write_tar_gz(
-                data_directory / "fanin" / "checkstyle.tar.gz",
-                {
-                    "checkstyle/A.csv": "value\n1\n",
-                },
-            )
-            _write_tar_gz(
-                data_directory / "callgraph" / "checkstyle.tar.gz",
-                {
-                    "checkstyle/A.csv": "value\n1\n",
-                    "checkstyle/B.csv": "value\n2\n",
-                },
+            fanin_dir = data_directory / "fanin"
+            fanin_dir.mkdir(parents=True)
+            pd.DataFrame([{"value": 1}]).to_csv(fanin_dir / "checkstyle.csv", index=False)
+
+            callgraph_dir = data_directory / "callgraph"
+            callgraph_dir.mkdir(parents=True)
+            pd.DataFrame([{"value": 1}, {"value": 2}]).to_csv(
+                callgraph_dir / "checkstyle.csv", index=False
             )
 
             repository_df = pd.DataFrame(

@@ -33,7 +33,7 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     csv_files = list_csv_files(
-        Path(DATA_DIRECTORY) / "fanin-callgraph",
+        Path(DATA_DIRECTORY) / "callgraph-degree",
         selected_projects,
         strict=False,
     )

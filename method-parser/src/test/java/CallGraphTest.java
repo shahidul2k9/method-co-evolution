@@ -184,8 +184,8 @@ public class CallGraphTest extends TestConfigurationBase {
                 "--repository-path", repositoryPath,
                 "--start-commit", "164a755af951cf0fd459d70873e1c199210d9d8b",
                 "--target-path", ".",
-                "--output-fan-in-file", "../.cache/test/fanin/checkstyle/checkstyle--fan-in--164a755af951cf0fd459d70873e1c199210d9d8b.csv",
-                "--output-fan-out-file", "../.cache/test/callgraph/checkstyle/checkstyle--fan-out--164a755af951cf0fd459d70873e1c199210d9d8b.csv"
+                "--output-fan-in-file", "../.cache/test/fanin/checkstyle.csv",
+                "--output-fan-out-file", "../.cache/test/callgraph/checkstyle.csv"
         };
 
         assertDoesNotThrow(() -> Main.main(args));

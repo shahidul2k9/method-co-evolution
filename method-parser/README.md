@@ -72,4 +72,4 @@ One row per directed call edge. `callgraph` files record what a method calls (fo
 | `hash` | string | Git commit hash |
 | `from_resolver` / `to_resolver` | string | Symbol resolver strategy |
 
-Callgraph files are stored under `data/callgraph/` after link generation. Fanin files are stored under `data/fanin/`.
+Callgraph files are stored under `data/callgraph/{project}.csv` after link generation. Fanin files are stored under `data/fanin/{project}.csv`.
