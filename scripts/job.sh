@@ -292,16 +292,12 @@ if ! [[ "$TOP_K" =~ ^[0-9]+$ ]] || [[ "$TOP_K" -le 0 ]]; then
     exit 1
 fi
 
-LOG_DIR="$WORKSPACE_DIRECTORY/log/job"
-mkdir -p "$LOG_DIR"
 cd "$PROJECT_DIRECTORY"
 source "$PROJECT_DIRECTORY/.venv/bin/activate"
 
+# Prefer the explicit --java-options value over cluster/module-injected JVM flags.
 if [[ -n "$JAVA_OPTIONS" ]]; then
     unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS
-    if [[ "$JAVA_OPTIONS" != *"-XX:ErrorFile="* ]]; then
-        JAVA_OPTIONS="$JAVA_OPTIONS -XX:ErrorFile=$LOG_DIR/hs_err_pid%p.log"
-    fi
 fi
 
 PROJECT=""
@@ -407,7 +403,6 @@ else
         MHC_ARGS+=(--project-index "$PROJECT_INDEX")
     fi
 
-    echo "Resolved Slurm memory: SLURM_MEM_PER_NODE=${SLURM_MEM_PER_NODE:-unset}, SLURM_MEM_PER_CPU=${SLURM_MEM_PER_CPU:-unset}"
     echo "Resolved Java options: ${JAVA_OPTIONS:-unset}"
     srun mhc "${MHC_ARGS[@]}"
     echo "Task finished on $(hostname) at $(date) for tool name $TOOL_NAME, project selection ${PROJECT:-$PROJECTS_CSV$PROJECT_INDEX}, shard $SHARD/$SHARDS"
