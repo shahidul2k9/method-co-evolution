@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ptc.testlinker.paths import mapped_input_json_directory, raw_input_json_directory
+from ptc.testlinker.paths import raw_input_json_directory
 
 
 def write_project_json(input_df: pd.DataFrame, *, root: Path, project: str) -> Path:
@@ -19,16 +19,6 @@ def write_project_json(input_df: pd.DataFrame, *, root: Path, project: str) -> P
         )
     return output_dir
 
-
-def write_mapped_json(examples: list[dict[str, object]], *, root: Path, project: str) -> Path:
-    output_dir = mapped_input_json_directory(root, project)
-    _clear_json_directory(output_dir)
-    for example in examples:
-        (output_dir / f"{example['id']}.json").write_text(
-            json.dumps(example, ensure_ascii=True),
-            encoding="utf-8",
-        )
-    return output_dir
 
 
 def read_examples(directory: Path) -> list[dict[str, object]]:

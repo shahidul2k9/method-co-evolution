@@ -19,7 +19,7 @@ _KNOWN_OPTION_FLAGS = {
     "--merge-only",
     "--project",
     "--projects",
-    "--project-range",
+    "--project-index",
     "--shards",
     "--shard",
 }
@@ -70,49 +70,62 @@ def _parse_projects_csv(projects: str | None) -> list[str]:
     return [project.strip() for project in projects.split(",") if project.strip()]
 
 
-def _parse_project_range(project_range: str | None, known_projects: list[str]) -> list[str]:
-    if not project_range:
+def _parse_project_index(project_index: str | None, known_projects: list[str]) -> list[str]:
+    if not project_index:
         return []
-    if ":" not in project_range:
-        raise ValueError("project-range must use 1-based inclusive indexes like 10:20, :20, 10:, or :")
 
-    start_text, end_text = project_range.split(":", maxsplit=1)
-    start_index = int(start_text) if start_text else 1
-    end_index = int(end_text) if end_text else len(known_projects)
+    if ":" not in project_index:
+        try:
+            return [known_projects[int(project_index)]]
+        except (ValueError, IndexError):
+            raise ValueError(
+                "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+            )
 
-    if start_index <= 0 or end_index <= 0 or start_index > end_index:
-        raise ValueError("project-range must use 1-based inclusive indexes like 10:20, :20, 10:, or :")
-    if end_index > len(known_projects):
+    if project_index.count(":") != 1:
         raise ValueError(
-            f"project-range end {end_index} exceeds repository count {len(known_projects)}"
+            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
         )
-    return known_projects[start_index - 1:end_index]
+
+    start_text, end_text = project_index.split(":", maxsplit=1)
+    try:
+        start_index = int(start_text) if start_text else None
+        end_index = int(end_text) if end_text else None
+    except ValueError:
+        raise ValueError(
+            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+        )
+    return known_projects[start_index:end_index]
 
 
 def _resolve_projects(
     project: str | None,
     projects: str | None,
-    project_range: str | None,
+    project_index: str | None,
     known_projects: list[str],
 ) -> list[str]:
-    provided_selection_count = sum(
-        value is not None for value in (project, projects, project_range)
-    )
-    if provided_selection_count != 1:
-        raise ValueError("exactly one of --project, --projects, or --project-range is required")
+    if project is not None and projects is not None:
+        raise ValueError("use either --project or --projects, not both")
 
     if project is not None:
-        return [project]
-    if projects is not None:
-        return _parse_projects_csv(projects)
-    return _parse_project_range(project_range, known_projects)
+        candidate_projects = [project]
+    elif projects is not None:
+        candidate_projects = _parse_projects_csv(projects)
+    else:
+        candidate_projects = known_projects
+
+    if project_index is not None:
+        return _parse_project_index(project_index, candidate_projects)
+    if project is not None or projects is not None:
+        return candidate_projects
+    raise ValueError("exactly one of --project, --projects, or --project-index is required")
 
 
 def main(argv: list[str] | None = None):
     parser = argparse.ArgumentParser(description="Method History Collector (MHC)")
 
     parser.add_argument(
-        "command", type=str, help="Command to execute (e.g., history, call-graph)"
+        "command", type=str, help="Command to execute (e.g., method-history, method-callgraph)"
     )
     parser.add_argument(
         "--cache-directory",
@@ -144,9 +157,9 @@ def main(argv: list[str] | None = None):
         help="Jar directory path"
     )
 
-    # Conditional args for history command
+    # Conditional args for long-running project commands
     parser.add_argument(
-        "--tool-name", dest="tool_name", type=str, help="Tool name (required for history command)"
+        "--tool-name", dest="tool_name", type=str, help="Tool name (required for tool-backed commands)"
     )
     parser.add_argument(
         "--command-options",
@@ -183,7 +196,8 @@ def main(argv: list[str] | None = None):
         nargs="*",
         choices=("delete-empty", "delete-tmp", "delete-lock"),
         help=(
-            "For history command, merge existing loose history JSON files without generating new history. "
+            "For method-history, merge existing loose history JSON files without generating new history. "
+            "For method-callgraph, finalize shared callgraph cache into callgraph/fanin CSVs. "
             "Optional cleanup modes: delete-empty, delete-tmp, delete-lock."
         ),
     )
@@ -200,17 +214,17 @@ def main(argv: list[str] | None = None):
         help="Comma-separated project names.",
     )
     parser.add_argument(
-        "--project-range",
-        dest="project_range",
+        "--project-index",
+        dest="project_index",
         type=str,
-        help="1-based inclusive project index range from repository.csv, for example '10:20'.",
+        help="Python-style project index or slice from repository.csv, for example '10', '-1', '10:20', ':10', '10:', or ':'.",
     )
     parser.add_argument(
         "--shards",
         dest="shards",
         type=int,
         default=1,
-        help="Total number of method-history shards to split work into (default: 1).",
+        help="Total number of method-history, method-scan, class-scan, method-code, or method-callgraph shards to split work into (default: 1).",
     )
     parser.add_argument(
         "--shard",
@@ -223,7 +237,7 @@ def main(argv: list[str] | None = None):
         "--replace",
         dest="replace",
         action="store_true",
-        help="Regenerate outputs even when existing output/cache files are present. Supported by scan-method and call-graph.",
+        help="Regenerate outputs even when existing output/cache files are present. Supported by method-scan and method-callgraph.",
     )
 
     normalized_argv = _normalize_dash_prefixed_option_values(
@@ -255,17 +269,21 @@ def main(argv: list[str] | None = None):
             return _resolve_projects(
                 args.project,
                 args.projects,
-                args.project_range,
+                args.project_index,
                 repository_projects,
             )
         except ValueError as exc:
             print(f"Error: {exc}")
             sys.exit(1)
 
-    if args.command.lower() == "history":
+    command = args.command.lower()
+    if command == "history":
+        command = "method-history"
+
+    if command == "method-history":
         if not args.tool_name:
             print(
-                "Error: tool_name is required for history command."
+                "Error: tool_name is required for method-history command."
             )
             sys.exit(1)
         mhc.collect_method_history(
@@ -282,22 +300,62 @@ def main(argv: list[str] | None = None):
             "delete-tmp" in (args.merge_only or []),
             "delete-lock" in (args.merge_only or []),
         )
-    elif args.command.lower() == "call-graph":
+    elif command in ("method-callgraph", "call-graph"):
         if not args.tool_name:
             print(
                 "Error: tool_name is required for call graph command."
             )
             sys.exit(1)
-        mhc.generate_call_graph(resolve_selected_projects(), [args.tool_name], args.replace, args.java_options)
-    elif args.command.lower() == "scan-class":
-        mhc.scan_class(resolve_selected_projects(), args.java_options, args.replace)
-    elif args.command.lower() == "scan-method":
-        mhc.scan_method(resolve_selected_projects(), args.java_options, args.replace)
-    elif args.command.lower() == "method-code":
-        mhc.generate_method_code(resolve_selected_projects())
-    elif args.command.lower() == "index":
+        mhc.generate_callgraph(
+            resolve_selected_projects(),
+            [args.tool_name],
+            args.replace,
+            args.java_options,
+            args.shards,
+            args.shard,
+            args.merge_only is not None,
+            "delete-empty" in (args.merge_only or []),
+            "delete-tmp" in (args.merge_only or []),
+            "delete-lock" in (args.merge_only or []),
+        )
+    elif command in ("class-scan", "scan-class"):
+        mhc.scan_class(
+            resolve_selected_projects(),
+            args.java_options,
+            args.replace,
+            args.shards,
+            args.shard,
+            args.merge_only is not None,
+            "delete-empty" in (args.merge_only or []),
+            "delete-tmp" in (args.merge_only or []),
+            "delete-lock" in (args.merge_only or []),
+        )
+    elif command in ("method-scan", "scan-method"):
+        mhc.scan_method(
+            resolve_selected_projects(),
+            args.java_options,
+            args.replace,
+            args.shards,
+            args.shard,
+            args.merge_only is not None,
+            "delete-empty" in (args.merge_only or []),
+            "delete-tmp" in (args.merge_only or []),
+            "delete-lock" in (args.merge_only or []),
+        )
+    elif command == "method-code":
+        mhc.generate_method_code(
+            resolve_selected_projects(),
+            args.shards,
+            args.shard,
+            args.replace,
+            args.merge_only is not None,
+            "delete-empty" in (args.merge_only or []),
+            "delete-tmp" in (args.merge_only or []),
+            "delete-lock" in (args.merge_only or []),
+        )
+    elif command == "index":
         mhc.update_repository_index()
-    elif args.command.lower() == "complexity-analyzer":
+    elif command == "complexity-analyzer":
         if not args.tool_name:
             print(
                 "Error: tool_name is required for complexity analyzer command."

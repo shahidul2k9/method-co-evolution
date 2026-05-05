@@ -232,6 +232,10 @@ def normalize_input_kind(value: str) -> str:
         return "t2p"
     if value == "fan-in":
         return "p2t"
+    if value == "callgraph":
+        return "t2p"
+    if value == "fanin":
+        return "p2t"
     return value
 
 

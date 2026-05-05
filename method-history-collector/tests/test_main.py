@@ -25,7 +25,7 @@ class TestMhcScript(unittest.TestCase):
 
         test_args = [
             "main.py",
-            "history",
+            "method-history",
             "--cache-directory",
             CACHE_DIRECTORY,
             "--repository-directory",
@@ -73,7 +73,7 @@ class TestMhcScript(unittest.TestCase):
         mock_build_collector.return_value.repository_df = pd.DataFrame([{"project": "checkstyle"}])
         test_args = [
             "main.py",
-            "history",
+            "method-history",
             "--cache-directory",
             CACHE_DIRECTORY,
             "--repository-directory",
@@ -115,14 +115,14 @@ class TestMhcScript(unittest.TestCase):
         mock_build_collector.assert_called_once()
 
     @patch("mhc.main._build_method_history_collector")
-    def test_call_graph_generation(self, mock_build_collector):
+    def test_callgraph_generation(self, mock_build_collector):
         mock_mhc_instance = mock_build_collector.return_value
         mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
-        mock_mhc_instance.generate_call_graph.return_value = None
+        mock_mhc_instance.generate_callgraph.return_value = None
 
         test_args = [
             "main.py",
-            "call-graph",
+            "method-callgraph",
             "--cache-directory",
             CACHE_DIRECTORY,
             "--repository-directory",
@@ -143,15 +143,21 @@ class TestMhcScript(unittest.TestCase):
             except SystemExit as exc:
                 self.fail(f"main() exited unexpectedly with {exc}")
 
-        mock_mhc_instance.generate_call_graph.assert_called_once_with(
+        mock_mhc_instance.generate_callgraph.assert_called_once_with(
             ["checkstyle"],
             ["methodParser"],
             False,
             None,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
         )
 
     @patch("mhc.main._build_method_history_collector")
-    def test_history_command_accepts_project_range(self, mock_build_collector):
+    def test_history_command_accepts_project_index_slice(self, mock_build_collector):
         mock_mhc_instance = mock_build_collector.return_value
         mock_mhc_instance.repository_df = pd.DataFrame(
             [{"project": "ant"}, {"project": "checkstyle"}, {"project": "commons-io"}]
@@ -159,7 +165,7 @@ class TestMhcScript(unittest.TestCase):
 
         test_args = [
             "main.py",
-            "history",
+            "method-history",
             "--cache-directory",
             CACHE_DIRECTORY,
             "--repository-directory",
@@ -170,8 +176,8 @@ class TestMhcScript(unittest.TestCase):
             JAR_DIRECTORY,
             "--tool-name",
             "codeShovel",
-            "--project-range",
-            "2:3",
+            "--project-index",
+            "1:",
             "--shards",
             "4",
             "--shard",
@@ -197,7 +203,7 @@ class TestMhcScript(unittest.TestCase):
         )
 
     @patch("mhc.main._build_method_history_collector")
-    def test_project_range_colon_selects_all_projects(self, mock_build_collector):
+    def test_project_index_colon_selects_all_projects(self, mock_build_collector):
         mock_mhc_instance = mock_build_collector.return_value
         mock_mhc_instance.repository_df = pd.DataFrame(
             [{"project": "ant"}, {"project": "checkstyle"}, {"project": "commons-io"}]
@@ -205,7 +211,7 @@ class TestMhcScript(unittest.TestCase):
 
         test_args = [
             "main.py",
-            "scan-method",
+            "method-scan",
             "--cache-directory",
             CACHE_DIRECTORY,
             "--repository-directory",
@@ -214,7 +220,7 @@ class TestMhcScript(unittest.TestCase):
             DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
-            "--project-range",
+            "--project-index",
             ":",
         ]
 
@@ -225,10 +231,16 @@ class TestMhcScript(unittest.TestCase):
             ["ant", "checkstyle", "commons-io"],
             None,
             False,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
         )
 
     @patch("mhc.main._build_method_history_collector")
-    def test_project_range_accepts_open_ended_bounds(self, mock_build_collector):
+    def test_project_index_accepts_open_ended_bounds(self, mock_build_collector):
         mock_mhc_instance = mock_build_collector.return_value
         mock_mhc_instance.repository_df = pd.DataFrame(
             [{"project": "ant"}, {"project": "checkstyle"}, {"project": "commons-io"}]
@@ -236,7 +248,7 @@ class TestMhcScript(unittest.TestCase):
 
         test_args = [
             "main.py",
-            "scan-method",
+            "method-scan",
             "--cache-directory",
             CACHE_DIRECTORY,
             "--repository-directory",
@@ -245,16 +257,59 @@ class TestMhcScript(unittest.TestCase):
             DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
-            "--project-range",
-            "2:",
+            "--project-index",
+            ":2",
         ]
 
         with patch.object(sys, "argv", test_args):
             mhc_main.main()
 
         mock_mhc_instance.scan_method.assert_called_once_with(
-            ["checkstyle", "commons-io"],
+            ["ant", "checkstyle"],
             None,
+            False,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
+        )
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_project_index_accepts_negative_index(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame(
+            [{"project": "ant"}, {"project": "checkstyle"}, {"project": "commons-io"}]
+        )
+
+        test_args = [
+            "main.py",
+            "method-scan",
+            "--cache-directory",
+            CACHE_DIRECTORY,
+            "--repository-directory",
+            REPOSITORY_DIRECTORY,
+            "--data-directory",
+            DATA_DIRECTORY,
+            "--jar-directory",
+            JAR_DIRECTORY,
+            "--project-index",
+            "-1",
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            mhc_main.main()
+
+        mock_mhc_instance.scan_method.assert_called_once_with(
+            ["commons-io"],
+            None,
+            False,
+            1,
+            1,
+            False,
+            False,
+            False,
             False,
         )
 

@@ -32,10 +32,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--project", default=None, help="Project name.")
     parser.add_argument("--projects", default=None, help="Comma-separated project names.")
     parser.add_argument(
-        "--project-range",
+        "--project-index",
         default=None,
-        help="1-based inclusive project index range from <cache-directory>/data/repository/repository.csv. "
-        "Examples: '10:20', ':20', '10:', ':'.",
+        help="Python-style project index or slice from <cache-directory>/data/repository/repository.csv. "
+        "Examples: '10', '-1', '10:20', ':10', '10:', ':'.",
     )
     parser.add_argument(
         "--testlinker-directory",
@@ -89,23 +89,11 @@ def build_parser() -> argparse.ArgumentParser:
         dest="postprocess_modes",
         nargs="+",
         choices=POSTPROCESS_MODES,
-        default=["testlinker-heuristics"],
+        default=["testlinker-original"],
         help=(
-            "Postprocessing modes to run (default: testlinker-heuristics). "
-            "testlinker-heuristics writes label_pred-based output. "
-            "javaparser-symbolsolver writes testlinker_symbolsolver-based output."
-        ),
-    )
-    parser.add_argument(
-        "--mapping-mode",
-        dest="mapping_mode",
-        nargs="+",
-        choices=["testlinker-heuristics", "javaparser-symbolsolver"],
-        default=["testlinker-heuristics"],
-        help=(
-            "Signature mapping mode(s) for the execute step (default: testlinker-heuristics). "
-            "Multiple values produce separate output CSVs per mode. "
-            "Mapping files are always generated from data/class and data/method CSVs."
+            "Postprocessing modes to run (default: testlinker-original). "
+            "testlinker-original applies the TestLinker signature mapping algorithm. "
+            "testlinker-symbolsolver uses direct URL matching from the symbol solver."
         ),
     )
     return parser
@@ -128,29 +116,40 @@ def _load_repository_projects(cache_directory: str | Path) -> list[str]:
     return repository_df["project"].dropna().astype(str).tolist()
 
 
-def _parse_project_range(project_range: str | None, known_projects: list[str]) -> list[str]:
-    if not project_range:
+def _parse_project_index(project_index: str | None, known_projects: list[str]) -> list[str]:
+    if not project_index:
         return []
-    if ":" not in project_range:
-        raise ValueError("project-range must use 1-based inclusive indexes like 10:20, :20, 10:, or :")
 
-    start_text, end_text = project_range.split(":", maxsplit=1)
-    start_index = int(start_text) if start_text else 1
-    end_index = int(end_text) if end_text else len(known_projects)
+    if ":" not in project_index:
+        try:
+            return [known_projects[int(project_index)]]
+        except (ValueError, IndexError):
+            raise ValueError(
+                "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+            )
 
-    if start_index <= 0 or end_index <= 0 or start_index > end_index:
-        raise ValueError("project-range must use 1-based inclusive indexes like 10:20, :20, 10:, or :")
-    if end_index > len(known_projects):
-        raise ValueError(f"project-range end {end_index} exceeds repository count {len(known_projects)}")
-    return known_projects[start_index - 1:end_index]
+    if project_index.count(":") != 1:
+        raise ValueError(
+            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+        )
+
+    start_text, end_text = project_index.split(":", maxsplit=1)
+    try:
+        start_index = int(start_text) if start_text else None
+        end_index = int(end_text) if end_text else None
+    except ValueError:
+        raise ValueError(
+            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+        )
+    return known_projects[start_index:end_index]
 
 
 def _resolve_projects(args: argparse.Namespace, parser: argparse.ArgumentParser) -> list[str]:
     provided_selection_count = sum(
-        value is not None for value in (args.project, args.projects, args.project_range)
+        value is not None for value in (args.project, args.projects, args.project_index)
     )
     if provided_selection_count != 1:
-        parser.error("exactly one of --project, --projects, or --project-range is required")
+        parser.error("exactly one of --project, --projects, or --project-index is required")
 
     if args.project is not None:
         return [args.project]
@@ -161,7 +160,7 @@ def _resolve_projects(args: argparse.Namespace, parser: argparse.ArgumentParser)
         return projects
 
     try:
-        return _parse_project_range(args.project_range, _load_repository_projects(args.cache_directory))
+        return _parse_project_index(args.project_index, _load_repository_projects(args.cache_directory))
     except ValueError as exc:
         parser.error(str(exc))
 
@@ -177,37 +176,33 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
             include_labels=args.include_labels,
             order_production_method=args.order_production_method,
             order_production_directory=args.order_production_directory,
-            mapping_mode=args.mapping_mode[0],
             replace=args.replace,
             project_directory=args.project_directory,
         )
         print(f"Wrote TestLinker input rows: {len(preprocess_df)}")
 
     if args.stage in {"execute", "all"}:
-        execute_results = execute_project(
+        execute_df = execute_project(
             cache_directory=args.cache_directory,
             project=project,
-            top_k=args.top_k,
             testlinker_directory=args.testlinker_directory,
             model_name_or_path=args.model_name_or_path,
             checkpoint_directory=args.checkpoint_directory,
             checkpoint=args.checkpoint,
             model_mode=args.model_mode,
-            mapping_modes=args.mapping_mode,
             eval_batch_size=args.eval_batch_size,
             max_source_length=args.max_source_length,
             tokenizer_mode=args.tokenizer_mode,
-            only_model=args.only_model,
             no_cuda=args.no_cuda,
             replace=args.replace,
         )
-        for mode, mode_df in execute_results.items():
-            print(f"Wrote TestLinker [{mode}] execute rows: {len(mode_df)}")
+        print(f"Wrote model output rows: {len(execute_df)}")
 
     if args.stage in {"postprocess", "all"}:
         postprocess_results = postprocess_project(
             cache_directory=args.cache_directory,
             project=project,
+            top_k=args.top_k,
             testlinker_directory=args.testlinker_directory,
             modes=args.postprocess_modes,
             replace=args.replace,

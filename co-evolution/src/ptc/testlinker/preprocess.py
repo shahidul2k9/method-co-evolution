@@ -7,10 +7,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from ptc.testlinker.json_bridge import write_project_json
 from ptc.testlinker.paths import (
     class_map_directory,
     input_csv_path,
     projects_all_functions_directory,
+    raw_input_json_directory,
     t2p_ground_truth_updated_file,
     testlinker_root,
 )
@@ -163,82 +165,89 @@ def preprocess_project(
     include_labels: bool = False,
     order_production_method: str = "candidate",
     order_production_directory: str | Path | None = None,
-    mapping_mode: str = "testlinker-heuristics",
     replace: bool = False,
     project_directory: str | Path | None = None,
 ) -> pd.DataFrame:
     cache_root = Path(cache_directory)
     root = testlinker_root(cache_root, testlinker_directory)
-
     output_file = input_csv_path(root, project)
+
     if not replace and output_file.exists():
-        return pd.read_csv(output_file, keep_default_na=False, na_filter=False)
+        input_df = pd.read_csv(output_file, keep_default_na=False, na_filter=False)
+    else:
+        generate_mapping_files(cache_directory, project, testlinker_directory, project_directory)
+        candidate_file = cache_root / "data" / "t2p-candidate" / f"{project}.csv"
+        if not candidate_file.exists():
+            raise FileNotFoundError(f"Candidate file not found: {candidate_file}")
 
-    generate_mapping_files(cache_directory, project, testlinker_directory, project_directory)
-    candidate_file = cache_root / "data" / "t2p-candidate" / f"{project}.csv"
-    if not candidate_file.exists():
-        raise FileNotFoundError(f"Candidate file not found: {candidate_file}")
+        method_code_file = cache_root / "data" / "method-code" / f"{project}.csv"
+        method_code_lookup = _load_method_code_lookup(method_code_file)
+        label_lookup = _load_label_lookup(t2p_ground_truth_updated_file(project_directory or cache_root, project)) if include_labels else {}
+        invocation_order_lookup = _load_invocation_order_lookup(project, order_production_method, order_production_directory)
+        candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)
+        required_columns = {"project", "from_url", "from_name", "from_file", "to_url", "to_name"}
+        missing_columns = required_columns.difference(candidate_df.columns)
+        if missing_columns:
+            raise ValueError(f"Candidate file {candidate_file} is missing columns: {sorted(missing_columns)}")
 
-    method_code_file = cache_root / "data" / "method-code" / f"{project}.csv"
-    method_code_lookup = _load_method_code_lookup(method_code_file)
-    label_lookup = _load_label_lookup(t2p_ground_truth_updated_file(project_directory or cache_root, project)) if include_labels else {}
-    invocation_order_lookup = _load_invocation_order_lookup(project, order_production_method, order_production_directory)
-    candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)
-    required_columns = {"project", "from_url", "from_name", "from_file", "to_url", "to_name"}
-    missing_columns = required_columns.difference(candidate_df.columns)
-    if missing_columns:
-        raise ValueError(f"Candidate file {candidate_file} is missing columns: {sorted(missing_columns)}")
+        rows = []
+        for index, (from_url, group_df) in enumerate(candidate_df.groupby("from_url", sort=False), start=1):
+            group_df = group_df.reset_index(drop=True)
+            first_row = group_df.iloc[0]
+            test_id = f"{index:06d}"
+            body = _strip_method_declaration(method_code_lookup.get(from_url, ""))
+            label_payload = label_lookup.get(from_url, {"signatures": [], "urls": set()})
+            labels = list(label_payload["signatures"])
+            label_urls = set(label_payload["urls"])
+            seen_rows: set[tuple[str, str]] = set()
+            test_rows = []
 
-    rows = []
-    for index, (from_url, group_df) in enumerate(candidate_df.groupby("from_url", sort=False), start=1):
-        group_df = group_df.reset_index(drop=True)
-        first_row = group_df.iloc[0]
-        test_id = f"{index:06d}"
-        body = _strip_method_declaration(method_code_lookup.get(from_url, ""))
-        label_payload = label_lookup.get(from_url, {"signatures": [], "urls": set()})
-        labels = list(label_payload["signatures"])
-        label_urls = set(label_payload["urls"])
-        seen_rows: set[tuple[str, str]] = set()
-        test_rows = []
+            for candidate_row in group_df.to_dict(orient="records"):
+                signature = _candidate_signature(candidate_row)
+                if not signature:
+                    continue
+                signature = compact_signature(signature)
+                method_name = invocation_name(signature) or candidate_row.get("to_name", "")
+                to_url = candidate_row.get("to_url", "")
+                dedupe_key = (signature, to_url)
+                if dedupe_key in seen_rows:
+                    continue
+                seen_rows.add(dedupe_key)
 
-        for candidate_row in group_df.to_dict(orient="records"):
-            signature = _candidate_signature(candidate_row)
-            if not signature:
-                continue
-            signature = compact_signature(signature)
-            method_name = invocation_name(signature) or candidate_row.get("to_name", "")
-            to_url = candidate_row.get("to_url", "")
-            dedupe_key = (signature, to_url)
-            if dedupe_key in seen_rows:
-                continue
-            seen_rows.add(dedupe_key)
+                params = split_signature_params(signature)
+                test_rows.append(
+                    {
+                        "project": project,
+                        "test_id": test_id,
+                        "from_url": from_url,
+                        "test_name": first_row.get("from_name", ""),
+                        "test_path": _test_path(first_row),
+                        "body": body,
+                        "invocation": method_name,
+                        "signature": signature,
+                        "candidate_url": to_url,
+                        "candidate_name": candidate_row.get("to_name", ""),
+                        "params_json": json.dumps(params, ensure_ascii=True),
+                        "detail_sigs_json": json.dumps([signature], ensure_ascii=True),
+                        "label": 1 if to_url in label_urls else 0,
+                        "label_json": json.dumps(labels, ensure_ascii=True),
+                    }
+                )
+            rows.extend(_order_rows_by_invocation(test_rows, invocation_order_lookup.get(str(first_row.get("from_name", "")))))
 
-            params = split_signature_params(signature)
-            test_rows.append(
-                {
-                    "project": project,
-                    "test_id": test_id,
-                    "from_url": from_url,
-                    "test_name": first_row.get("from_name", ""),
-                    "test_path": _test_path(first_row),
-                    "body": body,
-                    "invocation": method_name,
-                    "signature": signature,
-                    "candidate_url": to_url,
-                    "candidate_name": candidate_row.get("to_name", ""),
-                    "params_json": json.dumps(params, ensure_ascii=True),
-                    "detail_sigs_json": json.dumps([signature], ensure_ascii=True),
-                    "label": 1 if to_url in label_urls else 0,
-                    "label_json": json.dumps(labels, ensure_ascii=True),
-                }
-            )
-        rows.extend(_order_rows_by_invocation(test_rows, invocation_order_lookup.get(str(first_row.get("from_name", "")))))
+        input_df = pd.DataFrame(rows, columns=INPUT_COLUMNS)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        input_df.to_csv(output_file, index=False)
 
-    input_df = pd.DataFrame(rows, columns=INPUT_COLUMNS)
-    output_file = input_csv_path(root, project)
-    output_file.parent.mkdir(parents=True, exist_ok=True)
-    input_df.to_csv(output_file, index=False)
+    _build_input_json(input_df, root=root, project=project, replace=replace)
     return input_df
+
+
+def _build_input_json(input_df: pd.DataFrame, *, root: Path, project: str, replace: bool) -> None:
+    input_json_dir = raw_input_json_directory(root, project)
+    if not replace and input_json_dir.exists() and any(input_json_dir.glob("*.json")):
+        return
+    write_project_json(input_df, root=root, project=project)
 
 
 def _load_method_code_lookup(method_code_file: Path) -> dict[str, str]:

@@ -22,7 +22,7 @@ pip install -e ./co-evolution[testlinker] # optional: TestLinker/CodeT5 backend
 Build the Java method-parser module and copy the JAR into the cache:
 
 ```bash
-scripts/build_mp.sh
+scripts/build-method-parser.sh
 # or manually:
 cd method-parser && mvn clean install -DskipTests
 ```
@@ -32,7 +32,7 @@ cd method-parser && mvn clean install -DskipTests
 | Module | README | Description |
 |--------|--------|-------------|
 | `method-parser/` | [README](method-parser/README.md) | Java module — method extraction and call-graph generation; dataset schemas |
-| `method-history-collector/` | [README](method-history-collector/README.md) | `mhc` CLI — history collection, sharding, call-graph, method-code |
+| `method-history-collector/` | [README](method-history-collector/README.md) | `mhc` CLI — history collection, sharding, method-callgraph, method-code |
 | `co-evolution/` | [README](co-evolution/README.md) | `ptc-llm`, `ptc-history-viewer` — LLM linking, history viewer |
 | `co-evolution/src/ptc/testlinker/` | [README](co-evolution/src/ptc/testlinker/README.md) | `ptc-testlinker` — neural test-to-production linking (CodeT5) |
 | `scripts/` | [README](scripts/README.md) | Build script, Slurm job wrapper, oracle metadata utility |
@@ -41,11 +41,12 @@ cd method-parser && mvn clean install -DskipTests
 
 ```
 repository.csv
-  → mhc scan-method        → data/method/{project}.csv
-  → mhc call-graph         → data/call-graph/{project}.csv (fan-in / fan-out)
-  → mhc history            → history/{tool}/{project}/ (.tar.gz archives)
+  → mhc method-scan        → data/method/{project}.csv
+  → mhc method-callgraph   → data/callgraph/{project}.csv (fanin / callgraph)
+  → mhc method-history     → history/{tool}/{project}/ (.tar.gz archives)
   → mhc method-code        → data/method-code/{project}.csv
-  → generator scripts      → data/fan-in/, data/fan-out/   (candidate pairs)
+  → generator scripts      → data/fanin/, data/callgraph/   (candidate pairs)
+  → generate_callgraph_degree → data/callgraph-degree/{project}.csv
   → ptc-llm / testlinker   → data/llm/{model}/             (ranked predictions)
 ```
 

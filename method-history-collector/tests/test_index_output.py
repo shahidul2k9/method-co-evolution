@@ -339,18 +339,14 @@ class TestIndexOutput(unittest.TestCase):
                     "checkstyle/src/Foo--m2--2.json": "{}",
                 },
             )
-            _write_tar_gz(
-                data_directory / "fan-in" / "checkstyle.tar.gz",
-                {
-                    "checkstyle/A.csv": "value\n1\n",
-                },
-            )
-            _write_tar_gz(
-                data_directory / "fan-out" / "checkstyle.tar.gz",
-                {
-                    "checkstyle/A.csv": "value\n1\n",
-                    "checkstyle/B.csv": "value\n2\n",
-                },
+            fanin_dir = data_directory / "fanin"
+            fanin_dir.mkdir(parents=True)
+            pd.DataFrame([{"value": 1}]).to_csv(fanin_dir / "checkstyle.csv", index=False)
+
+            callgraph_dir = data_directory / "callgraph"
+            callgraph_dir.mkdir(parents=True)
+            pd.DataFrame([{"value": 1}, {"value": 2}]).to_csv(
+                callgraph_dir / "checkstyle.csv", index=False
             )
 
             repository_df = pd.DataFrame(
@@ -366,8 +362,8 @@ class TestIndexOutput(unittest.TestCase):
             self.assertEqual(["checkstyle"], output_df["project"].tolist())
             self.assertEqual([3], output_df["methods"].tolist())
             self.assertEqual([2], output_df["history_codeShovel"].tolist())
-            self.assertEqual([1], output_df["fan-in"].tolist())
-            self.assertEqual([2], output_df["fan-out"].tolist())
+            self.assertEqual([1], output_df["fanin"].tolist())
+            self.assertEqual([2], output_df["callgraph"].tolist())
 
     def test_merge_folder_into_tar_gz_only_removes_merged_json_files(self):
         with tempfile.TemporaryDirectory() as temp_dir:

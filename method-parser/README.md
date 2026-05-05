@@ -12,10 +12,10 @@ mvn clean install -DskipTests
 The fat JAR is written to `target/method-parser-*.jar`. The helper script builds and copies it to the cache in one step:
 
 ```bash
-scripts/build_mp.sh   # copies JAR to <ME_CACHE_DIRECTORY>/jar/
+scripts/build-method-parser.sh   # copies JAR to <ME_CACHE_DIRECTORY>/jar/
 ```
 
-The `mhc scan-method` and `mhc call-graph` commands resolve the JAR from `--jar-directory` at runtime.
+The `mhc method-scan` and `mhc method-callgraph` commands resolve the JAR from `--jar-directory` at runtime.
 
 ## Datasets
 
@@ -46,9 +46,9 @@ One row per method or constructor extracted from the repository at the indexed c
 
 The `url` column is the primary key used throughout the pipeline to identify methods.
 
-### `data/call-graph/{project}.csv` — fan-out (test → production calls)
+### `data/callgraph/{project}.csv` — callgraph / fan-out (test → production calls)
 
-One row per directed call edge. `fan-out` files record what a method calls; `fan-in` files record what calls a method. Both share the same schema.
+One row per directed call edge. `callgraph` files record what a method calls (formerly fan-out); `fanin` files record what calls a method. Both share the same schema.
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -64,7 +64,7 @@ One row per directed call edge. `fan-out` files record what a method calls; `fan
 | `from_testlinker_fqp` / `to_testlinker_fqp` | string | TestLinker parameter list as a JSON array of fully-qualified types, varargs as `[]`. For `to_testlinker_fqp`, argument types at the call site are used (same source as `to_testlinker_fqs`). |
 | `from_start` / `from_end` | int | Line range of the `from` method |
 | `to_start` / `to_end` | int | Line range of the `to` method |
-| `from_invocation` | int | Line where the call appears in the `from` method (fan-out only) |
+| `from_invocation` | int | Line where the call appears in the `from` method (callgraph only) |
 | `from_lcba` / `to_lcba` | int | Last call before an assertion (line number) |
 | `from_file` / `to_file` | string | Relative source file path |
 | `from_caller_url` / `to_caller_url` | string | Caller URL (populated for deep call chains) |
@@ -72,4 +72,4 @@ One row per directed call edge. `fan-out` files record what a method calls; `fan
 | `hash` | string | Git commit hash |
 | `from_resolver` / `to_resolver` | string | Symbol resolver strategy |
 
-Fan-out files are stored under `data/fan-out/` after link generation. Fan-in files are stored under `data/fan-in/`.
+Callgraph files are stored under `data/callgraph/{project}.csv` after link generation. Fanin files are stored under `data/fanin/{project}.csv`.

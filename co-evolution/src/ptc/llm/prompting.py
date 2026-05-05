@@ -403,9 +403,9 @@ def _coerce_float(value) -> float | None:
 
 
 def _layout(input_kind: str) -> tuple[str, str, str]:
-    if input_kind in {"fan-out", "t2p"}:
+    if input_kind in {"callgraph", "fan-out", "t2p"}:
         return "from", "to", "from_url"
-    if input_kind in {"fan-in", "p2t"}:
+    if input_kind in {"fanin", "fan-in", "p2t"}:
         return "to", "from", "to_url"
     raise ValueError(f"Unsupported input_kind: {input_kind}")
 

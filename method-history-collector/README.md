@@ -22,23 +22,24 @@ All subcommands accept:
 
 ### Project selection
 
-Exactly one of the following must be provided:
+Provide one of the following selectors. `--project-index` may also be combined with `--project` or `--projects` to index within that explicit project set; this is useful when `scripts/job.sh` derives a project index for sharded array jobs.
 
 | Flag | Example | Effect |
 |------|---------|--------|
 | `--project` | `checkstyle` | Single project |
 | `--projects` | `checkstyle,commons-io` | Explicit comma-separated list |
-| `--project-range` | `10:20` | 1-based inclusive row range from `repository.csv` |
-| `--project-range` | `:` | All projects |
+| `--project-index` | `10:20` | Python-style 0-based row slice from `repository.csv` (`10` through `19`) |
+| `--project-index` | `-1` | Last project |
+| `--project-index` | `:` | All projects |
 
 ## Commands
 
-### `mhc scan-method`
+### `mhc method-scan`
 
 Extracts all methods and constructors from a repository at its current HEAD and writes `data/method/{project}.csv`. See [method-parser/README.md](../method-parser/README.md) for the column schema.
 
 ```bash
-mhc scan-method \
+mhc method-scan \
     --cache-directory ".cache" \
     --repository-directory ".cache/repository" \
     --data-directory ".cache/data" \
@@ -53,12 +54,12 @@ If `<cache-directory>/config/logback.xml` exists it is passed to the JVM automat
 
 ---
 
-### `mhc history`
+### `mhc method-history`
 
 Traces the change history of each method using a history tool (CodeShovel, HistoryFinder, or CodeTracker) and stores loose JSON files and `.tar.gz` archives under `<history-directory>/{tool}/{project}`. If `--history-directory` is omitted, MHC uses `ME_HISTORY_DIRECTORY`; if that environment variable is unset, it falls back to `<cache-directory>/history`.
 
 ```bash
-mhc history \
+mhc method-history \
     --cache-directory ".cache" \
     --history-directory "/scratch/method-history" \
     --repository-directory ".cache/repository" \
@@ -76,7 +77,7 @@ mhc history \
 Split work across parallel workers deterministically (hash-based, disjoint):
 
 ```bash
-mhc history ... --project "checkstyle" --shards 20 --shard 7
+mhc method-history ... --project "checkstyle" --shards 20 --shard 7
 ```
 
 #### Merging
@@ -84,9 +85,9 @@ mhc history ... --project "checkstyle" --shards 20 --shard 7
 Merge loose `.json` files into the `.tar.gz` archive without generating new history:
 
 ```bash
-mhc history ... --project "checkstyle" --merge-only
+mhc method-history ... --project "checkstyle" --merge-only
 # with cleanup:
-mhc history ... --project "checkstyle" --merge-only delete-empty delete-tmp delete-lock
+mhc method-history ... --project "checkstyle" --merge-only delete-empty delete-tmp delete-lock
 ```
 
 `delete-tmp` and `delete-lock` are safe only when no history worker is running for the same cache.
@@ -105,12 +106,12 @@ Key options:
 
 ---
 
-### `mhc call-graph`
+### `mhc method-callgraph`
 
-Generates fan-out and fan-in call-graph CSVs via the method-parser JAR. See [method-parser/README.md](../method-parser/README.md) for the column schema.
+Generates callgraph (fan-out) and fanin call-graph CSVs via the method-parser JAR. See [method-parser/README.md](../method-parser/README.md) for the column schema.
 
 ```bash
-mhc call-graph \
+mhc method-callgraph \
     --cache-directory ".cache" \
     --repository-directory ".cache/repository" \
     --data-directory ".cache/data" \

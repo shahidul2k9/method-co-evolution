@@ -1052,7 +1052,7 @@ class HistoryViewerApp:
 </div>
 """
 
-        searched = ", ".join(searched_related_labels) if searched_related_labels else "t2p-link, t2p-candidate, m2m-tech, fan-out"
+        searched = ", ".join(searched_related_labels) if searched_related_labels else "t2p-link, t2p-candidate, m2m-tech, callgraph"
         return f"""
 <div style="margin-top:16px;">
   <div class="eyebrow">Tested Production Methods</div>
@@ -1095,7 +1095,7 @@ class HistoryViewerApp:
 </div>
 """
 
-        searched = ", ".join(searched_calling_labels) if searched_calling_labels else "t2p-link, t2p-candidate, m2m-tech, fan-out"
+        searched = ", ".join(searched_calling_labels) if searched_calling_labels else "t2p-link, t2p-candidate, m2m-tech, callgraph"
         return f"""
 <div style="margin-top:16px;">
   <div class="eyebrow">Calling Test Methods</div>

@@ -35,7 +35,7 @@ import rnd.method.parser.call.graph.model.Method;
 import rnd.method.parser.call.graph.model.MethodCall;
 import rnd.method.parser.call.graph.util.AltConstructorDeclarationFqn;
 import rnd.method.parser.call.graph.util.AltMethodDeclarationFqn;
-import rnd.method.parser.call.graph.util.TableUtil;
+
 import rnd.method.parser.call.graph.util.TestLinkerSignatureUtil;
 
 import java.io.BufferedReader;
@@ -51,185 +51,176 @@ import java.util.stream.Stream;
 @Slf4j
 public class CallGraphServiceImpl implements CallGraphService {
 
+    private String repositoryUrl;
+    private String repositoryLocation;
+    private String repositoryName;
+    private String commitHash;
+    private CombinedTypeSolver typeSolver;
+    private JavaParser parserWithSymbolResolver;
+    private MethodMappingIndex methodMappingIndex;
+    private String absoluteRepositoryPath;
+
+    public static CallGraphServiceImpl getInstance() {
+        return new CallGraphServiceImpl();
+    }
 
     @Override
-    public List<MethodCall> findFanOut(String repositoryUrl, String repositoryLocation, String commitHash, List<String> targetPaths, String fanInOutputFile, String fanOutOutputFile, String methodMappingFile) {
-
-        MethodParserUtil.prepareRepositoryForCommit(repositoryUrl, repositoryLocation, commitHash);
-
-        String repositoryName = MethodParserUtil.extractRepositoryName(repositoryUrl);
-        MethodMappingIndex methodMappingIndex = MethodMappingIndex.load(methodMappingFile);
-        CombinedTypeSolver typeSolver = new CombinedTypeSolver();
-        typeSolver.add(new ReflectionTypeSolver(true));
-        Path repositoryPath = Paths.get(repositoryLocation);
-        String absoluteRepositoryPath = repositoryPath.toFile().getAbsolutePath();
-        List<Path> allJavaSourceRoots = MethodParserUtil.findAllJavaSourceRootsFromPackageDeclarations(repositoryPath);
-
-        for (Path path : allJavaSourceRoots) {
-            typeSolver.add(new JavaParserTypeSolver(path.toFile()));
+    public synchronized void init(String repositoryUrl, String repositoryPath, String commitHash, String methodMappingFile) {
+        if (parserWithSymbolResolver != null) {
+            throw new IllegalStateException("CallGraphServiceImpl.init must be called exactly once");
         }
-        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
-        ParserConfiguration config = new ParserConfiguration()
-                .setSymbolResolver(symbolSolver);
+        MethodParserUtil.prepareRepositoryForCommit(repositoryUrl, repositoryPath, commitHash);
+        this.repositoryUrl = repositoryUrl;
+        this.repositoryLocation = repositoryPath;
+        this.commitHash = commitHash;
+        this.repositoryName = MethodParserUtil.extractRepositoryName(repositoryUrl);
+        this.methodMappingIndex = MethodMappingIndex.load(methodMappingFile);
+        this.typeSolver = new CombinedTypeSolver();
+        this.typeSolver.add(new ReflectionTypeSolver(true));
+        Path repoPath = Paths.get(repositoryPath);
+        this.absoluteRepositoryPath = repoPath.toFile().getAbsolutePath();
+        List<Path> allJavaSourceRoots = MethodParserUtil.findAllJavaSourceRootsFromPackageDeclarations(repoPath);
+        if (allJavaSourceRoots.isEmpty()) {
+            this.typeSolver.add(new JavaParserTypeSolver(new File(repositoryPath)));
+        } else {
+            for (Path path : allJavaSourceRoots) {
+                this.typeSolver.add(new JavaParserTypeSolver(path.toFile()));
+            }
+        }
+        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(this.typeSolver);
+        ParserConfiguration config = new ParserConfiguration().setSymbolResolver(symbolSolver);
         StaticJavaParser.setConfiguration(config);
-        JavaParser parserWithSymbolResolver = new JavaParser(config);
-        List<String> files = MethodParserUtil.scanJavaFiles(repositoryLocation, targetPaths);
+        this.parserWithSymbolResolver = new JavaParser(config);
+    }
 
+    @Override
+    public List<MethodCall> findCallgraph(String file) {
+        ensureInitialized();
+        String absoluteFilePath = Paths.get(repositoryLocation, file).toFile().getAbsolutePath();
+        try {
+            var result = parserWithSymbolResolver.parse(Paths.get(absoluteFilePath));
+            if (!result.isSuccessful()) {
+                return List.of();
+            }
+            return result.getResult().get()
+                    .findAll(MethodDeclaration.class)
+                    .stream()
+                    .flatMap(fromMd -> buildCallgraphForMethod(fromMd, file).stream())
+                    .toList();
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
 
-        List<MethodCall> methodCallOutList = files.stream()
-                .flatMap(file -> {
-                    try {
-                        var result = parserWithSymbolResolver.parse(Paths.get(file));
-                        if (result.isSuccessful()) {
-                            return result.getResult().get()
-                                    .findAll(MethodDeclaration.class)
-                                    .stream()
-                                    .flatMap(fromMd -> {
-                                        if (fromMd.getSignature().getName().contains("getFirstMillisecond")) {
-                                            log.info(fromMd.getSignature().getName().toString());
+    private void ensureInitialized() {
+        if (parserWithSymbolResolver == null) {
+            throw new IllegalStateException("CallGraphServiceImpl.init must be called before findCallgraph");
+        }
+    }
 
-                                        }
+    private List<MethodCall> buildCallgraphForMethod(MethodDeclaration fromMd, String fileRelative) {
+        if (fromMd.getSignature().getName().contains("getFirstMillisecond")) {
+            log.info(fromMd.getSignature().getName().toString());
+        }
 
-                                        Set<String> lcbaMetodUrlSet = new HashSet<>();
+        Set<String> lcbaMethodUrlSet = new HashSet<>();
+        List<Method> calledMethods = new ArrayList<>();
+        /* For handling method just before assertion
+           e.g. mutNum.increment
+           https://github.com/apache/commons-lang/blob/425d8085cfcaab5a78bf0632f9ae77b7e9127cf8/src/test/java/org/apache/commons/lang3/mutable/MutableIntTest.java#L146 */
+        Stack<Method> lcbaCandidateMethod = new Stack<>();
 
-                                        List<Method> calledMethods = new ArrayList<>();
-                                         /*For handling method just before assertion
-                                         e.g. mutNum.increment
-                                         https://github.com/apache/commons-lang/blob/425d8085cfcaab5a78bf0632f9ae77b7e9127cf8/src/test/java/org/apache/commons/lang3/mutable/MutableIntTest.java#L146
-*/
-                                        Stack<Method> lcbaCandidateMethod = new Stack<>();
-
-
-                                        fromMd.walk(Node.TreeTraversal.POSTORDER, node -> {
-
-
-                                            if (node instanceof MethodCallExpr || node instanceof ObjectCreationExpr) {
-
-                                                boolean isAssertionMethod = node instanceof MethodCallExpr && AssertionLineFinder.isAssertionCall(((MethodCallExpr) node).getNameAsString());
-
-                                                if (isAssertionMethod) {
-                                                    while (!lcbaCandidateMethod.isEmpty()) {
-                                                        Method preceededMethod = lcbaCandidateMethod.pop();
-                                                        if (preceededMethod.getInvocationLine() < node.getBegin().get().line){
-                                                            lcbaMetodUrlSet.add(preceededMethod.getUrl());
-                                                            lcbaCandidateMethod.clear();
-                                                        }
-                                                    }
-
-                                                    ((MethodCallExpr) node).getArguments().forEach(argNode -> {
-
-                                                        if (argNode instanceof MethodCallExpr || argNode instanceof ObjectCreationExpr) {
-
-                                                            Method m = getMethodInfo(
-                                                                    repositoryUrl,
-                                                                    commitHash,
-                                                                    argNode,
-                                                                    typeSolver,
-                                                                    absoluteRepositoryPath,
-                                                                    repositoryName,
-                                                                    methodMappingIndex
-                                                            );
-                                                            if (m != null) {
-                                                                lcbaMetodUrlSet.add(m.getUrl());
-                                                            }
-                                                        }
-
-                                                    });
-                                                }
-
-                                                Method methodInfo = getMethodInfo(repositoryUrl, commitHash, node, typeSolver, absoluteRepositoryPath, repositoryName, methodMappingIndex);
-                                                if (methodInfo != null) {
-                                                    calledMethods.add(methodInfo);
-                                                    lcbaCandidateMethod.add(methodInfo);
-                                                }
-                                            }
-                                        });
-
-                                        calledMethods.forEach(method -> {
-                                            if (lcbaMetodUrlSet.contains(method.getUrl())) {
-                                                method.setLcba(1);
-                                            }
-                                        });
-
-                                        String targetMethodFileSuffix = MethodParserUtil.stripFilePrefix(absoluteRepositoryPath, new File(file).getAbsolutePath());
-                                        int targetMethodStartLine = fromMd.getName().getBegin().get().line;
-                                        String fromFqn = null;
-                                        String fromFqs = null;
-                                        String fromResolver = "javaparser";
-                                        String fromTcTracerFqs = AltMethodDeclarationFqn.buildSimpleParamSignature(fromMd);
-                                        try {
-                                            ResolvedMethodDeclaration resolvedFromMd = fromMd.resolve();
-                                            fromFqn = resolvedFromMd.getQualifiedName();
-                                            fromFqs = resolvedFromMd.getQualifiedSignature();
-                                        } catch (Exception e) {
-                                            log.warn("Failed to parse from method FQN and FQS for {}", fromMd.getNameAsString());
-                                        }
-                                        // Fix anonymous class naming: resolver uses UUIDs or silently drops $N
-                                        if (AltMethodDeclarationFqn.isInAnonymousClass(fromTcTracerFqs)) {
-                                            String astQualified = AltMethodDeclarationFqn.buildQualifiedParamSignature(fromMd);
-                                            fromFqn = stripParameters(astQualified);
-                                            fromFqs = astQualified;
-                                        } else {
-                                            if (fromFqn != null && fromFqn.contains("Anonymous-")) {
-                                                fromFqn = stripParameters(AltMethodDeclarationFqn.buildQualifiedParamSignature(fromMd));
-                                            }
-                                            if (fromFqs != null && fromFqs.contains("Anonymous-")) {
-                                                fromFqs = AltMethodDeclarationFqn.buildQualifiedParamSignature(fromMd);
-                                            }
-                                        }
-                                        if (fromFqn == null) {
-                                            fromFqn = stripParameters(AltMethodDeclarationFqn.buildQualifiedParamSignature(fromMd));
-                                            fromResolver = "heuristics";
-                                        }
-                                        if (fromFqs == null) {
-                                            fromFqs = AltMethodDeclarationFqn.buildQualifiedParamSignature(fromMd);
-                                            fromResolver = "heuristics";
-                                        }
-                                        Optional<PackageDeclaration> packageDeclaration = fromMd.findCompilationUnit().get().getPackageDeclaration();
-                                        MethodCall methodCall = MethodCall.builder()
-                                                .method(Method.builder()
-                                                        .repositoryName(repositoryName)
-                                                        .file(targetMethodFileSuffix)
-                                                        .url(MethodParserUtil.toMethodUrl(repositoryUrl, commitHash, targetMethodFileSuffix, targetMethodStartLine))
-                                                        .name(fromMd.getSignature().getName())
-                                                        .pkg(packageDeclaration.map(NodeWithName::getNameAsString).orElse(null))
-                                                        .fqn(fromFqn)
-                                                        .fqs(fromFqs)
-                                                        .tcTracerFqs(fromTcTracerFqs)
-                                                        .testlinkerFqs(fromTcTracerFqs)
-                                                        .testlinkerFqp(TestLinkerSignatureUtil.toParamTypeJson(fromFqs))
-                                                        .resolver(fromResolver)
-                                                        .startLine(targetMethodStartLine)
-                                                        .endLine(fromMd.getEnd().get().line)
-                                                        .hash(commitHash)
-                                                        .expression("method")
-                                                        .lcba(0)
-                                                        .invocationLine(null)
-                                                        .build())
-                                                .fanMethods(calledMethods)
-                                                .build();
-
-                                        return Stream.of(methodCall);
-                                    });
-                        } else {
-//                             log.debug("Failed to parse file {}", file);
-//                             log.debug("Problems {}", result.getProblems());
-                            return Stream.empty();
+        fromMd.walk(Node.TreeTraversal.POSTORDER, node -> {
+            if (node instanceof MethodCallExpr || node instanceof ObjectCreationExpr) {
+                boolean isAssertionMethod = node instanceof MethodCallExpr && AssertionLineFinder.isAssertionCall(((MethodCallExpr) node).getNameAsString());
+                if (isAssertionMethod) {
+                    while (!lcbaCandidateMethod.isEmpty()) {
+                        Method precededMethod = lcbaCandidateMethod.pop();
+                        if (precededMethod.getInvocationLine() < node.getBegin().get().line) {
+                            lcbaMethodUrlSet.add(precededMethod.getUrl());
+                            lcbaCandidateMethod.clear();
                         }
-                    } catch (Exception e) {
-                        return Stream.empty(); // skip file completely
                     }
-                })
-                        .
+                    ((MethodCallExpr) node).getArguments().forEach(argNode -> {
+                        if (argNode instanceof MethodCallExpr || argNode instanceof ObjectCreationExpr) {
+                            Method m = getMethodInfo(repositoryUrl, commitHash, argNode, typeSolver, absoluteRepositoryPath, repositoryName, methodMappingIndex);
+                            if (m != null) {
+                                lcbaMethodUrlSet.add(m.getUrl());
+                            }
+                        }
+                    });
+                }
+                Method methodInfo = getMethodInfo(repositoryUrl, commitHash, node, typeSolver, absoluteRepositoryPath, repositoryName, methodMappingIndex);
+                if (methodInfo != null) {
+                    calledMethods.add(methodInfo);
+                    lcbaCandidateMethod.add(methodInfo);
+                }
+            }
+        });
 
-                toList();
+        calledMethods.forEach(method -> {
+            if (lcbaMethodUrlSet.contains(method.getUrl())) {
+                method.setLcba(1);
+            }
+        });
 
-        File fanOutFile = Paths.get(fanOutOutputFile).toFile();
-        TableUtil.toTable(methodCallOutList, fanOutFile.getAbsolutePath(), true);
-        File fanInFile = Paths.get(fanInOutputFile).toFile();
-        List<MethodCall> methodCallInList = MethodParserUtil.fanInFromFanOut(methodCallOutList);
-        TableUtil.toTable(methodCallInList, fanInFile.getAbsolutePath(), false);
-        return methodCallOutList;
+        int targetMethodStartLine = fromMd.getName().getBegin().get().line;
+        String fromFqn = null;
+        String fromFqs = null;
+        String fromResolver = "javaparser";
+        String fromTcTracerFqs = AltMethodDeclarationFqn.buildSimpleParamSignature(fromMd);
+        try {
+            ResolvedMethodDeclaration resolvedFromMd = fromMd.resolve();
+            fromFqn = resolvedFromMd.getQualifiedName();
+            fromFqs = resolvedFromMd.getQualifiedSignature();
+        } catch (Exception e) {
+            log.warn("Failed to parse from method FQN and FQS for {}", fromMd.getNameAsString());
+        }
+        // Fix anonymous class naming: resolver uses UUIDs or silently drops $N
+        if (AltMethodDeclarationFqn.isInAnonymousClass(fromTcTracerFqs)) {
+            String astQualified = AltMethodDeclarationFqn.buildQualifiedParamSignature(fromMd);
+            fromFqn = stripParameters(astQualified);
+            fromFqs = astQualified;
+        } else {
+            if (fromFqn != null && fromFqn.contains("Anonymous-")) {
+                fromFqn = stripParameters(AltMethodDeclarationFqn.buildQualifiedParamSignature(fromMd));
+            }
+            if (fromFqs != null && fromFqs.contains("Anonymous-")) {
+                fromFqs = AltMethodDeclarationFqn.buildQualifiedParamSignature(fromMd);
+            }
+        }
+        if (fromFqn == null) {
+            fromFqn = stripParameters(AltMethodDeclarationFqn.buildQualifiedParamSignature(fromMd));
+            fromResolver = "heuristics";
+        }
+        if (fromFqs == null) {
+            fromFqs = AltMethodDeclarationFqn.buildQualifiedParamSignature(fromMd);
+            fromResolver = "heuristics";
+        }
+        Optional<PackageDeclaration> packageDeclaration = fromMd.findCompilationUnit().get().getPackageDeclaration();
+        MethodCall methodCall = MethodCall.builder()
+                .method(Method.builder()
+                        .repositoryName(repositoryName)
+                        .file(fileRelative)
+                        .url(MethodParserUtil.toMethodUrl(repositoryUrl, commitHash, fileRelative, targetMethodStartLine))
+                        .name(fromMd.getSignature().getName())
+                        .pkg(packageDeclaration.map(NodeWithName::getNameAsString).orElse(null))
+                        .fqn(fromFqn)
+                        .fqs(fromFqs)
+                        .tcTracerFqs(fromTcTracerFqs)
+                        .testlinkerFqs(fromTcTracerFqs)
+                        .testlinkerFqp(TestLinkerSignatureUtil.toParamTypeJson(fromFqs))
+                        .resolver(fromResolver)
+                        .startLine(targetMethodStartLine)
+                        .endLine(fromMd.getEnd().get().line)
+                        .hash(commitHash)
+                        .expression("method")
+                        .lcba(0)
+                        .invocationLine(null)
+                        .build())
+                .fanMethods(calledMethods)
+                .build();
+        return List.of(methodCall);
     }
 
     private static Method getMethodInfo(String repositoryUrl, String commitHash, Node callNode, CombinedTypeSolver typeSolver, String absoluteRepositoryPath, String repositoryName, MethodMappingIndex methodMappingIndex) {

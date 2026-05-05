@@ -607,7 +607,7 @@ class HistoryRepository:
                 continue
             candidates.append((csv_file, self._source_label(csv_file)))
 
-        for root_name in ("t2p-candidate", "m2m-tech", "fan-out"):
+        for root_name in ("t2p-candidate", "m2m-tech", "callgraph"):
             csv_file = data_directory / root_name / f"{project}.csv"
             candidates.append((csv_file, self._source_label(csv_file)))
 
@@ -726,7 +726,7 @@ class HistoryRepository:
             *self._t2p_link_options(),
             "t2p-candidate",
             "m2m-tech",
-            "fan-out",
+            "callgraph",
         ]
 
     def _resolve_member_name(self, *, tool: str, project: str, file_path: str, line: int) -> str:

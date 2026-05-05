@@ -32,17 +32,56 @@ def main(argv: list[str] | None = None) -> None:
     )
     candidate_files = list_csv_files(T2P_CANDIDATE_DIR, selected_projects, strict=False)
 
+    rows = []
+    skipped = []
     for candidate_file in candidate_files:
         ground_truth_file = GROUND_TRUTH_DIR / candidate_file.name
         if not ground_truth_file.exists():
-            print(f"Skipping {candidate_file.stem}; no ground truth found.")
+            skipped.append(candidate_file.stem)
             continue
 
         candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)
         ground_truth_df = pd.read_csv(ground_truth_file, keep_default_na=False, na_filter=False)
         filtered_df = filter_candidate_df(candidate_df, ground_truth_df)
         filtered_df.to_csv(candidate_file, index=False)
-        print(f"Filtered {candidate_file.stem}: {len(candidate_df)} -> {len(filtered_df)} rows")
+        rows.append({
+            "project":      candidate_file.stem,
+            "rows_before":  len(candidate_df),
+            "rows_after":   len(filtered_df),
+            "test_urls":    filtered_df["from_url"].nunique(),
+            "prod_urls":    filtered_df["to_url"].nunique(),
+            "links":        filtered_df[["from_url", "to_url"]].drop_duplicates().shape[0],
+        })
+
+    for stem in skipped:
+        print(f"Skipping {stem}; no ground truth found.")
+
+    if rows:
+        all_filtered = pd.concat([
+            pd.read_csv(T2P_CANDIDATE_DIR / (r["project"] + ".csv"), keep_default_na=False, na_filter=False)
+            for r in rows
+        ], ignore_index=True)
+        total = {
+            "project":     "total",
+            "rows_before": sum(r["rows_before"] for r in rows),
+            "rows_after":  sum(r["rows_after"] for r in rows),
+            "test_urls":   all_filtered["from_url"].nunique(),
+            "prod_urls":   all_filtered["to_url"].nunique(),
+            "links":       all_filtered[["from_url", "to_url"]].drop_duplicates().shape[0],
+        }
+        cols    = ["project", "rows_before", "rows_after", "test_urls", "prod_urls", "links"]
+        all_rows = rows + [total]
+        widths  = {c: max(len(c), max(len(str(r[c])) for r in all_rows)) for c in cols}
+        sep     = "+-" + "-+-".join("-" * widths[c] for c in cols) + "-+"
+        hdr     = "| " + " | ".join(c.ljust(widths[c]) for c in cols) + " |"
+        print(sep)
+        print(hdr)
+        print(sep)
+        for r in rows:
+            print("| " + " | ".join(str(r[c]).rjust(widths[c]) for c in cols) + " |")
+        print(sep)
+        print("| " + " | ".join(str(total[c]).rjust(widths[c]) for c in cols) + " |")
+        print(sep)
 
     print("Finished.")
 

@@ -199,7 +199,15 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
         with patch.object(sys, "argv", test_args):
             mhc_main.main()
 
-        mock_collector.generate_method_code.assert_called_once_with(["commons-io"])
+        mock_collector.generate_method_code.assert_called_once_with(
+            ["commons-io"],
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
+        )
 
     @patch("mhc.main.MethodHistoryCollector")
     def test_main_requires_project_for_method_code(self, mock_collector_cls):
@@ -222,6 +230,96 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
 
         self.assertEqual(raised.exception.code, 1)
         mock_collector_cls.return_value.generate_method_code.assert_not_called()
+
+    def test_finalize_method_code_writes_errors_and_deletes_cache_and_lock(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            cache_file = root / ".method-code" / "demo.csv"
+            lock_file = root / ".method-code" / "demo.lock"
+            output_file = root / "data" / "method-code" / "demo.csv"
+            error_file = root / ".method-code-error" / "demo.csv"
+            cache_file.parent.mkdir(parents=True)
+            lock_file.write_text("", encoding="utf-8")
+            pd.DataFrame(
+                [
+                    {
+                        **{col: None for col in ms.METHOD_CODE_CACHE_COLUMNS},
+                        "project": "demo",
+                        "name": "ok",
+                        "url": "ok-url",
+                        "file": "src/Ok.java",
+                        "code": "void ok() {}",
+                        ms.METHOD_CODE_KEY_COLUMN: "ok-url",
+                    },
+                    {
+                        **{col: None for col in ms.METHOD_CODE_CACHE_COLUMNS},
+                        "project": "demo",
+                        "name": "broken",
+                        "url": "broken-url",
+                        "file": "src/Broken.java",
+                        ms.METHOD_CODE_KEY_COLUMN: "broken-url",
+                        ms.METHOD_CODE_FLAG_COLUMN: ms.METHOD_CODE_ERROR_MARKER,
+                        ms.METHOD_CODE_ERROR_COLUMN: "x" * 300,
+                    },
+                ],
+                columns=ms.METHOD_CODE_CACHE_COLUMNS,
+            ).to_csv(cache_file, index=False)
+
+            merged = ms._finalize_method_code_outputs(
+                str(cache_file),
+                str(output_file),
+                str(error_file),
+                {"ok-url", "broken-url"},
+                str(lock_file),
+            )
+
+            self.assertTrue(merged)
+            self.assertFalse(cache_file.exists())
+            self.assertFalse(lock_file.exists())
+            output_df = pd.read_csv(output_file)
+            self.assertEqual(["ok-url"], output_df["url"].tolist())
+            self.assertNotIn(ms.METHOD_CODE_FLAG_COLUMN, output_df.columns)
+            error_df = pd.read_csv(error_file)
+            self.assertEqual(["broken-url"], error_df["url"].tolist())
+            self.assertEqual([ms.METHOD_CODE_ERROR_MARKER], error_df[ms.METHOD_CODE_FLAG_COLUMN].tolist())
+            self.assertEqual(ms.METHOD_CODE_ERROR_MAX_LENGTH, len(error_df[ms.METHOD_CODE_ERROR_COLUMN].iloc[0]))
+
+    def test_finalize_method_code_waits_until_all_methods_are_tried(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            cache_file = root / ".method-code" / "demo.csv"
+            lock_file = root / ".method-code" / "demo.lock"
+            output_file = root / "data" / "method-code" / "demo.csv"
+            error_file = root / ".method-code-error" / "demo.csv"
+            cache_file.parent.mkdir(parents=True)
+            lock_file.write_text("", encoding="utf-8")
+            pd.DataFrame(
+                [
+                    {
+                        **{col: None for col in ms.METHOD_CODE_CACHE_COLUMNS},
+                        "project": "demo",
+                        "name": "ok",
+                        "url": "ok-url",
+                        "file": "src/Ok.java",
+                        "code": "void ok() {}",
+                        ms.METHOD_CODE_KEY_COLUMN: "ok-url",
+                    },
+                ],
+                columns=ms.METHOD_CODE_CACHE_COLUMNS,
+            ).to_csv(cache_file, index=False)
+
+            merged = ms._finalize_method_code_outputs(
+                str(cache_file),
+                str(output_file),
+                str(error_file),
+                {"ok-url", "missing-url"},
+                str(lock_file),
+            )
+
+            self.assertFalse(merged)
+            self.assertTrue(cache_file.exists())
+            self.assertTrue(lock_file.exists())
+            self.assertFalse(output_file.exists())
 
 
 if __name__ == "__main__":
