@@ -298,7 +298,10 @@ cd "$PROJECT_DIRECTORY"
 source "$PROJECT_DIRECTORY/.venv/bin/activate"
 
 if [[ -n "$JAVA_OPTIONS" ]]; then
-    export JAVA_TOOL_OPTIONS="$JAVA_OPTIONS"
+    unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS
+    if [[ "$JAVA_OPTIONS" != *"-XX:ErrorFile="* ]]; then
+        JAVA_OPTIONS="$JAVA_OPTIONS -XX:ErrorFile=$LOG_DIR/hs_err_pid%p.log"
+    fi
 fi
 
 PROJECT=""
@@ -404,6 +407,8 @@ else
         MHC_ARGS+=(--project-index "$PROJECT_INDEX")
     fi
 
+    echo "Resolved Slurm memory: SLURM_MEM_PER_NODE=${SLURM_MEM_PER_NODE:-unset}, SLURM_MEM_PER_CPU=${SLURM_MEM_PER_CPU:-unset}"
+    echo "Resolved Java options: ${JAVA_OPTIONS:-unset}"
     srun mhc "${MHC_ARGS[@]}"
     echo "Task finished on $(hostname) at $(date) for tool name $TOOL_NAME, project selection ${PROJECT:-$PROJECTS_CSV$PROJECT_INDEX}, shard $SHARD/$SHARDS"
 fi
