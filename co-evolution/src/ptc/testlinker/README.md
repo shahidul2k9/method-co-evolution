@@ -179,7 +179,7 @@ ptc-testlinker testlinker \
   --order-production-method testlinker \
   --model-name-or-path Salesforce/codet5-base
 
-# rows 10 through 19 from eval/data/repository/repository.csv
+# rows 10 through 19 from workspace-eval/data/repository/repository.csv
 ptc-testlinker testlinker \
   --stage all \
   --workspace-directory eval \
