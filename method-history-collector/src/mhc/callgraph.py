@@ -14,6 +14,9 @@ from mhc.zip import file_lock, remove_empty_directory_tree, remove_file_if_exist
 CALLGRAPH_FLUSH_INTERVAL_SECONDS = 15 * 60
 CALLGRAPH_SCAN_MARKER = "__scan_marker__"
 CALLGRAPH_ERROR_MARKER = "__error_marker__"
+CALLGRAPH_FLAG_COLUMN = "_flag"
+CALLGRAPH_ERROR_COLUMN = "_error"
+CALLGRAPH_ERROR_MAX_LENGTH = 256
 
 CALLGRAPH_COLUMNS = [
     "project",
@@ -33,6 +36,11 @@ CALLGRAPH_COLUMNS = [
     "from_call_depth", "to_call_depth",
     "hash",
     "from_resolver", "to_resolver",
+]
+
+CALLGRAPH_CACHE_COLUMNS = CALLGRAPH_COLUMNS + [
+    CALLGRAPH_FLAG_COLUMN,
+    CALLGRAPH_ERROR_COLUMN,
 ]
 
 _METHOD_SIDE_COLUMNS = [
@@ -63,7 +71,7 @@ def _load_cached_callgraph_files(cache_file: str) -> set[str]:
     if not os.path.exists(cache_file):
         return set()
     try:
-        df = pd.read_csv(cache_file, usecols=["from_file", "hash"], dtype=str)
+        df = _read_callgraph_cache(cache_file)
         return _completed_callgraph_files(df)
     except (ValueError, pd.errors.EmptyDataError):
         return set()
@@ -76,17 +84,17 @@ def _is_callgraph_file_completed(cache_file: str, lock_path: str, file_without_b
 
 def _read_callgraph_cache(cache_file: str) -> pd.DataFrame:
     if not os.path.exists(cache_file):
-        return pd.DataFrame(columns=CALLGRAPH_COLUMNS)
+        return pd.DataFrame(columns=CALLGRAPH_CACHE_COLUMNS)
     try:
-        return pd.read_csv(cache_file, dtype=str).reindex(columns=CALLGRAPH_COLUMNS)
+        return pd.read_csv(cache_file, dtype=str).reindex(columns=CALLGRAPH_CACHE_COLUMNS)
     except pd.errors.EmptyDataError:
-        return pd.DataFrame(columns=CALLGRAPH_COLUMNS)
+        return pd.DataFrame(columns=CALLGRAPH_CACHE_COLUMNS)
 
 
 def _completed_callgraph_files(df: pd.DataFrame) -> set[str]:
     if df.empty:
         return set()
-    rows = df[df["hash"] != CALLGRAPH_ERROR_MARKER]
+    rows = df[df[CALLGRAPH_FLAG_COLUMN] != CALLGRAPH_ERROR_MARKER]
     return set(rows["from_file"].dropna())
 
 
@@ -100,21 +108,23 @@ def _failed_callgraph_files(df: pd.DataFrame) -> set[str]:
     if df.empty:
         return set()
     completed_files = _completed_callgraph_files(df)
-    error_files = set(df.loc[df["hash"] == CALLGRAPH_ERROR_MARKER, "from_file"].dropna())
+    error_files = set(df.loc[df[CALLGRAPH_FLAG_COLUMN] == CALLGRAPH_ERROR_MARKER, "from_file"].dropna())
     return error_files - completed_files
 
 
 def _build_callgraph_scan_marker(file_without_base: str) -> dict:
-    return {col: None for col in CALLGRAPH_COLUMNS} | {
+    return {col: None for col in CALLGRAPH_CACHE_COLUMNS} | {
         "from_file": file_without_base,
-        "hash": CALLGRAPH_SCAN_MARKER,
+        CALLGRAPH_FLAG_COLUMN: CALLGRAPH_SCAN_MARKER,
     }
 
 
-def _build_callgraph_error_marker(file_without_base: str) -> dict:
-    return {col: None for col in CALLGRAPH_COLUMNS} | {
+def _build_callgraph_error_marker(file_without_base: str, error: Exception | str | None = None) -> dict:
+    error_text = str(error)[:CALLGRAPH_ERROR_MAX_LENGTH] if error is not None else None
+    return {col: None for col in CALLGRAPH_CACHE_COLUMNS} | {
         "from_file": file_without_base,
-        "hash": CALLGRAPH_ERROR_MARKER,
+        CALLGRAPH_FLAG_COLUMN: CALLGRAPH_ERROR_MARKER,
+        CALLGRAPH_ERROR_COLUMN: error_text,
     }
 
 
@@ -192,7 +202,7 @@ def _flush_callgraph(cache_file: str, lock_path: str, pending_rows: list[dict]) 
         if not rows_copy:
             return
         file_exists = os.path.exists(cache_file) and os.path.getsize(cache_file) > 0
-        pd.DataFrame(rows_copy, columns=CALLGRAPH_COLUMNS).to_csv(
+        pd.DataFrame(rows_copy, columns=CALLGRAPH_CACHE_COLUMNS).to_csv(
             cache_file,
             mode="a" if file_exists else "w",
             header=not file_exists,
@@ -234,8 +244,8 @@ def _finalize_callgraph(
     error_output_file: str,
     expected_files: set[str],
     lock_path: str | None = None,
-    delete_tmp: bool = False,
-    delete_lock: bool = False,
+    delete_tmp: bool = True,
+    delete_lock: bool = True,
 ) -> bool:
     context = file_lock(lock_path) if lock_path else nullcontext()
     with context:
@@ -253,19 +263,26 @@ def _finalize_callgraph(
         failed_files = _failed_callgraph_files(df)
         error_rows = df[df["from_file"].isin(failed_files)].copy()
         callgraph_df = df[
-            ~df["hash"].isin([CALLGRAPH_SCAN_MARKER, CALLGRAPH_ERROR_MARKER])
+            df[CALLGRAPH_FLAG_COLUMN].isna()
         ].copy()
 
         _write_callgraph_csv(callgraph_df, callgraph_output_file)
         _write_callgraph_csv(_fan_in_from_fan_out(callgraph_df), fanin_output_file)
 
         if not error_rows.empty:
-            _write_callgraph_csv(error_rows, error_output_file)
+            os.makedirs(os.path.dirname(error_output_file), exist_ok=True)
+            tmp_error_file = f"{error_output_file}.tmp"
+            error_rows.reindex(columns=CALLGRAPH_CACHE_COLUMNS).to_csv(tmp_error_file, index=False)
+            os.replace(tmp_error_file, error_output_file)
         elif os.path.exists(error_output_file):
             os.remove(error_output_file)
 
-        if delete_tmp and os.path.exists(cache_file):
-            os.remove(cache_file)
+        if delete_tmp:
+            remove_file_if_exists(cache_file)
+            remove_file_if_exists(f"{cache_file}.tmp")
+            remove_file_if_exists(f"{callgraph_output_file}.tmp")
+            remove_file_if_exists(f"{fanin_output_file}.tmp")
+            remove_file_if_exists(f"{error_output_file}.tmp")
     if delete_lock and lock_path:
         remove_file_if_exists(lock_path)
     return True
@@ -297,7 +314,7 @@ def execute_callgraph_per_file(
 
         cache_dir = os.path.join(cache_directory, "data", ".callgraph")
         cache_file = os.path.join(cache_dir, f"{repository_name}.csv")
-        lock_path = f"{cache_file}.lock"
+        lock_path = os.path.join(cache_dir, f"{repository_name}.lock")
         callgraph_output_file = os.path.join(data_directory, "callgraph", f"{repository_name}.csv")
         fanin_output_file = os.path.join(data_directory, "fanin", f"{repository_name}.csv")
         error_dir = os.path.join(cache_directory, "data", ".callgraph-error")
@@ -326,8 +343,8 @@ def execute_callgraph_per_file(
                 error_output_file,
                 expected_files,
                 lock_path,
-                merge_only_delete_tmp,
-                merge_only_delete_lock,
+                True,
+                True,
             )
             if merged and merge_only_delete_empty:
                 remove_empty_directory_tree(cache_dir)
@@ -369,7 +386,7 @@ def execute_callgraph_per_file(
                 pending_rows.append(_build_callgraph_scan_marker(file_without_base))
             except Exception as e:
                 logging.warning(f"Callgraph failed for {file_without_base}: {e}")
-                pending_rows.append(_build_callgraph_error_marker(file_without_base))
+                pending_rows.append(_build_callgraph_error_marker(file_without_base, e))
 
             if time.monotonic() - last_flush_time >= CALLGRAPH_FLUSH_INTERVAL_SECONDS:
                 _flush_callgraph(cache_file, lock_path, pending_rows)

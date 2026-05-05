@@ -10,8 +10,12 @@ if str(SRC_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SRC_DIRECTORY))
 
 from mhc.callgraph import (
+    CALLGRAPH_CACHE_COLUMNS,
     CALLGRAPH_COLUMNS,
+    CALLGRAPH_ERROR_COLUMN,
+    CALLGRAPH_ERROR_MAX_LENGTH,
     CALLGRAPH_ERROR_MARKER,
+    CALLGRAPH_FLAG_COLUMN,
     _build_callgraph_error_marker,
     _build_callgraph_scan_marker,
     _finalize_callgraph,
@@ -80,8 +84,10 @@ class CallGraphRunnerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
             cache_file = root / "cache.csv"
+            lock_file = root / "cache.lock"
             callgraph_file = root / "data" / "callgraph" / "demo.csv"
             fanin_file = root / "data" / "fanin" / "demo.csv"
+            lock_file.write_text("", encoding="utf-8")
             pd.DataFrame(
                 [
                     {
@@ -94,7 +100,7 @@ class CallGraphRunnerTest(unittest.TestCase):
                         "hash": "abc123",
                     }
                 ],
-                columns=CALLGRAPH_COLUMNS,
+                columns=CALLGRAPH_CACHE_COLUMNS,
             ).to_csv(cache_file, index=False)
 
             merged = _finalize_callgraph(
@@ -103,11 +109,12 @@ class CallGraphRunnerTest(unittest.TestCase):
                 str(fanin_file),
                 str(root / "data" / ".callgraph-error" / "demo.csv"),
                 {"src/Caller.java"},
-                delete_tmp=True,
+                str(lock_file),
             )
 
             self.assertTrue(merged)
             self.assertFalse(cache_file.exists())
+            self.assertFalse(lock_file.exists())
             self.assertEqual(["caller"], pd.read_csv(callgraph_file)["from_name"].tolist())
             self.assertEqual(["callee"], pd.read_csv(fanin_file)["from_name"].tolist())
 
@@ -119,14 +126,14 @@ class CallGraphRunnerTest(unittest.TestCase):
                     _build_callgraph_error_marker("src/Broken.java"),
                     _build_callgraph_scan_marker("src/Done.java"),
                     {
-                        **{col: None for col in CALLGRAPH_COLUMNS},
+                        **{col: None for col in CALLGRAPH_CACHE_COLUMNS},
                         "from_file": "src/Caller.java",
                         "from_name": "caller",
                         "to_name": "callee",
                         "hash": "abc123",
                     },
                 ],
-                columns=CALLGRAPH_COLUMNS,
+                columns=CALLGRAPH_CACHE_COLUMNS,
             ).to_csv(cache_file, index=False)
 
             self.assertEqual(
@@ -138,12 +145,14 @@ class CallGraphRunnerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
             cache_file = root / "cache.csv"
+            lock_file = root / "cache.lock"
             callgraph_file = root / "data" / "callgraph" / "demo.csv"
             fanin_file = root / "data" / "fanin" / "demo.csv"
             error_file = root / "data" / ".callgraph-error" / "demo.csv"
+            lock_file.write_text("", encoding="utf-8")
             pd.DataFrame(
                 [_build_callgraph_scan_marker("src/Done.java")],
-                columns=CALLGRAPH_COLUMNS,
+                columns=CALLGRAPH_CACHE_COLUMNS,
             ).to_csv(cache_file, index=False)
 
             merged = _finalize_callgraph(
@@ -152,9 +161,12 @@ class CallGraphRunnerTest(unittest.TestCase):
                 str(fanin_file),
                 str(error_file),
                 {"src/Done.java", "src/Missing.java"},
+                str(lock_file),
             )
 
             self.assertFalse(merged)
+            self.assertTrue(cache_file.exists())
+            self.assertTrue(lock_file.exists())
             self.assertFalse(callgraph_file.exists())
             self.assertFalse(fanin_file.exists())
 
@@ -168,7 +180,7 @@ class CallGraphRunnerTest(unittest.TestCase):
             pd.DataFrame(
                 [
                     {
-                        **{col: None for col in CALLGRAPH_COLUMNS},
+                        **{col: None for col in CALLGRAPH_CACHE_COLUMNS},
                         "project": "demo",
                         "from_file": "src/Caller.java",
                         "from_name": "caller",
@@ -178,7 +190,7 @@ class CallGraphRunnerTest(unittest.TestCase):
                     _build_callgraph_error_marker("src/Broken.java"),
                     _build_callgraph_scan_marker("src/Empty.java"),
                 ],
-                columns=CALLGRAPH_COLUMNS,
+                columns=CALLGRAPH_CACHE_COLUMNS,
             ).to_csv(cache_file, index=False)
 
             merged = _finalize_callgraph(
@@ -187,7 +199,6 @@ class CallGraphRunnerTest(unittest.TestCase):
                 str(fanin_file),
                 str(error_file),
                 {"src/Caller.java", "src/Broken.java", "src/Empty.java"},
-                delete_tmp=True,
             )
 
             self.assertTrue(merged)
@@ -195,7 +206,14 @@ class CallGraphRunnerTest(unittest.TestCase):
             self.assertEqual(["caller"], pd.read_csv(callgraph_file)["from_name"].tolist())
             error_df = pd.read_csv(error_file)
             self.assertEqual(["src/Broken.java"], error_df["from_file"].tolist())
-            self.assertEqual([CALLGRAPH_ERROR_MARKER], error_df["hash"].tolist())
+            self.assertEqual([CALLGRAPH_ERROR_MARKER], error_df[CALLGRAPH_FLAG_COLUMN].tolist())
+            self.assertIn(CALLGRAPH_ERROR_COLUMN, error_df.columns)
+
+    def test_error_marker_stores_truncated_error_text_in_private_column(self):
+        marker = _build_callgraph_error_marker("src/Broken.java", "x" * 300)
+
+        self.assertEqual(CALLGRAPH_ERROR_MARKER, marker[CALLGRAPH_FLAG_COLUMN])
+        self.assertEqual(CALLGRAPH_ERROR_MAX_LENGTH, len(marker[CALLGRAPH_ERROR_COLUMN]))
 
 
 if __name__ == "__main__":
