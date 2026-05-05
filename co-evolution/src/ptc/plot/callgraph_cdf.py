@@ -4,7 +4,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from mhc.config import CACHE_DIRECTORY, DATA_DIRECTORY
+from mhc.config import WORKSPACE_DIRECTORY, DATA_DIRECTORY
 from ptc.constants import ALL_REPOSITORY
 from ptc.plot_util import (
     GRAPH_STYLES,
@@ -92,7 +92,7 @@ def main(argv: list[str] | None = None) -> None:
             ax.grid(True, alpha=0.25)
 
     fig.tight_layout()
-    fig_file = f"{CACHE_DIRECTORY}/figure/call-graph-cdf.pdf"
+    fig_file = f"{WORKSPACE_DIRECTORY}/figure/call-graph-cdf.pdf"
     os.makedirs(os.path.dirname(fig_file), exist_ok=True)
     fig.savefig(fig_file, bbox_inches="tight")
     plt.close(fig)

@@ -11,12 +11,12 @@ if [[ -f "${ENV_FILE}" ]]; then
   set +a
 fi
 
-CACHE_DIRECTORY="${ME_CACHE_DIRECTORY:-.white}"
-if [[ "${CACHE_DIRECTORY}" != /* ]]; then
-  CACHE_DIRECTORY="${ROOT_DIR}/${CACHE_DIRECTORY}"
+WORKSPACE_DIRECTORY="${ME_WORKSPACE_DIRECTORY:-eval}"
+if [[ "${WORKSPACE_DIRECTORY}" != /* ]]; then
+  WORKSPACE_DIRECTORY="${ROOT_DIR}/${WORKSPACE_DIRECTORY}"
 fi
 
-JAR_DIRECTORY="${CACHE_DIRECTORY}/jar"
+JAR_DIRECTORY="${WORKSPACE_DIRECTORY}/jar"
 METHOD_PARSER_DIR="${ROOT_DIR}/method-parser"
 
 echo "Building method-parser..."

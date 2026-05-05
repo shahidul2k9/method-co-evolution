@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 
 import mhc.util as util
-from mhc.config import CACHE_DIRECTORY, DATA_DIRECTORY
+from mhc.config import WORKSPACE_DIRECTORY, DATA_DIRECTORY
 from ptc.constants import CODE_SHOVEL_UNSUPPORTED_CHANGES, MethodChangeType
 from ptc.experiment_util import (
     build_experiment_parser,
@@ -19,7 +19,7 @@ CHANGE_COLUMNS = [
     "ch_diff",
     *[f"ch_{change_type.name.lower()}" for change_type in MethodChangeType],
 ]
-OUTPUT_FILE = Path(CACHE_DIRECTORY) / "data" / "aggregate" / "t2p-delta.csv"
+OUTPUT_FILE = Path(WORKSPACE_DIRECTORY) / "data" / "aggregate" / "t2p-delta.csv"
 CODE_SHOVEL_UNSUPPORTED_CHANGE_SET = {
     f"ch_{change_type.name.lower()}" for change_type in CODE_SHOVEL_UNSUPPORTED_CHANGES
 }

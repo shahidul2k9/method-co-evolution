@@ -3,39 +3,39 @@
     {
       "name": "ant",
       "repositoryUrl": "https://github.com/apache/ant",
-      "repositoryPath": "${ME_CACHE_DIRECTORY}/repository/ant",
+      "repositoryPath": "${ME_WORKSPACE_DIRECTORY}/repository/ant",
       "commitHash": "3ffea30ee459d9fc4b9a005d418a192157e0e3ac",
       "cases": [
         {
           "name": "LayoutPreservingPropertiesTest.java",
           "targetPath": "src/tests/junit/org/apache/tools/ant/util/LayoutPreservingPropertiesTest.java",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         }
       ]
     },
     {
       "name": "spring-boot",
       "repositoryUrl": "https://github.com/spring-projects/spring-boot",
-      "repositoryPath": "${ME_CACHE_DIRECTORY}/repository/spring-boot",
+      "repositoryPath": "${ME_WORKSPACE_DIRECTORY}/repository/spring-boot",
       "commitHash": "f8f1da605e936a62d1d3028e222d7e9f14f742cd",
       "cases": [
         {
           "name": "MeterValueTests.java",
           "targetPath": "module/spring-boot-micrometer-metrics/src/test/java/org/springframework/boot/micrometer/metrics/autoconfigure/MeterValueTests.java",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         }
       ]
     },
     {
       "name": "flink",
       "repositoryUrl": "https://github.com/apache/flink",
-      "repositoryPath": "${ME_CACHE_DIRECTORY}/repository/flink",
+      "repositoryPath": "${ME_WORKSPACE_DIRECTORY}/repository/flink",
       "commitHash": "261e72119b69c4fc3e22d9bcdec50f6ca2fdc2e9",
       "cases": [
         {
           "name": "accumulators-tests",
           "targetPath": "flink-tests/src/test/java/org/apache/flink/test/accumulators/",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         }
       ]
     }

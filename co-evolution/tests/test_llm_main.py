@@ -9,44 +9,44 @@ for source_directory in (PTC_SRC_DIRECTORY, MHC_SRC_DIRECTORY):
     if str(source_directory) not in sys.path:
         sys.path.insert(0, str(source_directory))
 
-from mhc.constant import CACHE_DIRECTORY
+from mhc.constant import WORKSPACE_DIRECTORY
 from ptc.llm.main import default_output_root, resolve_api_type, resolve_input_file, resolve_method_code_file
 from ptc.llm.providers.openai_responses import (
     normalize_openai_model_name,
     translate_provider_error,
 )
 
-TEST_CACHE_DIRECTORY = Path(CACHE_DIRECTORY) / "test" / "llm-m2m-link"
+TEST_WORKSPACE_DIRECTORY = Path(WORKSPACE_DIRECTORY) / "test" / "llm-m2m-link"
 
 
 class TestLlmMainHelpers(unittest.TestCase):
-    def test_resolve_input_file_from_cache_directory_for_t2p(self):
-        input_file = resolve_input_file(str(TEST_CACHE_DIRECTORY), "commons-io", "t2p")
+    def test_resolve_input_file_from_workspace_directory_for_t2p(self):
+        input_file = resolve_input_file(str(TEST_WORKSPACE_DIRECTORY), "commons-io", "t2p")
 
         self.assertEqual(
-            TEST_CACHE_DIRECTORY / "data" / "t2p-candidate" / "commons-io.csv",
+            TEST_WORKSPACE_DIRECTORY / "data" / "t2p-candidate" / "commons-io.csv",
             input_file,
         )
 
-    def test_resolve_input_file_from_cache_directory_for_p2t(self):
-        input_file = resolve_input_file(str(TEST_CACHE_DIRECTORY), "commons-io", "p2t")
+    def test_resolve_input_file_from_workspace_directory_for_p2t(self):
+        input_file = resolve_input_file(str(TEST_WORKSPACE_DIRECTORY), "commons-io", "p2t")
 
         self.assertEqual(
-            TEST_CACHE_DIRECTORY / "data" / "fanin" / "commons-io.csv",
+            TEST_WORKSPACE_DIRECTORY / "data" / "fanin" / "commons-io.csv",
             input_file,
         )
 
-    def test_default_output_root_uses_cache_directory_when_present(self):
+    def test_default_output_root_uses_workspace_directory_when_present(self):
         self.assertEqual(
-            TEST_CACHE_DIRECTORY / "data" / "llm",
-            default_output_root(str(TEST_CACHE_DIRECTORY)),
+            TEST_WORKSPACE_DIRECTORY / "data" / "llm",
+            default_output_root(str(TEST_WORKSPACE_DIRECTORY)),
         )
 
-    def test_resolve_method_code_file_from_cache_directory(self):
-        method_code_file = resolve_method_code_file(str(TEST_CACHE_DIRECTORY), "commons-io")
+    def test_resolve_method_code_file_from_workspace_directory(self):
+        method_code_file = resolve_method_code_file(str(TEST_WORKSPACE_DIRECTORY), "commons-io")
 
         self.assertEqual(
-            TEST_CACHE_DIRECTORY / "data" / "method-code" / "commons-io.csv",
+            TEST_WORKSPACE_DIRECTORY / "data" / "method-code" / "commons-io.csv",
             method_code_file,
         )
 

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from mhc.config import CACHE_DIRECTORY
+from mhc.config import WORKSPACE_DIRECTORY
 from ptc.constants import ALL_REPOSITORY
 from ptc.plot_util import (
     GRAPH_MARKER_SIZES,
@@ -19,7 +19,7 @@ from ptc.plot_util import (
     select_named_items,
 )
 
-STATS_FILE = f"{CACHE_DIRECTORY}/data/aggregate/t2p-delta.csv"
+STATS_FILE = f"{WORKSPACE_DIRECTORY}/data/aggregate/t2p-delta.csv"
 
 
 def build_parser():
@@ -173,7 +173,7 @@ def main(argv: list[str] | None = None) -> None:
             fontsize=18,
         )
         fig.tight_layout(rect=(0.02, 0.02, 1, 0.96))
-        fig_file = f"{CACHE_DIRECTORY}/figure/t2p-delta-percent-cdf/t2p-delta-percent-cdf--{tool}.pdf"
+        fig_file = f"{WORKSPACE_DIRECTORY}/figure/t2p-delta-percent-cdf/t2p-delta-percent-cdf--{tool}.pdf"
         os.makedirs(os.path.dirname(fig_file), exist_ok=True)
         fig.savefig(fig_file, bbox_inches="tight")
         plt.close(fig)

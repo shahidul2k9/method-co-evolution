@@ -19,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="all",
         help="Pipeline stage to run.",
     )
-    parser.add_argument("--cache-directory", required=True, help="Project cache directory.")
+    parser.add_argument("--workspace-directory", required=True, help="Project cache directory.")
     parser.add_argument(
         "--project-directory",
         dest="project_directory",
@@ -34,13 +34,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--project-index",
         default=None,
-        help="Python-style project index or slice from <cache-directory>/data/repository/repository.csv. "
+        help="Python-style project index or slice from <workspace-directory>/data/repository/repository.csv. "
         "Examples: '10', '-1', '10:20', ':10', '10:', ':'.",
     )
     parser.add_argument(
         "--testlinker-directory",
         default=None,
-        help="TestLinker runtime directory. Defaults to <cache-directory>/testlinker.",
+        help="TestLinker runtime directory. Defaults to <workspace-directory>/testlinker.",
     )
     parser.add_argument("--top-k", dest="top_k", type=int, default=1, help="Number of invocations to select.")
     parser.add_argument("--model-name-or-path", default=None, help="CodeT5 base model directory.")
@@ -105,8 +105,8 @@ def _parse_projects_csv(projects: str | None) -> list[str]:
     return [project.strip() for project in projects.split(",") if project.strip()]
 
 
-def _load_repository_projects(cache_directory: str | Path) -> list[str]:
-    repository_file = Path(cache_directory) / "data" / "repository" / "repository.csv"
+def _load_repository_projects(workspace_directory: str | Path) -> list[str]:
+    repository_file = Path(workspace_directory) / "data" / "repository" / "repository.csv"
     if not repository_file.exists():
         raise ValueError(f"repository index does not exist: {repository_file}")
 
@@ -160,7 +160,7 @@ def _resolve_projects(args: argparse.Namespace, parser: argparse.ArgumentParser)
         return projects
 
     try:
-        return _parse_project_index(args.project_index, _load_repository_projects(args.cache_directory))
+        return _parse_project_index(args.project_index, _load_repository_projects(args.workspace_directory))
     except ValueError as exc:
         parser.error(str(exc))
 
@@ -170,7 +170,7 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
 
     if args.stage in {"preprocess", "all"}:
         preprocess_df = preprocess_project(
-            cache_directory=args.cache_directory,
+            workspace_directory=args.workspace_directory,
             project=project,
             testlinker_directory=args.testlinker_directory,
             include_labels=args.include_labels,
@@ -183,7 +183,7 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
 
     if args.stage in {"execute", "all"}:
         execute_df = execute_project(
-            cache_directory=args.cache_directory,
+            workspace_directory=args.workspace_directory,
             project=project,
             testlinker_directory=args.testlinker_directory,
             model_name_or_path=args.model_name_or_path,
@@ -200,7 +200,7 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
 
     if args.stage in {"postprocess", "all"}:
         postprocess_results = postprocess_project(
-            cache_directory=args.cache_directory,
+            workspace_directory=args.workspace_directory,
             project=project,
             top_k=args.top_k,
             testlinker_directory=args.testlinker_directory,

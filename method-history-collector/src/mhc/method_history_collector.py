@@ -20,16 +20,16 @@ class MethodHistoryCollector:
 
     def __init__(
         self,
-        cache_directory: str,
+        workspace_directory: str,
         repository_directory,
         data_directory,
         jar_directory: str,
         history_directory: str | None = None,
     ):
-        self.cache_directory = cache_directory
+        self.workspace_directory = workspace_directory
         self.repository_directory = repository_directory
         self.data_directory = data_directory
-        self.history_directory = history_directory or str(Path(cache_directory) / "history")
+        self.history_directory = history_directory or str(Path(workspace_directory) / "history")
         self.jar_file_map = {}
         self.repository_df = pd.read_csv(
             os.path.join(f"{data_directory}/repository/repository.csv")
@@ -56,13 +56,13 @@ class MethodHistoryCollector:
             if not merge_only:
                 ms.start_java_jar(
                     [self.jar_file_map["methodParser"]],
-                    util.java_options_with_logback_config(java_options, self.cache_directory),
+                    util.java_options_with_logback_config(java_options, self.workspace_directory),
                 )
             _scan_class(
                 self.repository_df[self.repository_df["project"].isin(repositories)],
                 self.repository_directory,
                 self.data_directory,
-                self.cache_directory,
+                self.workspace_directory,
                 replace,
                 shards,
                 shard,
@@ -93,13 +93,13 @@ class MethodHistoryCollector:
             if not merge_only:
                 ms.start_java_jar(
                     [self.jar_file_map["methodParser"]],
-                    util.java_options_with_logback_config(java_options, self.cache_directory),
+                    util.java_options_with_logback_config(java_options, self.workspace_directory),
                 )
             ms.scan_method(
                 self.repository_df[self.repository_df["project"].isin(repositories)],
                 self.repository_directory,
                 self.data_directory,
-                self.cache_directory,
+                self.workspace_directory,
                 replace,
                 shards,
                 shard,
@@ -196,13 +196,13 @@ class MethodHistoryCollector:
             if not merge_only:
                 ms.start_java_jar(
                     [self.jar_file_map["methodParser"]],
-                    util.java_options_with_logback_config(java_options, self.cache_directory),
+                    util.java_options_with_logback_config(java_options, self.workspace_directory),
                 )
             execute_callgraph_per_file(
                 self.repository_df[self.repository_df["project"].isin(repositories)],
                 self.repository_directory,
                 self.data_directory,
-                self.cache_directory,
+                self.workspace_directory,
                 replace,
                 shards,
                 shard,
@@ -219,7 +219,7 @@ class MethodHistoryCollector:
 
     def run_complexity_analyzer(self, repositories: list[str], tool_name: str):
         ca = ComplexityAnalyzer(
-            self.cache_directory,
+            self.workspace_directory,
             self.history_directory,
             self.repository_directory,
             self.data_directory,
@@ -243,7 +243,7 @@ class MethodHistoryCollector:
             self.repository_df[self.repository_df["project"].isin(repositories)],
             self.repository_directory,
             self.data_directory,
-            self.cache_directory,
+            self.workspace_directory,
             replace,
             shards,
             shard,

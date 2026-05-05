@@ -57,7 +57,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
                         "testlinker",
                         "--stage",
                         "preprocess",
-                        "--cache-directory",
+                        "--workspace-directory",
                         str(cache_dir),
                         "--project-index",
                         "1:",
@@ -137,7 +137,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
                 ]
             ).to_csv(data_dir / "method-code" / "demo.csv", index=False)
 
-            result_df = preprocess_project(cache_directory=cache_dir, project="demo")
+            result_df = preprocess_project(workspace_directory=cache_dir, project="demo")
 
             self.assertEqual(2, len(result_df))
             self.assertEqual(["000001", "000001"], result_df["test_id"].tolist())
@@ -265,7 +265,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
             )
 
             result_df = preprocess_project(
-                cache_directory=cache_dir,
+                workspace_directory=cache_dir,
                 project="demo",
                 order_production_method="testlinker",
                 order_production_directory=author_result_dir,
@@ -332,7 +332,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
                 ]
             ).to_csv(data_dir / "t2p-ground-truth-updated" / "demo.csv", index=False)
 
-            result_df = preprocess_project(cache_directory=cache_dir, project="demo", include_labels=True)
+            result_df = preprocess_project(workspace_directory=cache_dir, project="demo", include_labels=True)
 
             self.assertEqual([1, 0], result_df["label"].tolist())
             self.assertEqual(["demo.A.copy(String)"], json.loads(result_df.loc[0, "label_json"]))
@@ -381,16 +381,16 @@ class TestTestLinkerPipeline(unittest.TestCase):
                 ]
             ).to_csv(data_dir / "method-code" / "demo.csv", index=False)
 
-            preprocess_project(cache_directory=cache_dir, project="demo")
+            preprocess_project(workspace_directory=cache_dir, project="demo")
             with self.assertWarnsRegex(RuntimeWarning, "TestLinker mapping files are missing"):
                 execute_df = execute_project(
-                    cache_directory=cache_dir,
+                    workspace_directory=cache_dir,
                     project="demo",
                     top_k=1,
                     model_mode="heuristic",
                     only_model=True,
                 )
-            final_df = postprocess_project(cache_directory=cache_dir, project="demo")
+            final_df = postprocess_project(workspace_directory=cache_dir, project="demo")
 
             self.assertTrue(raw_detail_path(cache_dir / "testlinker", "demo").exists())
             self.assertTrue((raw_input_json_directory(cache_dir / "testlinker", "demo") / "000001.json").exists())

@@ -154,7 +154,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             root = Path(temp_directory)
             repository_directory = root / "repositories"
             data_directory = root / "data"
-            cache_directory = root / "cache"
+            workspace_directory = root / "cache"
             project_directory = repository_directory / "demo-project"
 
             self._create_java_file(project_directory / "src" / "Alpha.java")
@@ -162,7 +162,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
 
             repository_df = self._repository_df()
             output_method_file = Path(util.format_method_list_file(str(data_directory), "demo-project"))
-            method_cache_file = cache_directory / "data" / ".method" / "demo-project.csv"
+            method_cache_file = workspace_directory / "data" / ".method" / "demo-project.csv"
 
             seed_rows = pd.DataFrame(
                 [
@@ -201,7 +201,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                     repository_df,
                     str(repository_directory),
                     str(data_directory),
-                    str(cache_directory),
+                    str(workspace_directory),
                 )
 
             self.assertEqual(
@@ -226,7 +226,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             root = Path(temp_directory)
             repository_directory = root / "repositories"
             data_directory = root / "data"
-            cache_directory = root / "cache"
+            workspace_directory = root / "cache"
             project_directory = repository_directory / "demo-project"
 
             self._create_java_file(project_directory / "src" / "Alpha.java")
@@ -248,7 +248,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                     repository_df,
                     str(repository_directory),
                     str(data_directory),
-                    str(cache_directory),
+                    str(workspace_directory),
                 )
 
             self.assertEqual(
@@ -269,7 +269,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             root = Path(temp_directory)
             repository_directory = root / "repositories"
             data_directory = root / "data"
-            cache_directory = root / "cache"
+            workspace_directory = root / "cache"
             project_directory = repository_directory / "demo-project"
 
             self._create_java_file(project_directory / "src" / "Alpha.java")
@@ -288,7 +288,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                     repository_df,
                     str(repository_directory),
                     str(data_directory),
-                    str(cache_directory),
+                    str(workspace_directory),
                     replace=True,
                 )
 

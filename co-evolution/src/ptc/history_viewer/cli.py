@@ -25,7 +25,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve_parser = subparsers.add_parser("serve", help="Start the local browser UI")
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8765)
-    serve_parser.add_argument("--cache-directory", default=None)
+    serve_parser.add_argument("--workspace-directory", default=None)
     serve_parser.add_argument("--data-directory", default=None)
     serve_parser.add_argument("--reload", action="store_true", help="Restart the server automatically when viewer Python files change")
     serve_parser.add_argument("--reload-interval", type=float, default=1.0, help="Seconds between file-change checks when --reload is enabled")
@@ -33,14 +33,14 @@ def build_parser() -> argparse.ArgumentParser:
     link_parser = subparsers.add_parser("add-revision-links", help="Write revision_url into a sampled CSV")
     link_parser.add_argument("--csv", required=True, help="Absolute path to the sampled CSV")
     link_parser.add_argument("--base-url", default="http://127.0.0.1:8765", help="Viewer base URL used in revision_url")
-    link_parser.add_argument("--cache-directory", default=None)
+    link_parser.add_argument("--workspace-directory", default=None)
     link_parser.add_argument("--data-directory", default=None)
 
     return parser
 
 
-def _serve_once(*, host: str, port: int, cache_directory: str | None, data_directory: str | None) -> int:
-    app = create_app(cache_directory=cache_directory, data_directory=data_directory)
+def _serve_once(*, host: str, port: int, workspace_directory: str | None, data_directory: str | None) -> int:
+    app = create_app(workspace_directory=workspace_directory, data_directory=data_directory)
     with make_server(host, port, app) as server:
         print(f"Method history viewer listening on http://{host}:{port}", flush=True)
         server.serve_forever()
@@ -73,8 +73,8 @@ def has_snapshot_changed(previous: dict[Path, int], current: dict[Path, int]) ->
 
 def build_reload_child_command(args: argparse.Namespace) -> list[str]:
     command = [sys.executable, "-m", "ptc.history_viewer.cli", "serve", "--host", args.host, "--port", str(args.port)]
-    if args.cache_directory:
-        command.extend(["--cache-directory", args.cache_directory])
+    if args.workspace_directory:
+        command.extend(["--workspace-directory", args.workspace_directory])
     if args.data_directory:
         command.extend(["--data-directory", args.data_directory])
     return command
@@ -141,12 +141,12 @@ def main(argv: list[str] | None = None) -> int:
         return _serve_once(
             host=args.host,
             port=args.port,
-            cache_directory=args.cache_directory,
+            workspace_directory=args.workspace_directory,
             data_directory=args.data_directory,
         )
 
     if args.command == "add-revision-links":
-        repository = HistoryRepository(cache_directory=args.cache_directory, data_directory=args.data_directory)
+        repository = HistoryRepository(workspace_directory=args.workspace_directory, data_directory=args.data_directory)
         rows = repository.write_revision_links(args.csv, base_url=args.base_url)
         print(f"Wrote revision_url for {rows} row(s) in {args.csv}")
         return 0

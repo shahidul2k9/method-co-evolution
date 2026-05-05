@@ -184,7 +184,7 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
         test_args = [
             "main.py",
             "method-code",
-            "--cache-directory",
+            "--workspace-directory",
             "/tmp/cache",
             "--repository-directory",
             "/tmp/repository",
@@ -214,7 +214,7 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
         test_args = [
             "main.py",
             "method-code",
-            "--cache-directory",
+            "--workspace-directory",
             "/tmp/cache",
             "--repository-directory",
             "/tmp/repository",

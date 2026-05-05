@@ -20,8 +20,8 @@ except ImportError:  # pragma: no cover - local shell may not have pandas instal
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-FAN_OUT_FILE = REPOSITORY_ROOT / ".white" / "data" / "callgraph" / "commons-io.csv"
-METHOD_CODE_FILE = REPOSITORY_ROOT / ".white" / "data" / "method-code" / "commons-io.csv"
+FAN_OUT_FILE = REPOSITORY_ROOT / "eval" / "data" / "callgraph" / "commons-io.csv"
+METHOD_CODE_FILE = REPOSITORY_ROOT / "eval" / "data" / "method-code" / "commons-io.csv"
 
 MATCH_SOURCE_URL = (
     "https://github.com/apache/commons-io/blob/"

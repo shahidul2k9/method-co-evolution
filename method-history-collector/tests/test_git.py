@@ -8,11 +8,11 @@ from mhc.config import *
 
 class GitTestCase(unittest.TestCase):
     def test_commit_count(self):
-        repository_df = pd.read_csv(os.path.join(CACHE_DIRECTORY, "data/repository/repository.csv"))
+        repository_df = pd.read_csv(os.path.join(WORKSPACE_DIRECTORY, "data/repository/repository.csv"))
 
         def get_commit_count(row):
             try:
-                repository_path = f"{CACHE_DIRECTORY}/repository/{row['project']}"
+                repository_path = f"{WORKSPACE_DIRECTORY}/repository/{row['project']}"
                 git.clone_and_checkout_commit(
                     row["url"],
                     repository_path,
@@ -26,7 +26,7 @@ class GitTestCase(unittest.TestCase):
         repository_df["commits"] = repository_df.apply(
             get_commit_count,
             axis=1)
-        repository_df.to_csv(os.path.join(CACHE_DIRECTORY, "data/repository/repository.csv"), index=False)
+        repository_df.to_csv(os.path.join(WORKSPACE_DIRECTORY, "data/repository/repository.csv"), index=False)
 
 
 if __name__ == '__main__':

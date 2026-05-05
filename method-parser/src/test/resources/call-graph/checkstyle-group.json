@@ -3,13 +3,13 @@
     {
       "name": "checkstyle",
       "repositoryUrl": "https://github.com/checkstyle/checkstyle",
-      "repositoryPath": "${ME_CACHE_DIRECTORY}/repository/checkstyle",
+      "repositoryPath": "${ME_WORKSPACE_DIRECTORY}/repository/checkstyle",
       "commitHash": "164a755af951cf0fd459d70873e1c199210d9d8b",
       "cases": [
         {
           "name": "src",
           "targetPath": "src",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         }
       ]
     }

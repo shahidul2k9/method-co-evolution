@@ -12,14 +12,14 @@ from datetime import datetime
 class ComplexityAnalyzer:
     def __init__(
         self,
-        cache_directory: str,
+        workspace_directory: str,
         history_directory: str,
         repository_directory: str,
         data_directory: str,
         repo_list: list[str],
         jar_file_path: str,
     ):
-        self.cache_directory = cache_directory
+        self.workspace_directory = workspace_directory
         self.history_directory = history_directory
         self.repository_directory = repository_directory
         self.data_directory = data_directory

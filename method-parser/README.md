@@ -12,7 +12,7 @@ mvn clean install -DskipTests
 The fat JAR is written to `target/method-parser-*.jar`. The helper script builds and copies it to the cache in one step:
 
 ```bash
-scripts/build-method-parser.sh   # copies JAR to <ME_CACHE_DIRECTORY>/jar/
+scripts/build-method-parser.sh   # copies JAR to <ME_WORKSPACE_DIRECTORY>/jar/
 ```
 
 The `mhc method-scan` and `mhc method-callgraph` commands resolve the JAR from `--jar-directory` at runtime.

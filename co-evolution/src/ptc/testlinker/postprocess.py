@@ -37,7 +37,7 @@ POSTPROCESS_OUTPUT_COLUMNS = [
 
 def postprocess_project(
     *,
-    cache_directory: str | Path,
+    workspace_directory: str | Path,
     project: str,
     top_k: int,
     testlinker_directory: str | Path | None = None,
@@ -47,7 +47,7 @@ def postprocess_project(
     if modes is None:
         modes = ["testlinker-original"]
 
-    root = testlinker_root(cache_directory, testlinker_directory)
+    root = testlinker_root(workspace_directory, testlinker_directory)
 
     if not replace:
         results = {}

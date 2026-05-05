@@ -4,9 +4,9 @@ from mhc.util import *
 from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters
 
 ground_truth_dir = Path(f"{PROJECT_DIRECTORY}/data/ground-truth/testlinker-t2p-ground-truth")
-link_root_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-link")
-output_dir = Path(f"{CACHE_DIRECTORY}/data/aggregate")
-mismatch_root_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-link-metric")
+link_root_dir = Path(f"{WORKSPACE_DIRECTORY}/data/t2p-link")
+output_dir = Path(f"{WORKSPACE_DIRECTORY}/data/aggregate")
+mismatch_root_dir = Path(f"{WORKSPACE_DIRECTORY}/data/t2p-link-metric")
 
 output_dir.mkdir(parents=True, exist_ok=True)
 mismatch_root_dir.mkdir(parents=True, exist_ok=True)

@@ -226,7 +226,7 @@ def scan_class(
     repository_df: DataFrame,
     repository_directory: str,
     data_directory: str,
-    _cache_directory: str,
+    _workspace_directory: str,
     replace: bool = False,
     shards: int = 1,
     shard: int = 1,
@@ -246,10 +246,10 @@ def scan_class(
         commit_hash = repository["updated_hash"]
         repository_root = util.format_git_project_directory(repository_directory, repository_name)
         output_file = util.format_class_list_file(data_directory, repository_name)
-        cache_dir = os.path.join(_cache_directory, "data", ".class")
+        cache_dir = os.path.join(_workspace_directory, "data", ".class")
         cache_file = os.path.join(cache_dir, f"{repository_name}.csv")
         lock_path = os.path.join(cache_dir, f"{repository_name}.lock")
-        error_dir = os.path.join(_cache_directory, "data", ".class-error")
+        error_dir = os.path.join(_workspace_directory, "data", ".class-error")
         error_output_file = os.path.join(error_dir, f"{repository_name}.csv")
 
         if replace:

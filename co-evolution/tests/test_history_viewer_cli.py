@@ -19,7 +19,7 @@ class TestHistoryViewerCli(unittest.TestCase):
         args = argparse.Namespace(
             host="127.0.0.1",
             port=8765,
-            cache_directory="/tmp/cache",
+            workspace_directory="/tmp/cache",
             data_directory="/tmp/data",
         )
 
@@ -27,7 +27,7 @@ class TestHistoryViewerCli(unittest.TestCase):
 
         self.assertEqual(sys.executable, command[0])
         self.assertEqual(["-m", "ptc.history_viewer.cli", "serve"], command[1:4])
-        self.assertIn("--cache-directory", command)
+        self.assertIn("--workspace-directory", command)
         self.assertIn("/tmp/cache", command)
         self.assertIn("--data-directory", command)
         self.assertIn("/tmp/data", command)

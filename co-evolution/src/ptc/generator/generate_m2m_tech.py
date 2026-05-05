@@ -26,8 +26,8 @@ FANOUT_DIR = f"{DATA_DIRECTORY}/callgraph"
 METHOD_DIR = f"{DATA_DIRECTORY}/method"
 T2P_CANDIDATE_DIR = f"{DATA_DIRECTORY}/t2p-candidate"
 OUTPUT_DIR = f"{DATA_DIRECTORY}/m2m-tech"
-LLM_PREDICTION_DIR = Path(CACHE_DIRECTORY) / "data" / "llm" / "t2p-link"
-TESTLINKER_PREDICTION_DIR = Path(CACHE_DIRECTORY) / "data" / "testlinker" / "t2p-link" / "codet5"
+LLM_PREDICTION_DIR = Path(WORKSPACE_DIRECTORY) / "data" / "llm" / "t2p-link"
+TESTLINKER_PREDICTION_DIR = Path(WORKSPACE_DIRECTORY) / "data" / "testlinker" / "t2p-link" / "codet5"
 
 os.makedirs(T2P_CANDIDATE_DIR, exist_ok=True)
 os.makedirs(OUTPUT_DIR, exist_ok=True)

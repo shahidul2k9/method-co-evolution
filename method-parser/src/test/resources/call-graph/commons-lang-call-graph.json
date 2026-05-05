@@ -3,13 +3,13 @@
     {
       "name": "commons-lang",
       "repositoryUrl": "https://github.com/apache/commons-lang",
-      "repositoryPath": "${ME_CACHE_DIRECTORY}/repository/commons-lang",
+      "repositoryPath": "${ME_WORKSPACE_DIRECTORY}/repository/commons-lang",
       "commitHash": "425d8085cfcaab5a78bf0632f9ae77b7e9127cf8",
       "cases": [
         {
           "name": "MutableIntTest",
           "targetPath": "src/test/java/org/apache/commons/lang3/mutable/MutableIntTest.java",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test",
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test",
           "assertions": [
             {
               "projection": {
@@ -25,22 +25,22 @@
         {
           "name": "EqualsBuilderTest",
           "targetPath": "src/test/java/org/apache/commons/lang3/builder/EqualsBuilderTest.java",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         },
         {
           "name": "StrLookupTest",
           "targetPath": "src/test/java/org/apache/commons/lang3/text/StrLookupTest.java",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         },
         {
           "name": "CharSetTest",
           "targetPath": "src/test/java/org/apache/commons/lang3/CharSetTest.java",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         },
         {
           "name": "ArrayUtilsTest",
           "targetPath": "src/test/java/org/apache/commons/lang3/ArrayUtilsTest.java",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         }
       ]
     }

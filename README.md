@@ -50,4 +50,4 @@ repository.csv
   → ptc-llm / testlinker   → data/llm/{model}/             (ranked predictions)
 ```
 
-Cache layout is controlled by `--cache-directory` (default `.cache`). Method history storage can be moved separately with `--history-directory` or `ME_HISTORY_DIRECTORY`; by default it remains `<cache-directory>/history`. See `.env` for path overrides and API keys.
+Cache layout is controlled by `--workspace-directory` (default `workspace`). Method history storage can be moved separately with `--history-directory` or `ME_HISTORY_DIRECTORY`; by default it remains `<workspace-directory>/history`. See `.env` for path overrides and API keys.
