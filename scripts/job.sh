@@ -234,7 +234,9 @@ if ! [[ "$SHARDS" =~ ^[0-9]+$ ]] || [[ "$SHARDS" -le 0 ]]; then
     exit 1
 fi
 
-if [[ "$SELECTION_COUNT" -eq 0 && "$COMMAND_NAME" != "index" && ! ( "$COMMAND_NAME" == "method-history" && "$SHARDS" -gt 1 ) ]]; then
+if [[ "$SELECTION_COUNT" -eq 0 && "$COMMAND_NAME" != "index" \
+    && ! ( "$COMMAND_NAME" == "method-history" && "$SHARDS" -gt 1 ) \
+    && -z "${SLURM_ARRAY_TASK_ID:-}" ]]; then
     echo "Error: one of --project, --projects, or --project-index is required."
     usage
     exit 1
@@ -316,6 +318,8 @@ if [[ "$COMMAND_NAME" != "index" ]]; then
         fi
         IDX=$((SLURM_ARRAY_TASK_ID - 1))
         PROJECT=${PROJECTS[$IDX]}
+    elif [[ -z "$PROJECT_INDEX" && -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
+        PROJECT_INDEX="$SLURM_ARRAY_TASK_ID"
     fi
 fi
 
