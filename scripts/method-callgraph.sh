@@ -18,7 +18,7 @@ mhc method-callgraph \
     --repository-directory "$ME_CACHE_DIRECTORY/repository" \
     --data-directory "$ME_CACHE_DIRECTORY/data" \
     --jar-directory "$ME_CACHE_DIRECTORY/jar" \
-    --java-options "-Xmx2g -Dlogback.configurationFile=$ME_CACHE_DIRECTORY/config/logback.xml" \
+    --java-options "-Xmx4g -Dlogback.configurationFile=$ME_CACHE_DIRECTORY/config/logback.xml" \
     --tool-name methodParser \
-    --project-index ":" \
+    --project-index "6" \
     --replace

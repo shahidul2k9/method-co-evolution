@@ -157,9 +157,9 @@ def main(argv: list[str] | None = None):
         help="Jar directory path"
     )
 
-    # Conditional args for method-history command
+    # Conditional args for long-running project commands
     parser.add_argument(
-        "--tool-name", dest="tool_name", type=str, help="Tool name (required for method-history command)"
+        "--tool-name", dest="tool_name", type=str, help="Tool name (required for tool-backed commands)"
     )
     parser.add_argument(
         "--command-options",
@@ -196,7 +196,8 @@ def main(argv: list[str] | None = None):
         nargs="*",
         choices=("delete-empty", "delete-tmp", "delete-lock"),
         help=(
-            "For method-history command, merge existing loose history JSON files without generating new history. "
+            "For method-history, merge existing loose history JSON files without generating new history. "
+            "For method-callgraph, finalize shared callgraph cache into callgraph/fanin CSVs. "
             "Optional cleanup modes: delete-empty, delete-tmp, delete-lock."
         ),
     )
@@ -223,7 +224,7 @@ def main(argv: list[str] | None = None):
         dest="shards",
         type=int,
         default=1,
-        help="Total number of method-history shards to split work into (default: 1).",
+        help="Total number of method-history or method-callgraph shards to split work into (default: 1).",
     )
     parser.add_argument(
         "--shard",
@@ -305,7 +306,18 @@ def main(argv: list[str] | None = None):
                 "Error: tool_name is required for call graph command."
             )
             sys.exit(1)
-        mhc.generate_callgraph(resolve_selected_projects(), [args.tool_name], args.replace, args.java_options)
+        mhc.generate_callgraph(
+            resolve_selected_projects(),
+            [args.tool_name],
+            args.replace,
+            args.java_options,
+            args.shards,
+            args.shard,
+            args.merge_only is not None,
+            "delete-empty" in (args.merge_only or []),
+            "delete-tmp" in (args.merge_only or []),
+            "delete-lock" in (args.merge_only or []),
+        )
     elif command in ("class-scan", "scan-class"):
         mhc.scan_class(resolve_selected_projects(), args.java_options, args.replace)
     elif command in ("method-scan", "scan-method"):

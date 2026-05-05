@@ -1,5 +1,5 @@
 from mhc.method_history_jar_runner import *
-from mhc.callgraph import execute_callgraph_if_missing
+from mhc.callgraph import execute_callgraph_per_file
 from mhc.class_scanner import scan_class as _scan_class
 from mhc.complexity_analyzer import ComplexityAnalyzer
 from pathlib import Path
@@ -117,17 +117,67 @@ class MethodHistoryCollector:
             self.data_directory,
         )
 
-    def generate_callgraph(self, repositories: list[str], tool_names: list[str], replace: bool = False, java_options: str | None = None):
-        execute_callgraph_if_missing(
-            self.repository_df[self.repository_df["project"].isin(repositories)],
-            self.repository_directory,
-            self.data_directory,
-            self.cache_directory,
-            tool_names[-1],
-            self.jar_file_map,
+    def generate_callgraph(
+        self,
+        repositories: list[str],
+        tool_names: list[str],
+        replace: bool = False,
+        java_options: str | None = None,
+        shards: int = 1,
+        shard: int = 1,
+        merge_only: bool = False,
+        merge_only_delete_empty: bool = False,
+        merge_only_delete_tmp: bool = False,
+        merge_only_delete_lock: bool = False,
+    ):
+        self.generate_callgraph_per_file(
+            repositories,
+            java_options,
             replace,
-            util.java_options_with_logback_config(java_options, self.cache_directory),
+            shards,
+            shard,
+            merge_only,
+            merge_only_delete_empty,
+            merge_only_delete_tmp,
+            merge_only_delete_lock,
         )
+
+    def generate_callgraph_per_file(
+        self,
+        repositories: list[str],
+        java_options: str | None = None,
+        replace: bool = False,
+        shards: int = 1,
+        shard: int = 1,
+        merge_only: bool = False,
+        merge_only_delete_empty: bool = False,
+        merge_only_delete_tmp: bool = False,
+        merge_only_delete_lock: bool = False,
+    ):
+        try:
+            if not merge_only:
+                ms.start_java_jar(
+                    [self.jar_file_map["methodParser"]],
+                    util.java_options_with_logback_config(java_options, self.cache_directory),
+                )
+            execute_callgraph_per_file(
+                self.repository_df[self.repository_df["project"].isin(repositories)],
+                self.repository_directory,
+                self.data_directory,
+                self.cache_directory,
+                replace,
+                shards,
+                shard,
+                merge_only,
+                merge_only_delete_empty,
+                merge_only_delete_tmp,
+                merge_only_delete_lock,
+            )
+        except Exception as e:
+            raise e
+        finally:
+            if not merge_only:
+                ms.stop_java_jar()
 
     def run_complexity_analyzer(self, repositories: list[str], tool_name: str):
         ca = ComplexityAnalyzer(

@@ -18,16 +18,17 @@ import org.junit.jupiter.api.DynamicContainer;
 import org.junit.jupiter.api.DynamicNode;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
-import rnd.method.parser.call.graph.Main;
 import rnd.method.parser.call.graph.util.MethodParserUtil;
 import rnd.method.parser.call.graph.model.MethodCall;
 import rnd.method.parser.call.graph.service.CallGraphServiceImpl;
+import rnd.method.parser.call.graph.util.TableUtil;
 
 import java.io.File;
 import java.nio.file.Files;
 import java.io.FileNotFoundException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -137,17 +138,25 @@ public class CallGraphTest extends TestConfigurationBase {
                             );
 
                             caseNodes.add(DynamicTest.dynamicTest("Execution", () -> {
-                                CallGraphServiceImpl fanOutService = new CallGraphServiceImpl();
-                                List<MethodCall> methodCallOut = fanOutService.findFanOut(
+                                CallGraphServiceImpl scanner = CallGraphServiceImpl.getInstance();
+                                scanner.init(
                                         TestConfigurationBase.resolvePlaceholders(projectConfig.repositoryUrl),
                                         TestConfigurationBase.resolvePlaceholders(projectConfig.repositoryPath),
                                         projectConfig.commitHash,
-                                        List.of(testCase.targetPath),
-                                        fanInFile,
-                                        fanOutFile,
                                         methodMappingFile
                                 );
-                                Assertions.assertFalse(methodCallOut.isEmpty());
+                                List<String> files = MethodParserUtil.scanJavaFiles(
+                                        TestConfigurationBase.resolvePlaceholders(projectConfig.repositoryPath),
+                                        List.of(testCase.targetPath)
+                                );
+                                String absRepoPath = Paths.get(TestConfigurationBase.resolvePlaceholders(projectConfig.repositoryPath)).toFile().getAbsolutePath();
+                                List<MethodCall> allResults = new ArrayList<>();
+                                for (String absoluteFile : files) {
+                                    String relFile = MethodParserUtil.stripFilePrefix(absRepoPath, new File(absoluteFile).getAbsolutePath());
+                                    allResults.addAll(scanner.findCallgraph(relFile));
+                                }
+                                TableUtil.saveCallgraph(allResults, fanOutFile, fanInFile);
+                                Assertions.assertFalse(allResults.isEmpty());
                             }));
 
                             if (testCase.asserts != null && !testCase.asserts.isEmpty()) {
@@ -175,19 +184,4 @@ public class CallGraphTest extends TestConfigurationBase {
     }
 
 
-    @Test
-    public void testCommandLineCallGraph() {
-        java.lang.String repositoryPath = TestConfigurationBase.getEnv("ME_CACHE_DIRECTORY", DEFAULT_REPOSITORY_DIRECTORY) + "/repository/checkstyle";
-        String[] args = {
-                "--command", "method-callgraph",
-                "--repository-url", "https://github.com/checkstyle/checkstyle",
-                "--repository-path", repositoryPath,
-                "--start-commit", "164a755af951cf0fd459d70873e1c199210d9d8b",
-                "--target-path", ".",
-                "--output-fan-in-file", "../.cache/test/fanin/checkstyle.csv",
-                "--output-fan-out-file", "../.cache/test/callgraph/checkstyle.csv"
-        };
-
-        assertDoesNotThrow(() -> Main.main(args));
-    }
 }

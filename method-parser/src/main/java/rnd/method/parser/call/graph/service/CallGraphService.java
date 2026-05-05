@@ -5,9 +5,7 @@ import rnd.method.parser.call.graph.model.MethodCall;
 import java.util.List;
 
 public interface CallGraphService {
-    default List<MethodCall> findFanOut(String repositoryUrl, String repositoryPath, String commitHash, List<String> targetPaths, String outputFanInFile, String outputFanOutFile) {
-        return findFanOut(repositoryUrl, repositoryPath, commitHash, targetPaths, outputFanInFile, outputFanOutFile, null);
-    }
+    void init(String repositoryUrl, String repositoryPath, String commitHash, String methodMappingFile);
 
-    List<MethodCall> findFanOut(String repositoryUrl, String repositoryPath, String commitHash, List<String> targetPaths, String outputFanInFile, String outputFanOutFile, String methodMappingFile);
+    List<MethodCall> findCallgraph(String file);
 }

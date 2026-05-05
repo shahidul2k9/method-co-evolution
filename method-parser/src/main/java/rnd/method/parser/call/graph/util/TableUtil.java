@@ -3,6 +3,7 @@ package rnd.method.parser.call.graph.util;
 import rnd.method.parser.call.graph.model.ClassMapping;
 import rnd.method.parser.call.graph.model.Method;
 import rnd.method.parser.call.graph.model.MethodCall;
+import rnd.method.parser.call.graph.util.MethodParserUtil;
 import tech.tablesaw.api.IntColumn;
 import tech.tablesaw.api.StringColumn;
 import tech.tablesaw.api.Table;
@@ -296,6 +297,12 @@ public class TableUtil {
         }
         boolean mkdirs = new File(outputPath).getParentFile().mkdirs();
         table.write().csv(outputPath);
+    }
+
+    public static void saveCallgraph(List<MethodCall> callgraphList, String fanOutOutputFile, String fanInOutputFile) {
+        toTable(callgraphList, new File(fanOutOutputFile).getAbsolutePath(), true);
+        List<MethodCall> fanInList = MethodParserUtil.fanInFromFanOut(callgraphList);
+        toTable(fanInList, new File(fanInOutputFile).getAbsolutePath(), false);
     }
 
     public static void toClassTable(List<ClassMapping> classes, String outputPath) {

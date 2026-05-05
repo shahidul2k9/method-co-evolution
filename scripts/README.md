@@ -39,7 +39,7 @@ Use one project selector for normal project-scoped runs:
 | `--project-index` | `"10:20"` |
 | `--project-index` | `"-1"` |
 
-In `method-history` shard mode (`--shards > 1`), omit `--project-index`; `job.sh` derives it from the Slurm array task id. `--project` and `--projects` are optional filters and are forwarded to `mhc`.
+In `method-history` or `method-callgraph` shard mode (`--shards > 1`), omit `--project-index`; `job.sh` derives it from the Slurm array task id. `--project` and `--projects` are optional filters and are forwarded to `mhc`.
 
 ### Execution modes
 
@@ -61,6 +61,8 @@ sbatch --array=0-99 scripts/job.sh \
     --tool-name codeShovel \
     --shards 10
 ```
+
+For callgraph sharding, use `--command method-callgraph --tool-name methodParser --shards N`; after shard jobs finish, run `method-callgraph --merge-only` with the same project selection to write the final `callgraph` and `fanin` CSVs.
 
 The job index is treated as a flattened project/shard coordinate:
 

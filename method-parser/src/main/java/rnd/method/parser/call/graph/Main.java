@@ -1,99 +1,10 @@
 package rnd.method.parser.call.graph;
 
-import org.apache.commons.cli.*;
-import rnd.method.parser.call.graph.model.MethodCall;
-import rnd.method.parser.call.graph.service.CallGraphServiceImpl;
-
-import java.util.List;
-import java.util.Set;
-
 public class Main {
     public static void main(String[] args) {
-        CommandLineParser commandLineParser = new DefaultParser();
-        CommandLine commandLine = null;
-        try {
-            commandLine = commandLineParser.parse(createOptions(), args);
-        } catch (ParseException e) {
-            throw new RuntimeException(e);
-        }
-        String command = commandLine.getOptionValue("command");
-        String repositoryUrl = commandLine.getOptionValue("repository-url");
-        String repositoryPath = commandLine.getOptionValue("repository-path");
-        String commitHash = commandLine.getOptionValue("start-commit");
-        String targetPath = commandLine.getOptionValue("target-path");
-        String outputFanInFile = commandLine.getOptionValue("output-fan-in-file");
-        String outputFanOutFile = commandLine.getOptionValue("output-fan-out-file");
-        String methodMappingFile = commandLine.getOptionValue("method-mapping-file");
-        Set<String> allowed = Set.of("method-callgraph", "call-graph");
-        if (allowed.contains(command)) {
-            if ("method-callgraph".equalsIgnoreCase(command) || "call-graph".equalsIgnoreCase(command)) {
-                generateCallGraph(repositoryUrl, repositoryPath, commitHash, List.of(targetPath), outputFanInFile, outputFanOutFile, methodMappingFile);
-            }
-        } else {
-            throw new IllegalArgumentException("Invalid command: " + command + ". Allowed: " + allowed);
-        }
-    }
-
-    private static Options createOptions() {
-        Options options = new Options();
-
-        options.addOption(Option.builder()
-                        .longOpt("command")
-                        .hasArg(true)
-                        .desc("Command name")
-                        .required(true)
-                        .build())
-                .addOption(Option.builder()
-                        .longOpt("repository-path")
-                        .hasArg(true)
-                        .desc("Full path on the local system of source project")
-                        .required(false)
-                        .build())
-                .addOption(Option.builder()
-                        .longOpt("repository-url")
-                        .hasArg(true)
-                        .desc("HTTP repository URL")
-                        .required(true)
-                        .build())
-                .addOption(Option.builder()
-                        .longOpt("start-commit")
-                        .hasArg(true)
-                        .desc(" Start commit hash, default is HEAD")
-                        .required(true)
-                        .build())
-                .addOption(Option.builder()
-                        .longOpt("target-path")
-                        .hasArg(true)
-                        .desc(" Relative path or file within the repository for which call graph need to be genrated")
-                        .required(true)
-                        .build())
-                .addOption(Option.builder()
-                        .longOpt("output-fan-in-file")
-                        .hasArg(true)
-                        .desc("Output fan in file")
-                        .required(true)
-                        .build())
-                .addOption(Option.builder()
-                        .longOpt("output-fan-out-file")
-                        .hasArg(true)
-                        .desc("Output fan out file")
-                        .required(true)
-                        .build())
-                .addOption(Option.builder()
-                        .longOpt("method-mapping-file")
-                        .hasArg(true)
-                        .desc("Optional CSV/TSV method index used when JavaParser cannot resolve a called method")
-                        .required(false)
-                        .build());
-        return options;
-    }
-
-    public static void generateCallGraph(String repositoryUrl, String repositoryPath, String commitHash, List<String> targetPaths, String outputFanInFile, String outputFanOutFile) {
-        generateCallGraph(repositoryUrl, repositoryPath, commitHash, targetPaths, outputFanInFile, outputFanOutFile, null);
-    }
-
-    public static void generateCallGraph(String repositoryUrl, String repositoryPath, String commitHash, List<String> targetPaths, String outputFanInFile, String outputFanOutFile, String methodMappingFile) {
-        CallGraphServiceImpl fanOutService = new CallGraphServiceImpl();
-        List<MethodCall> methodCallOut = fanOutService.findFanOut(repositoryUrl, repositoryPath, commitHash, targetPaths, outputFanInFile, outputFanOutFile, methodMappingFile);
+        throw new UnsupportedOperationException(
+            "The method-parser JAR no longer supports CLI commands. " +
+            "Use CallGraphServiceImpl directly via JPype."
+        );
     }
 }

@@ -148,6 +148,12 @@ class TestMhcScript(unittest.TestCase):
             ["methodParser"],
             False,
             None,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
         )
 
     @patch("mhc.main._build_method_history_collector")
