@@ -105,6 +105,7 @@ def expand_candidate_df(
         to_artifact = method_artifact.get(row["to_url"], "")
 
         if from_artifact == "test" and is_test_artifact(to_artifact):
+            expanded_rows.append(set_direct_call_depth(row))
             expanded_rows.extend(
                 expand_transitive_test_calls(
                     row,

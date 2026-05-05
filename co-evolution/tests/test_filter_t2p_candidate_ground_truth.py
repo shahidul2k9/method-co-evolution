@@ -11,13 +11,13 @@ try:
 except ImportError:  # pragma: no cover - local shell may not have pandas installed
     pd = None
 
-from ptc.generator.filter_m2m_candidate_ground_truth import (
+from ptc.generator.filter_t2p_candidate_ground_truth import (
     filter_candidate_df,
 )
 
 
 @unittest.skipIf(pd is None, "pandas is required for candidate filter tests")
-class TestFilterM2MCandidateGroundTruth(unittest.TestCase):
+class TestFilterT2PCandidateGroundTruth(unittest.TestCase):
     def test_filter_candidate_df_keeps_only_ground_truth_from_methods(self):
         candidate_df = pd.DataFrame(
             [
