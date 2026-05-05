@@ -323,7 +323,7 @@ class TestIndexOutput(unittest.TestCase):
     def test_update_repository_index_writes_into_data_aggregate_directory(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            cache_directory = temp_path / "cache"
+            workspace_directory = temp_path / "cache"
             data_directory = temp_path / "data"
 
             method_dir = data_directory / "method"
@@ -333,7 +333,7 @@ class TestIndexOutput(unittest.TestCase):
             ).to_csv(method_dir / "checkstyle.csv", index=False)
 
             _write_tar_gz(
-                cache_directory / "history" / "codeShovel" / "checkstyle.tar.gz",
+                workspace_directory / "history" / "codeShovel" / "checkstyle.tar.gz",
                 {
                     "checkstyle/src/Foo--m1--1.json": "{}",
                     "checkstyle/src/Foo--m2--2.json": "{}",
@@ -353,7 +353,7 @@ class TestIndexOutput(unittest.TestCase):
                 [{"project": "checkstyle", "url": "https://example.com/checkstyle"}]
             )
 
-            update_repository_index(repository_df, str(cache_directory / "history"), str(data_directory))
+            update_repository_index(repository_df, str(workspace_directory / "history"), str(data_directory))
 
             output_file = data_directory / "aggregate" / "repository-history-index.csv"
             self.assertTrue(output_file.exists())

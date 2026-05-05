@@ -6,7 +6,7 @@ import pandas as pd
 from scipy.stats import kendalltau
 
 import mhc.util as util
-from mhc.config import CACHE_DIRECTORY, DATA_DIRECTORY
+from mhc.config import WORKSPACE_DIRECTORY, DATA_DIRECTORY
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
 from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, select_named_items
 from ptc.plot_util import man_utest
@@ -131,7 +131,7 @@ def main(argv: list[str] | None = None) -> None:
                     if stat_row is not None:
                         stats_rows.append(stat_row)
 
-    stats_output_file = f"{CACHE_DIRECTORY}/data/aggregate/t2p-mwu.csv"
+    stats_output_file = f"{WORKSPACE_DIRECTORY}/data/aggregate/t2p-mwu.csv"
     os.makedirs(os.path.dirname(stats_output_file), exist_ok=True)
     stats_df = pd.DataFrame(stats_rows, columns=STAT_COLUMNS)
     stats_df = stats_df.sort_values(["project", "tool", "strategy", "change"]).reset_index(drop=True)

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=MHC
-#SBATCH --output=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.out
-#SBATCH --error=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/.cache/log/job/%x.%A_%a.err
+#SBATCH --output=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/workspace/log/job/%x.%A_%a.out
+#SBATCH --error=$HOME/projects/$SLURM_ACCOUNT/$USER/method-co-evolution/workspace/log/job/%x.%A_%a.err
 set -euo pipefail
 
 usage() {
@@ -38,9 +38,9 @@ Options:
   --shards                Total method-history, method-scan, class-scan, method-code, or method-callgraph shards per project (default: 1)
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
   --top-k                 TestLinker top-k invocation count (default: 1)
-  --cache-directory       Relative or absolute cache directory (default: .cache)
-  --history-directory     Relative or absolute method history directory (default: ME_HISTORY_DIRECTORY or $HOME/scratch/$USER/method-co-evolution/.cache)
-  --data-directory        Relative or absolute data directory (default: <cache-directory>/data)
+  --workspace-directory       Relative or absolute cache directory (default: .cache)
+  --history-directory     Relative or absolute method history directory (default: ME_HISTORY_DIRECTORY or $HOME/scratch/$USER/method-co-evolution/workspace)
+  --data-directory        Relative or absolute data directory (default: <workspace-directory>/data)
   --help                  Show this message
 EOF
 }
@@ -74,7 +74,7 @@ PROJECT_INDEX=""
 SHARDS="1"
 INPUT_KIND="t2p"
 TOP_K="1"
-CACHE_DIRECTORY="$PROJECT_DIRECTORY/.cache"
+WORKSPACE_DIRECTORY="$PROJECT_DIRECTORY/workspace"
 HISTORY_DIRECTORY="${ME_HISTORY_DIRECTORY:-}"
 DATA_DIRECTORY=""
 
@@ -164,8 +164,8 @@ while [[ $# -gt 0 ]]; do
             TOP_K="$2"
             shift 2
             ;;
-        --cache-directory)
-            CACHE_DIRECTORY="$2"
+        --workspace-directory)
+            WORKSPACE_DIRECTORY="$2"
             shift 2
             ;;
         --history-directory)
@@ -189,11 +189,11 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$DATA_DIRECTORY" ]]; then
-    DATA_DIRECTORY="$CACHE_DIRECTORY/data"
+    DATA_DIRECTORY="$WORKSPACE_DIRECTORY/data"
 fi
 
 if [[ -z "$HISTORY_DIRECTORY" ]]; then
-    HISTORY_DIRECTORY="$HOME/scratch/$USER/method-co-evolution/.cache/history"
+    HISTORY_DIRECTORY="$HOME/scratch/$USER/method-co-evolution/workspace/history"
 fi
 
 if [[ -z "$COMMAND_NAME" ]]; then
@@ -290,7 +290,7 @@ if ! [[ "$TOP_K" =~ ^[0-9]+$ ]] || [[ "$TOP_K" -le 0 ]]; then
     exit 1
 fi
 
-LOG_DIR="$CACHE_DIRECTORY/log/job"
+LOG_DIR="$WORKSPACE_DIRECTORY/log/job"
 mkdir -p "$LOG_DIR"
 cd "$PROJECT_DIRECTORY"
 source "$PROJECT_DIRECTORY/.venv/bin/activate"
@@ -326,7 +326,7 @@ if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
         exit 1
     fi
     srun ptc-llm llm-m2m-link \
-        --cache-directory "$CACHE_DIRECTORY" \
+        --workspace-directory "$WORKSPACE_DIRECTORY" \
         --stage "$STAGE" \
         --api-type "$API_TYPE" \
         --model-name-or-path "$MODEL_NAME_OR_PATH" \
@@ -341,10 +341,10 @@ if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
 elif [[ "$COMMAND_NAME" == "testlinker" ]]; then
     TESTLINKER_ARGS=(
         testlinker
-        --cache-directory "$CACHE_DIRECTORY"
+        --workspace-directory "$WORKSPACE_DIRECTORY"
         --stage "$STAGE"
         --top-k "$TOP_K"
-        --testlinker-directory "$CACHE_DIRECTORY/testlinker"
+        --testlinker-directory "$WORKSPACE_DIRECTORY/testlinker"
         --checkpoint "best-acc_and_f1"
         --model-mode "codet5"
         --tokenizer-mode "original"
@@ -362,11 +362,11 @@ elif [[ "$COMMAND_NAME" == "testlinker" ]]; then
 else
     MHC_ARGS=(
         "$COMMAND_NAME"
-        --cache-directory "$CACHE_DIRECTORY"
+        --workspace-directory "$WORKSPACE_DIRECTORY"
         --history-directory "$HISTORY_DIRECTORY"
         --repository-directory "$SLURM_TMPDIR/repository"
         --data-directory "$DATA_DIRECTORY"
-        --jar-directory "$CACHE_DIRECTORY/jar"
+        --jar-directory "$WORKSPACE_DIRECTORY/jar"
         --timeout-seconds "$TIMEOUT_SECONDS"
         --merge-threshold "$MERGE_THRESHOLD"
     )

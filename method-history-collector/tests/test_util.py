@@ -22,12 +22,12 @@ class UtilCase(unittest.TestCase):
 
     def test_java_options_with_logback_config_uses_cache_config_when_present(self):
         with tempfile.TemporaryDirectory() as temp_directory:
-            cache_directory = Path(temp_directory)
-            logback_file = cache_directory / "config" / "logback.xml"
+            workspace_directory = Path(temp_directory)
+            logback_file = workspace_directory / "config" / "logback.xml"
             logback_file.parent.mkdir(parents=True)
             logback_file.write_text("<configuration />", encoding="utf-8")
 
-            options = util.java_options_with_logback_config("-Xmx2g", str(cache_directory))
+            options = util.java_options_with_logback_config("-Xmx2g", str(workspace_directory))
 
             self.assertIn("-Xmx2g", options)
             self.assertIn(f"-Dlogback.configurationFile={logback_file}", options)

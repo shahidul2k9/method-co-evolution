@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def testlinker_root(cache_directory: str | Path, testlinker_directory: str | Path | None = None) -> Path:
+def testlinker_root(workspace_directory: str | Path, testlinker_directory: str | Path | None = None) -> Path:
     if testlinker_directory:
         return Path(testlinker_directory)
-    return Path(cache_directory) / "testlinker"
+    return Path(workspace_directory) / "testlinker"
 
 
 def input_csv_path(root: Path, project: str) -> Path:

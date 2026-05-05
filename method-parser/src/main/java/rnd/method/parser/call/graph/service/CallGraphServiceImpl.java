@@ -832,12 +832,13 @@ public class CallGraphServiceImpl implements CallGraphService {
 
         static MethodMappingIndex load(String methodMappingFile) {
             if (methodMappingFile == null || methodMappingFile.isBlank()) {
+                log.error("Method mapping file location not specified");
                 return EMPTY;
             }
 
             Path path = Paths.get(methodMappingFile);
             if (!Files.exists(path)) {
-                log.warn("Method mapping file does not exist: {}", methodMappingFile);
+                log.error("Method mapping file does not exist: {}", methodMappingFile);
                 return EMPTY;
             }
 
@@ -846,7 +847,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                 log.info("Loaded {} method mapping entries from {}", entries.size(), methodMappingFile);
                 return new MethodMappingIndex(entries);
             } catch (IOException | RuntimeException e) {
-                log.warn("Failed to load method mapping file {}: {}", methodMappingFile, e.getMessage());
+                log.error("Failed to load method mapping file {}: {}", methodMappingFile, e.getMessage());
                 return EMPTY;
             }
         }

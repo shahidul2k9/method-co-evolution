@@ -6,9 +6,9 @@ import pandas as pd
 from mhc.config import *
 from mhc.util import *
 
-method_dir = Path(f"{CACHE_DIRECTORY}/data/method")
-ground_truth_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-ground-truth-updated")
-output_dir = Path(f"{CACHE_DIRECTORY}/data/t2p-ground-truth-updated")
+method_dir = Path(f"{WORKSPACE_DIRECTORY}/data/method")
+ground_truth_dir = Path(f"{WORKSPACE_DIRECTORY}/data/t2p-ground-truth-updated")
+output_dir = Path(f"{WORKSPACE_DIRECTORY}/data/t2p-ground-truth-updated")
 output_dir.mkdir(parents=True, exist_ok=True)
 
 

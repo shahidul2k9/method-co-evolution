@@ -6,7 +6,7 @@ from mhc.method_history_jar_runner import DEFAULT_MERGE_THRESHOLD
 
 _DASH_VALUE_OPTIONS = {"--java-options", "--command-options"}
 _KNOWN_OPTION_FLAGS = {
-    "--cache-directory",
+    "--workspace-directory",
     "--history-directory",
     "--repository-directory",
     "--data-directory",
@@ -49,14 +49,14 @@ def _normalize_dash_prefixed_option_values(argv: list[str]) -> list[str]:
 
 
 def _build_method_history_collector(
-    cache_directory: str,
+    workspace_directory: str,
     repository_directory: str,
     data_directory: str,
     jar_directory: str,
     history_directory: str | None = None,
 ) -> MethodHistoryCollector:
     return MethodHistoryCollector(
-        cache_directory,
+        workspace_directory,
         repository_directory,
         data_directory,
         jar_directory,
@@ -128,7 +128,7 @@ def main(argv: list[str] | None = None):
         "command", type=str, help="Command to execute (e.g., method-history, method-callgraph)"
     )
     parser.add_argument(
-        "--cache-directory",
+        "--workspace-directory",
         type=str,
         required=True,
         help="Cache directory path"
@@ -142,7 +142,7 @@ def main(argv: list[str] | None = None):
     parser.add_argument(
         "--history-directory",
         type=str,
-        help="Method history JSON/archive directory path. Defaults to ME_HISTORY_DIRECTORY or <cache-directory>/history.",
+        help="Method history JSON/archive directory path. Defaults to ME_HISTORY_DIRECTORY or <workspace-directory>/history.",
     )
     parser.add_argument(
         "--data-directory",
@@ -246,11 +246,11 @@ def main(argv: list[str] | None = None):
     args = parser.parse_args(normalized_argv)
     history_directory = args.history_directory or os.environ.get(
         "ME_HISTORY_DIRECTORY",
-        os.path.join(args.cache_directory, "history"),
+        os.path.join(args.workspace_directory, "history"),
     )
 
     mhc = _build_method_history_collector(
-        args.cache_directory,
+        args.workspace_directory,
         args.repository_directory,
         args.data_directory,
         args.jar_directory,

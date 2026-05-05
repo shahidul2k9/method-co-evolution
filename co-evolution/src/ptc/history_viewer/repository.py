@@ -117,14 +117,14 @@ def repository_root() -> Path:
     return Path(__file__).resolve().parents[4]
 
 
-def default_cache_directory() -> Path:
-    cwd_cache = Path.cwd() / ".cache"
-    return cwd_cache if cwd_cache.exists() else repository_root() / ".cache"
+def default_workspace_directory() -> Path:
+    cwd_cache = Path.cwd() / "workspace"
+    return cwd_cache if cwd_cache.exists() else repository_root() / "workspace"
 
 
 def default_data_directory() -> Path:
-    cache_directory = default_cache_directory()
-    return cache_directory / "data"
+    workspace_directory = default_workspace_directory()
+    return workspace_directory / "data"
 
 
 def normalize_date_text(value: str) -> str:
@@ -382,13 +382,13 @@ def _parse_optional_float(value: Any) -> float | None:
 
 
 class HistoryRepository:
-    def __init__(self, cache_directory: Path | None = None, data_directory: Path | None = None):
-        self.cache_directory = Path(cache_directory or default_cache_directory())
+    def __init__(self, workspace_directory: Path | None = None, data_directory: Path | None = None):
+        self.workspace_directory = Path(workspace_directory or default_workspace_directory())
         self.data_directory = Path(data_directory or default_data_directory())
 
     @property
     def history_directory(self) -> Path:
-        return self.cache_directory / "history"
+        return self.workspace_directory / "history"
 
     def load_history_from_file(self, file_path: str | Path, tool: str | None = None) -> MethodHistory:
         path = Path(file_path).expanduser()

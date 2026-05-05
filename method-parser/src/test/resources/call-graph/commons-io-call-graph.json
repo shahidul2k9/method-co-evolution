@@ -3,18 +3,18 @@
     {
       "name": "commons-io",
       "repositoryUrl": "https://github.com/apache/commons-io",
-      "repositoryPath": "${ME_CACHE_DIRECTORY}/repository/commons-io",
+      "repositoryPath": "${ME_WORKSPACE_DIRECTORY}/repository/commons-io",
       "commitHash": "4077158829de92987367d3149e4ba71356bb5390",
       "cases": [
         {
           "name": "src",
           "targetPath": "src",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         },
         {
           "name": "LayoutPreservingPropertiesTest",
           "targetPath": "src/test/java/org/apache/commons/io/FileUtilsTestCase.java",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         }
       ]
     }

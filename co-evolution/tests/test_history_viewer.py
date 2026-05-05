@@ -29,8 +29,8 @@ from ptc.history_viewer.app import (
 from ptc.history_viewer.repository import HistoryRepository, parse_commit_datetime, parse_method_url
 
 
-CACHE_DIRECTORY = REPOSITORY_ROOT / ".cache"
-DATA_DIRECTORY = CACHE_DIRECTORY / "data"
+WORKSPACE_DIRECTORY = REPOSITORY_ROOT / "workspace"
+DATA_DIRECTORY = WORKSPACE_DIRECTORY / "data"
 SAMPLE_CSV = DATA_DIRECTORY / "t2p-change-sample" / "historyFinder" / "omc--nc--ncc" / "cucumber-jvm.csv"
 SAMPLE_DIR = DATA_DIRECTORY / "t2p-change-sample" / "historyFinder" / "omc--nc--ncc"
 HF_SAMPLE_URL = (
@@ -41,7 +41,7 @@ HF_SAMPLE_URL = (
 
 class TestHistoryViewer(unittest.TestCase):
     def setUp(self) -> None:
-        self.repository = HistoryRepository(cache_directory=CACHE_DIRECTORY, data_directory=DATA_DIRECTORY)
+        self.repository = HistoryRepository(workspace_directory=WORKSPACE_DIRECTORY, data_directory=DATA_DIRECTORY)
 
     def test_parse_method_url_extracts_project_path_and_line(self) -> None:
         parsed = parse_method_url(
@@ -158,7 +158,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertEqual("2010 February 11, 10:10", format_commit_datetime(parsed, ""))
 
     def test_load_historyfinder_from_direct_json_file(self) -> None:
-        temp_file = REPOSITORY_ROOT / ".cache" / "test" / "history-viewer" / "historyfinder-direct.json"
+        temp_file = REPOSITORY_ROOT / "workspace" / "test" / "history-viewer" / "historyfinder-direct.json"
         temp_file.parent.mkdir(parents=True, exist_ok=True)
         source_history = self.repository.load_history_from_url(HF_SAMPLE_URL, tool="historyFinder")
         temp_file.write_text(json.dumps(source_history.raw), encoding="utf-8")
@@ -193,7 +193,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertEqual("Ybodychange", history.entries[0].change_types[0])
 
     def test_write_revision_links_and_update_note(self) -> None:
-        temp_csv = REPOSITORY_ROOT / ".cache" / "test" / "history-viewer" / "cucumber-jvm-copy.csv"
+        temp_csv = REPOSITORY_ROOT / "workspace" / "test" / "history-viewer" / "cucumber-jvm-copy.csv"
         temp_csv.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(SAMPLE_CSV, temp_csv)
 
@@ -280,7 +280,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertEqual(first_row["from_url"], calling_methods[0].from_url)
 
     def test_revision_route_renders_comparison_page(self) -> None:
-        app = create_app(cache_directory=str(CACHE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
         environ = {
             "REQUEST_METHOD": "GET",
             "PATH_INFO": "/revision",
@@ -328,7 +328,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertNotIn("Actual Source", body)
 
     def test_revision_route_uses_first_source_option_as_real_default(self) -> None:
-        app = create_app(cache_directory=str(CACHE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
         environ = {
             "REQUEST_METHOD": "GET",
             "PATH_INFO": "/revision",
@@ -359,7 +359,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("Loaded from <span class=\"mono\">t2p-link/ncc</span>", body)
 
     def test_sample_directory_route_lists_csv_files(self) -> None:
-        app = create_app(cache_directory=str(CACHE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
         environ = {
             "REQUEST_METHOD": "GET",
             "PATH_INFO": "/sample",
@@ -384,7 +384,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("CSV Files", body)
 
     def test_history_json_api_returns_raw_history(self) -> None:
-        app = create_app(cache_directory=str(CACHE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
         environ = {
             "REQUEST_METHOD": "GET",
             "PATH_INFO": "/api/history-json",
@@ -414,7 +414,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertTrue(any(header == ("Content-Type", "application/json; charset=utf-8") for header in captured["headers"]))
 
     def test_history_json_api_can_force_download(self) -> None:
-        app = create_app(cache_directory=str(CACHE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
         environ = {
             "REQUEST_METHOD": "GET",
             "PATH_INFO": "/api/history-json",

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 
 import mhc.util as util
-from mhc.config import CACHE_DIRECTORY, DATA_DIRECTORY
+from mhc.config import WORKSPACE_DIRECTORY, DATA_DIRECTORY
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
 from ptc.plot_util import (
     GRAPH_STYLES,
@@ -173,7 +173,7 @@ def main(argv: list[str] | None = None) -> None:
                     ax.grid(True, alpha=0.25)
 
             fig.tight_layout(rect=(0.03, 0.03, 1, 1))
-            fig_file = f"{CACHE_DIRECTORY}/figure/t2p-delta-cdf/t2p-delta-cdf--{tool}--{link_strategy}.pdf"
+            fig_file = f"{WORKSPACE_DIRECTORY}/figure/t2p-delta-cdf/t2p-delta-cdf--{tool}--{link_strategy}.pdf"
             os.makedirs(os.path.dirname(fig_file), exist_ok=True)
             fig.savefig(fig_file, bbox_inches="tight")
             plt.close(fig)

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import mhc.util as util
-from mhc.config import CACHE_DIRECTORY
+from mhc.config import WORKSPACE_DIRECTORY
 from ptc.constants import ALL_REPOSITORY
 from ptc.plot_util import (
     GRAPH_GAPS,
@@ -18,7 +18,7 @@ from ptc.plot_util import (
     select_named_items,
 )
 
-STATS_FILE = f"{CACHE_DIRECTORY}/data/aggregate/t2p-mwu.csv"
+STATS_FILE = f"{WORKSPACE_DIRECTORY}/data/aggregate/t2p-mwu.csv"
 SIZE_ORDER = ["negligible", "small", "medium", "large"]
 
 
@@ -190,7 +190,7 @@ def main(argv: list[str] | None = None) -> None:
             )
 
         fig.tight_layout(rect=(0, 0, 1, 0.97))
-        fig_file = f"{CACHE_DIRECTORY}/figure/t2p-mwu-cdf/t2p-mwu-cdf--{tool}.pdf"
+        fig_file = f"{WORKSPACE_DIRECTORY}/figure/t2p-mwu-cdf/t2p-mwu-cdf--{tool}.pdf"
         os.makedirs(os.path.dirname(fig_file), exist_ok=True)
         fig.savefig(fig_file, bbox_inches="tight")
         plt.close(fig)

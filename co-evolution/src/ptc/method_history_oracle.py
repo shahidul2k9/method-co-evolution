@@ -15,11 +15,11 @@ if load_dotenv is not None:
     load_dotenv(dotenv_path=".env", override=True)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CACHE_DIRECTORY = os.environ.get("ME_CACHE_DIRECTORY", str(REPO_ROOT / ".cache"))
+WORKSPACE_DIRECTORY = os.environ.get("ME_WORKSPACE_DIRECTORY", str(REPO_ROOT / "workspace"))
 ME_TEST_METHOD_ORACLE_DIRECTORY = os.environ.get("ME_TEST_METHOD_ORACLE_DIRECTORY")
-DEFAULT_BLACKLIST_FILE = Path(f"{CACHE_DIRECTORY}/data/oracle/blacklist-test-method-oracle.csv")
-DEFAULT_REPOSITORY_FILE = Path(f"{CACHE_DIRECTORY}/data/repository/repository.csv")
-DEFAULT_METHOD_DIRECTORY = Path(f"{CACHE_DIRECTORY}/data/method")
+DEFAULT_BLACKLIST_FILE = Path(f"{WORKSPACE_DIRECTORY}/data/oracle/blacklist-test-method-oracle.csv")
+DEFAULT_REPOSITORY_FILE = Path(f"{WORKSPACE_DIRECTORY}/data/repository/repository.csv")
+DEFAULT_METHOD_DIRECTORY = Path(f"{WORKSPACE_DIRECTORY}/data/method")
 TARGET_REFS = {"grund", "islam"}
 BLACKLIST_FIELDNAMES = [
     "file",

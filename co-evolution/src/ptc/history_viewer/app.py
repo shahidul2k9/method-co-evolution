@@ -637,8 +637,8 @@ class PairSummary:
     pattern_tone: str
 
 
-def create_app(cache_directory: str | None = None, data_directory: str | None = None) -> "HistoryViewerApp":
-    return HistoryViewerApp(HistoryRepository(cache_directory=cache_directory, data_directory=data_directory))
+def create_app(workspace_directory: str | None = None, data_directory: str | None = None) -> "HistoryViewerApp":
+    return HistoryViewerApp(HistoryRepository(workspace_directory=workspace_directory, data_directory=data_directory))
 
 
 class HistoryViewerApp:
@@ -768,7 +768,7 @@ class HistoryViewerApp:
         return [body]
 
     def _render_home(self) -> str:
-        cache_dir = html.escape(str(self.repository.cache_directory))
+        workspace_dir = html.escape(str(self.repository.workspace_directory))
         sample_hint = html.escape(str(self.repository.data_directory / "aggregate"))
         return f"""
 <main>
@@ -776,7 +776,7 @@ class HistoryViewerApp:
     <div class="eyebrow">Method Evolution UI</div>
     <h1>Inspect how test and production methods move together</h1>
     <p>Use GitHub method URLs, cached history JSON files, or a sampled CSV. The viewer aligns both histories on one timeline so you can spot direct co-evolution, lagged follow-up changes, and long periods where the two sides drift apart.</p>
-    <p class="muted">Default cache root: <span class="mono">{cache_dir}</span></p>
+    <p class="muted">Default cache root: <span class="mono">{workspace_dir}</span></p>
   </section>
 
   <section class="grid">
@@ -813,10 +813,10 @@ class HistoryViewerApp:
           </select>
         </label>
         <label>From file
-          <input type="text" name="from_file" placeholder="/Users/.../.cache/history/...json" />
+          <input type="text" name="from_file" placeholder="/Users/.../workspace/history/...json" />
         </label>
         <label>To file
-          <input type="text" name="to_file" placeholder="/Users/.../.cache/history/...json" />
+          <input type="text" name="to_file" placeholder="/Users/.../workspace/history/...json" />
         </label>
         <button type="submit">Open comparison</button>
       </form>

@@ -20,7 +20,7 @@ Classifies test↔production method pairs as linked or not using an LLM. Inputs 
 ```bash
 # OpenAI Responses API
 ptc-llm llm-m2m-link \
-    --cache-directory ".cache" \
+    --workspace-directory "workspace" \
     --project "commons-io" \
     --input-kind "t2p" \
     --api-type "openai-responses" \
@@ -30,7 +30,7 @@ ptc-llm llm-m2m-link \
 
 # Local or self-hosted HuggingFace model
 ptc-llm llm-m2m-link \
-    --cache-directory ".cache" \
+    --workspace-directory "workspace" \
     --project "commons-io" \
     --input-kind "t2p" \
     --api-type "huggingface" \
@@ -93,6 +93,6 @@ Open `http://127.0.0.1:8765` in a browser.
 
 ```bash
 ptc-history-viewer add-revision-links \
-    --csv ".cache/data/aggregate/t2p-extreme-test-historyFinder-ncc.csv" \
+    --csv "workspace/data/aggregate/t2p-extreme-test-historyFinder-ncc.csv" \
     --base-url "http://127.0.0.1:8765"
 ```

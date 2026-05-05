@@ -19,7 +19,7 @@ def iter_tool_history_directories(history_root: Path) -> list[Path]:
 def main() -> None:
     repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
     repository_name_map = {row["project"]: row for row in repository_df.to_dict(orient="records")}
-    history_root = Path(CACHE_DIRECTORY) / "history"
+    history_root = Path(WORKSPACE_DIRECTORY) / "history"
 
     for tool_directory in iter_tool_history_directories(history_root):
         tool_name = tool_directory.name

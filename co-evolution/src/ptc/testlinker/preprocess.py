@@ -38,17 +38,17 @@ INPUT_COLUMNS = [
 
 
 def generate_mapping_files(
-    cache_directory: str | Path,
+    workspace_directory: str | Path,
     project: str,
     testlinker_directory: str | Path | None = None,
     project_directory: str | Path | None = None,
 ) -> None:
     """Generate TestLinker mapping files from our class/method scan data."""
-    cache_root = Path(cache_directory)
-    root = testlinker_root(cache_root, testlinker_directory)
+    workspace_root = Path(workspace_directory)
+    root = testlinker_root(workspace_root, testlinker_directory)
 
-    class_file = cache_root / "data" / "class" / f"{project}.csv"
-    method_file = cache_root / "data" / "method" / f"{project}.csv"
+    class_file = workspace_root / "data" / "class" / f"{project}.csv"
+    method_file = workspace_root / "data" / "method" / f"{project}.csv"
 
     cls_map_dir = class_map_directory(root)
     functions_dir = projects_all_functions_directory(root)
@@ -159,7 +159,7 @@ def _write_json_single_line(path: Path, data: object) -> None:
 
 def preprocess_project(
     *,
-    cache_directory: str | Path,
+    workspace_directory: str | Path,
     project: str,
     testlinker_directory: str | Path | None = None,
     include_labels: bool = False,
@@ -168,21 +168,21 @@ def preprocess_project(
     replace: bool = False,
     project_directory: str | Path | None = None,
 ) -> pd.DataFrame:
-    cache_root = Path(cache_directory)
-    root = testlinker_root(cache_root, testlinker_directory)
+    workspace_root = Path(workspace_directory)
+    root = testlinker_root(workspace_root, testlinker_directory)
     output_file = input_csv_path(root, project)
 
     if not replace and output_file.exists():
         input_df = pd.read_csv(output_file, keep_default_na=False, na_filter=False)
     else:
-        generate_mapping_files(cache_directory, project, testlinker_directory, project_directory)
-        candidate_file = cache_root / "data" / "t2p-candidate" / f"{project}.csv"
+        generate_mapping_files(workspace_directory, project, testlinker_directory, project_directory)
+        candidate_file = workspace_root / "data" / "t2p-candidate" / f"{project}.csv"
         if not candidate_file.exists():
             raise FileNotFoundError(f"Candidate file not found: {candidate_file}")
 
-        method_code_file = cache_root / "data" / "method-code" / f"{project}.csv"
+        method_code_file = workspace_root / "data" / "method-code" / f"{project}.csv"
         method_code_lookup = _load_method_code_lookup(method_code_file)
-        label_lookup = _load_label_lookup(t2p_ground_truth_updated_file(project_directory or cache_root, project)) if include_labels else {}
+        label_lookup = _load_label_lookup(t2p_ground_truth_updated_file(project_directory or workspace_root, project)) if include_labels else {}
         invocation_order_lookup = _load_invocation_order_lookup(project, order_production_method, order_production_directory)
         candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)
         required_columns = {"project", "from_url", "from_name", "from_file", "to_url", "to_name"}

@@ -22,7 +22,7 @@ MODEL_OUTPUT_COLUMNS = ["project", "from_url", "test_name", "invocation", "score
 
 def execute_project(
     *,
-    cache_directory: str | Path,
+    workspace_directory: str | Path,
     project: str,
     testlinker_directory: str | Path | None = None,
     model_name_or_path: str | Path | None = None,
@@ -35,7 +35,7 @@ def execute_project(
     no_cuda: bool = False,
     replace: bool = False,
 ) -> pd.DataFrame:
-    root = testlinker_root(cache_directory, testlinker_directory)
+    root = testlinker_root(workspace_directory, testlinker_directory)
 
     output_json = model_output_json_path(root, project)
     output_csv = model_output_csv_path(root, project)

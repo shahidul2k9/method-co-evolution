@@ -3,23 +3,23 @@
     {
       "name": "jfreechart",
       "repositoryUrl": "https://github.com/jfree/jfreechart",
-      "repositoryPath": "${ME_CACHE_DIRECTORY}/repository/jfreechart",
+      "repositoryPath": "${ME_WORKSPACE_DIRECTORY}/repository/jfreechart",
       "commitHash": "b3f5f21ba0fe32a8f7eccb6760a79df30628be3e",
       "cases": [
         {
           "name": "JFreeChartTest",
           "targetPath": "tests/org/jfree/chart/JFreeChartTest.java",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         },
         {
           "name": "CombinedXYPlotDemo1",
           "targetPath": "experimental/org/jfree/experimental/chart/demo/CombinedXYPlotDemo1.java",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         },
         {
           "name": "ChartFactory",
           "targetPath": "source/org/jfree/chart/ChartFactory.java",
-          "outputDirectory": "${ME_CACHE_DIRECTORY}/test"
+          "outputDirectory": "${ME_WORKSPACE_DIRECTORY}/test"
         }
       ]
     }

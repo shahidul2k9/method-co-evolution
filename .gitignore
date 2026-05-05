@@ -42,8 +42,8 @@ htmlcov/
 .nox/
 .coverage
 .coverage.*
-.cache
-.white
+workspace/
+workspace-eval/
 nosetests.xml
 coverage.xml
 *.cover

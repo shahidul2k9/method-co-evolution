@@ -11,7 +11,7 @@ if str(SRC_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SRC_DIRECTORY))
 
 import mhc.main as mhc_main
-from mhc.config import CACHE_DIRECTORY, REPOSITORY_DIRECTORY, DATA_DIRECTORY, JAR_DIRECTORY, HISTORY_DIRECTORY
+from mhc.config import WORKSPACE_DIRECTORY, REPOSITORY_DIRECTORY, DATA_DIRECTORY, JAR_DIRECTORY, HISTORY_DIRECTORY
 
 
 
@@ -26,8 +26,8 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             "main.py",
             "method-history",
-            "--cache-directory",
-            CACHE_DIRECTORY,
+            "--workspace-directory",
+            WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
             "--data-directory",
@@ -47,7 +47,7 @@ class TestMhcScript(unittest.TestCase):
                 self.fail(f"main() exited unexpectedly with {exc}")
 
         mock_build_collector.assert_called_once_with(
-            CACHE_DIRECTORY,
+            WORKSPACE_DIRECTORY,
             REPOSITORY_DIRECTORY,
             DATA_DIRECTORY,
             JAR_DIRECTORY,
@@ -74,8 +74,8 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             "main.py",
             "method-history",
-            "--cache-directory",
-            CACHE_DIRECTORY,
+            "--workspace-directory",
+            WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
             "--data-directory",
@@ -97,8 +97,8 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             "main.py",
             "unknown",
-            "--cache-directory",
-            CACHE_DIRECTORY,
+            "--workspace-directory",
+            WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
             "--data-directory",
@@ -123,8 +123,8 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             "main.py",
             "method-callgraph",
-            "--cache-directory",
-            CACHE_DIRECTORY,
+            "--workspace-directory",
+            WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
             "--data-directory",
@@ -166,8 +166,8 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             "main.py",
             "method-history",
-            "--cache-directory",
-            CACHE_DIRECTORY,
+            "--workspace-directory",
+            WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
             "--data-directory",
@@ -212,8 +212,8 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             "main.py",
             "method-scan",
-            "--cache-directory",
-            CACHE_DIRECTORY,
+            "--workspace-directory",
+            WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
             "--data-directory",
@@ -249,8 +249,8 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             "main.py",
             "method-scan",
-            "--cache-directory",
-            CACHE_DIRECTORY,
+            "--workspace-directory",
+            WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
             "--data-directory",
@@ -286,8 +286,8 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             "main.py",
             "method-scan",
-            "--cache-directory",
-            CACHE_DIRECTORY,
+            "--workspace-directory",
+            WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
             "--data-directory",
@@ -326,8 +326,8 @@ class TestMhcScript(unittest.TestCase):
         test_args = [
             "main.py",
             "llm-m2m-link",
-            "--cache-directory",
-            CACHE_DIRECTORY,
+            "--workspace-directory",
+            WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
             "--data-directory",
@@ -354,7 +354,7 @@ class TestMhcScript(unittest.TestCase):
         mock_subprocess_run.assert_called_once()
         command = mock_subprocess_run.call_args.args[0]
         self.assertIn("ptc.llm.main", command)
-        self.assertIn(CACHE_DIRECTORY, command)
+        self.assertIn(WORKSPACE_DIRECTORY, command)
         self.assertIn("commons-io", command)
         self.assertIn("openai/gpt-oss-20b", command)
         self.assertIn("t2p", command)

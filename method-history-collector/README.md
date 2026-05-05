@@ -13,7 +13,7 @@ pip install -e ./method-history-collector
 All subcommands accept:
 
 ```
---cache-directory       Root cache directory (default: .cache)
+--workspace-directory       Root cache directory (default: .cache)
 --history-directory     Method history JSON/archive root (default: ME_HISTORY_DIRECTORY or <cache>/history)
 --repository-directory  Where repositories are cloned
 --data-directory        Where output CSVs are written (default: <cache>/data)
@@ -40,31 +40,31 @@ Extracts all methods and constructors from a repository at its current HEAD and 
 
 ```bash
 mhc method-scan \
-    --cache-directory ".cache" \
-    --repository-directory ".cache/repository" \
-    --data-directory ".cache/data" \
-    --jar-directory ".cache/jar" \
+    --workspace-directory "workspace" \
+    --repository-directory "workspace/repository" \
+    --data-directory "workspace/data" \
+    --jar-directory "workspace/jar" \
     --java-options "-Xmx2g" \
     --project "checkstyle"
 ```
 
 Use `--replace` to regenerate the CSV even if it already exists.
 
-If `<cache-directory>/config/logback.xml` exists it is passed to the JVM automatically as `-Dlogback.configurationFile=...`.
+If `<workspace-directory>/config/logback.xml` exists it is passed to the JVM automatically as `-Dlogback.configurationFile=...`.
 
 ---
 
 ### `mhc method-history`
 
-Traces the change history of each method using a history tool (CodeShovel, HistoryFinder, or CodeTracker) and stores loose JSON files and `.tar.gz` archives under `<history-directory>/{tool}/{project}`. If `--history-directory` is omitted, MHC uses `ME_HISTORY_DIRECTORY`; if that environment variable is unset, it falls back to `<cache-directory>/history`.
+Traces the change history of each method using a history tool (CodeShovel, HistoryFinder, or CodeTracker) and stores loose JSON files and `.tar.gz` archives under `<history-directory>/{tool}/{project}`. If `--history-directory` is omitted, MHC uses `ME_HISTORY_DIRECTORY`; if that environment variable is unset, it falls back to `<workspace-directory>/history`.
 
 ```bash
 mhc method-history \
-    --cache-directory ".cache" \
+    --workspace-directory "workspace" \
     --history-directory "/scratch/method-history" \
-    --repository-directory ".cache/repository" \
-    --data-directory ".cache/data" \
-    --jar-directory ".cache/jar" \
+    --repository-directory "workspace/repository" \
+    --data-directory "workspace/data" \
+    --jar-directory "workspace/jar" \
     --tool-name "codeShovel" \
     --java-options "-Xmx2g" \
     --timeout-seconds 1800 \
@@ -112,10 +112,10 @@ Generates callgraph (fan-out) and fanin call-graph CSVs via the method-parser JA
 
 ```bash
 mhc method-callgraph \
-    --cache-directory ".cache" \
-    --repository-directory ".cache/repository" \
-    --data-directory ".cache/data" \
-    --jar-directory ".cache/jar" \
+    --workspace-directory "workspace" \
+    --repository-directory "workspace/repository" \
+    --data-directory "workspace/data" \
+    --jar-directory "workspace/jar" \
     --tool-name "methodParser" \
     --project "checkstyle"
 ```
@@ -130,10 +130,10 @@ Computes cyclomatic complexity for each method.
 
 ```bash
 mhc complexity-analyzer \
-    --cache-directory ".cache" \
-    --repository-directory ".cache/repository" \
-    --data-directory ".cache/data" \
-    --jar-directory ".cache/jar" \
+    --workspace-directory "workspace" \
+    --repository-directory "workspace/repository" \
+    --data-directory "workspace/data" \
+    --jar-directory "workspace/jar" \
     --tool-name "complexityAnalyzer" \
     --project "checkstyle"
 ```
@@ -146,10 +146,10 @@ Reads `data/method/{project}.csv`, checks out the repository at the indexed `has
 
 ```bash
 mhc method-code \
-    --cache-directory ".cache" \
-    --repository-directory ".cache/repository" \
-    --data-directory ".cache/data" \
-    --jar-directory ".cache/jar" \
+    --workspace-directory "workspace" \
+    --repository-directory "workspace/repository" \
+    --data-directory "workspace/data" \
+    --jar-directory "workspace/jar" \
     --project "checkstyle"
 ```
 

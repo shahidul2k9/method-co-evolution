@@ -12,12 +12,12 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 : "${ME_PROJECT_DIRECTORY:?ME_PROJECT_DIRECTORY must be set in .env}"
-: "${ME_CACHE_DIRECTORY:?ME_CACHE_DIRECTORY must be set in .env}"
+: "${ME_WORKSPACE_DIRECTORY:?ME_WORKSPACE_DIRECTORY must be set in .env}"
 
 ptc-testlinker testlinker \
     --stage all \
     --project-directory "$ME_PROJECT_DIRECTORY" \
-    --cache-directory "$ME_CACHE_DIRECTORY" \
+    --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
     --tokenizer-mode auto \
     --include-labels \
     --project-index "1" \

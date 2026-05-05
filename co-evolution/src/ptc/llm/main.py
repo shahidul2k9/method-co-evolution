@@ -36,15 +36,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Use `execute` to run model inference or `parse` to project stored LLM outputs into t2p-link rows.",
     )
     parser.add_argument(
-        "--cache-directory",
-        dest="cache_directory",
+        "--workspace-directory",
+        dest="workspace_directory",
         required=True,
-        help="Cache directory root. The input CSV is resolved from <cache_directory>/data plus project and input kind.",
+        help="Cache directory root. The input CSV is resolved from <workspace_directory>/data plus project and input kind.",
     )
     parser.add_argument(
         "--project",
         required=True,
-        help="Project name used to resolve the input CSV from cache_directory.",
+        help="Project name used to resolve the input CSV from workspace_directory.",
     )
     parser.add_argument(
         "--model-name-or-path",
@@ -155,14 +155,14 @@ def main() -> int:
         print(projected_df.head().to_string(index=False))
     else:
         input_kind = args.input_kind
-        input_path = resolve_input_file(args.cache_directory, args.project, input_kind)
+        input_path = resolve_input_file(args.workspace_directory, args.project, input_kind)
         if not input_path.exists():
             parser.error(f"Input file not found: {input_path}")
-        method_code_path = resolve_method_code_file(args.cache_directory, args.project)
+        method_code_path = resolve_method_code_file(args.workspace_directory, args.project)
         if not method_code_path.exists():
             parser.error(f"Method code file not found: {method_code_path}")
 
-        output_root = default_output_root(args.cache_directory)
+        output_root = default_output_root(args.workspace_directory)
         run_store = CsvRunStore(
             output_root=output_root,
             input_kind=input_kind,
@@ -198,18 +198,18 @@ def main() -> int:
 
 
 def run_llm_t2p_link(args):
-    candidate_file = resolve_input_file(args.cache_directory, args.project, "t2p")
+    candidate_file = resolve_input_file(args.workspace_directory, args.project, "t2p")
     if not candidate_file.exists():
         raise FileNotFoundError(f"Input file not found: {candidate_file}")
 
     run_store = CsvRunStore(
-        output_root=default_output_root(args.cache_directory),
+        output_root=default_output_root(args.workspace_directory),
         input_kind="t2p",
         model_name_or_path=args.model_name_or_path,
         input_file_name=candidate_file.name,
         short_model_name=args.short_model_name,
     )
-    output_file = Path(args.cache_directory) / "data" / "llm" / "t2p-link" / run_store.model_directory_name / candidate_file.name
+    output_file = Path(args.workspace_directory) / "data" / "llm" / "t2p-link" / run_store.model_directory_name / candidate_file.name
     return project_t2p_links(
         candidate_file=candidate_file,
         llm_run_file=run_store.runs_file,
@@ -217,17 +217,17 @@ def run_llm_t2p_link(args):
     )
 
 
-def default_output_root(cache_directory: str) -> Path:
-    return Path(cache_directory) / "data" / "llm"
+def default_output_root(workspace_directory: str) -> Path:
+    return Path(workspace_directory) / "data" / "llm"
 
 
-def resolve_input_file(cache_directory: str, project: str, input_kind: str) -> Path:
+def resolve_input_file(workspace_directory: str, project: str, input_kind: str) -> Path:
     fan_directory = "t2p-candidate" if input_kind == "t2p" else "fanin"
-    return Path(cache_directory) / "data" / fan_directory / f"{project}.csv"
+    return Path(workspace_directory) / "data" / fan_directory / f"{project}.csv"
 
 
-def resolve_method_code_file(cache_directory: str, project: str) -> Path:
-    return Path(cache_directory) / "data" / "method-code" / f"{project}.csv"
+def resolve_method_code_file(workspace_directory: str, project: str) -> Path:
+    return Path(workspace_directory) / "data" / "method-code" / f"{project}.csv"
 
 
 def load_method_code_lookup(method_code_path: Path) -> dict[str, dict[str, str]]:

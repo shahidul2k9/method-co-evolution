@@ -11,12 +11,12 @@ if [[ -f "$ENV_FILE" ]]; then
     set +a
 fi
 
-: "${ME_CACHE_DIRECTORY:?ME_CACHE_DIRECTORY must be set in .env}"
+: "${ME_WORKSPACE_DIRECTORY:?ME_WORKSPACE_DIRECTORY must be set in .env}"
 
 mhc method-code \
-    --cache-directory "$ME_CACHE_DIRECTORY" \
-    --repository-directory "$ME_CACHE_DIRECTORY/repository" \
-    --data-directory "$ME_CACHE_DIRECTORY/data" \
-    --jar-directory "$ME_CACHE_DIRECTORY/jar" \
+    --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+    --repository-directory "$ME_WORKSPACE_DIRECTORY/repository" \
+    --data-directory "$ME_WORKSPACE_DIRECTORY/data" \
+    --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
     --project-index ":" \
     --replace

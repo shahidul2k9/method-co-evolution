@@ -292,7 +292,7 @@ def execute_callgraph_per_file(
     repository_df: DataFrame,
     repository_directory: str,
     data_directory: str,
-    cache_directory: str,
+    workspace_directory: str,
     replace: bool = False,
     shards: int = 1,
     shard: int = 1,
@@ -312,12 +312,12 @@ def execute_callgraph_per_file(
         commit_hash = repository["updated_hash"]
         repository_path = util.format_git_project_directory(repository_directory, repository_name)
 
-        cache_dir = os.path.join(cache_directory, "data", ".callgraph")
+        cache_dir = os.path.join(workspace_directory, "data", ".callgraph")
         cache_file = os.path.join(cache_dir, f"{repository_name}.csv")
         lock_path = os.path.join(cache_dir, f"{repository_name}.lock")
         callgraph_output_file = os.path.join(data_directory, "callgraph", f"{repository_name}.csv")
         fanin_output_file = os.path.join(data_directory, "fanin", f"{repository_name}.csv")
-        error_dir = os.path.join(cache_directory, "data", ".callgraph-error")
+        error_dir = os.path.join(workspace_directory, "data", ".callgraph-error")
         error_output_file = os.path.join(error_dir, f"{repository_name}.csv")
 
         if replace:
@@ -353,12 +353,12 @@ def execute_callgraph_per_file(
 
         os.makedirs(cache_dir, exist_ok=True)
 
-        method_mapping_file = util.format_method_mapping_file(cache_directory, data_directory, repository_name)
+        method_mapping_file = util.format_method_mapping_file(workspace_directory, data_directory, repository_name)
         if not method_mapping_file:
             logging.warning(
                 f"No method mapping file found for {repository_name}. "
                 f"Expected one of: {util.format_method_list_file(data_directory, repository_name)} "
-                f"or {os.path.join(cache_directory, 'method', repository_name + '.csv')}"
+                f"or {os.path.join(workspace_directory, 'method', repository_name + '.csv')}"
             )
 
         scanner = CallGraphServiceImpl.getInstance()

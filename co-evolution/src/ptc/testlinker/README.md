@@ -21,14 +21,14 @@ versions.
 Before running TestLinker, generate the normal project artifacts:
 
 ```text
-CACHE_DIRECTORY/data/t2p-candidate/<project>.csv
-CACHE_DIRECTORY/data/method-code/<project>.csv
+WORKSPACE_DIRECTORY/data/t2p-candidate/<project>.csv
+WORKSPACE_DIRECTORY/data/method-code/<project>.csv
 ```
 
 Place TestLinker assets in:
 
 ```text
-CACHE_DIRECTORY/testlinker/
+WORKSPACE_DIRECTORY/testlinker/
   pretrained-models/
     codet5-base/
       config.json
@@ -54,8 +54,8 @@ to produce those CSVs.
 The default run uses:
 
 ```text
-CACHE_DIRECTORY/testlinker/pretrained-models/codet5-base
-CACHE_DIRECTORY/testlinker/finetuned-checkpoints/codet5-base/checkpoint-best-acc_and_f1/pytorch_model.bin
+WORKSPACE_DIRECTORY/testlinker/pretrained-models/codet5-base
+WORKSPACE_DIRECTORY/testlinker/finetuned-checkpoints/codet5-base/checkpoint-best-acc_and_f1/pytorch_model.bin
 ```
 
 The pretrained CodeT5 directory is the base model/tokenizer loaded by
@@ -148,7 +148,7 @@ scripts/job.sh \
   --stage all \
   --projects "commons-io" \
   --top-k 1 \
-  --testlinker-directory "$CACHE_DIRECTORY/testlinker"
+  --testlinker-directory "$WORKSPACE_DIRECTORY/testlinker"
 ```
 
 For a SLURM array, `job.sh` selects the current project from `--projects` and
@@ -161,7 +161,7 @@ Run stages individually when debugging:
 ```bash
 ptc-testlinker testlinker \
   --stage preprocess \
-  --cache-directory .cache \
+  --workspace-directory .cache \
   --project commons-io \
   --order-production-method testlinker
 ```
@@ -172,17 +172,17 @@ Project selection supports the same single/list/range forms as `mhc`:
 # explicit list
 ptc-testlinker testlinker \
   --stage all \
-  --cache-directory .white \
+  --workspace-directory eval \
   --projects commons-io,commons-lang \
   --tokenizer-mode auto \
   --include-labels \
   --order-production-method testlinker \
   --model-name-or-path Salesforce/codet5-base
 
-# rows 10 through 19 from .white/data/repository/repository.csv
+# rows 10 through 19 from workspace-eval/data/repository/repository.csv
 ptc-testlinker testlinker \
   --stage all \
-  --cache-directory .white \
+  --workspace-directory eval \
   --project-index "10:20" \
   --tokenizer-mode auto \
   --include-labels \
@@ -192,7 +192,7 @@ ptc-testlinker testlinker \
 # all projects
 ptc-testlinker testlinker \
   --stage all \
-  --cache-directory .white \
+  --workspace-directory eval \
   --project-index ":" \
   --tokenizer-mode auto \
   --include-labels \
@@ -203,7 +203,7 @@ ptc-testlinker testlinker \
 ```bash
 ptc-testlinker testlinker \
   --stage execute \
-  --cache-directory .cache \
+  --workspace-directory .cache \
   --project commons-io \
   --top-k 1
 ```
@@ -212,13 +212,13 @@ ptc-testlinker testlinker \
 # heuristics only (default)
 ptc-testlinker testlinker \
   --stage postprocess \
-  --cache-directory .cache \
+  --workspace-directory .cache \
   --project commons-io
 
 # both outputs
 ptc-testlinker testlinker \
   --stage postprocess \
-  --cache-directory .cache \
+  --workspace-directory .cache \
   --project commons-io \
   --postprocess-modes testlinker-original testlinker-symbolsolver
 ```
@@ -228,7 +228,7 @@ ptc-testlinker testlinker \
 `preprocess` reads project CSVs and writes:
 
 ```text
-CACHE_DIRECTORY/testlinker/input/project-csv/<project>.csv
+WORKSPACE_DIRECTORY/testlinker/input/project-csv/<project>.csv
 ```
 
 This CSV has one row per invocation/signature candidate. Rows with the same
@@ -239,10 +239,10 @@ building temporary TestLinker JSON.
 model/ranker, and writes one set of files per mapping mode:
 
 ```text
-CACHE_DIRECTORY/testlinker/input/raw-json/<project>/<test-id>.json
-CACHE_DIRECTORY/testlinker/input/mapped-json/<project>/<test-id>.json
-CACHE_DIRECTORY/testlinker/output/<mapping-mode>/raw/<project>_detail.json
-CACHE_DIRECTORY/testlinker/output/<mapping-mode>/<project>.csv
+WORKSPACE_DIRECTORY/testlinker/input/raw-json/<project>/<test-id>.json
+WORKSPACE_DIRECTORY/testlinker/input/mapped-json/<project>/<test-id>.json
+WORKSPACE_DIRECTORY/testlinker/output/<mapping-mode>/raw/<project>_detail.json
+WORKSPACE_DIRECTORY/testlinker/output/<mapping-mode>/<project>.csv
 ```
 
 With `--mapping-mode testlinker-original testlinker-symbolsolver` both
@@ -251,7 +251,7 @@ subdirectories are written in a single model pass.
 `postprocess` writes one output file per selected mode under:
 
 ```text
-CACHE_DIRECTORY/data/testlinker/t2p-link/<mode>/<project>.csv
+WORKSPACE_DIRECTORY/data/testlinker/t2p-link/<mode>/<project>.csv
 ```
 
 Default mode is `testlinker-original`. Pass `--postprocess-modes` to select
@@ -259,14 +259,14 @@ one or both modes:
 
 ```bash
 # default — heuristics only
-ptc-testlinker testlinker --stage postprocess --cache-directory .cache --project commons-io
+ptc-testlinker testlinker --stage postprocess --workspace-directory .cache --project commons-io
 
 # symbol-solver only
-ptc-testlinker testlinker --stage postprocess --cache-directory .cache --project commons-io \
+ptc-testlinker testlinker --stage postprocess --workspace-directory .cache --project commons-io \
   --postprocess-modes testlinker-symbolsolver
 
 # both outputs
-ptc-testlinker testlinker --stage postprocess --cache-directory .cache --project commons-io \
+ptc-testlinker testlinker --stage postprocess --workspace-directory .cache --project commons-io \
   --postprocess-modes testlinker-original testlinker-symbolsolver
 ```
 
@@ -335,7 +335,7 @@ For local smoke tests without loading CodeT5:
 ```bash
 ptc-testlinker testlinker \
   --stage all \
-  --cache-directory .cache \
+  --workspace-directory .cache \
   --project commons-io \
   --model-mode heuristic
 ```
@@ -345,7 +345,7 @@ To use the JavaParser symbol-solver mapping directly as recommendations (no mode
 ```bash
 ptc-testlinker testlinker \
   --stage all \
-  --cache-directory .cache \
+  --workspace-directory .cache \
   --project commons-io \
   --mapping-mode testlinker-symbolsolver \
   --postprocess-modes testlinker-symbolsolver

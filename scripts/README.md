@@ -12,7 +12,7 @@ Builds the `method-parser` Maven module and copies the resulting fat JAR into th
 scripts/build-method-parser.sh
 ```
 
-Reads `ME_CACHE_DIRECTORY` from `.env` (defaults to `.white`). Copies the JAR to `<cache>/jar/`.
+Reads `ME_WORKSPACE_DIRECTORY` from `.env` (defaults to `eval`). Copies the JAR to `<cache>/jar/`.
 
 ---
 
@@ -131,7 +131,7 @@ sbatch --array=1-2 scripts/job.sh \
 | `--input-kind` | `t2p` | LLM input direction: `t2p` or `p2t` |
 | `--shards` | `1` | Total shard count per project |
 | `--top-k` | `1` | TestLinker top-k invocations |
-| `--cache-directory` | `.cache` | Cache root |
+| `--workspace-directory` | `workspace` | Cache root |
 | `--history-directory` | `ME_HISTORY_DIRECTORY` or `$HOME/scratch/$USER/method-co-evolution/.cache` | Method history JSON/archive root |
 | `--data-directory` | `<cache>/data` | Data output root |
 
@@ -144,13 +144,13 @@ Backfills method metadata (`url`, `startLine`, `endLine`, `startCommitHash`) int
 ```bash
 python scripts/update_oracle_method_metadata.py \
     --oracle-dir path/to/oracle \
-    --method-dir .cache/data/method \
+    --method-dir workspace/data/method \
     --log-file update.log
 
 # Dry run — report changes without writing files
 python scripts/update_oracle_method_metadata.py \
     --oracle-dir path/to/oracle \
-    --method-dir .cache/data/method \
+    --method-dir workspace/data/method \
     --dry-run
 ```
 

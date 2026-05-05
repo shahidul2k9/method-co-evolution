@@ -516,7 +516,7 @@ def generate_method_code(
     repository_df: DataFrame,
     repository_directory: str,
     data_directory: str,
-    cache_directory: str | None = None,
+    workspace_directory: str | None = None,
     replace: bool = False,
     shards: int = 1,
     shard: int = 1,
@@ -526,8 +526,8 @@ def generate_method_code(
     merge_only_delete_lock: bool = False,
 ) -> list[str]:
     output_files = []
-    if cache_directory is None:
-        cache_directory = data_directory
+    if workspace_directory is None:
+        workspace_directory = data_directory
 
     for _, repository in repository_df.iterrows():
         repository_name = repository["project"]
@@ -536,10 +536,10 @@ def generate_method_code(
         repository_root = util.format_git_project_directory(repository_directory, repository_name)
         input_file = util.format_method_list_file(data_directory, repository_name)
         output_file = util.format_method_code_file(data_directory, repository_name)
-        cache_dir = os.path.join(cache_directory, "data", ".method-code")
+        cache_dir = os.path.join(workspace_directory, "data", ".method-code")
         cache_file = os.path.join(cache_dir, f"{repository_name}.csv")
         lock_path = os.path.join(cache_dir, f"{repository_name}.lock")
-        error_dir = os.path.join(cache_directory, "data", ".method-code-error")
+        error_dir = os.path.join(workspace_directory, "data", ".method-code-error")
         error_output_file = os.path.join(error_dir, f"{repository_name}.csv")
 
         if replace:
@@ -713,7 +713,7 @@ def scan_method(
     repository_df: DataFrame,
     repository_directory: str,
     data_directory: str,
-    _cache_directory,
+    _workspace_directory,
     replace: bool = False,
     shards: int = 1,
     shard: int = 1,
@@ -735,10 +735,10 @@ def scan_method(
         commit_hash = repository['updated_hash']
         dot_file_directory = util.format_git_project_directory(repository_directory, repository_name)
         output_method_file = util.format_method_list_file(f"{data_directory}", repository_name)
-        method_cache_directory = os.path.join(_cache_directory, "data", ".method")
-        method_cache_file = os.path.join(method_cache_directory, f"{repository_name}.csv")
-        lock_path = os.path.join(method_cache_directory, f"{repository_name}.lock")
-        error_directory = os.path.join(_cache_directory, "data", ".method-error")
+        method_workspace_directory = os.path.join(_workspace_directory, "data", ".method")
+        method_cache_file = os.path.join(method_workspace_directory, f"{repository_name}.csv")
+        lock_path = os.path.join(method_workspace_directory, f"{repository_name}.lock")
+        error_directory = os.path.join(_workspace_directory, "data", ".method-error")
         error_output_file = os.path.join(error_directory, f"{repository_name}.csv")
         if replace:
             for existing_file in (output_method_file, method_cache_file, error_output_file):
@@ -765,11 +765,11 @@ def scan_method(
                 True,
             )
             if merged and merge_only_delete_empty:
-                remove_empty_directory_tree(method_cache_directory)
+                remove_empty_directory_tree(method_workspace_directory)
                 remove_empty_directory_tree(error_directory)
             continue
 
-        os.makedirs(method_cache_directory, exist_ok=True)
+        os.makedirs(method_workspace_directory, exist_ok=True)
 
         scanner = MethodScannerImpl.getInstance()
         scanner.init(dot_file_directory, url, commit_hash)
