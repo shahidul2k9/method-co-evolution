@@ -297,6 +297,10 @@ mkdir -p "$LOG_DIR"
 cd "$PROJECT_DIRECTORY"
 source "$PROJECT_DIRECTORY/.venv/bin/activate"
 
+if [[ -n "$JAVA_OPTIONS" ]]; then
+    export JAVA_TOOL_OPTIONS="$JAVA_OPTIONS"
+fi
+
 PROJECT=""
 SHARD="1"
 
