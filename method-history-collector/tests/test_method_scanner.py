@@ -162,9 +162,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
 
             repository_df = self._repository_df()
             output_method_file = Path(util.format_method_list_file(str(data_directory), "demo-project"))
-            method_cache_file = Path(
-                util.format_method_cache_file(str(data_directory), "demo-project", "abc123")
-            )
+            method_cache_file = cache_directory / "data" / ".method" / "demo-project.csv"
 
             seed_rows = pd.DataFrame(
                 [
@@ -221,7 +219,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             self.assertTrue(output_method_file.exists())
             resumed_df = pd.read_csv(output_method_file)
             self.assertEqual(sorted(resumed_df["file"].tolist()), ["src/Alpha.java", "src/Beta.java"])
-            self.assertNotIn(ms.SCAN_MARKER_PARSER, resumed_df["parser"].tolist())
+            self.assertNotIn(ms.METHOD_SCAN_FLAG_COLUMN, resumed_df.columns)
 
     def test_scan_method_appends_cache_before_completion(self):
         with tempfile.TemporaryDirectory() as temp_directory:
@@ -297,6 +295,80 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             self.assertEqual(FakeMethodScannerImpl.scanned_files, ["src/Alpha.java"])
             regenerated_df = pd.read_csv(output_method_file)
             self.assertEqual(regenerated_df["project"].tolist(), ["demo-project"])
+
+    def test_finalize_method_scan_writes_errors_and_deletes_cache_and_lock(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            cache_file = root / ".method" / "demo-project.csv"
+            lock_file = root / ".method" / "demo-project.lock"
+            output_file = root / "data" / "method" / "demo-project.csv"
+            error_file = root / ".method-error" / "demo-project.csv"
+            cache_file.parent.mkdir(parents=True)
+            lock_file.write_text("", encoding="utf-8")
+            pd.DataFrame(
+                [
+                    {
+                        **{col: None for col in ms.METHOD_SCAN_CACHE_COLUMNS},
+                        "project": "demo-project",
+                        "name": "Alpha_method",
+                        "file": "src/Alpha.java",
+                        "hash": "abc123",
+                    },
+                    ms._build_scan_error_row(
+                        "demo-project",
+                        "src/Broken.java",
+                        "abc123",
+                        "x" * 300,
+                    ),
+                ],
+                columns=ms.METHOD_SCAN_CACHE_COLUMNS,
+            ).to_csv(cache_file, index=False)
+
+            merged = ms._finalize_method_scan_outputs(
+                str(cache_file),
+                str(output_file),
+                str(error_file),
+                {"src/Alpha.java", "src/Broken.java"},
+                str(lock_file),
+            )
+
+            self.assertTrue(merged)
+            self.assertFalse(cache_file.exists())
+            self.assertFalse(lock_file.exists())
+            output_df = pd.read_csv(output_file)
+            self.assertEqual(["src/Alpha.java"], output_df["file"].tolist())
+            self.assertNotIn(ms.METHOD_SCAN_FLAG_COLUMN, output_df.columns)
+            error_df = pd.read_csv(error_file)
+            self.assertEqual(["src/Broken.java"], error_df["file"].tolist())
+            self.assertEqual([ms.METHOD_SCAN_ERROR_MARKER], error_df[ms.METHOD_SCAN_FLAG_COLUMN].tolist())
+            self.assertEqual(ms.METHOD_SCAN_ERROR_MAX_LENGTH, len(error_df[ms.METHOD_SCAN_ERROR_COLUMN].iloc[0]))
+
+    def test_finalize_method_scan_waits_until_all_files_are_tried(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            cache_file = root / ".method" / "demo-project.csv"
+            lock_file = root / ".method" / "demo-project.lock"
+            output_file = root / "data" / "method" / "demo-project.csv"
+            error_file = root / ".method-error" / "demo-project.csv"
+            cache_file.parent.mkdir(parents=True)
+            lock_file.write_text("", encoding="utf-8")
+            pd.DataFrame(
+                [ms._build_scan_marker_row("demo-project", "src/Alpha.java", "abc123")],
+                columns=ms.METHOD_SCAN_CACHE_COLUMNS,
+            ).to_csv(cache_file, index=False)
+
+            merged = ms._finalize_method_scan_outputs(
+                str(cache_file),
+                str(output_file),
+                str(error_file),
+                {"src/Alpha.java", "src/Missing.java"},
+                str(lock_file),
+            )
+
+            self.assertFalse(merged)
+            self.assertTrue(cache_file.exists())
+            self.assertTrue(lock_file.exists())
+            self.assertFalse(output_file.exists())
 
 
 if __name__ == "__main__":

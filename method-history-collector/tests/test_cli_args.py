@@ -40,6 +40,12 @@ class TestCliArgs(unittest.TestCase):
             ["checkstyle"],
             "-Xmx2g",
             False,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -68,6 +74,12 @@ class TestCliArgs(unittest.TestCase):
             ["checkstyle"],
             None,
             True,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
         )
 
     @patch("mhc.main._build_method_history_collector")

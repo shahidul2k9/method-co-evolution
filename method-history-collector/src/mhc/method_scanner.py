@@ -3,6 +3,8 @@ import os.path
 import shlex
 import shutil
 import time
+import logging
+from contextlib import nullcontext
 from pathlib import Path
 
 import javalang
@@ -13,6 +15,7 @@ from git import GitCommandError, Repo
 from pandas import DataFrame
 
 import mhc.util as util
+from mhc.zip import file_lock, remove_empty_directory_tree, remove_file_if_exists
 
 TEST_ANNOTATION_FQNS = {
     # JUnit 4
@@ -115,8 +118,15 @@ METHOD_CODE_COLUMNS = [
     "code",
 ]
 SCAN_METHOD_FLUSH_INTERVAL_SECONDS = 1 * 15 * 60
-SCAN_MARKER_PARSER = "__scan_marker__"
-SCAN_MARKER_EXPRESSION = "__file_scanned__"
+METHOD_SCAN_MARKER = "__scan_marker__"
+METHOD_SCAN_ERROR_MARKER = "__error_marker__"
+METHOD_SCAN_FLAG_COLUMN = "_flag"
+METHOD_SCAN_ERROR_COLUMN = "_error"
+METHOD_SCAN_ERROR_MAX_LENGTH = 256
+METHOD_SCAN_CACHE_COLUMNS = METHOD_SCAN_COLUMNS + [
+    METHOD_SCAN_FLAG_COLUMN,
+    METHOD_SCAN_ERROR_COLUMN,
+]
 
 
 class Method:
@@ -166,7 +176,7 @@ def _build_scan_marker_row(
         "artifact": None,
         "start_line": None,
         "end_line": None,
-        "expression": SCAN_MARKER_EXPRESSION,
+        "expression": None,
         "file": file_without_base,
         "pkg": None,
         "fqn": None,
@@ -175,47 +185,130 @@ def _build_scan_marker_row(
         "testlinker_fqs": None,
         "testlinker_fqp": None,
         "abstract": None,
-        "parser": SCAN_MARKER_PARSER,
+        "parser": None,
         "resolver": None,
         "hash": commit_hash,
+        METHOD_SCAN_FLAG_COLUMN: METHOD_SCAN_MARKER,
+        METHOD_SCAN_ERROR_COLUMN: None,
     }
+
+
+def _build_scan_error_row(
+    repository_name: str,
+    file_without_base: str,
+    commit_hash: str,
+    error: Exception | str | None = None,
+) -> dict:
+    row = _build_scan_marker_row(repository_name, file_without_base, commit_hash)
+    row[METHOD_SCAN_FLAG_COLUMN] = METHOD_SCAN_ERROR_MARKER
+    row[METHOD_SCAN_ERROR_COLUMN] = str(error)[:METHOD_SCAN_ERROR_MAX_LENGTH] if error is not None else None
+    return row
+
+
+def _read_method_scan_cache(method_cache_file: str) -> pd.DataFrame:
+    if not os.path.exists(method_cache_file):
+        return pd.DataFrame(columns=METHOD_SCAN_CACHE_COLUMNS)
+    try:
+        return pd.read_csv(method_cache_file, dtype=str).reindex(columns=METHOD_SCAN_CACHE_COLUMNS)
+    except pd.errors.EmptyDataError:
+        return pd.DataFrame(columns=METHOD_SCAN_CACHE_COLUMNS)
+
+
+def _completed_method_scan_files(cache_df: pd.DataFrame) -> set[str]:
+    if cache_df.empty:
+        return set()
+    rows = cache_df[cache_df[METHOD_SCAN_FLAG_COLUMN] != METHOD_SCAN_ERROR_MARKER]
+    return set(rows["file"].dropna().astype(str))
+
+
+def _tried_method_scan_files(cache_df: pd.DataFrame) -> set[str]:
+    if cache_df.empty:
+        return set()
+    return set(cache_df["file"].dropna().astype(str))
+
+
+def _failed_method_scan_files(cache_df: pd.DataFrame) -> set[str]:
+    if cache_df.empty:
+        return set()
+    completed_files = _completed_method_scan_files(cache_df)
+    error_files = set(
+        cache_df.loc[
+            cache_df[METHOD_SCAN_FLAG_COLUMN] == METHOD_SCAN_ERROR_MARKER,
+            "file",
+        ].dropna().astype(str)
+    )
+    return error_files - completed_files
 
 
 def _load_cached_method_scan_files(method_cache_file: str) -> set[str]:
     if not os.path.exists(method_cache_file):
         return set()
+    return _completed_method_scan_files(_read_method_scan_cache(method_cache_file))
 
-    try:
-        cache_df = pd.read_csv(method_cache_file, usecols=["file"])
-    except (ValueError, pd.errors.EmptyDataError):
-        return set()
-    return set(filter(None, cache_df["file"].dropna().astype(str)))
+
+def _is_method_scan_file_completed(method_cache_file: str, lock_path: str, file_without_base: str) -> bool:
+    with file_lock(lock_path):
+        return file_without_base in _completed_method_scan_files(_read_method_scan_cache(method_cache_file))
 
 
 def _flush_method_scan_buffers(
     method_cache_file: str,
+    lock_path: str,
     pending_method_rows: list[dict],
 ) -> None:
-    _append_dataframe_csv(method_cache_file, pending_method_rows, METHOD_SCAN_COLUMNS)
+    if not pending_method_rows:
+        return
+    rows_copy = list(pending_method_rows)
     pending_method_rows.clear()
+    with file_lock(lock_path):
+        completed_files = _completed_method_scan_files(_read_method_scan_cache(method_cache_file))
+        rows_copy = [
+            row for row in rows_copy
+            if row.get("file") not in completed_files
+        ]
+        _append_dataframe_csv(method_cache_file, rows_copy, METHOD_SCAN_CACHE_COLUMNS)
 
 
 def _finalize_method_scan_outputs(
     method_cache_file: str,
     output_method_file: str,
-) -> None:
-    if os.path.exists(method_cache_file):
-        try:
-            cache_df = pd.read_csv(method_cache_file)
-        except pd.errors.EmptyDataError:
-            cache_df = pd.DataFrame(columns=METHOD_SCAN_COLUMNS)
-        cache_df = cache_df.reindex(columns=METHOD_SCAN_COLUMNS)
-        method_df = cache_df[cache_df["parser"] != SCAN_MARKER_PARSER].copy()
+    error_output_file: str,
+    expected_files: set[str],
+    lock_path: str | None = None,
+    delete_tmp: bool = True,
+    delete_lock: bool = True,
+) -> bool:
+    context = file_lock(lock_path) if lock_path else nullcontext()
+    with context:
+        cache_df = _read_method_scan_cache(method_cache_file)
+        missing_files = expected_files - _tried_method_scan_files(cache_df)
+        if missing_files:
+            logging.info(
+                "Skipping method scan merge for %s; %s files have not been tried",
+                Path(output_method_file).stem,
+                len(missing_files),
+            )
+            return False
+
+        failed_files = _failed_method_scan_files(cache_df)
+        error_rows = cache_df[cache_df["file"].isin(failed_files)].copy()
+        method_df = cache_df[cache_df[METHOD_SCAN_FLAG_COLUMN].isna()].copy()
         method_df = util.convert_float_int_columns_to_nullable_int(method_df)
         _write_dataframe_csv(output_method_file, method_df, METHOD_SCAN_COLUMNS)
-        os.remove(method_cache_file)
-    else:
-        _write_dataframe_csv(output_method_file, pd.DataFrame(columns=METHOD_SCAN_COLUMNS), METHOD_SCAN_COLUMNS)
+
+        if not error_rows.empty:
+            _write_dataframe_csv(error_output_file, error_rows, METHOD_SCAN_CACHE_COLUMNS)
+        elif os.path.exists(error_output_file):
+            os.remove(error_output_file)
+
+        if delete_tmp:
+            remove_file_if_exists(method_cache_file)
+            remove_file_if_exists(f"{method_cache_file}.tmp")
+            remove_file_if_exists(f"{output_method_file}.tmp")
+            remove_file_if_exists(f"{error_output_file}.tmp")
+    if delete_lock and lock_path:
+        remove_file_if_exists(lock_path)
+    return True
 
 
 def _extract_method_code(repository_root: str, file_path: str, start_line, end_line) -> str:
@@ -323,7 +416,7 @@ def _scan_methods_in_file(
     commit_hash: str,
     file: str,
     file_without_base: str,
-) -> list[dict]:
+) -> tuple[list[dict], str | None]:
     methods_in_file = []
 
     try:
@@ -351,11 +444,12 @@ def _scan_methods_in_file(
                     "hash": jm.getHash(),
                 }
             )
-    except Exception:
+        return methods_in_file, None
+    except Exception as java_parser_error:
         try:
             java_code = _read_source_file_text(file)
             if java_code is None:
-                return methods_in_file
+                return methods_in_file, f"Unable to read source file after JavaParser error: {java_parser_error}"
             tree = javalang.parse.parse(java_code)
             for _, node in tree.filter(javalang.tree.MethodDeclaration):
                 if node.position:
@@ -382,46 +476,92 @@ def _scan_methods_in_file(
                             "hash": commit_hash,
                         }
                     )
-        except Exception:
-            pass
+            return methods_in_file, None
+        except Exception as javalang_error:
+            return methods_in_file, f"{java_parser_error}; fallback failed: {javalang_error}"
 
-    return methods_in_file
+    return methods_in_file, None
 
 
-def scan_method(repository_df: DataFrame, repository_directory: str, data_directory: str, _cache_directory, replace: bool = False):
-    from jpype import JClass
-    MethodScannerImpl = JClass(
-        "rnd.method.parser.call.graph.service.MethodScannerImpl"
-    )
+def scan_method(
+    repository_df: DataFrame,
+    repository_directory: str,
+    data_directory: str,
+    _cache_directory,
+    replace: bool = False,
+    shards: int = 1,
+    shard: int = 1,
+    merge_only: bool = False,
+    merge_only_delete_empty: bool = False,
+    merge_only_delete_tmp: bool = False,
+    merge_only_delete_lock: bool = False,
+):
+    MethodScannerImpl = None
+    if not merge_only:
+        from jpype import JClass
+        MethodScannerImpl = JClass(
+            "rnd.method.parser.call.graph.service.MethodScannerImpl"
+        )
 
     for _, repository in repository_df.iterrows():
-        scanner = MethodScannerImpl.getInstance()
         repository_name = repository["project"]
         url = repository['url']
         commit_hash = repository['updated_hash']
         dot_file_directory = util.format_git_project_directory(repository_directory, repository_name)
         output_method_file = util.format_method_list_file(f"{data_directory}", repository_name)
-        method_cache_file = util.format_method_cache_file(f"{data_directory}", repository_name, commit_hash)
+        method_cache_directory = os.path.join(_cache_directory, "data", ".method")
+        method_cache_file = os.path.join(method_cache_directory, f"{repository_name}.csv")
+        lock_path = os.path.join(method_cache_directory, f"{repository_name}.lock")
+        error_directory = os.path.join(_cache_directory, "data", ".method-error")
+        error_output_file = os.path.join(error_directory, f"{repository_name}.csv")
         if replace:
-            for existing_file in (output_method_file, method_cache_file):
+            for existing_file in (output_method_file, method_cache_file, error_output_file):
                 if os.path.exists(existing_file):
                     os.remove(existing_file)
-        elif not os.path.exists(method_cache_file) and _is_method_output_current(output_method_file, commit_hash):
+        elif not merge_only and shards == 1 and not os.path.exists(method_cache_file) and _is_method_output_current(output_method_file, commit_hash):
             continue
 
         clone_and_checkout_commit(url, dot_file_directory, commit_hash)
-        scanner.init(dot_file_directory, url, commit_hash)
         java_files = sorted(collect_files(dot_file_directory, "*.java"))
+        expected_files = {
+            file[len(dot_file_directory) + 1:]
+            for file in java_files
+        }
+
+        if merge_only:
+            merged = _finalize_method_scan_outputs(
+                method_cache_file,
+                output_method_file,
+                error_output_file,
+                expected_files,
+                lock_path,
+                True,
+                True,
+            )
+            if merged and merge_only_delete_empty:
+                remove_empty_directory_tree(method_cache_directory)
+                remove_empty_directory_tree(error_directory)
+            continue
+
+        os.makedirs(method_cache_directory, exist_ok=True)
+
+        scanner = MethodScannerImpl.getInstance()
+        scanner.init(dot_file_directory, url, commit_hash)
         cached_files = _load_cached_method_scan_files(method_cache_file)
 
         last_flush_time = time.monotonic()
         pending_method_rows = []
         for file in java_files:
             file_without_base = file[len(dot_file_directory) + 1:]
+            if util.stable_shard_for_key(file_without_base, shards) != shard:
+                continue
             if file_without_base in cached_files:
                 continue
+            if _is_method_scan_file_completed(method_cache_file, lock_path, file_without_base):
+                cached_files.add(file_without_base)
+                continue
 
-            methods_in_file = _scan_methods_in_file(
+            methods_in_file, scan_error = _scan_methods_in_file(
                 scanner,
                 repository_name,
                 url,
@@ -430,25 +570,37 @@ def scan_method(repository_df: DataFrame, repository_directory: str, data_direct
                 file_without_base,
             )
             pending_method_rows.extend(methods_in_file)
-            pending_method_rows.append(
-                _build_scan_marker_row(repository_name, file_without_base, commit_hash)
-            )
+            if scan_error is None:
+                pending_method_rows.append(
+                    _build_scan_marker_row(repository_name, file_without_base, commit_hash)
+                )
+            else:
+                pending_method_rows.append(
+                    _build_scan_error_row(repository_name, file_without_base, commit_hash, scan_error)
+                )
 
             if time.monotonic() - last_flush_time >= SCAN_METHOD_FLUSH_INTERVAL_SECONDS:
                 _flush_method_scan_buffers(
                     method_cache_file,
+                    lock_path,
                     pending_method_rows,
                 )
+                cached_files = _load_cached_method_scan_files(method_cache_file)
                 last_flush_time = time.monotonic()
 
         _flush_method_scan_buffers(
             method_cache_file,
+            lock_path,
             pending_method_rows,
         )
-        _finalize_method_scan_outputs(
-            method_cache_file,
-            output_method_file,
-        )
+        if shards == 1:
+            _finalize_method_scan_outputs(
+                method_cache_file,
+                output_method_file,
+                error_output_file,
+                expected_files,
+                lock_path,
+            )
 
 
 def start_java_jar(jars: [str], java_options: str | None = None):

@@ -40,41 +40,79 @@ class MethodHistoryCollector:
                 if pattern.lower() in file.replace("-", "").lower():
                     self.jar_file_map[pattern] = file
 
-    def scan_class(self, repositories: list[str], java_options: str | None = None, replace: bool = False):
+    def scan_class(
+        self,
+        repositories: list[str],
+        java_options: str | None = None,
+        replace: bool = False,
+        shards: int = 1,
+        shard: int = 1,
+        merge_only: bool = False,
+        merge_only_delete_empty: bool = False,
+        merge_only_delete_tmp: bool = False,
+        merge_only_delete_lock: bool = False,
+    ):
         try:
-            ms.start_java_jar(
-                [self.jar_file_map["methodParser"]],
-                util.java_options_with_logback_config(java_options, self.cache_directory),
-            )
+            if not merge_only:
+                ms.start_java_jar(
+                    [self.jar_file_map["methodParser"]],
+                    util.java_options_with_logback_config(java_options, self.cache_directory),
+                )
             _scan_class(
                 self.repository_df[self.repository_df["project"].isin(repositories)],
                 self.repository_directory,
                 self.data_directory,
                 self.cache_directory,
                 replace,
+                shards,
+                shard,
+                merge_only,
+                merge_only_delete_empty,
+                merge_only_delete_tmp,
+                merge_only_delete_lock,
             )
         except Exception as e:
             raise e
         finally:
-            ms.stop_java_jar()
+            if not merge_only:
+                ms.stop_java_jar()
 
-    def scan_method(self, repositories: list[str], java_options: str | None = None, replace: bool = False):
+    def scan_method(
+        self,
+        repositories: list[str],
+        java_options: str | None = None,
+        replace: bool = False,
+        shards: int = 1,
+        shard: int = 1,
+        merge_only: bool = False,
+        merge_only_delete_empty: bool = False,
+        merge_only_delete_tmp: bool = False,
+        merge_only_delete_lock: bool = False,
+    ):
         try:
-            ms.start_java_jar(
-                [self.jar_file_map["methodParser"]],
-                util.java_options_with_logback_config(java_options, self.cache_directory),
-            )
+            if not merge_only:
+                ms.start_java_jar(
+                    [self.jar_file_map["methodParser"]],
+                    util.java_options_with_logback_config(java_options, self.cache_directory),
+                )
             ms.scan_method(
                 self.repository_df[self.repository_df["project"].isin(repositories)],
                 self.repository_directory,
                 self.data_directory,
                 self.cache_directory,
                 replace,
+                shards,
+                shard,
+                merge_only,
+                merge_only_delete_empty,
+                merge_only_delete_tmp,
+                merge_only_delete_lock,
             )
         except Exception as e:
             raise e
         finally:
-            ms.stop_java_jar()
+            if not merge_only:
+                ms.stop_java_jar()
 
     def collect_method_history(
         self,

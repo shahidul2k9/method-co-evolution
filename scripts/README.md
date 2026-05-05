@@ -39,7 +39,7 @@ Use one project selector for normal project-scoped runs:
 | `--project-index` | `"10:20"` |
 | `--project-index` | `"-1"` |
 
-In `method-history` or `method-callgraph` shard mode (`--shards > 1`), omit `--project-index`; `job.sh` derives it from the Slurm array task id. `--project` and `--projects` are optional filters and are forwarded to `mhc`.
+In `method-history`, `method-scan`, `class-scan`, or `method-callgraph` shard mode (`--shards > 1`), omit `--project-index`; `job.sh` derives it from the Slurm array task id. `--project` and `--projects` are optional filters and are forwarded to `mhc`.
 
 ### Execution modes
 
@@ -63,6 +63,8 @@ sbatch --array=0-99 scripts/job.sh \
 ```
 
 For callgraph sharding, use `--command method-callgraph --tool-name methodParser --shards N`; after shard jobs finish, run `method-callgraph --merge-only` with the same project selection to write the final `callgraph` and `fanin` CSVs.
+For method-scan sharding, use `--command method-scan --shards N`; after shard jobs finish, run `method-scan --merge-only` with the same project selection to write the final method CSVs.
+For class-scan sharding, use `--command class-scan --shards N`; after shard jobs finish, run `class-scan --merge-only` with the same project selection to write the final class CSVs.
 
 The job index is treated as a flattened project/shard coordinate:
 

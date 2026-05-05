@@ -35,7 +35,7 @@ Options:
   --project               Single project name
   --projects              Comma-separated project list for the array job
   --project-index         Python-style project index or slice from repository.csv, for example 10, -1, 10:20, :10, 10:, or :
-  --shards                Total method-history or method-callgraph shards per project (default: 1)
+  --shards                Total method-history, method-scan, class-scan, or method-callgraph shards per project (default: 1)
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
   --top-k                 TestLinker top-k invocation count (default: 1)
   --cache-directory       Relative or absolute cache directory (default: .cache)
@@ -258,8 +258,8 @@ if ! [[ "$MERGE_THRESHOLD" =~ ^-?[0-9]+$ ]]; then
     exit 1
 fi
 
-if [[ "$SHARDS" -gt 1 && "$COMMAND_NAME" != "method-history" && "$COMMAND_NAME" != "method-callgraph" ]]; then
-    echo "Error: --shards greater than 1 is supported only for method-history and method-callgraph."
+if [[ "$SHARDS" -gt 1 && "$COMMAND_NAME" != "method-history" && "$COMMAND_NAME" != "method-callgraph" && "$COMMAND_NAME" != "method-scan" && "$COMMAND_NAME" != "class-scan" ]]; then
+    echo "Error: --shards greater than 1 is supported only for method-history, method-scan, class-scan, and method-callgraph."
     usage
     exit 1
 fi
@@ -379,7 +379,7 @@ else
     if [[ -n "$COMMAND_OPTIONS" ]]; then
         MHC_ARGS+=(--command-options "$COMMAND_OPTIONS")
     fi
-    if [[ "$COMMAND_NAME" == "method-history" || "$COMMAND_NAME" == "method-callgraph" ]]; then
+    if [[ "$COMMAND_NAME" == "method-history" || "$COMMAND_NAME" == "method-scan" || "$COMMAND_NAME" == "class-scan" || "$COMMAND_NAME" == "method-callgraph" ]]; then
         MHC_ARGS+=(--shards "$SHARDS" --shard "$SHARD")
         if [[ "$MERGE_ONLY" == "true" ]]; then
             MHC_ARGS+=(--merge-only)

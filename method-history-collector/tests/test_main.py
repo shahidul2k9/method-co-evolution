@@ -231,6 +231,12 @@ class TestMhcScript(unittest.TestCase):
             ["ant", "checkstyle", "commons-io"],
             None,
             False,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -262,6 +268,12 @@ class TestMhcScript(unittest.TestCase):
             ["ant", "checkstyle"],
             None,
             False,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -292,6 +304,12 @@ class TestMhcScript(unittest.TestCase):
         mock_mhc_instance.scan_method.assert_called_once_with(
             ["commons-io"],
             None,
+            False,
+            1,
+            1,
+            False,
+            False,
+            False,
             False,
         )
 

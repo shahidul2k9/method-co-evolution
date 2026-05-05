@@ -224,7 +224,7 @@ def main(argv: list[str] | None = None):
         dest="shards",
         type=int,
         default=1,
-        help="Total number of method-history or method-callgraph shards to split work into (default: 1).",
+        help="Total number of method-history, method-scan, class-scan, or method-callgraph shards to split work into (default: 1).",
     )
     parser.add_argument(
         "--shard",
@@ -319,9 +319,29 @@ def main(argv: list[str] | None = None):
             "delete-lock" in (args.merge_only or []),
         )
     elif command in ("class-scan", "scan-class"):
-        mhc.scan_class(resolve_selected_projects(), args.java_options, args.replace)
+        mhc.scan_class(
+            resolve_selected_projects(),
+            args.java_options,
+            args.replace,
+            args.shards,
+            args.shard,
+            args.merge_only is not None,
+            "delete-empty" in (args.merge_only or []),
+            "delete-tmp" in (args.merge_only or []),
+            "delete-lock" in (args.merge_only or []),
+        )
     elif command in ("method-scan", "scan-method"):
-        mhc.scan_method(resolve_selected_projects(), args.java_options, args.replace)
+        mhc.scan_method(
+            resolve_selected_projects(),
+            args.java_options,
+            args.replace,
+            args.shards,
+            args.shard,
+            args.merge_only is not None,
+            "delete-empty" in (args.merge_only or []),
+            "delete-tmp" in (args.merge_only or []),
+            "delete-lock" in (args.merge_only or []),
+        )
     elif command == "method-code":
         mhc.generate_method_code(resolve_selected_projects())
     elif command == "index":
