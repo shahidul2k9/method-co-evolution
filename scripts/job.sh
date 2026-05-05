@@ -293,14 +293,17 @@ if ! [[ "$TOP_K" =~ ^[0-9]+$ ]] || [[ "$TOP_K" -le 0 ]]; then
 fi
 
 LOG_DIR="$WORKSPACE_DIRECTORY/log/job"
+CRASH_LOG_DIR="${SLURM_TMPDIR:-$LOG_DIR}/crash"
 mkdir -p "$LOG_DIR"
+mkdir -p "$CRASH_LOG_DIR"
 cd "$PROJECT_DIRECTORY"
 source "$PROJECT_DIRECTORY/.venv/bin/activate"
+export PYTHONFAULTHANDLER=1
 
 if [[ -n "$JAVA_OPTIONS" ]]; then
     unset JAVA_TOOL_OPTIONS _JAVA_OPTIONS
     if [[ "$JAVA_OPTIONS" != *"-XX:ErrorFile="* ]]; then
-        JAVA_OPTIONS="$JAVA_OPTIONS -XX:ErrorFile=$LOG_DIR/hs_err_pid%p.log"
+        JAVA_OPTIONS="$JAVA_OPTIONS -XX:ErrorFile=$CRASH_LOG_DIR/hs_err_pid%p.log"
     fi
 fi
 
@@ -409,6 +412,17 @@ else
 
     echo "Resolved Slurm memory: SLURM_MEM_PER_NODE=${SLURM_MEM_PER_NODE:-unset}, SLURM_MEM_PER_CPU=${SLURM_MEM_PER_CPU:-unset}"
     echo "Resolved Java options: ${JAVA_OPTIONS:-unset}"
+    echo "Crash log directory: $CRASH_LOG_DIR"
+    set +e
     srun mhc "${MHC_ARGS[@]}"
+    SRUN_STATUS=$?
+    set -e
+    if compgen -G "$CRASH_LOG_DIR/hs_err_pid*.log" > /dev/null; then
+        cp "$CRASH_LOG_DIR"/hs_err_pid*.log "$LOG_DIR"/
+    fi
+    if [[ "$SRUN_STATUS" -ne 0 ]]; then
+        echo "srun failed with exit status $SRUN_STATUS"
+        exit "$SRUN_STATUS"
+    fi
     echo "Task finished on $(hostname) at $(date) for tool name $TOOL_NAME, project selection ${PROJECT:-$PROJECTS_CSV$PROJECT_INDEX}, shard $SHARD/$SHARDS"
 fi
