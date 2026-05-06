@@ -113,6 +113,44 @@ class CallingMethod:
     source_csv: Path
 
 
+@dataclass
+class GroundTruthProjectSummary:
+    csv_path: Path
+    project: str
+    total_rows: int
+    test_method_count: int
+    completed_test_method_count: int
+
+    @property
+    def completion_percent(self) -> float:
+        if self.test_method_count == 0:
+            return 0.0
+        return self.completed_test_method_count / self.test_method_count * 100.0
+
+
+@dataclass
+class GroundTruthTestMethodSummary:
+    from_name: str
+    from_url: str
+    candidate_count: int
+    labelled_count: int
+
+    @property
+    def is_complete(self) -> bool:
+        return self.candidate_count > 0 and self.candidate_count == self.labelled_count
+
+
+@dataclass
+class GroundTruthCandidateRow:
+    csv_path: Path
+    row_index: int
+    values: dict[str, str]
+
+    @property
+    def is_labelled(self) -> bool:
+        return self.values.get("label", "").strip() != ""
+
+
 def repository_root() -> Path:
     return Path(__file__).resolve().parents[4]
 
@@ -426,6 +464,115 @@ class HistoryRepository:
         if not directory.is_dir():
             raise ValueError(f"Sample directory does not exist: {directory}")
         return sorted(path for path in directory.glob("*.csv") if path.is_file())
+
+    def list_ground_truth_csv_files(self, directory_path: str | Path) -> list[Path]:
+        return self.list_sample_csv_files(directory_path)
+
+    def summarize_ground_truth_projects(self, directory_path: str | Path) -> list[GroundTruthProjectSummary]:
+        summaries: list[GroundTruthProjectSummary] = []
+        for csv_file in self.list_ground_truth_csv_files(directory_path):
+            rows = self.read_sample_rows(csv_file)
+            method_summaries = self.summarize_ground_truth_test_methods(csv_file, rows=rows)
+            project = csv_file.stem
+            for row in rows:
+                if row.values.get("project", "").strip():
+                    project = row.values["project"].strip()
+                    break
+            summaries.append(
+                GroundTruthProjectSummary(
+                    csv_path=csv_file,
+                    project=project,
+                    total_rows=len(rows),
+                    test_method_count=len(method_summaries),
+                    completed_test_method_count=sum(1 for method in method_summaries if method.is_complete),
+                )
+            )
+        return summaries
+
+    def summarize_ground_truth_test_methods(
+        self,
+        csv_path: str | Path,
+        *,
+        rows: list[SampleRow] | None = None,
+    ) -> list[GroundTruthTestMethodSummary]:
+        source_rows = rows if rows is not None else self.read_sample_rows(csv_path)
+        grouped: dict[str, dict[str, Any]] = {}
+        for row in source_rows:
+            from_url = row.values.get("from_url", "")
+            if not from_url:
+                continue
+            group = grouped.setdefault(
+                from_url,
+                {
+                    "from_name": row.values.get("from_name", "") or row.values.get("from_fqs", "") or from_url,
+                    "candidate_count": 0,
+                    "labelled_count": 0,
+                },
+            )
+            group["candidate_count"] += 1
+            if row.values.get("label", "").strip() != "":
+                group["labelled_count"] += 1
+
+        summaries = [
+            GroundTruthTestMethodSummary(
+                from_name=str(values["from_name"]),
+                from_url=from_url,
+                candidate_count=int(values["candidate_count"]),
+                labelled_count=int(values["labelled_count"]),
+            )
+            for from_url, values in grouped.items()
+        ]
+        return sorted(summaries, key=lambda item: (item.is_complete, item.from_name.lower(), item.from_url.lower()))
+
+    def read_ground_truth_candidates(self, csv_path: str | Path, *, from_url: str) -> list[GroundTruthCandidateRow]:
+        path = Path(csv_path).expanduser()
+        candidates: list[GroundTruthCandidateRow] = []
+        for row in self.read_sample_rows(path):
+            if row.values.get("from_url", "") != from_url:
+                continue
+            candidates.append(GroundTruthCandidateRow(csv_path=path, row_index=row.row_index, values=row.values))
+        return candidates
+
+    def update_ground_truth_label(
+        self,
+        csv_path: str | Path,
+        *,
+        row_index: int,
+        from_url: str,
+        to_url: str,
+        label: str,
+        note: str,
+    ) -> GroundTruthCandidateRow:
+        normalized_label = label.strip()
+        if normalized_label not in {"", "0", "1"}:
+            raise ValueError("Ground-truth label must be 1, 0, or blank")
+
+        path = Path(csv_path).expanduser()
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = list(reader.fieldnames or [])
+            if "label" not in fieldnames:
+                fieldnames.append("label")
+            if "note" not in fieldnames:
+                fieldnames.append("note")
+            rows = [{key: value or "" for key, value in row.items()} for row in reader]
+
+        if row_index < 0 or row_index >= len(rows):
+            raise ValueError("Ground-truth row index is out of range")
+
+        row = rows[row_index]
+        if row.get("from_url", "") != from_url or row.get("to_url", "") != to_url:
+            raise ValueError("Ground-truth row identity did not match the CSV row")
+
+        row["label"] = normalized_label
+        row["note"] = note
+
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
+        return GroundTruthCandidateRow(csv_path=path, row_index=row_index, values=row)
 
     def find_related_production_methods(
         self,

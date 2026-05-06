@@ -115,7 +115,7 @@ def _score_invocations(
             score = 0.6 if params_len == 0 else 0.0
             for param, invocation_param in zip(params, invocation_params):
                 score += _parameter_score(_simple_type(param), _simple_type(invocation_param), class_map)
-            score_map[f"{prefix_name}.{invocation_name}"] = score
+            score_map[f"{prefix_name}.{invocation_name}({', '.join(invocation_params)})"] = score
     return score_map
 
 

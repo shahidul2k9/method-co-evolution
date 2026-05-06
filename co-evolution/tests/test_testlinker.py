@@ -19,11 +19,10 @@ from ptc.testlinker import main as testlinker_main
 from ptc.testlinker.convert_author_results import convert_author_result_directory
 from ptc.testlinker.model import _build_roberta_tokenizer_from_files
 from ptc.testlinker.paths import (
-    execute_csv_path,
-    final_prediction_path,
     input_csv_path,
-    mapped_input_json_directory,
-    raw_detail_path,
+    model_output_csv_path,
+    model_output_json_path,
+    postprocess_output_path,
     raw_input_json_directory,
 )
 from ptc.testlinker.postprocess import postprocess_project
@@ -280,7 +279,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
             testlinker_dir = cache_dir / "testlinker"
             (data_dir / "t2p-candidate-filtered").mkdir(parents=True)
             (data_dir / "method-code").mkdir(parents=True)
-            (data_dir / "t2p-ground-truth-updated").mkdir(parents=True)
+            (data_dir / "ground-truth").mkdir(parents=True)
             pd.DataFrame(
                 [
                     {
@@ -330,7 +329,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
                         "to_url": "prod://A.copy",
                     }
                 ]
-            ).to_csv(data_dir / "t2p-ground-truth-updated" / "demo.csv", index=False)
+            ).to_csv(data_dir / "ground-truth" / "demo.csv", index=False)
 
             result_df = preprocess_project(workspace_directory=cache_dir, project="demo", include_labels=True)
 
@@ -382,23 +381,25 @@ class TestTestLinkerPipeline(unittest.TestCase):
             ).to_csv(data_dir / "method-code" / "demo.csv", index=False)
 
             preprocess_project(workspace_directory=cache_dir, project="demo")
+            execute_df = execute_project(
+                workspace_directory=cache_dir,
+                project="demo",
+                model_mode="heuristic",
+            )
             with self.assertWarnsRegex(RuntimeWarning, "TestLinker mapping files are missing"):
-                execute_df = execute_project(
+                postprocess_results = postprocess_project(
                     workspace_directory=cache_dir,
                     project="demo",
                     top_k=1,
-                    model_mode="heuristic",
-                    only_model=True,
                 )
-            final_df = postprocess_project(workspace_directory=cache_dir, project="demo")
+            final_df = postprocess_results["testlinker-original"]
 
-            self.assertTrue(raw_detail_path(cache_dir / "testlinker", "demo").exists())
+            self.assertTrue(model_output_json_path(cache_dir / "testlinker", "demo").exists())
             self.assertTrue((raw_input_json_directory(cache_dir / "testlinker", "demo") / "000001.json").exists())
-            self.assertTrue((mapped_input_json_directory(cache_dir / "testlinker", "demo") / "000001.json").exists())
-            self.assertTrue(execute_csv_path(cache_dir / "testlinker", "demo").exists())
-            self.assertTrue(final_prediction_path(cache_dir, "demo").exists())
-            self.assertEqual([1, 0], execute_df["label_pred"].tolist())
-            self.assertEqual([2.0, 1.0], execute_df["pred_score"].tolist())
+            self.assertTrue(model_output_csv_path(cache_dir / "testlinker", "demo").exists())
+            self.assertTrue(postprocess_output_path(cache_dir / "testlinker", "demo", "testlinker-original").exists())
+            self.assertEqual(["copy", "format"], execute_df["invocation"].tolist())
+            self.assertEqual([2.0, 1.0], execute_df["score"].tolist())
             self.assertEqual([1, 0], final_df["label_pred"].tolist())
             self.assertEqual([2.0, 1.0], final_df["pred_score"].tolist())
 

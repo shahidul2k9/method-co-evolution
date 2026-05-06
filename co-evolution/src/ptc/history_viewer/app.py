@@ -7,6 +7,7 @@ import re
 import traceback
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import parse_qs, quote, urlencode
 
@@ -15,6 +16,7 @@ from ptc.util.helper import extract_change_count
 from .repository import (
     CallingMethod,
     CommitEntry,
+    GroundTruthCandidateRow,
     HistoryRepository,
     MethodHistory,
     RelatedMethod,
@@ -24,6 +26,14 @@ from .repository import (
     load_post_data,
 )
 
+
+DEFAULT_GROUND_TRUTH_DIRECTORY = (
+    Path.cwd()
+    / "workspace-eval"
+    / "data"
+    / "ground-truth"
+    / "t2plinker-t2p-ground-truth"
+)
 
 STYLE = """
 <style>
@@ -585,6 +595,13 @@ th {
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
+.number-cell {
+  text-align: center;
+}
+.plain-eyebrow {
+  text-transform: none;
+  letter-spacing: 0;
+}
 .flash {
   margin-top: 14px;
   padding: 12px 14px;
@@ -603,6 +620,100 @@ th {
 }
 .trend-flat {
   color: var(--muted);
+  font-weight: 700;
+}
+.label-control {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(44px, 1fr));
+  gap: 6px;
+  justify-content: center;
+}
+.label-control input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.label-control span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border: 1px solid #cfc4af;
+  border-radius: 10px;
+  background: #fff;
+  font-weight: 700;
+}
+.label-control input:checked + span {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.compact-note {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 62px;
+  resize: vertical;
+}
+.ground-truth-detail-table {
+  table-layout: fixed;
+}
+.ground-truth-method-table {
+  table-layout: fixed;
+}
+.ground-truth-method-link {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: top;
+}
+.ground-truth-detail-table th {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.ground-truth-method-name,
+.ground-truth-signature-summary {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ground-truth-method-details {
+  margin-top: 8px;
+}
+.ground-truth-method-details summary {
+  display: inline-flex;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: underline;
+}
+.ground-truth-signature {
+  display: block;
+  margin-top: 6px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+.label-cell,
+.save-cell {
+  text-align: center;
+}
+.ground-truth-save {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 6px;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.status-complete {
+  color: #166534;
+  font-weight: 700;
+}
+.status-incomplete {
+  color: #a16207;
   font-weight: 700;
 }
 .error {
@@ -656,10 +767,16 @@ class HistoryViewerApp:
                 return self._handle_revision(environ, start_response)
             if method == "GET" and path == "/sample":
                 return self._handle_sample(environ, start_response)
+            if method == "GET" and path == "/ground-truth":
+                return self._handle_ground_truth(environ, start_response)
+            if method == "GET" and path == "/ground-truth/detail":
+                return self._handle_ground_truth_detail(environ, start_response)
             if method == "GET" and path == "/api/history-json":
                 return self._handle_history_json(environ, start_response)
             if method == "POST" and path == "/api/notes":
                 return self._handle_update_note(environ, start_response)
+            if method == "POST" and path == "/api/ground-truth-label":
+                return self._handle_update_ground_truth_label(environ, start_response)
             if method == "POST" and path == "/api/revision-links":
                 return self._handle_write_revision_links(environ, start_response)
 
@@ -722,6 +839,34 @@ class HistoryViewerApp:
         )
         return self._respond_html(start_response, render_page("Sample CSV", content))
 
+    def _handle_ground_truth(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
+        params = _query_params(environ)
+        ground_truth_dir = params.get("ground_truth_dir", "")
+        ground_truth_csv = params.get("ground_truth_csv", "")
+        if ground_truth_csv:
+            method_summaries = self.repository.summarize_ground_truth_test_methods(ground_truth_csv)
+            content = self._render_ground_truth_methods(ground_truth_csv=ground_truth_csv, methods=method_summaries)
+            return self._respond_html(start_response, render_page("Ground Truth Methods", content))
+
+        directory = ground_truth_dir or DEFAULT_GROUND_TRUTH_DIRECTORY
+        summaries = self.repository.summarize_ground_truth_projects(directory)
+        content = self._render_ground_truth_projects(ground_truth_dir=directory, summaries=summaries)
+        return self._respond_html(start_response, render_page("Ground Truth Projects", content))
+
+    def _handle_ground_truth_detail(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
+        params = _query_params(environ)
+        ground_truth_csv = params.get("ground_truth_csv", "")
+        from_url = params.get("from_url", "")
+        if not ground_truth_csv or not from_url:
+            raise ValueError("Pass ground_truth_csv=<csv> and from_url=<test method URL>")
+        candidates = self.repository.read_ground_truth_candidates(ground_truth_csv, from_url=from_url)
+        content = self._render_ground_truth_detail(
+            ground_truth_csv=ground_truth_csv,
+            from_url=from_url,
+            candidates=candidates,
+        )
+        return self._respond_html(start_response, render_page("Ground Truth Labelling", content))
+
     def _handle_update_note(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
         payload = _read_payload(environ)
         updated = self.repository.update_sample_note(
@@ -737,6 +882,31 @@ class HistoryViewerApp:
             "row_token": build_row_token(updated.csv_path, updated.values.get("from_url", ""), updated.values.get("to_url", "")),
             "notes": updated.notes,
             "tags": updated.tags,
+        }
+        return self._respond_json(start_response, response)
+
+    def _handle_update_ground_truth_label(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
+        payload = _read_payload(environ)
+        updated = self.repository.update_ground_truth_label(
+            payload["ground_truth_csv"],
+            row_index=int(payload["row_index"]),
+            from_url=payload["from_url"],
+            to_url=payload["to_url"],
+            label=payload.get("label", ""),
+            note=payload.get("note", ""),
+        )
+        candidates = self.repository.read_ground_truth_candidates(
+            payload["ground_truth_csv"],
+            from_url=payload["from_url"],
+        )
+        response = {
+            "ok": True,
+            "row_index": updated.row_index,
+            "label": updated.values.get("label", ""),
+            "note": updated.values.get("note", ""),
+            "labelled_count": sum(1 for candidate in candidates if candidate.is_labelled),
+            "candidate_count": len(candidates),
+            "complete": bool(candidates) and all(candidate.is_labelled for candidate in candidates),
         }
         return self._respond_json(start_response, response)
 
@@ -770,10 +940,11 @@ class HistoryViewerApp:
     def _render_home(self) -> str:
         workspace_dir = html.escape(str(self.repository.workspace_directory))
         sample_hint = html.escape(str(self.repository.data_directory / "aggregate"))
+        ground_truth_hint = html.escape(str(DEFAULT_GROUND_TRUTH_DIRECTORY))
         return f"""
 <main>
   <section class="hero">
-    <div class="eyebrow">Method Evolution UI</div>
+    <div class="eyebrow plain-eyebrow">Method Evolution</div>
     <h1>Inspect how test and production methods move together</h1>
     <p>Use GitHub method URLs, cached history JSON files, or a sampled CSV. The viewer aligns both histories on one timeline so you can spot direct co-evolution, lagged follow-up changes, and long periods where the two sides drift apart.</p>
     <p class="muted">Default cache root: <span class="mono">{workspace_dir}</span></p>
@@ -781,7 +952,7 @@ class HistoryViewerApp:
 
   <section class="grid">
     <article class="card">
-      <div class="eyebrow">Use Case 1</div>
+      <div class="eyebrow plain-eyebrow">Use Case 1</div>
       <h2>Compare by URL</h2>
       <p class="muted">Best when you already have a test method link and a production method link from GitHub.</p>
       <form method="get" action="/revision">
@@ -802,7 +973,7 @@ class HistoryViewerApp:
     </article>
 
     <article class="card">
-      <div class="eyebrow">Use Case 1</div>
+      <div class="eyebrow plain-eyebrow">Use Case 1</div>
       <h2>Compare by cached JSON</h2>
       <p class="muted">Best when you already know the exact method-history JSON files.</p>
       <form method="get" action="/revision">
@@ -823,7 +994,7 @@ class HistoryViewerApp:
     </article>
 
     <article class="card">
-      <div class="eyebrow">Use Case 2</div>
+      <div class="eyebrow plain-eyebrow">Use Case 2</div>
       <h2>Browse a sample directory</h2>
       <p class="muted">Open a sample directory first, choose one CSV, then inspect rows in the browser and write a <span class="mono">revision_url</span> column that DBeaver can click directly.</p>
       <form method="get" action="/sample">
@@ -831,6 +1002,18 @@ class HistoryViewerApp:
           <input type="text" name="sample_dir" value="{sample_hint}" />
         </label>
         <button type="submit">Open directory</button>
+      </form>
+    </article>
+
+    <article class="card">
+      <div class="eyebrow plain-eyebrow">Ground Truth</div>
+      <h2>Label test to production methods</h2>
+      <p class="muted">Choose a project CSV, select a test method, then label each called production method with notes.</p>
+      <form method="get" action="/ground-truth">
+        <label>Ground truth directory
+          <input type="text" name="ground_truth_dir" value="{ground_truth_hint}" />
+        </label>
+        <button type="submit">Open labelling UI</button>
       </form>
     </article>
   </section>
@@ -1268,6 +1451,203 @@ class HistoryViewerApp:
     </table>
   </section>
 </main>
+"""
+
+    def _render_ground_truth_projects(self, *, ground_truth_dir: str, summaries: list[Any]) -> str:
+        rows = []
+        for summary in summaries:
+            csv_url = f"/ground-truth?ground_truth_csv={quote(str(summary.csv_path), safe='')}"
+            csv_name = summary.csv_path.name
+            rows.append(
+                f"""
+<tr>
+  <td><a href="{html.escape(csv_url)}">{html.escape(summary.project)}</a></td>
+  <td class="number-cell">{summary.total_rows}</td>
+  <td class="number-cell">{summary.test_method_count}</td>
+  <td class="number-cell">{summary.completed_test_method_count}</td>
+  <td class="number-cell">{summary.completion_percent:.1f}%</td>
+  <td><a href="{html.escape(csv_url)}">{html.escape(csv_name)}</a></td>
+</tr>
+"""
+            )
+        if not rows:
+            rows.append('<tr><td colspan="6"><span class="muted">No ground-truth CSV files found.</span></td></tr>')
+
+        return f"""
+<main>
+  <section class="hero">
+    <div class="eyebrow plain-eyebrow">Ground Truth Labelling</div>
+    <h1>Projects ready for labelling</h1>
+    <p>Select a project CSV to review its test methods and label each test-to-production candidate.</p>
+    <p class="muted mono">{html.escape(display_project_path(ground_truth_dir))}</p>
+  </section>
+
+  <section class="panel" style="margin-top:24px;">
+    <div class="eyebrow plain-eyebrow">Projects</div>
+    <table>
+      <thead>
+        <tr>
+          <th class="plain-eyebrow">Project</th>
+          <th class="number-cell plain-eyebrow">Links</th>
+          <th class="number-cell plain-eyebrow">Test Methods</th>
+          <th class="number-cell plain-eyebrow">Completed</th>
+          <th class="number-cell plain-eyebrow">Progress</th>
+          <th class="plain-eyebrow">CSV</th>
+        </tr>
+      </thead>
+      <tbody>{''.join(rows)}</tbody>
+    </table>
+  </section>
+</main>
+"""
+
+    def _render_ground_truth_methods(self, *, ground_truth_csv: str, methods: list[Any]) -> str:
+        rows = []
+        for method in methods:
+            detail_url = (
+                f"/ground-truth/detail?ground_truth_csv={quote(ground_truth_csv, safe='')}"
+                f"&from_url={quote(method.from_url, safe='')}"
+            )
+            status_class = "status-complete" if method.is_complete else "status-incomplete"
+            status_label = "Completed" if method.is_complete else "Incomplete"
+            rows.append(
+                f"""
+<tr>
+  <td><a class="ground-truth-method-link" href="{html.escape(detail_url)}" title="{html.escape(method.from_name)}"><strong>{html.escape(method.from_name)}</strong></a></td>
+  <td class="number-cell">{method.candidate_count}</td>
+  <td class="number-cell">{method.labelled_count}</td>
+  <td><span class="{status_class}">{status_label}</span></td>
+  <td><a href="{html.escape(method.from_url)}" target="_blank" rel="noreferrer">Source</a></td>
+</tr>
+"""
+            )
+        if not rows:
+            rows.append('<tr><td colspan="5"><span class="muted">No test methods found in this CSV.</span></td></tr>')
+
+        return f"""
+<main>
+  <section class="hero">
+    <div class="eyebrow plain-eyebrow">Ground Truth Project</div>
+    <h1>{html.escape(Path(ground_truth_csv).stem)}</h1>
+    <p>Select a test method. A test method is complete when every production candidate under it has a non-empty label.</p>
+    <p class="muted mono">{html.escape(display_project_path(ground_truth_csv))}</p>
+  </section>
+
+  <section class="panel" style="margin-top:24px;">
+    <div class="eyebrow" style="text-transform:none; letter-spacing:0;">Test Methods</div>
+    <table class="ground-truth-method-table">
+      <colgroup>
+        <col style="width:57%;" />
+        <col style="width:12%;" />
+        <col style="width:11%;" />
+        <col style="width:14%;" />
+        <col style="width:6%;" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th style="text-transform:none; letter-spacing:0;">Method</th>
+          <th class="number-cell" style="text-transform:none; letter-spacing:0;">Candidates</th>
+          <th class="number-cell" style="text-transform:none; letter-spacing:0;">Labelled</th>
+          <th style="text-transform:none; letter-spacing:0;">Completion</th>
+          <th>URL</th>
+        </tr>
+      </thead>
+      <tbody>{''.join(rows)}</tbody>
+    </table>
+  </section>
+</main>
+"""
+
+    def _render_ground_truth_detail(
+        self,
+        *,
+        ground_truth_csv: str,
+        from_url: str,
+        candidates: list[GroundTruthCandidateRow],
+    ) -> str:
+        from_name = candidates[0].values.get("from_name", from_url) if candidates else from_url
+        labelled_count = sum(1 for candidate in candidates if candidate.is_labelled)
+        rows = []
+        for candidate in candidates:
+            values = candidate.values
+            label_value = values.get("label", "").strip()
+            depth_value = values.get("to_call_depth", "").strip() or "1"
+            note_name = f"note-{candidate.row_index}"
+            rows.append(
+                f"""
+<tr data-ground-truth-row="{candidate.row_index}">
+  <td>
+    <strong class="ground-truth-method-name" title="{html.escape(values.get('to_name', ''))}">{html.escape(truncate_display_text(values.get('to_name', ''), 32))}</strong>
+    <details class="ground-truth-method-details">
+      <summary>Details</summary>
+      <span class="mono muted ground-truth-signature" title="{html.escape(values.get('to_fqs', ''))}">{html.escape(values.get('to_fqs', ''))}</span>
+    </details>
+  </td>
+  <td><a href="{html.escape(values.get('to_url', ''))}" target="_blank" rel="noreferrer">Open</a></td>
+  <td class="number-cell">{html.escape(depth_value)}</td>
+  <td class="label-cell">
+    <div class="label-control">
+      <label><input type="radio" name="label-{candidate.row_index}" value="0" {"checked" if label_value == "0" else ""} /><span>0</span></label>
+      <label><input type="radio" name="label-{candidate.row_index}" value="1" {"checked" if label_value == "1" else ""} /><span>1</span></label>
+    </div>
+  </td>
+  <td><textarea class="compact-note" name="{html.escape(note_name)}">{html.escape(values.get('note', ''))}</textarea></td>
+  <td class="save-cell">
+    <button
+      type="button"
+      class="ground-truth-save"
+      data-ground-truth-csv="{html.escape(ground_truth_csv)}"
+      data-row-index="{candidate.row_index}"
+      data-from-url="{html.escape(values.get('from_url', ''))}"
+      data-to-url="{html.escape(values.get('to_url', ''))}"
+    >Save</button>
+    <span class="flash ground-truth-status" style="display:none;"></span>
+  </td>
+</tr>
+"""
+            )
+        if not rows:
+            rows.append('<tr><td colspan="6"><span class="muted">No production candidates found for this test method.</span></td></tr>')
+
+        back_url = f"/ground-truth?ground_truth_csv={quote(ground_truth_csv, safe='')}"
+        return f"""
+<main>
+  <section class="hero">
+    <div class="eyebrow plain-eyebrow">Ground Truth Detail</div>
+    <h1><a href="{html.escape(from_url)}" target="_blank" rel="noreferrer">{html.escape(from_name)}</a></h1>
+    <p>Label each called production method as <span class="mono">1</span> or <span class="mono">0</span>, then save notes beside that method.</p>
+    <div class="chip-row">
+      <span class="chip" id="ground-truth-progress">{labelled_count} of {len(candidates)} labelled</span>
+      <a class="chip" href="{html.escape(back_url)}">Back to test methods</a>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:24px;">
+    <div class="eyebrow plain-eyebrow">Called Production Methods</div>
+    <table class="ground-truth-detail-table">
+      <colgroup>
+        <col style="width:42%;" />
+        <col style="width:7%;" />
+        <col style="width:7%;" />
+        <col style="width:14%;" />
+        <col style="width:18%;" />
+        <col style="width:12%;" />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>Production Method</th>
+          <th>URL</th>
+          <th class="number-cell">Depth</th>
+          <th class="label-cell">Label</th>
+          <th>Note</th>
+          <th class="save-cell">Modify</th>
+        </tr>
+      </thead>
+      <tbody>{''.join(rows)}</tbody>
+    </table>
+  </section>
+</main>
+{GROUND_TRUTH_SCRIPT}
 """
 
     def _render_error(self, message: str, detail: str = "") -> str:
@@ -2132,6 +2512,14 @@ def safe_json_filename(history: MethodHistory) -> str:
     return f"{project}-{normalized}-{history.function_start_line}.json"
 
 
+def display_project_path(path_value: str | Path) -> str:
+    path = Path(path_value).expanduser()
+    try:
+        return f"/{path.resolve().relative_to(Path.cwd().resolve())}"
+    except ValueError:
+        return str(path)
+
+
 NOTE_SCRIPT = """
 <script>
 for (const button of document.querySelectorAll(".diff-modal-open")) {
@@ -2226,6 +2614,43 @@ if (revisionButton) {
     status.style.display = "inline-flex";
     status.textContent = data.ok ? `revision_url written for ${data.rows} row(s)` : "Write failed";
     status.classList.toggle("error", !data.ok);
+  });
+}
+</script>
+"""
+
+
+GROUND_TRUTH_SCRIPT = """
+<script>
+for (const button of document.querySelectorAll(".ground-truth-save")) {
+  button.addEventListener("click", async () => {
+    const row = button.closest("tr");
+    const status = row.querySelector(".ground-truth-status");
+    const selectedLabel = row.querySelector(`input[name="label-${button.dataset.rowIndex}"]:checked`);
+    const note = row.querySelector(`textarea[name="note-${button.dataset.rowIndex}"]`);
+    const payload = new URLSearchParams({
+      ground_truth_csv: button.dataset.groundTruthCsv,
+      row_index: button.dataset.rowIndex,
+      from_url: button.dataset.fromUrl,
+      to_url: button.dataset.toUrl,
+      label: selectedLabel ? selectedLabel.value : "",
+      note: note ? note.value : "",
+    });
+    try {
+      const response = await fetch("/api/ground-truth-label", { method: "POST", body: payload });
+      const data = await response.json();
+      status.style.display = "inline-flex";
+      status.textContent = data.ok ? "Saved" : "Save failed";
+      status.classList.toggle("error", !data.ok);
+      const progress = document.getElementById("ground-truth-progress");
+      if (progress && data.ok) {
+        progress.textContent = `${data.labelled_count} of ${data.candidate_count} labelled`;
+      }
+    } catch (error) {
+      status.style.display = "inline-flex";
+      status.textContent = "Save failed";
+      status.classList.add("error");
+    }
   });
 }
 </script>

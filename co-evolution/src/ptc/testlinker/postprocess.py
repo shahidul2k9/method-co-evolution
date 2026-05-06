@@ -34,12 +34,22 @@ POSTPROCESS_OUTPUT_COLUMNS = [
     "to_url",
 ]
 
+SYMBOLSOLVER_OUTPUT_COLUMNS = [
+    "project",
+    "from_name",
+    "to_name",
+    "label",
+    "testlinker_symbolsolver",
+    "from_url",
+    "to_url",
+]
+
 
 def postprocess_project(
     *,
     workspace_directory: str | Path,
     project: str,
-    top_k: int,
+    top_k: int = 1,
     testlinker_directory: str | Path | None = None,
     modes: list[str] | None = None,
     replace: bool = False,
@@ -98,7 +108,8 @@ def postprocess_project(
         else:
             prediction_rows = _predict_with_url_match(original_examples, model_output, top_k)
 
-        output_df = pd.DataFrame(prediction_rows, columns=POSTPROCESS_OUTPUT_COLUMNS)
+        columns = POSTPROCESS_OUTPUT_COLUMNS if mode == "testlinker-original" else SYMBOLSOLVER_OUTPUT_COLUMNS
+        output_df = pd.DataFrame(prediction_rows, columns=columns)
         output_file = postprocess_output_path(root, project, mode)
         output_file.parent.mkdir(parents=True, exist_ok=True)
         output_df.to_csv(output_file, index=False)
@@ -138,7 +149,6 @@ def _predict_with_url_match(
     for example in examples:
         model_entry = model_output.get(str(example["id"]), {})
         sorted_invocations: list[str] = list(model_entry.get("sorted_invocations", []))
-        invocation_scores: dict[str, float] = dict(model_entry.get("invocation_scores", {}))
 
         top_k_invocations = set(sorted_invocations[:top_k])
         candidate_urls = dict(example.get("candidate_urls", {}))
@@ -153,7 +163,6 @@ def _predict_with_url_match(
         }
 
         for sig, urls in candidate_urls.items():
-            score = invocation_scores.get(invocation_name(sig), "")
             for to_url in urls:
                 rows.append({
                     "project": example.get("project", ""),
@@ -162,10 +171,7 @@ def _predict_with_url_match(
                     "from_url": example.get("from_url", ""),
                     "to_url": to_url,
                     "label": 1 if to_url in label_urls else 0,
-                    "label_pred": 1 if to_url in predicted_urls else 0,
-                    "pred_score": score,
-                    "recom_by": "symbolsolver" if to_url in predicted_urls else "",
-                    "testlinker_signature": sig if to_url in predicted_urls else "",
+                    "testlinker_symbolsolver": 1 if to_url in predicted_urls else 0,
                 })
     return rows
 

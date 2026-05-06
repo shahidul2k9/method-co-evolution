@@ -7,6 +7,7 @@ from pathlib import Path
 import shutil
 import sys
 import unittest
+from urllib.parse import urlencode
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PTC_SRC_DIRECTORY = REPOSITORY_ROOT / "co-evolution" / "src"
@@ -42,6 +43,78 @@ HF_SAMPLE_URL = (
 class TestHistoryViewer(unittest.TestCase):
     def setUp(self) -> None:
         self.repository = HistoryRepository(workspace_directory=WORKSPACE_DIRECTORY, data_directory=DATA_DIRECTORY)
+
+    def write_ground_truth_fixture(self, directory_name: str = "ground-truth") -> Path:
+        temp_dir = REPOSITORY_ROOT / "workspace" / "test" / "history-viewer" / directory_name
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        csv_path = temp_dir / "sample-project.csv"
+        fieldnames = ["project", "from_name", "to_name", "from_url", "to_url", "to_fqs", "to_call_depth", "label"]
+        rows = [
+            {
+                "project": "sample-project",
+                "from_name": "testAlpha",
+                "to_name": "makeAlpha",
+                "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+                "to_url": "https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L20",
+                "to_fqs": "acme.Alpha.makeAlpha()",
+                "to_call_depth": "",
+                "label": "1",
+            },
+            {
+                "project": "sample-project",
+                "from_name": "testAlpha",
+                "to_name": "helperAlpha",
+                "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+                "to_url": "https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L30",
+                "to_fqs": "acme.Alpha.helperAlpha(java.lang.String)",
+                "to_call_depth": "2",
+                "label": "",
+            },
+            {
+                "project": "sample-project",
+                "from_name": "testBeta",
+                "to_name": "makeBeta",
+                "from_url": "https://github.com/acme/sample/blob/abc/src/test/BetaTest.java#L11",
+                "to_url": "https://github.com/acme/sample/blob/abc/src/main/Beta.java#L22",
+                "to_fqs": "acme.Beta.makeBeta()",
+                "to_call_depth": "1",
+                "label": "0",
+            },
+        ]
+        with csv_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        return csv_path
+
+    def call_app(
+        self,
+        app: object,
+        *,
+        path: str,
+        query: str = "",
+        method: str = "GET",
+        body: bytes = b"",
+    ) -> str:
+        environ = {
+            "REQUEST_METHOD": method,
+            "PATH_INFO": path,
+            "QUERY_STRING": query,
+            "wsgi.input": BytesIO(body),
+            "CONTENT_LENGTH": str(len(body)),
+            "CONTENT_TYPE": "application/x-www-form-urlencoded",
+            "SERVER_NAME": "127.0.0.1",
+            "SERVER_PORT": "8765",
+            "wsgi.url_scheme": "http",
+        }
+        status_holder: list[str] = []
+
+        def start_response(status: str, _headers: list[tuple[str, str]]) -> None:
+            status_holder.append(status)
+
+        response_body = b"".join(app(environ, start_response)).decode("utf-8")
+        self.assertEqual("200 OK", status_holder[0])
+        return response_body
 
     def test_parse_method_url_extracts_project_path_and_line(self) -> None:
         parsed = parse_method_url(
@@ -222,6 +295,112 @@ class TestHistoryViewer(unittest.TestCase):
             rows = list(csv.DictReader(handle))
         self.assertEqual("Strong same-commit coupling", rows[0]["notes"])
         self.assertEqual("same-commit,strong-signal", rows[0]["tags"])
+
+    def test_ground_truth_summaries_group_by_test_method_and_completion(self) -> None:
+        csv_path = self.write_ground_truth_fixture("ground-truth-summary")
+
+        project_summary = self.repository.summarize_ground_truth_projects(csv_path.parent)[0]
+        method_summaries = self.repository.summarize_ground_truth_test_methods(csv_path)
+
+        self.assertEqual("sample-project", project_summary.project)
+        self.assertEqual(3, project_summary.total_rows)
+        self.assertEqual(2, project_summary.test_method_count)
+        self.assertEqual(1, project_summary.completed_test_method_count)
+        alpha_summary = next(method for method in method_summaries if method.from_name == "testAlpha")
+        self.assertEqual(2, alpha_summary.candidate_count)
+        self.assertEqual(1, alpha_summary.labelled_count)
+        self.assertFalse(alpha_summary.is_complete)
+
+    def test_update_ground_truth_label_targets_row_index_and_adds_note_column(self) -> None:
+        csv_path = self.write_ground_truth_fixture("ground-truth-update")
+        candidates = self.repository.read_ground_truth_candidates(
+            csv_path,
+            from_url="https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+        )
+
+        updated = self.repository.update_ground_truth_label(
+            csv_path,
+            row_index=candidates[1].row_index,
+            from_url=candidates[1].values["from_url"],
+            to_url=candidates[1].values["to_url"],
+            label="0",
+            note="not production ground truth",
+        )
+
+        self.assertEqual("0", updated.values["label"])
+        self.assertEqual("not production ground truth", updated.values["note"])
+        with csv_path.open("r", encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        self.assertEqual("1", rows[0]["label"])
+        self.assertEqual("0", rows[1]["label"])
+        self.assertIn("note", rows[1])
+        self.assertEqual("not production ground truth", rows[1]["note"])
+
+    def test_ground_truth_routes_render_project_method_and_detail_pages(self) -> None:
+        csv_path = self.write_ground_truth_fixture("ground-truth-routes")
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+
+        project_body = self.call_app(
+            app,
+            path="/ground-truth",
+            query=urlencode({"ground_truth_dir": str(csv_path.parent)}),
+        )
+        self.assertIn("Projects ready for labelling", project_body)
+        self.assertIn("sample-project.csv", project_body)
+        self.assertIn("Links", project_body)
+
+        method_body = self.call_app(
+            app,
+            path="/ground-truth",
+            query=urlencode({"ground_truth_csv": str(csv_path)}),
+        )
+        self.assertIn("Test Methods", method_body)
+        self.assertIn("testAlpha", method_body)
+        self.assertIn("Method", method_body)
+        self.assertIn("<th>URL</th>", method_body)
+
+        detail_body = self.call_app(
+            app,
+            path="/ground-truth/detail",
+            query=urlencode(
+                {
+                    "ground_truth_csv": str(csv_path),
+                    "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+                }
+            ),
+        )
+        self.assertIn("Called Production Methods", detail_body)
+        self.assertIn("<th class=\"save-cell\">Modify</th>", detail_body)
+        self.assertIn("<summary>Details</summary>", detail_body)
+        self.assertIn("<td class=\"number-cell\">1</td>", detail_body)
+        self.assertIn('value="0"', detail_body)
+        self.assertLess(detail_body.index('value="0"'), detail_body.index('value="1"'))
+
+    def test_ground_truth_update_api_returns_progress(self) -> None:
+        csv_path = self.write_ground_truth_fixture("ground-truth-api")
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        candidates = self.repository.read_ground_truth_candidates(
+            csv_path,
+            from_url="https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+        )
+        payload = urlencode(
+            {
+                "ground_truth_csv": str(csv_path),
+                "row_index": str(candidates[1].row_index),
+                "from_url": candidates[1].values["from_url"],
+                "to_url": candidates[1].values["to_url"],
+                "label": "1",
+                "note": "accepted",
+            }
+        ).encode("utf-8")
+
+        body = self.call_app(app, path="/api/ground-truth-label", method="POST", body=payload)
+        response = json.loads(body)
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(2, response["labelled_count"])
+        self.assertEqual(2, response["candidate_count"])
+        self.assertTrue(response["complete"])
 
     def test_find_related_production_methods_uses_t2p_change_before_fallbacks(self) -> None:
         with SAMPLE_CSV.open("r", encoding="utf-8", newline="") as handle:
