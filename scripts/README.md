@@ -69,6 +69,8 @@ For method-code sharding, use `--command method-code --shards N`; after shard jo
 
 By default, scan/cache commands retry files or methods that previously produced `__error_marker__` rows. Pass `--retry-errors false` to `method-scan`, `class-scan`, `method-code`, or `method-callgraph` jobs when you want those prior errors to be treated as already attempted and skipped.
 
+For `method-scan`, `class-scan`, and `method-code`, cache rows are flushed when either `--merge-threshold` pending rows accumulate or `--merge-interval-seconds` elapses. `--merge-threshold 0` or `--merge-threshold -1` disables only threshold-triggered intermediate flushing for these commands; final flushing/finalization still runs.
+
 The job index is treated as a flattened project/shard coordinate:
 
 ```text
@@ -120,7 +122,8 @@ sbatch --array=1-2 scripts/job.sh \
 | `--tool-name` | — | Tool name for `method-history`, `method-callgraph`, `complexity-analyzer` |
 | `--java-options` | — | Extra JVM flags (e.g. `"-Xmx4g"`) |
 | `--timeout-seconds` | `1800` | Per-method history timeout |
-| `--merge-threshold` | `10000` | History JSON merge threshold |
+| `--merge-threshold` | `10000` | History JSON merge threshold; for scan/code commands, pending cache rows before an intermediate flush, with `0` or `-1` disabling the threshold trigger |
+| `--merge-interval-seconds` | `900` | Time trigger for intermediate cache flushes in `method-scan`, `class-scan`, and `method-code`; `0` disables the time trigger |
 | `--merge-only` | off | Merge without running history tools |
 | `--retry-errors` | `true` | Retry previous `__error_marker__` rows for `method-scan`, `class-scan`, `method-code`, and `method-callgraph`; set to `false` to skip them |
 | `--stage` | `execute` | LLM or TestLinker stage |

@@ -21,7 +21,8 @@ Options:
   --tool-name             Tool name for non-LLM commands
   --java-options          Optional JVM arguments for Java-backed commands, e.g. "-Xmx4g"
   --timeout-seconds       Optional method-history command timeout in seconds (default: 30*60 = 1800)
-  --merge-threshold       Optional history JSON merge threshold (default: 10000; 0 disables intermediate merging; negative values disable final merging too)
+  --merge-threshold       History JSON merge threshold; for scan/code commands, pending rows before flushing (default: 10000; history negative disables final merge; scan/code 0/-1 disables threshold trigger)
+  --merge-interval-seconds Optional cache flush interval for method-scan, class-scan, and method-code (default: 900; 0 disables time trigger)
   --merge-only            Merge existing loose history JSON files without generating new history
   --retry-errors          Whether method-scan, class-scan, method-code, and method-callgraph retry previous __error_marker__ rows (default: true)
   --command-options       Optional extra arguments forwarded to the selected command
@@ -59,6 +60,7 @@ TOOL_NAME=""
 JAVA_OPTIONS=""
 TIMEOUT_SECONDS="1800"
 MERGE_THRESHOLD="10000"
+MERGE_INTERVAL_SECONDS="900"
 MERGE_ONLY="false"
 RETRY_ERRORS="true"
 COMMAND_OPTIONS=""
@@ -101,6 +103,14 @@ while [[ $# -gt 0 ]]; do
         --merge-threshold)
             MERGE_THRESHOLD="$2"
             shift 2
+            ;;
+        --merge-interval-seconds)
+            MERGE_INTERVAL_SECONDS="$2"
+            shift 2
+            ;;
+        --merge-interval-seconds=*)
+            MERGE_INTERVAL_SECONDS="${1#*=}"
+            shift
             ;;
         --merge-only)
             MERGE_ONLY="true"
@@ -275,6 +285,12 @@ if ! [[ "$MERGE_THRESHOLD" =~ ^-?[0-9]+$ ]]; then
     exit 1
 fi
 
+if ! [[ "$MERGE_INTERVAL_SECONDS" =~ ^-?[0-9]+$ ]]; then
+    echo "Error: --merge-interval-seconds must be an integer."
+    usage
+    exit 1
+fi
+
 RETRY_ERRORS_NORMALIZED="$(printf '%s' "$RETRY_ERRORS" | tr '[:upper:]' '[:lower:]')"
 case "$RETRY_ERRORS_NORMALIZED" in
     true|false)
@@ -404,6 +420,9 @@ else
         --timeout-seconds "$TIMEOUT_SECONDS"
         --merge-threshold "$MERGE_THRESHOLD"
     )
+    if [[ "$COMMAND_NAME" == "method-scan" || "$COMMAND_NAME" == "class-scan" || "$COMMAND_NAME" == "method-code" ]]; then
+        MHC_ARGS+=(--merge-interval-seconds "$MERGE_INTERVAL_SECONDS")
+    fi
     if [[ -n "$TOOL_NAME" ]]; then
         MHC_ARGS+=(--tool-name "$TOOL_NAME")
     fi

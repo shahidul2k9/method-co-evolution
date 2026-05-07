@@ -129,6 +129,7 @@ METHOD_CODE_CACHE_COLUMNS = METHOD_CODE_COLUMNS + [
     METHOD_CODE_ERROR_COLUMN,
 ]
 SCAN_METHOD_FLUSH_INTERVAL_SECONDS = 1 * 15 * 60
+DEFAULT_SCAN_MERGE_THRESHOLD = 10_000
 METHOD_SCAN_MARKER = "__scan_marker__"
 METHOD_SCAN_ERROR_MARKER = "__error_marker__"
 METHOD_SCAN_FLAG_COLUMN = "_flag"
@@ -138,6 +139,21 @@ METHOD_SCAN_CACHE_COLUMNS = METHOD_SCAN_COLUMNS + [
     METHOD_SCAN_FLAG_COLUMN,
     METHOD_SCAN_ERROR_COLUMN,
 ]
+
+
+def _should_flush_scan_cache(
+    pending_count: int,
+    last_flush_time: float,
+    merge_threshold: int,
+    merge_interval_seconds: int,
+) -> bool:
+    return (
+        (merge_threshold > 0 and pending_count >= merge_threshold)
+        or (
+            merge_interval_seconds > 0
+            and time.monotonic() - last_flush_time >= merge_interval_seconds
+        )
+    )
 
 
 class Method:
@@ -557,10 +573,14 @@ def generate_method_code(
     merge_only_delete_tmp: bool = False,
     merge_only_delete_lock: bool = False,
     retry_errors: bool = True,
+    merge_threshold: int = DEFAULT_SCAN_MERGE_THRESHOLD,
+    merge_interval_seconds: int | None = None,
 ) -> list[str]:
     output_files = []
     if workspace_directory is None:
         workspace_directory = data_directory
+    if merge_interval_seconds is None:
+        merge_interval_seconds = SCAN_METHOD_FLUSH_INTERVAL_SECONDS
 
     for _, repository in repository_df.iterrows():
         repository_name = repository["project"]
@@ -635,7 +655,12 @@ def generate_method_code(
             except Exception as error:
                 pending_rows.append(_method_code_error_row(method_row, key, error))
 
-            if time.monotonic() - last_flush >= SCAN_METHOD_FLUSH_INTERVAL_SECONDS:
+            if _should_flush_scan_cache(
+                len(pending_rows),
+                last_flush,
+                merge_threshold,
+                merge_interval_seconds,
+            ):
                 _flush_method_code_buffers(cache_file, lock_path, pending_rows, retry_errors)
                 cached_keys = _load_cached_method_code_keys(cache_file, retry_errors)
                 last_flush = time.monotonic()
@@ -755,8 +780,12 @@ def scan_method(
     merge_only_delete_tmp: bool = False,
     merge_only_delete_lock: bool = False,
     retry_errors: bool = True,
+    merge_threshold: int = DEFAULT_SCAN_MERGE_THRESHOLD,
+    merge_interval_seconds: int | None = None,
 ):
     MethodScannerImpl = None
+    if merge_interval_seconds is None:
+        merge_interval_seconds = SCAN_METHOD_FLUSH_INTERVAL_SECONDS
     if not merge_only:
         from jpype import JClass
         MethodScannerImpl = JClass(
@@ -839,7 +868,12 @@ def scan_method(
                     _build_scan_error_row(repository_name, file_without_base, commit_hash, scan_error)
                 )
 
-            if time.monotonic() - last_flush_time >= SCAN_METHOD_FLUSH_INTERVAL_SECONDS:
+            if _should_flush_scan_cache(
+                len(pending_method_rows),
+                last_flush_time,
+                merge_threshold,
+                merge_interval_seconds,
+            ):
                 _flush_method_scan_buffers(
                     method_cache_file,
                     lock_path,

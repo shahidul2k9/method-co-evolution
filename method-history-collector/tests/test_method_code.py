@@ -232,7 +232,10 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
             False,
             False,
             False,
+            False,
             True,
+            10000,
+            900,
         )
 
     @patch("mhc.main.MethodHistoryCollector")

@@ -36,6 +36,10 @@ Provide one of the following selectors. `--project-index` may also be combined w
 
 `method-scan`, `class-scan`, `method-code`, and `method-callgraph` retry prior `__error_marker__` cache rows by default. Pass `--retry-errors false` to treat those failures as already attempted and skip them on the next run.
 
+### Scan cache flushing
+
+`method-scan`, `class-scan`, and `method-code` buffer cache rows and flush them when either `--merge-threshold` pending rows accumulate or `--merge-interval-seconds` elapses. Defaults are `--merge-threshold 10000` and `--merge-interval-seconds 900`. For these scan/code commands, `--merge-threshold 0` or `--merge-threshold -1` disables only threshold-triggered intermediate flushing; final flushing and single-shard output finalization still run. Use `--merge-interval-seconds 0` to disable time-triggered intermediate flushing.
+
 ## Commands
 
 ### `mhc method-scan`
@@ -57,6 +61,8 @@ Use `--replace` to regenerate the CSV even if it already exists.
 If `<workspace-directory>/config/logback.xml` exists it is passed to the JVM automatically as `-Dlogback.configurationFile=...`.
 
 Previous `__error_marker__` cache rows are retried by default. Use `--retry-errors false` to treat those prior failures as already attempted and skip them on the next run.
+
+Use `--merge-threshold` and `--merge-interval-seconds` to control intermediate cache flushes. The flush happens as soon as either limit is reached.
 
 ---
 
@@ -162,5 +168,7 @@ mhc method-code \
 ```
 
 Previous `__error_marker__` cache rows are retried by default. Use `--retry-errors false` to skip methods that already failed in a prior run.
+
+Use `--merge-threshold` and `--merge-interval-seconds` to control intermediate cache flushes. The flush happens as soon as either limit is reached.
 
 Output columns: `project`, `name`, `url`, `artifact`, `start_line`, `end_line`, `code`.

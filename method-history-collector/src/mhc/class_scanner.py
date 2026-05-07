@@ -11,6 +11,8 @@ import mhc.util as util
 from mhc.method_scanner import (
     clone_and_checkout_commit,
     collect_files,
+    DEFAULT_SCAN_MERGE_THRESHOLD,
+    _should_flush_scan_cache,
     _write_dataframe_csv,
     _append_dataframe_csv,
 )
@@ -253,8 +255,12 @@ def scan_class(
     merge_only_delete_tmp: bool = False,
     merge_only_delete_lock: bool = False,
     retry_errors: bool = True,
+    merge_threshold: int = DEFAULT_SCAN_MERGE_THRESHOLD,
+    merge_interval_seconds: int | None = None,
 ) -> None:
     ClassScannerImpl = None
+    if merge_interval_seconds is None:
+        merge_interval_seconds = SCAN_CLASS_FLUSH_INTERVAL_SECONDS
     if not merge_only:
         from jpype import JClass
         ClassScannerImpl = JClass("rnd.method.parser.call.graph.service.ClassScannerImpl")
@@ -330,7 +336,12 @@ def scan_class(
             else:
                 pending.append(_build_class_scan_error_marker(repository_name, file_without_base, commit_hash, scan_error))
 
-            if time.monotonic() - last_flush >= SCAN_CLASS_FLUSH_INTERVAL_SECONDS:
+            if _should_flush_scan_cache(
+                len(pending),
+                last_flush,
+                merge_threshold,
+                merge_interval_seconds,
+            ):
                 _flush_class_scan_buffers(cache_file, lock_path, pending, retry_errors)
                 cached_files = _load_cached_class_scan_files(cache_file, retry_errors)
                 last_flush = time.monotonic()

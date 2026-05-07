@@ -16,6 +16,7 @@ _KNOWN_OPTION_FLAGS = {
     "--java-options",
     "--timeout-seconds",
     "--merge-threshold",
+    "--merge-interval-seconds",
     "--merge-only",
     "--project",
     "--projects",
@@ -199,8 +200,20 @@ def main(argv: list[str] | None = None):
         type=int,
         default=DEFAULT_MERGE_THRESHOLD,
         help=(
-            "Number of unarchived history JSON files to accumulate before merging into tar.gz "
-            "(default: 10000; 0 disables intermediate merging; negative values disable final merging too)."
+            "History: number of unarchived JSON files before merging into tar.gz. "
+            "For history, 0 disables intermediate merging and negative values disable final merging too. "
+            "Scan/code commands: pending cache rows before flushing. "
+            "Default: 10000. For scan/code commands, 0 or negative disables threshold-triggered intermediate flushes."
+        ),
+    )
+    parser.add_argument(
+        "--merge-interval-seconds",
+        dest="merge_interval_seconds",
+        type=int,
+        default=15 * 60,
+        help=(
+            "For method-scan, class-scan, and method-code, flush pending cache rows after this many seconds "
+            "(default: 900; 0 or negative disables time-triggered intermediate flushes)."
         ),
     )
     parser.add_argument(
@@ -353,6 +366,8 @@ def main(argv: list[str] | None = None):
             "delete-tmp" in (args.merge_only or []),
             "delete-lock" in (args.merge_only or []),
             args.retry_errors,
+            args.merge_threshold,
+            args.merge_interval_seconds,
         )
     elif command in ("method-scan", "scan-method"):
         mhc.scan_method(
@@ -366,6 +381,8 @@ def main(argv: list[str] | None = None):
             "delete-tmp" in (args.merge_only or []),
             "delete-lock" in (args.merge_only or []),
             args.retry_errors,
+            args.merge_threshold,
+            args.merge_interval_seconds,
         )
     elif command == "method-code":
         mhc.generate_method_code(
@@ -378,6 +395,8 @@ def main(argv: list[str] | None = None):
             "delete-tmp" in (args.merge_only or []),
             "delete-lock" in (args.merge_only or []),
             args.retry_errors,
+            args.merge_threshold,
+            args.merge_interval_seconds,
         )
     elif command == "index":
         mhc.update_repository_index()

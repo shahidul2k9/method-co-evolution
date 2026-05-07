@@ -154,6 +154,7 @@ class TestMhcScript(unittest.TestCase):
             False,
             False,
             False,
+            True,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -200,7 +201,6 @@ class TestMhcScript(unittest.TestCase):
             False,
             False,
             False,
-            True,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -239,6 +239,8 @@ class TestMhcScript(unittest.TestCase):
             False,
             False,
             True,
+            10000,
+            900,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -277,6 +279,8 @@ class TestMhcScript(unittest.TestCase):
             False,
             False,
             True,
+            10000,
+            900,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -315,6 +319,8 @@ class TestMhcScript(unittest.TestCase):
             False,
             False,
             True,
+            10000,
+            900,
         )
 
     @unittest.skip("Legacy llm-m2m-link CLI path is no longer covered in mhc.main.")

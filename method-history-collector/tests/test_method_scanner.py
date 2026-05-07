@@ -127,6 +127,15 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             ms._completed_method_scan_files(cache_df, retry_errors=False),
         )
 
+    def test_should_flush_scan_cache_uses_threshold_or_time(self):
+        now = 100.0
+        with patch.object(ms.time, "monotonic", return_value=now):
+            self.assertTrue(ms._should_flush_scan_cache(10, now, 10, 900))
+            self.assertTrue(ms._should_flush_scan_cache(1, now - 901, 10, 900))
+            self.assertFalse(ms._should_flush_scan_cache(1, now, 10, 900))
+            self.assertFalse(ms._should_flush_scan_cache(10, now, 0, 0))
+            self.assertFalse(ms._should_flush_scan_cache(10, now, -1, -1))
+
     def _repository_df(self) -> pd.DataFrame:
         return pd.DataFrame(
             [
@@ -263,8 +272,6 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             with patch("jpype.JClass", return_value=FakeMethodScannerImpl), patch.object(
                 ms, "clone_and_checkout_commit"
             ), patch.object(
-                ms, "SCAN_METHOD_FLUSH_INTERVAL_SECONDS", 0
-            ), patch.object(
                 ms, "_flush_method_scan_buffers", wraps=ms._flush_method_scan_buffers
             ) as flush_results:
                 ms.scan_method(
@@ -272,6 +279,8 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                     str(repository_directory),
                     str(data_directory),
                     str(workspace_directory),
+                    merge_threshold=1,
+                    merge_interval_seconds=0,
                 )
 
             self.assertEqual(
