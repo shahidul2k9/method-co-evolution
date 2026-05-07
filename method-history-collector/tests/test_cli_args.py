@@ -124,6 +124,8 @@ class TestCliArgs(unittest.TestCase):
             False,
             False,
             True,
+            10000,
+            900,
         )
 
     @patch("mhc.main._build_method_history_collector")

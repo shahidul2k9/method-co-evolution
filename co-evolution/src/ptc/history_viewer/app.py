@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import difflib
 import html
+import json
 import math
 import re
 import traceback
@@ -31,8 +32,8 @@ DEFAULT_GROUND_TRUTH_DIRECTORY = (
     Path.cwd()
     / "workspace-eval"
     / "data"
-    / "ground-truth"
-    / "t2plinker-t2p-ground-truth"
+    / "t2p-ground-truth-labelling"
+    / "t2plinker-t2p-ground-truth-labelling"
 )
 
 STYLE = """
@@ -658,6 +659,23 @@ th {
 .ground-truth-detail-table {
   table-layout: fixed;
 }
+.ground-truth-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+}
+.ground-truth-bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.ground-truth-bulk-actions button,
+.ground-truth-update-all {
+  width: auto;
+}
 .ground-truth-method-table {
   table-layout: fixed;
 }
@@ -777,6 +795,8 @@ class HistoryViewerApp:
                 return self._handle_update_note(environ, start_response)
             if method == "POST" and path == "/api/ground-truth-label":
                 return self._handle_update_ground_truth_label(environ, start_response)
+            if method == "POST" and path == "/api/ground-truth-labels":
+                return self._handle_update_ground_truth_labels(environ, start_response)
             if method == "POST" and path == "/api/revision-links":
                 return self._handle_write_revision_links(environ, start_response)
 
@@ -904,6 +924,29 @@ class HistoryViewerApp:
             "row_index": updated.row_index,
             "label": updated.values.get("label", ""),
             "note": updated.values.get("note", ""),
+            "labelled_count": sum(1 for candidate in candidates if candidate.is_labelled),
+            "candidate_count": len(candidates),
+            "complete": bool(candidates) and all(candidate.is_labelled for candidate in candidates),
+        }
+        return self._respond_json(start_response, response)
+
+    def _handle_update_ground_truth_labels(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
+        payload = _read_payload(environ)
+        updates = json.loads(payload.get("updates", "[]"))
+        if not isinstance(updates, list):
+            raise ValueError("Ground-truth updates must be a list")
+        updated = self.repository.update_ground_truth_labels(
+            payload["ground_truth_csv"],
+            updates=updates,
+        )
+        from_url = payload["from_url"]
+        candidates = self.repository.read_ground_truth_candidates(
+            payload["ground_truth_csv"],
+            from_url=from_url,
+        )
+        response = {
+            "ok": True,
+            "updated_count": len(updated),
             "labelled_count": sum(1 for candidate in candidates if candidate.is_labelled),
             "candidate_count": len(candidates),
             "complete": bool(candidates) and all(candidate.is_labelled for candidate in candidates),
@@ -1573,9 +1616,14 @@ class HistoryViewerApp:
             label_value = values.get("label", "").strip()
             depth_value = values.get("to_call_depth", "").strip() or "1"
             note_name = f"note-{candidate.row_index}"
+            artifact_value = values.get("to_artifact", "").strip()
             rows.append(
                 f"""
-<tr data-ground-truth-row="{candidate.row_index}">
+<tr
+  data-ground-truth-row="{candidate.row_index}"
+  data-from-url="{html.escape(values.get('from_url', ''))}"
+  data-to-url="{html.escape(values.get('to_url', ''))}"
+>
   <td>
     <strong class="ground-truth-method-name" title="{html.escape(values.get('to_name', ''))}">{html.escape(truncate_display_text(values.get('to_name', ''), 32))}</strong>
     <details class="ground-truth-method-details">
@@ -1583,6 +1631,7 @@ class HistoryViewerApp:
       <span class="mono muted ground-truth-signature" title="{html.escape(values.get('to_fqs', ''))}">{html.escape(values.get('to_fqs', ''))}</span>
     </details>
   </td>
+  <td>{html.escape(artifact_value)}</td>
   <td><a href="{html.escape(values.get('to_url', ''))}" target="_blank" rel="noreferrer">Open</a></td>
   <td class="number-cell">{html.escape(depth_value)}</td>
   <td class="label-cell">
@@ -1592,17 +1641,6 @@ class HistoryViewerApp:
     </div>
   </td>
   <td><textarea class="compact-note" name="{html.escape(note_name)}">{html.escape(values.get('note', ''))}</textarea></td>
-  <td class="save-cell">
-    <button
-      type="button"
-      class="ground-truth-save"
-      data-ground-truth-csv="{html.escape(ground_truth_csv)}"
-      data-row-index="{candidate.row_index}"
-      data-from-url="{html.escape(values.get('from_url', ''))}"
-      data-to-url="{html.escape(values.get('to_url', ''))}"
-    >Save</button>
-    <span class="flash ground-truth-status" style="display:none;"></span>
-  </td>
 </tr>
 """
             )
@@ -1624,23 +1662,34 @@ class HistoryViewerApp:
 
   <section class="panel" style="margin-top:24px;">
     <div class="eyebrow plain-eyebrow">Called Production Methods</div>
+    <div class="ground-truth-actions">
+      <div class="ground-truth-bulk-actions">
+        <button type="button" class="secondary ground-truth-bulk-label" data-label-value="0">All 0</button>
+        <button type="button" class="secondary ground-truth-bulk-label" data-label-value="1">All 1</button>
+        <button type="button" class="secondary ground-truth-reset-labels">Reset</button>
+      </div>
+      <div class="ground-truth-bulk-actions">
+        <span class="flash ground-truth-status" style="display:none;"></span>
+        <button type="button" class="ground-truth-update-all" data-ground-truth-csv="{html.escape(ground_truth_csv)}" data-from-url="{html.escape(from_url)}">Update All</button>
+      </div>
+    </div>
     <table class="ground-truth-detail-table">
       <colgroup>
-        <col style="width:42%;" />
+        <col style="width:36%;" />
+        <col style="width:10%;" />
         <col style="width:7%;" />
         <col style="width:7%;" />
         <col style="width:14%;" />
-        <col style="width:18%;" />
-        <col style="width:12%;" />
+        <col style="width:26%;" />
       </colgroup>
       <thead>
         <tr>
           <th>Production Method</th>
+          <th>Artifact</th>
           <th>URL</th>
           <th class="number-cell">Depth</th>
           <th class="label-cell">Label</th>
           <th>Note</th>
-          <th class="save-cell">Modify</th>
         </tr>
       </thead>
       <tbody>{''.join(rows)}</tbody>
@@ -2622,25 +2671,52 @@ if (revisionButton) {
 
 GROUND_TRUTH_SCRIPT = """
 <script>
-for (const button of document.querySelectorAll(".ground-truth-save")) {
+for (const button of document.querySelectorAll(".ground-truth-bulk-label")) {
+  button.addEventListener("click", () => {
+    for (const row of document.querySelectorAll("[data-ground-truth-row]")) {
+      const input = row.querySelector(`input[name="label-${row.dataset.groundTruthRow}"][value="${button.dataset.labelValue}"]`);
+      if (input) input.checked = true;
+    }
+  });
+}
+
+for (const button of document.querySelectorAll(".ground-truth-reset-labels")) {
+  button.addEventListener("click", () => {
+    for (const row of document.querySelectorAll("[data-ground-truth-row]")) {
+      for (const input of row.querySelectorAll(`input[name="label-${row.dataset.groundTruthRow}"]`)) {
+        input.checked = false;
+      }
+    }
+  });
+}
+
+for (const button of document.querySelectorAll(".ground-truth-update-all")) {
   button.addEventListener("click", async () => {
-    const row = button.closest("tr");
-    const status = row.querySelector(".ground-truth-status");
-    const selectedLabel = row.querySelector(`input[name="label-${button.dataset.rowIndex}"]:checked`);
-    const note = row.querySelector(`textarea[name="note-${button.dataset.rowIndex}"]`);
+    const status = document.querySelector(".ground-truth-status");
+    const updates = [];
+    for (const row of document.querySelectorAll("[data-ground-truth-row]")) {
+      const rowIndex = row.dataset.groundTruthRow;
+      const selectedLabel = row.querySelector(`input[name="label-${rowIndex}"]:checked`);
+      const note = row.querySelector(`textarea[name="note-${rowIndex}"]`);
+      updates.push({
+        row_index: rowIndex,
+        from_url: row.dataset.fromUrl,
+        to_url: row.dataset.toUrl,
+        label: selectedLabel ? selectedLabel.value : "",
+        note: note ? note.value : "",
+      });
+    }
     const payload = new URLSearchParams({
       ground_truth_csv: button.dataset.groundTruthCsv,
-      row_index: button.dataset.rowIndex,
       from_url: button.dataset.fromUrl,
-      to_url: button.dataset.toUrl,
-      label: selectedLabel ? selectedLabel.value : "",
-      note: note ? note.value : "",
+      updates: JSON.stringify(updates),
     });
+    button.disabled = true;
     try {
-      const response = await fetch("/api/ground-truth-label", { method: "POST", body: payload });
+      const response = await fetch("/api/ground-truth-labels", { method: "POST", body: payload });
       const data = await response.json();
       status.style.display = "inline-flex";
-      status.textContent = data.ok ? "Saved" : "Save failed";
+      status.textContent = data.ok ? "Updated" : "Update failed";
       status.classList.toggle("error", !data.ok);
       const progress = document.getElementById("ground-truth-progress");
       if (progress && data.ok) {
@@ -2648,8 +2724,10 @@ for (const button of document.querySelectorAll(".ground-truth-save")) {
       }
     } catch (error) {
       status.style.display = "inline-flex";
-      status.textContent = "Save failed";
+      status.textContent = "Update failed";
       status.classList.add("error");
+    } finally {
+      button.disabled = false;
     }
   });
 }

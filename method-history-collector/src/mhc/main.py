@@ -212,7 +212,7 @@ def main(argv: list[str] | None = None):
         type=int,
         default=15 * 60,
         help=(
-            "For method-scan, class-scan, and method-code, flush pending cache rows after this many seconds "
+            "For method-scan, class-scan, method-code, and method-callgraph, flush pending cache rows after this many seconds "
             "(default: 900; 0 or negative disables time-triggered intermediate flushes)."
         ),
     )
@@ -353,6 +353,8 @@ def main(argv: list[str] | None = None):
             "delete-tmp" in (args.merge_only or []),
             "delete-lock" in (args.merge_only or []),
             args.retry_errors,
+            args.merge_threshold,
+            args.merge_interval_seconds,
         )
     elif command in ("class-scan", "scan-class"):
         mhc.scan_class(

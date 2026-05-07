@@ -22,7 +22,7 @@ Options:
   --java-options          Optional JVM arguments for Java-backed commands, e.g. "-Xmx4g"
   --timeout-seconds       Optional method-history command timeout in seconds (default: 30*60 = 1800)
   --merge-threshold       History JSON merge threshold; for scan/code commands, pending rows before flushing (default: 10000; history negative disables final merge; scan/code 0/-1 disables threshold trigger)
-  --merge-interval-seconds Optional cache flush interval for method-scan, class-scan, and method-code (default: 900; 0 disables time trigger)
+  --merge-interval-seconds Optional cache flush interval for method-scan, class-scan, method-code, and method-callgraph (default: 900; 0 disables time trigger)
   --merge-only            Merge existing loose history JSON files without generating new history
   --retry-errors          Whether method-scan, class-scan, method-code, and method-callgraph retry previous __error_marker__ rows (default: true)
   --command-options       Optional extra arguments forwarded to the selected command
@@ -420,7 +420,7 @@ else
         --timeout-seconds "$TIMEOUT_SECONDS"
         --merge-threshold "$MERGE_THRESHOLD"
     )
-    if [[ "$COMMAND_NAME" == "method-scan" || "$COMMAND_NAME" == "class-scan" || "$COMMAND_NAME" == "method-code" ]]; then
+    if [[ "$COMMAND_NAME" == "method-scan" || "$COMMAND_NAME" == "class-scan" || "$COMMAND_NAME" == "method-code" || "$COMMAND_NAME" == "method-callgraph" ]]; then
         MHC_ARGS+=(--merge-interval-seconds "$MERGE_INTERVAL_SECONDS")
     fi
     if [[ -n "$TOOL_NAME" ]]; then

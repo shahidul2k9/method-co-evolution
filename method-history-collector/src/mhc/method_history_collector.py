@@ -180,6 +180,8 @@ class MethodHistoryCollector:
         merge_only_delete_tmp: bool = False,
         merge_only_delete_lock: bool = False,
         retry_errors: bool = True,
+        merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
+        merge_interval_seconds: int | None = None,
     ):
         self.generate_callgraph_per_file(
             repositories,
@@ -192,6 +194,8 @@ class MethodHistoryCollector:
             merge_only_delete_tmp,
             merge_only_delete_lock,
             retry_errors,
+            merge_threshold,
+            merge_interval_seconds,
         )
 
     def generate_callgraph_per_file(
@@ -206,6 +210,8 @@ class MethodHistoryCollector:
         merge_only_delete_tmp: bool = False,
         merge_only_delete_lock: bool = False,
         retry_errors: bool = True,
+        merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
+        merge_interval_seconds: int | None = None,
     ):
         try:
             if not merge_only:
@@ -226,6 +232,8 @@ class MethodHistoryCollector:
                 merge_only_delete_tmp,
                 merge_only_delete_lock,
                 retry_errors,
+                merge_threshold,
+                merge_interval_seconds,
             )
         except Exception as e:
             raise e

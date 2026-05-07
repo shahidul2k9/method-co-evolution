@@ -574,6 +574,46 @@ class HistoryRepository:
 
         return GroundTruthCandidateRow(csv_path=path, row_index=row_index, values=row)
 
+    def update_ground_truth_labels(
+        self,
+        csv_path: str | Path,
+        *,
+        updates: list[dict[str, str | int]],
+    ) -> list[GroundTruthCandidateRow]:
+        path = Path(csv_path).expanduser()
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = list(reader.fieldnames or [])
+            if "label" not in fieldnames:
+                fieldnames.append("label")
+            if "note" not in fieldnames:
+                fieldnames.append("note")
+            rows = [{key: value or "" for key, value in row.items()} for row in reader]
+
+        updated_rows: list[GroundTruthCandidateRow] = []
+        for update in updates:
+            row_index = int(update["row_index"])
+            normalized_label = str(update.get("label", "")).strip()
+            if normalized_label not in {"", "0", "1"}:
+                raise ValueError("Ground-truth label must be 1, 0, or blank")
+            if row_index < 0 or row_index >= len(rows):
+                raise ValueError("Ground-truth row index is out of range")
+
+            row = rows[row_index]
+            if row.get("from_url", "") != update.get("from_url", "") or row.get("to_url", "") != update.get("to_url", ""):
+                raise ValueError("Ground-truth row identity did not match the CSV row")
+
+            row["label"] = normalized_label
+            row["note"] = str(update.get("note", ""))
+            updated_rows.append(GroundTruthCandidateRow(csv_path=path, row_index=row_index, values=row))
+
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
+        return updated_rows
+
     def find_related_production_methods(
         self,
         *,

@@ -38,7 +38,7 @@ Provide one of the following selectors. `--project-index` may also be combined w
 
 ### Scan cache flushing
 
-`method-scan`, `class-scan`, and `method-code` buffer cache rows and flush them when either `--merge-threshold` pending rows accumulate or `--merge-interval-seconds` elapses. Defaults are `--merge-threshold 10000` and `--merge-interval-seconds 900`. For these scan/code commands, `--merge-threshold 0` or `--merge-threshold -1` disables only threshold-triggered intermediate flushing; final flushing and single-shard output finalization still run. Use `--merge-interval-seconds 0` to disable time-triggered intermediate flushing.
+`method-scan`, `class-scan`, `method-code`, and `method-callgraph` buffer cache rows and flush them when either `--merge-threshold` pending rows accumulate or `--merge-interval-seconds` elapses. Defaults are `--merge-threshold 10000` and `--merge-interval-seconds 900`. For these scan/code commands, `--merge-threshold 0` or `--merge-threshold -1` disables only threshold-triggered intermediate flushing; final flushing and single-shard output finalization still run. Use `--merge-interval-seconds 0` to disable time-triggered intermediate flushing.
 
 ## Commands
 
@@ -135,6 +135,8 @@ mhc method-callgraph \
 Use `--replace` to regenerate even if the CSV already exists.
 
 Previous `__error_marker__` cache rows are retried by default. Use `--retry-errors false` to skip files that already failed in a prior run.
+
+Use `--merge-threshold` and `--merge-interval-seconds` to control intermediate cache flushes. The flush happens as soon as either limit is reached.
 
 ---
 

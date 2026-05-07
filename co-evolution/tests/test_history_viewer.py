@@ -48,7 +48,17 @@ class TestHistoryViewer(unittest.TestCase):
         temp_dir = REPOSITORY_ROOT / "workspace" / "test" / "history-viewer" / directory_name
         temp_dir.mkdir(parents=True, exist_ok=True)
         csv_path = temp_dir / "sample-project.csv"
-        fieldnames = ["project", "from_name", "to_name", "from_url", "to_url", "to_fqs", "to_call_depth", "label"]
+        fieldnames = [
+            "project",
+            "from_name",
+            "to_name",
+            "from_url",
+            "to_url",
+            "to_fqs",
+            "to_artifact",
+            "to_call_depth",
+            "label",
+        ]
         rows = [
             {
                 "project": "sample-project",
@@ -57,6 +67,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
                 "to_url": "https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L20",
                 "to_fqs": "acme.Alpha.makeAlpha()",
+                "to_artifact": "production",
                 "to_call_depth": "",
                 "label": "1",
             },
@@ -67,6 +78,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
                 "to_url": "https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L30",
                 "to_fqs": "acme.Alpha.helperAlpha(java.lang.String)",
+                "to_artifact": "production",
                 "to_call_depth": "2",
                 "label": "",
             },
@@ -77,6 +89,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_url": "https://github.com/acme/sample/blob/abc/src/test/BetaTest.java#L11",
                 "to_url": "https://github.com/acme/sample/blob/abc/src/main/Beta.java#L22",
                 "to_fqs": "acme.Beta.makeBeta()",
+                "to_artifact": "production",
                 "to_call_depth": "1",
                 "label": "0",
             },
@@ -370,7 +383,12 @@ class TestHistoryViewer(unittest.TestCase):
             ),
         )
         self.assertIn("Called Production Methods", detail_body)
-        self.assertIn("<th class=\"save-cell\">Modify</th>", detail_body)
+        self.assertIn("<th>Artifact</th>", detail_body)
+        self.assertIn("production", detail_body)
+        self.assertIn("Update all", detail_body)
+        self.assertIn("All 0", detail_body)
+        self.assertIn("All 1", detail_body)
+        self.assertIn("Reset", detail_body)
         self.assertIn("<summary>Details</summary>", detail_body)
         self.assertIn("<td class=\"number-cell\">1</td>", detail_body)
         self.assertIn('value="0"', detail_body)
@@ -398,6 +416,41 @@ class TestHistoryViewer(unittest.TestCase):
         response = json.loads(body)
 
         self.assertTrue(response["ok"])
+        self.assertEqual(2, response["labelled_count"])
+        self.assertEqual(2, response["candidate_count"])
+        self.assertTrue(response["complete"])
+
+    def test_ground_truth_batch_update_api_returns_progress(self) -> None:
+        csv_path = self.write_ground_truth_fixture("ground-truth-batch-api")
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        candidates = self.repository.read_ground_truth_candidates(
+            csv_path,
+            from_url="https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+        )
+        payload = urlencode(
+            {
+                "ground_truth_csv": str(csv_path),
+                "from_url": candidates[0].values["from_url"],
+                "updates": json.dumps(
+                    [
+                        {
+                            "row_index": str(candidate.row_index),
+                            "from_url": candidate.values["from_url"],
+                            "to_url": candidate.values["to_url"],
+                            "label": "0",
+                            "note": f"batch note {index}",
+                        }
+                        for index, candidate in enumerate(candidates)
+                    ]
+                ),
+            }
+        ).encode("utf-8")
+
+        body = self.call_app(app, path="/api/ground-truth-labels", method="POST", body=payload)
+        response = json.loads(body)
+
+        self.assertTrue(response["ok"])
+        self.assertEqual(2, response["updated_count"])
         self.assertEqual(2, response["labelled_count"])
         self.assertEqual(2, response["candidate_count"])
         self.assertTrue(response["complete"])

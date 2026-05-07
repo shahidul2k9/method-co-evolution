@@ -9,6 +9,7 @@ from pandas import DataFrame
 
 import mhc.git_repository as git
 import mhc.util as util
+from mhc.method_scanner import DEFAULT_SCAN_MERGE_THRESHOLD, _should_flush_scan_cache
 from mhc.zip import file_lock, remove_empty_directory_tree, remove_file_if_exists
 
 CALLGRAPH_FLUSH_INTERVAL_SECONDS = 15 * 60
@@ -319,8 +320,12 @@ def execute_callgraph_per_file(
     merge_only_delete_tmp: bool = False,
     merge_only_delete_lock: bool = False,
     retry_errors: bool = True,
+    merge_threshold: int = DEFAULT_SCAN_MERGE_THRESHOLD,
+    merge_interval_seconds: int | None = None,
 ) -> None:
     CallGraphServiceImpl = None
+    if merge_interval_seconds is None:
+        merge_interval_seconds = CALLGRAPH_FLUSH_INTERVAL_SECONDS
     if not merge_only:
         from jpype import JClass
         CallGraphServiceImpl = JClass("rnd.method.parser.call.graph.service.CallGraphServiceImpl")
@@ -407,7 +412,12 @@ def execute_callgraph_per_file(
                 logging.warning(f"Callgraph failed for {file_without_base}: {e}")
                 pending_rows.append(_build_callgraph_error_marker(file_without_base, e))
 
-            if time.monotonic() - last_flush_time >= CALLGRAPH_FLUSH_INTERVAL_SECONDS:
+            if _should_flush_scan_cache(
+                len(pending_rows),
+                last_flush_time,
+                merge_threshold,
+                merge_interval_seconds,
+            ):
                 _flush_callgraph(cache_file, lock_path, pending_rows, retry_errors)
                 cached_files = _load_cached_callgraph_files(cache_file, retry_errors)
                 last_flush_time = time.monotonic()

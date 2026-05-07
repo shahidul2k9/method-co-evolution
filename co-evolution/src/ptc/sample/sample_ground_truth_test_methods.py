@@ -21,6 +21,7 @@ GROUND_TRUTH_COLUMNS = [
     "to_fqs",
     "to_tctracer_fqs",
     "to_testlinker_fqs",
+    "to_artifact",
     "to_call_depth",
     "label",
     "note",
@@ -43,7 +44,7 @@ REPOSITORY_FILE = _DATA / "repository" / "repository.csv"
 T2P_CANDIDATE_DIR = _DATA / "t2p-candidate-expanded"
 METHOD_DIR = _DATA / "method"
 
-OUTPUT_DIR = _DATA / "ground-truth" / "t2plinker-t2p-ground-truth"
+OUTPUT_DIR = _DATA / "t2p-ground-truth-labelling" / "t2plinker-t2p-ground-truth-labelling"
 
 
 def _load_grund_projects() -> list[str]:
@@ -66,6 +67,7 @@ def _test_caller_pool(project: str) -> tuple[set[str], pd.DataFrame, str | None]
         return (*empty, f"missing input file(s): {', '.join(missing)}")
 
     method_df = pd.read_csv(method_file, keep_default_na=False, na_filter=False, usecols=["url", "artifact"])
+    artifact_by_url = dict(zip(method_df["url"], method_df["artifact"]))
     test_urls = set(method_df[method_df["artifact"] == "test"]["url"])
     if not test_urls:
         return (*empty, "no methods marked artifact=test")
@@ -75,12 +77,21 @@ def _test_caller_pool(project: str) -> tuple[set[str], pd.DataFrame, str | None]
     if cg_test.empty:
         return (*empty, "no candidate rows whose from_url matches an artifact=test method")
 
+    cg_test["to_artifact"] = cg_test["to_url"].map(artifact_by_url).fillna("")
+
     return test_urls, cg_test, None
 
 
 def _build_output_df(cg_rows: pd.DataFrame, selected_urls: set[str]) -> pd.DataFrame:
     """Filter callgraph rows to selected test URLs and map to ground truth columns."""
     rows = cg_rows[cg_rows["from_url"].isin(selected_urls)].copy()
+    rows["_to_call_depth_sort"] = pd.to_numeric(rows["to_call_depth"], errors="coerce")
+    rows = (
+        rows.sort_values(["from_url", "to_url", "_to_call_depth_sort"], na_position="last")
+        .drop_duplicates(subset=["from_url", "to_url"], keep="first")
+        .drop(columns=["_to_call_depth_sort"])
+    )
+
     out = pd.DataFrame(index=rows.index)
     for gt_col in GROUND_TRUTH_COLUMNS:
         cg_col = gt_col  # column names align where present
@@ -88,6 +99,7 @@ def _build_output_df(cg_rows: pd.DataFrame, selected_urls: set[str]) -> pd.DataF
             out[gt_col] = rows[cg_col].values
         else:
             out[gt_col] = pd.NA
+    out.loc[out["to_artifact"].isin({"test", "test_util"}), "label"] = 0
     return out[GROUND_TRUTH_COLUMNS].reset_index(drop=True)
 
 
