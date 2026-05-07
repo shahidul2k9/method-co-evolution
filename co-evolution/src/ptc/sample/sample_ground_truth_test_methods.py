@@ -40,18 +40,17 @@ _CALLGRAPH_TO_GT = {
 _PROJECT_DIR = Path(PROJECT_DIRECTORY)
 _WORKSPACE = _PROJECT_DIR / "workspace"
 _DATA = _WORKSPACE / "data"
-_EVAL_DATA = (_PROJECT_DIR / "workspace-eval" / "data")
 REPOSITORY_FILE = _DATA / "repository" / "repository.csv"
-CALLGRAPH_DIR = _EVAL_DATA / "callgraph"
-METHOD_DIR = _EVAL_DATA / "method"
+T2P_CANDIDATE_DIR = _WORKSPACE / "t2p-candidate-expanded"
+METHOD_DIR = _WORKSPACE / "method"
 
-OUTPUT_DIR = _EVAL_DATA / "ground-truth" / "t2plinker-t2p-ground-truth"
+OUTPUT_DIR = _WORKSPACE / "ground-truth" / "t2plinker-t2p-ground-truth"
 
 
 def _load_grund_projects() -> list[str]:
     repo_df = pd.read_csv(REPOSITORY_FILE, keep_default_na=False, na_filter=False)
     projects = (
-        repo_df[repo_df["ref"].str.contains("", na=False)]["project"]
+        repo_df[repo_df["ref"].str.contains("grund", na=False)]["project"]
         .tolist()
     )
     return [p for p in projects if p not in EXCLUDE_PROJECTS]
@@ -59,7 +58,7 @@ def _load_grund_projects() -> list[str]:
 
 def _test_caller_pool(project: str) -> tuple[set[str], pd.DataFrame]:
     """Return (unique test from_urls, full callgraph df) for a project."""
-    cg_file = CALLGRAPH_DIR / f"{project}.csv"
+    cg_file = T2P_CANDIDATE_DIR / f"{project}.csv"
     method_file = METHOD_DIR / f"{project}.csv"
 
     empty = (set(), pd.DataFrame())
@@ -90,7 +89,12 @@ def _build_output_df(cg_rows: pd.DataFrame, selected_urls: set[str]) -> pd.DataF
     return out[GROUND_TRUTH_COLUMNS].reset_index(drop=True)
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    import argparse
+    parser = argparse.ArgumentParser(description="Sample test methods for ground truth labeling.")
+    parser.add_argument("--replace", action="store_true", help="Replace existing output files (default: skip).")
+    args = parser.parse_args(argv)
+
     projects = _load_grund_projects()
     print(f"grund projects (excl. okhttp): {len(projects)}")
 
@@ -99,14 +103,14 @@ def main() -> None:
         test_urls, cg_df = _test_caller_pool(project)
         unique_callers = cg_df["from_url"].nunique() if not cg_df.empty else 0
         if not test_urls or cg_df.empty:
-            print(f"  {project}: no test callers in callgraph — skipped")
+            print(f"  {project}: no test callers in t2p candidate expanded — skipped")
         else:
             pools.append((project, test_urls, cg_df))
             print(f"  {project}: {unique_callers} unique test callers available")
 
     n_eligible = len(pools)
     if n_eligible == 0:
-        print("No eligible projects found — check that CALLGRAPH_DIR and METHOD_DIR exist and contain data.")
+        print("No eligible projects found — check that T2P_CANDIDATE_DIR and METHOD_DIR exist and contain data.")
         return
     base_n = TOTAL_SAMPLE // n_eligible
     remainder = TOTAL_SAMPLE % n_eligible
@@ -118,6 +122,11 @@ def main() -> None:
     total_rows = 0
 
     for i, (project, test_urls, cg_df) in enumerate(pools):
+        out_file = OUTPUT_DIR / f"{project}.csv"
+        if not args.replace and out_file.exists():
+            print(f"  {project}: already exists — skipped (use --replace to overwrite)")
+            continue
+
         n = base_n + (1 if i < remainder else 0)
         unique_urls = list(cg_df["from_url"].unique())
 
@@ -130,7 +139,6 @@ def main() -> None:
             )
 
         output_df = _build_output_df(cg_df, selected)
-        out_file = OUTPUT_DIR / f"{project}.csv"
         output_df.to_csv(out_file, index=False)
         total_methods += len(selected)
         total_rows += len(output_df)
