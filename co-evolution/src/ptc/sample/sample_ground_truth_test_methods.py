@@ -4,10 +4,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from mhc.config import PROJECT_DIRECTORY
+from mhc.config import DATA_DIRECTORY, WORKSPACE_DIRECTORY
 
 RANDOM_SEED = 42
-TOTAL_SAMPLE = 400
+SAMPLE_PER_PROJECT = 20
 EXCLUDE_PROJECTS = {"okhttp"}
 GROUND_TRUTH_COLUMNS = [
     "project",
@@ -37,14 +37,13 @@ _CALLGRAPH_TO_GT = {
     "to_fqs": "to_fqs",
 }
 
-_PROJECT_DIR = Path(PROJECT_DIRECTORY)
-_WORKSPACE = _PROJECT_DIR / "workspace"
-_DATA = _WORKSPACE / "data"
+_WORKSPACE = Path(WORKSPACE_DIRECTORY)
+_DATA = Path(DATA_DIRECTORY)
 REPOSITORY_FILE = _DATA / "repository" / "repository.csv"
-T2P_CANDIDATE_DIR = _WORKSPACE / "t2p-candidate-expanded"
-METHOD_DIR = _WORKSPACE / "method"
+T2P_CANDIDATE_DIR = _DATA / "t2p-candidate-expanded"
+METHOD_DIR = _DATA / "method"
 
-OUTPUT_DIR = _WORKSPACE / "ground-truth" / "t2plinker-t2p-ground-truth"
+OUTPUT_DIR = _DATA / "ground-truth" / "t2plinker-t2p-ground-truth"
 
 
 def _load_grund_projects() -> list[str]:
@@ -56,24 +55,27 @@ def _load_grund_projects() -> list[str]:
     return [p for p in projects if p not in EXCLUDE_PROJECTS]
 
 
-def _test_caller_pool(project: str) -> tuple[set[str], pd.DataFrame]:
-    """Return (unique test from_urls, full callgraph df) for a project."""
+def _test_caller_pool(project: str) -> tuple[set[str], pd.DataFrame, str | None]:
+    """Return (unique test from_urls, matching callgraph df, skip reason) for a project."""
     cg_file = T2P_CANDIDATE_DIR / f"{project}.csv"
     method_file = METHOD_DIR / f"{project}.csv"
 
     empty = (set(), pd.DataFrame())
-    if not cg_file.exists() or not method_file.exists():
-        return empty
+    missing = [str(path) for path in (cg_file, method_file) if not path.exists()]
+    if missing:
+        return (*empty, f"missing input file(s): {', '.join(missing)}")
 
     method_df = pd.read_csv(method_file, keep_default_na=False, na_filter=False, usecols=["url", "artifact"])
     test_urls = set(method_df[method_df["artifact"] == "test"]["url"])
+    if not test_urls:
+        return (*empty, "no methods marked artifact=test")
 
     cg_df = pd.read_csv(cg_file, keep_default_na=False, na_filter=False)
     cg_test = cg_df[cg_df["from_url"].isin(test_urls)].copy()
     if cg_test.empty:
-        return empty
+        return (*empty, "no candidate rows whose from_url matches an artifact=test method")
 
-    return test_urls, cg_test
+    return test_urls, cg_test, None
 
 
 def _build_output_df(cg_rows: pd.DataFrame, selected_urls: set[str]) -> pd.DataFrame:
@@ -100,10 +102,10 @@ def main(argv: list[str] | None = None) -> None:
 
     pools: list[tuple[str, set[str], pd.DataFrame]] = []
     for project in projects:
-        test_urls, cg_df = _test_caller_pool(project)
+        test_urls, cg_df, skip_reason = _test_caller_pool(project)
         unique_callers = cg_df["from_url"].nunique() if not cg_df.empty else 0
-        if not test_urls or cg_df.empty:
-            print(f"  {project}: no test callers in t2p candidate expanded — skipped")
+        if skip_reason:
+            print(f"  {project}: {skip_reason} — skipped")
         else:
             pools.append((project, test_urls, cg_df))
             print(f"  {project}: {unique_callers} unique test callers available")
@@ -112,22 +114,20 @@ def main(argv: list[str] | None = None) -> None:
     if n_eligible == 0:
         print("No eligible projects found — check that T2P_CANDIDATE_DIR and METHOD_DIR exist and contain data.")
         return
-    base_n = TOTAL_SAMPLE // n_eligible
-    remainder = TOTAL_SAMPLE % n_eligible
     print(f"\nEligible projects: {n_eligible}")
-    print(f"Sample per project: {base_n} ({remainder} projects get {base_n + 1})")
+    print(f"Sample per project: {SAMPLE_PER_PROJECT}")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     total_methods = 0
     total_rows = 0
 
-    for i, (project, test_urls, cg_df) in enumerate(pools):
+    for project, test_urls, cg_df in pools:
         out_file = OUTPUT_DIR / f"{project}.csv"
         if not args.replace and out_file.exists():
             print(f"  {project}: already exists — skipped (use --replace to overwrite)")
             continue
 
-        n = base_n + (1 if i < remainder else 0)
+        n = SAMPLE_PER_PROJECT
         unique_urls = list(cg_df["from_url"].unique())
 
         if len(unique_urls) < n:
