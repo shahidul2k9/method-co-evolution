@@ -58,6 +58,7 @@ class TestHistoryViewer(unittest.TestCase):
             "to_artifact",
             "to_call_depth",
             "label",
+            "tags",
         ]
         rows = [
             {
@@ -70,6 +71,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "to_artifact": "production",
                 "to_call_depth": "",
                 "label": "1",
+                "tags": "#existing",
             },
             {
                 "project": "sample-project",
@@ -81,6 +83,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "to_artifact": "production",
                 "to_call_depth": "2",
                 "label": "",
+                "tags": "",
             },
             {
                 "project": "sample-project",
@@ -92,6 +95,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "to_artifact": "production",
                 "to_call_depth": "1",
                 "label": "0",
+                "tags": "#beta",
             },
         ]
         with csv_path.open("w", encoding="utf-8", newline="") as handle:
@@ -341,13 +345,13 @@ class TestHistoryViewer(unittest.TestCase):
         )
 
         self.assertEqual("0", updated.values["label"])
-        self.assertEqual("not production ground truth", updated.values["note"])
+        self.assertEqual("not production ground truth", updated.values["notes"])
         with csv_path.open("r", encoding="utf-8", newline="") as handle:
             rows = list(csv.DictReader(handle))
         self.assertEqual("1", rows[0]["label"])
         self.assertEqual("0", rows[1]["label"])
-        self.assertIn("note", rows[1])
-        self.assertEqual("not production ground truth", rows[1]["note"])
+        self.assertIn("notes", rows[1])
+        self.assertEqual("not production ground truth", rows[1]["notes"])
 
     def test_ground_truth_routes_render_project_method_and_detail_pages(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-routes")
@@ -385,10 +389,13 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("Called Production Methods", detail_body)
         self.assertIn("<th>Artifact</th>", detail_body)
         self.assertIn("production", detail_body)
-        self.assertIn("Update all", detail_body)
+        self.assertIn("Update All", detail_body)
         self.assertIn("All 0", detail_body)
         self.assertIn("All 1", detail_body)
         self.assertIn("Reset", detail_body)
+        self.assertIn("<th>Tags</th>", detail_body)
+        self.assertIn("<th>Notes</th>", detail_body)
+        self.assertIn("#existing", detail_body)
         self.assertIn("<summary>Details</summary>", detail_body)
         self.assertIn("<td class=\"number-cell\">1</td>", detail_body)
         self.assertIn('value="0"', detail_body)
@@ -408,7 +415,8 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_url": candidates[1].values["from_url"],
                 "to_url": candidates[1].values["to_url"],
                 "label": "1",
-                "note": "accepted",
+                "notes": "accepted",
+                "tags": "reviewed accepted",
             }
         ).encode("utf-8")
 
@@ -438,7 +446,8 @@ class TestHistoryViewer(unittest.TestCase):
                             "from_url": candidate.values["from_url"],
                             "to_url": candidate.values["to_url"],
                             "label": "0",
-                            "note": f"batch note {index}",
+                            "notes": f"batch note {index}",
+                            "tags": f"batch-{index}",
                         }
                         for index, candidate in enumerate(candidates)
                     ]

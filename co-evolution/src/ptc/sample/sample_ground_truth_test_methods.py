@@ -24,7 +24,8 @@ GROUND_TRUTH_COLUMNS = [
     "to_artifact",
     "to_call_depth",
     "label",
-    "note",
+    "tags",
+    "notes",
 ]
 
 # Mapping from callgraph columns to ground truth columns

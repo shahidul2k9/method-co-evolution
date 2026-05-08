@@ -152,6 +152,10 @@ button.secondary {
   gap: 8px;
   margin-top: 10px;
 }
+.ground-truth-detail-chips {
+  justify-content: space-between;
+  align-items: center;
+}
 .chip {
   display: inline-flex;
   align-items: center;
@@ -656,6 +660,10 @@ th {
   min-height: 62px;
   resize: vertical;
 }
+.compact-tags {
+  width: 100%;
+  min-width: 0;
+}
 .ground-truth-detail-table {
   table-layout: fixed;
 }
@@ -913,7 +921,8 @@ class HistoryViewerApp:
             from_url=payload["from_url"],
             to_url=payload["to_url"],
             label=payload.get("label", ""),
-            note=payload.get("note", ""),
+            notes=payload.get("notes", payload.get("note", "")),
+            tags=payload.get("tags", ""),
         )
         candidates = self.repository.read_ground_truth_candidates(
             payload["ground_truth_csv"],
@@ -923,7 +932,8 @@ class HistoryViewerApp:
             "ok": True,
             "row_index": updated.row_index,
             "label": updated.values.get("label", ""),
-            "note": updated.values.get("note", ""),
+            "notes": updated.notes,
+            "tags": updated.values.get("tags", ""),
             "labelled_count": sum(1 for candidate in candidates if candidate.is_labelled),
             "candidate_count": len(candidates),
             "complete": bool(candidates) and all(candidate.is_labelled for candidate in candidates),
@@ -1610,12 +1620,16 @@ class HistoryViewerApp:
     ) -> str:
         from_name = candidates[0].values.get("from_name", from_url) if candidates else from_url
         labelled_count = sum(1 for candidate in candidates if candidate.is_labelled)
+        tag_options = "\n".join(
+            f'<option value="{html.escape(tag)}"></option>' for tag in self.repository.collect_ground_truth_tags(ground_truth_csv)
+        )
         rows = []
         for candidate in candidates:
             values = candidate.values
             label_value = values.get("label", "").strip()
             depth_value = values.get("to_call_depth", "").strip() or "1"
-            note_name = f"note-{candidate.row_index}"
+            notes_name = f"notes-{candidate.row_index}"
+            tags_name = f"tags-{candidate.row_index}"
             artifact_value = values.get("to_artifact", "").strip()
             rows.append(
                 f"""
@@ -1640,12 +1654,13 @@ class HistoryViewerApp:
       <label><input type="radio" name="label-{candidate.row_index}" value="1" {"checked" if label_value == "1" else ""} /><span>1</span></label>
     </div>
   </td>
-  <td><textarea class="compact-note" name="{html.escape(note_name)}">{html.escape(values.get('note', ''))}</textarea></td>
+  <td><input class="compact-tags" name="{html.escape(tags_name)}" list="ground-truth-tag-suggestions" value="{html.escape(values.get('tags', ''))}" /></td>
+  <td><textarea class="compact-note" name="{html.escape(notes_name)}">{html.escape(candidate.notes)}</textarea></td>
 </tr>
 """
             )
         if not rows:
-            rows.append('<tr><td colspan="6"><span class="muted">No production candidates found for this test method.</span></td></tr>')
+            rows.append('<tr><td colspan="7"><span class="muted">No production candidates found for this test method.</span></td></tr>')
 
         back_url = f"/ground-truth?ground_truth_csv={quote(ground_truth_csv, safe='')}"
         return f"""
@@ -1654,7 +1669,7 @@ class HistoryViewerApp:
     <div class="eyebrow plain-eyebrow">Ground Truth Detail</div>
     <h1><a href="{html.escape(from_url)}" target="_blank" rel="noreferrer">{html.escape(from_name)}</a></h1>
     <p>Label each called production method as <span class="mono">1</span> or <span class="mono">0</span>, then save notes beside that method.</p>
-    <div class="chip-row">
+    <div class="chip-row ground-truth-detail-chips">
       <span class="chip" id="ground-truth-progress">{labelled_count} of {len(candidates)} labelled</span>
       <a class="chip" href="{html.escape(back_url)}">Back to test methods</a>
     </div>
@@ -1662,6 +1677,9 @@ class HistoryViewerApp:
 
   <section class="panel" style="margin-top:24px;">
     <div class="eyebrow plain-eyebrow">Called Production Methods</div>
+    <datalist id="ground-truth-tag-suggestions">
+      {tag_options}
+    </datalist>
     <div class="ground-truth-actions">
       <div class="ground-truth-bulk-actions">
         <button type="button" class="secondary ground-truth-bulk-label" data-label-value="0">All 0</button>
@@ -1675,12 +1693,13 @@ class HistoryViewerApp:
     </div>
     <table class="ground-truth-detail-table">
       <colgroup>
-        <col style="width:36%;" />
-        <col style="width:10%;" />
+        <col style="width:31%;" />
+        <col style="width:9%;" />
         <col style="width:7%;" />
         <col style="width:7%;" />
-        <col style="width:14%;" />
-        <col style="width:26%;" />
+        <col style="width:12%;" />
+        <col style="width:15%;" />
+        <col style="width:19%;" />
       </colgroup>
       <thead>
         <tr>
@@ -1689,7 +1708,8 @@ class HistoryViewerApp:
           <th>URL</th>
           <th class="number-cell">Depth</th>
           <th class="label-cell">Label</th>
-          <th>Note</th>
+          <th>Tags</th>
+          <th>Notes</th>
         </tr>
       </thead>
       <tbody>{''.join(rows)}</tbody>
@@ -2697,13 +2717,15 @@ for (const button of document.querySelectorAll(".ground-truth-update-all")) {
     for (const row of document.querySelectorAll("[data-ground-truth-row]")) {
       const rowIndex = row.dataset.groundTruthRow;
       const selectedLabel = row.querySelector(`input[name="label-${rowIndex}"]:checked`);
-      const note = row.querySelector(`textarea[name="note-${rowIndex}"]`);
+      const notes = row.querySelector(`textarea[name="notes-${rowIndex}"]`);
+      const tags = row.querySelector(`input[name="tags-${rowIndex}"]`);
       updates.push({
         row_index: rowIndex,
         from_url: row.dataset.fromUrl,
         to_url: row.dataset.toUrl,
         label: selectedLabel ? selectedLabel.value : "",
-        note: note ? note.value : "",
+        notes: notes ? notes.value : "",
+        tags: tags ? tags.value : "",
       });
     }
     const payload = new URLSearchParams({

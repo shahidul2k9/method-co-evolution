@@ -150,6 +150,10 @@ class GroundTruthCandidateRow:
     def is_labelled(self) -> bool:
         return self.values.get("label", "").strip() != ""
 
+    @property
+    def notes(self) -> str:
+        return self.values.get("notes", self.values.get("note", ""))
+
 
 def repository_root() -> Path:
     return Path(__file__).resolve().parents[4]
@@ -243,6 +247,39 @@ def infer_date_patterns(value: str) -> tuple[str, ...]:
             if combined not in ordered_patterns:
                 ordered_patterns.append(combined)
     return tuple(ordered_patterns)
+
+
+def normalize_ground_truth_fieldnames(fieldnames: list[str]) -> list[str]:
+    normalized: list[str] = []
+    for fieldname in fieldnames:
+        name = "notes" if fieldname == "note" else fieldname
+        if name and name not in normalized:
+            normalized.append(name)
+    return normalized
+
+
+def normalize_ground_truth_row(row: dict[str, str | None]) -> dict[str, str]:
+    normalized = {("notes" if key == "note" else key): value or "" for key, value in row.items() if key is not None}
+    if "notes" not in normalized:
+        normalized["notes"] = row.get("note") or ""
+    if "tags" not in normalized:
+        normalized["tags"] = ""
+    return normalized
+
+
+def parse_ground_truth_tags(value: str) -> list[str]:
+    tags: list[str] = []
+    for token in re.split(r"[\s,]+", value.strip()):
+        if not token:
+            continue
+        tag = token if token.startswith("#") else f"#{token}"
+        if tag not in tags:
+            tags.append(tag)
+    return tags
+
+
+def normalize_ground_truth_tags(value: str) -> str:
+    return " ".join(parse_ground_truth_tags(value))
 
 
 def parse_method_url(url: str) -> MethodUrlRef:
@@ -533,6 +570,15 @@ class HistoryRepository:
             candidates.append(GroundTruthCandidateRow(csv_path=path, row_index=row.row_index, values=row.values))
         return candidates
 
+    def collect_ground_truth_tags(self, csv_path: str | Path) -> list[str]:
+        path = Path(csv_path).expanduser()
+        tags: set[str] = set()
+        for candidate_path in sorted(path.parent.glob("*.csv")):
+            for row in self.read_sample_rows(candidate_path):
+                for tag in parse_ground_truth_tags(row.values.get("tags", "")):
+                    tags.add(tag)
+        return sorted(tags, key=str.lower)
+
     def update_ground_truth_label(
         self,
         csv_path: str | Path,
@@ -541,7 +587,9 @@ class HistoryRepository:
         from_url: str,
         to_url: str,
         label: str,
-        note: str,
+        notes: str = "",
+        tags: str = "",
+        note: str | None = None,
     ) -> GroundTruthCandidateRow:
         normalized_label = label.strip()
         if normalized_label not in {"", "0", "1"}:
@@ -550,12 +598,14 @@ class HistoryRepository:
         path = Path(csv_path).expanduser()
         with path.open("r", encoding="utf-8", newline="") as handle:
             reader = csv.DictReader(handle)
-            fieldnames = list(reader.fieldnames or [])
+            fieldnames = normalize_ground_truth_fieldnames(reader.fieldnames or [])
             if "label" not in fieldnames:
                 fieldnames.append("label")
-            if "note" not in fieldnames:
-                fieldnames.append("note")
-            rows = [{key: value or "" for key, value in row.items()} for row in reader]
+            if "notes" not in fieldnames:
+                fieldnames.append("notes")
+            if "tags" not in fieldnames:
+                fieldnames.append("tags")
+            rows = [normalize_ground_truth_row(row) for row in reader]
 
         if row_index < 0 or row_index >= len(rows):
             raise ValueError("Ground-truth row index is out of range")
@@ -565,7 +615,8 @@ class HistoryRepository:
             raise ValueError("Ground-truth row identity did not match the CSV row")
 
         row["label"] = normalized_label
-        row["note"] = note
+        row["notes"] = notes if note is None else note
+        row["tags"] = normalize_ground_truth_tags(tags)
 
         with path.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames)
@@ -583,12 +634,14 @@ class HistoryRepository:
         path = Path(csv_path).expanduser()
         with path.open("r", encoding="utf-8", newline="") as handle:
             reader = csv.DictReader(handle)
-            fieldnames = list(reader.fieldnames or [])
+            fieldnames = normalize_ground_truth_fieldnames(reader.fieldnames or [])
             if "label" not in fieldnames:
                 fieldnames.append("label")
-            if "note" not in fieldnames:
-                fieldnames.append("note")
-            rows = [{key: value or "" for key, value in row.items()} for row in reader]
+            if "notes" not in fieldnames:
+                fieldnames.append("notes")
+            if "tags" not in fieldnames:
+                fieldnames.append("tags")
+            rows = [normalize_ground_truth_row(row) for row in reader]
 
         updated_rows: list[GroundTruthCandidateRow] = []
         for update in updates:
@@ -604,7 +657,8 @@ class HistoryRepository:
                 raise ValueError("Ground-truth row identity did not match the CSV row")
 
             row["label"] = normalized_label
-            row["note"] = str(update.get("note", ""))
+            row["notes"] = str(update.get("notes", update.get("note", "")))
+            row["tags"] = normalize_ground_truth_tags(str(update.get("tags", "")))
             updated_rows.append(GroundTruthCandidateRow(csv_path=path, row_index=row_index, values=row))
 
         with path.open("w", encoding="utf-8", newline="") as handle:
