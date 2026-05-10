@@ -17,6 +17,7 @@ from ptc.drac.main import (
     _shift_task_groups,
     _output_exists,
     process,
+    process_with_details,
 )
 
 SAMPLE_INPUT = """\
@@ -192,14 +193,14 @@ class TestProcess(unittest.TestCase):
 
     def test_array_above_nibi_limit_is_shifted_and_job_shift_is_passed(self):
         text = self._input().replace("--array=22,29,36,47", "--array=50")
-        result = process(text, self.repo_df, replace=True, workspace_override=self.workspace)
+        result = process(text, repo_df=None, replace=True, workspace_override=None)
         self.assertIn("--array=0-199", result)
         self.assertIn("--job-index-shift 10000", result)
 
     def test_existing_job_shift_is_replaced_when_recomputed(self):
         text = self._input().replace("--array=22,29,36,47", "--array=50")
         text = f"{text} --job-index-shift 1"
-        result = process(text, self.repo_df, replace=True, workspace_override=self.workspace)
+        result = process(text, repo_df=None, replace=True, workspace_override=None)
         self.assertIn("--array=0-199", result)
         self.assertIn("--job-index-shift 10000", result)
         self.assertEqual(result.count("--job-index-shift"), 1)
@@ -250,6 +251,42 @@ class TestProcess(unittest.TestCase):
         path.touch()
         result = process(self._input(), repo_df=None, replace=False, workspace_override=None)
         self.assertIn("--array=4400-4599,5800-5999,7200-7399,9400-9599", result)
+
+    def test_out_of_bounds_project_indices_are_truncated_before_filtering(self):
+        text = self._input().replace("--array=22,29,36,47", "--array=45-60")
+        result = process_with_details(text, self.repo_df, replace=False, workspace_override=self.workspace)
+        self.assertIn("--array=9000-9999", result.command)
+        self.assertTrue(result.repository_truncated)
+        self.assertEqual(result.repository_valid_index_ranges, [(45, 49)])
+        self.assertEqual(result.repository_excluded_index_ranges, [(50, 60)])
+
+    def test_existing_outputs_are_reported_separately_from_limit_exclusions(self):
+        text = self._input().replace("--array=22,29,36,47", "--array=0-60")
+        for idx in [1, 2, 50]:
+            path = Path(self.workspace, "data", "callgraph", f"project-{idx}.csv")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+        result = process_with_details(text, self.repo_df, replace=False, workspace_override=self.workspace)
+        self.assertEqual(result.completed_excluded_index_ranges, [(1, 2)])
+        self.assertEqual(result.repository_excluded_index_ranges, [(50, 60)])
+        self.assertEqual(result.cluster_limit_excluded_index_ranges, [])
+
+    def test_too_wide_task_range_is_truncated_to_nibi_limit(self):
+        text = self._input().replace("--array=22,29,36,47", "--array=0-100")
+        result = process_with_details(text, repo_df=None, replace=True, workspace_override=None)
+        self.assertIn("--array=0-9999", result.command)
+        self.assertTrue(result.task_truncated)
+        self.assertEqual(result.final_logical_task_groups, [(0, 9999)])
+        self.assertEqual(result.job_index_shift, 0)
+
+    def test_shifted_too_wide_task_range_is_truncated_to_nibi_limit(self):
+        text = self._input().replace("--array=22,29,36,47", "--array=50-100")
+        result = process_with_details(text, repo_df=None, replace=True, workspace_override=None)
+        self.assertIn("--array=0-9999", result.command)
+        self.assertIn("--job-index-shift 10000", result.command)
+        self.assertTrue(result.task_truncated)
+        self.assertEqual(result.final_logical_task_groups, [(10000, 19999)])
+        self.assertEqual(result.job_index_shift, 10000)
 
     def test_all_existing_raises(self):
         for idx in [22, 29, 36, 47]:
