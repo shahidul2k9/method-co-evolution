@@ -38,6 +38,7 @@ Options:
   --projects              Comma-separated project list for the array job
   --project-index         Python-style project index or slice from repository.csv, for example 10, -1, 10:20, :10, 10:, or :
   --shards                Total method-history, method-scan, class-scan, method-code, or method-callgraph shards per project (default: 1)
+  --job-index-shift       Offset added to SLURM_ARRAY_TASK_ID before deriving project/shard indexes (default: 0)
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
   --top-k                 TestLinker top-k invocation count (default: 1)
   --workspace-directory       Relative or absolute cache directory (default: .cache)
@@ -76,6 +77,7 @@ PROJECT_NAME=""
 PROJECTS_CSV=""
 PROJECT_INDEX=""
 SHARDS="1"
+JOB_INDEX_SHIFT="0"
 INPUT_KIND="t2p"
 TOP_K="1"
 WORKSPACE_DIRECTORY="$PROJECT_DIRECTORY/workspace"
@@ -181,6 +183,10 @@ while [[ $# -gt 0 ]]; do
             SHARDS="$2"
             shift 2
             ;;
+        --job-index-shift)
+            JOB_INDEX_SHIFT="$2"
+            shift 2
+            ;;
         --input-kind)
             INPUT_KIND="$2"
             shift 2
@@ -255,6 +261,12 @@ fi
 
 if ! [[ "$SHARDS" =~ ^[0-9]+$ ]] || [[ "$SHARDS" -le 0 ]]; then
     echo "Error: --shards must be a positive integer."
+    usage
+    exit 1
+fi
+
+if ! [[ "$JOB_INDEX_SHIFT" =~ ^[0-9]+$ ]]; then
+    echo "Error: --job-index-shift must be a non-negative integer."
     usage
     exit 1
 fi
@@ -345,27 +357,35 @@ fi
 
 PROJECT=""
 SHARD="1"
+ARRAY_TASK_ID=""
 
 if [[ "$COMMAND_NAME" != "index" ]]; then
+    if [[ -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
+        if ! [[ "$SLURM_ARRAY_TASK_ID" =~ ^[0-9]+$ ]]; then
+            echo "Invalid SLURM_ARRAY_TASK_ID: ${SLURM_ARRAY_TASK_ID:-unset}"
+            exit 1
+        fi
+        ARRAY_TASK_ID=$((SLURM_ARRAY_TASK_ID + JOB_INDEX_SHIFT))
+    fi
     if [[ "$SHARDS" -gt 1 ]]; then
-        if [[ -z "${SLURM_ARRAY_TASK_ID:-}" || ! "$SLURM_ARRAY_TASK_ID" =~ ^[0-9]+$ ]]; then
+        if [[ -z "$ARRAY_TASK_ID" ]]; then
             echo "Invalid SLURM_ARRAY_TASK_ID for shard mode: ${SLURM_ARRAY_TASK_ID:-unset}"
             exit 1
         fi
-        PROJECT_INDEX=$((SLURM_ARRAY_TASK_ID / SHARDS))
-        SHARD=$((SLURM_ARRAY_TASK_ID % SHARDS + 1))
+        PROJECT_INDEX=$((ARRAY_TASK_ID / SHARDS))
+        SHARD=$((ARRAY_TASK_ID % SHARDS + 1))
     elif [[ -n "$PROJECT_NAME" ]]; then
         PROJECT="$PROJECT_NAME"
     elif [[ -n "$PROJECTS_CSV" ]]; then
         IFS=',' read -r -a PROJECTS <<< "$PROJECTS_CSV"
-        if [[ -z "${SLURM_ARRAY_TASK_ID:-}" || $SLURM_ARRAY_TASK_ID -le 0 || $SLURM_ARRAY_TASK_ID -gt ${#PROJECTS[@]} ]]; then
+        if [[ -z "$ARRAY_TASK_ID" || $ARRAY_TASK_ID -le 0 || $ARRAY_TASK_ID -gt ${#PROJECTS[@]} ]]; then
             echo "Invalid SLURM_ARRAY_TASK_ID: ${SLURM_ARRAY_TASK_ID:-unset}"
             exit 1
         fi
-        IDX=$((SLURM_ARRAY_TASK_ID - 1))
+        IDX=$((ARRAY_TASK_ID - 1))
         PROJECT=${PROJECTS[$IDX]}
-    elif [[ -z "$PROJECT_INDEX" && -n "${SLURM_ARRAY_TASK_ID:-}" ]]; then
-        PROJECT_INDEX="$SLURM_ARRAY_TASK_ID"
+    elif [[ -z "$PROJECT_INDEX" && -n "$ARRAY_TASK_ID" ]]; then
+        PROJECT_INDEX="$ARRAY_TASK_ID"
     fi
 fi
 

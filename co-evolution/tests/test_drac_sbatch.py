@@ -12,10 +12,13 @@ if str(SRC_DIRECTORY) not in sys.path:
 from ptc.drac.main import (
     _parse_index_ranges,
     _expand_indices,
+    _format_shell_command,
     _group_consecutive,
     _indices_to_task_ranges,
+    _shift_task_groups,
     _output_exists,
     process,
+    process_with_details,
 )
 
 SAMPLE_INPUT = """\
@@ -80,6 +83,20 @@ class TestGroupConsecutive(unittest.TestCase):
         self.assertEqual(_group_consecutive([]), [])
 
 
+class TestFormatShellCommand(unittest.TestCase):
+    def test_formats_copyable_multiline_command(self):
+        command = 'sbatch --java-options "-Xmx7g" scripts/job.sh --command call-graph'
+        self.assertEqual(
+            _format_shell_command(command),
+            "sbatch \\\n"
+            "  --java-options \\\n"
+            "  -Xmx7g \\\n"
+            "  scripts/job.sh \\\n"
+            "  --command \\\n"
+            "  call-graph",
+        )
+
+
 class TestIndicesToTaskRanges(unittest.TestCase):
     def test_single_indices(self):
         groups = [(22, 22), (29, 29), (36, 36), (47, 47)]
@@ -99,6 +116,22 @@ class TestIndicesToTaskRanges(unittest.TestCase):
             _indices_to_task_ranges(groups, 200),
             ["0-199", "2000-3199", "4400-4599"],
         )
+
+
+class TestShiftTaskGroups(unittest.TestCase):
+    def test_no_shift_when_max_within_nibi_limit(self):
+        task_groups, shift = _shift_task_groups([(4400, 4599), (9800, 9999)])
+        self.assertEqual(task_groups, [(4400, 4599), (9800, 9999)])
+        self.assertEqual(shift, 0)
+
+    def test_shift_when_max_exceeds_nibi_limit(self):
+        task_groups, shift = _shift_task_groups([(10000, 10199)])
+        self.assertEqual(task_groups, [(0, 199)])
+        self.assertEqual(shift, 10000)
+
+    def test_raise_when_shifted_span_still_exceeds_nibi_limit(self):
+        with self.assertRaises(ValueError):
+            _shift_task_groups([(4400, 4599), (16000, 16199)])
 
 
 class TestOutputExists(unittest.TestCase):
@@ -171,6 +204,27 @@ class TestProcess(unittest.TestCase):
     def test_indices_expanded_to_ranges(self):
         result = process(self._input(), self.repo_df, replace=True, workspace_override=self.workspace)
         self.assertIn("--array=4400-4599,5800-5999,7200-7399,9400-9599", result)
+        self.assertNotIn("--job-index-shift", result)
+
+    def test_array_above_nibi_limit_is_shifted_and_job_shift_is_passed(self):
+        text = self._input().replace("--array=22,29,36,47", "--array=50")
+        result = process(text, repo_df=None, replace=True, workspace_override=None)
+        self.assertIn("--array=0-199", result)
+        self.assertIn("--job-index-shift 10000", result)
+
+    def test_existing_job_shift_is_replaced_when_recomputed(self):
+        text = self._input().replace("--array=22,29,36,47", "--array=50")
+        text = f"{text} --job-index-shift 1"
+        result = process(text, repo_df=None, replace=True, workspace_override=None)
+        self.assertIn("--array=0-199", result)
+        self.assertIn("--job-index-shift 10000", result)
+        self.assertEqual(result.count("--job-index-shift"), 1)
+
+    def test_existing_job_shift_is_removed_when_not_needed(self):
+        text = f"{self._input()} --job-index-shift 1"
+        result = process(text, self.repo_df, replace=True, workspace_override=self.workspace)
+        self.assertIn("--array=4400-4599,5800-5999,7200-7399,9400-9599", result)
+        self.assertNotIn("--job-index-shift", result)
 
     def test_no_existing_files_keeps_all(self):
         result = process(self._input(), self.repo_df, replace=False, workspace_override=self.workspace)
@@ -212,6 +266,42 @@ class TestProcess(unittest.TestCase):
         path.touch()
         result = process(self._input(), repo_df=None, replace=False, workspace_override=None)
         self.assertIn("--array=4400-4599,5800-5999,7200-7399,9400-9599", result)
+
+    def test_out_of_bounds_project_indices_are_truncated_before_filtering(self):
+        text = self._input().replace("--array=22,29,36,47", "--array=45-60")
+        result = process_with_details(text, self.repo_df, replace=False, workspace_override=self.workspace)
+        self.assertIn("--array=9000-9999", result.command)
+        self.assertTrue(result.repository_truncated)
+        self.assertEqual(result.repository_valid_index_ranges, [(45, 49)])
+        self.assertEqual(result.repository_excluded_index_ranges, [(50, 60)])
+
+    def test_existing_outputs_are_reported_separately_from_limit_exclusions(self):
+        text = self._input().replace("--array=22,29,36,47", "--array=0-60")
+        for idx in [1, 2, 50]:
+            path = Path(self.workspace, "data", "callgraph", f"project-{idx}.csv")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.touch()
+        result = process_with_details(text, self.repo_df, replace=False, workspace_override=self.workspace)
+        self.assertEqual(result.completed_excluded_index_ranges, [(1, 2)])
+        self.assertEqual(result.repository_excluded_index_ranges, [(50, 60)])
+        self.assertEqual(result.cluster_limit_excluded_index_ranges, [])
+
+    def test_too_wide_task_range_is_truncated_to_nibi_limit(self):
+        text = self._input().replace("--array=22,29,36,47", "--array=0-100")
+        result = process_with_details(text, repo_df=None, replace=True, workspace_override=None)
+        self.assertIn("--array=0-9999", result.command)
+        self.assertTrue(result.task_truncated)
+        self.assertEqual(result.final_logical_task_groups, [(0, 9999)])
+        self.assertEqual(result.job_index_shift, 0)
+
+    def test_shifted_too_wide_task_range_is_truncated_to_nibi_limit(self):
+        text = self._input().replace("--array=22,29,36,47", "--array=50-100")
+        result = process_with_details(text, repo_df=None, replace=True, workspace_override=None)
+        self.assertIn("--array=0-9999", result.command)
+        self.assertIn("--job-index-shift 10000", result.command)
+        self.assertTrue(result.task_truncated)
+        self.assertEqual(result.final_logical_task_groups, [(10000, 19999)])
+        self.assertEqual(result.job_index_shift, 10000)
 
     def test_all_existing_raises(self):
         for idx in [22, 29, 36, 47]:
