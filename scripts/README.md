@@ -43,6 +43,8 @@ In `method-history`, `method-scan`, `class-scan`, `method-code`, or `method-call
 
 On clusters where Slurm array indexes must stay within `0-9999`, pass `--job-index-shift N` when the submitted array has been shifted down. `job.sh` adds this offset back before deriving the project index and shard. The `ptc-sbatch` helper emits this option automatically only when the submitted array must be shifted, and truncates oversized project/task ranges to the largest prefix that fits. It prints the project indexes included in the final command, requested project indexes not included, converted task indexes, truncated ranges, and final sbatch command.
 
+When redirecting `ptc-sbatch` output, the command is written as a shell-safe multiline command with `\` continuations, so the generated file can be reviewed with `cat` or submitted with `bash workspace/cmd.txt`.
+
 ### Execution modes
 
 **Project-array mode** — one Slurm array task per project:

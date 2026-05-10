@@ -12,6 +12,7 @@ if str(SRC_DIRECTORY) not in sys.path:
 from ptc.drac.main import (
     _parse_index_ranges,
     _expand_indices,
+    _format_shell_command,
     _group_consecutive,
     _indices_to_task_ranges,
     _shift_task_groups,
@@ -80,6 +81,20 @@ class TestGroupConsecutive(unittest.TestCase):
 
     def test_empty(self):
         self.assertEqual(_group_consecutive([]), [])
+
+
+class TestFormatShellCommand(unittest.TestCase):
+    def test_formats_copyable_multiline_command(self):
+        command = 'sbatch --java-options "-Xmx7g" scripts/job.sh --command call-graph'
+        self.assertEqual(
+            _format_shell_command(command),
+            "sbatch \\\n"
+            "  --java-options \\\n"
+            "  -Xmx7g \\\n"
+            "  scripts/job.sh \\\n"
+            "  --command \\\n"
+            "  call-graph",
+        )
 
 
 class TestIndicesToTaskRanges(unittest.TestCase):

@@ -1,5 +1,6 @@
 import argparse
 import re
+import shlex
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -213,6 +214,16 @@ def _set_job_index_shift(text: str, shift: int) -> str:
     return f"{text} {replacement}"
 
 
+def _format_shell_command(text: str) -> str:
+    parts = shlex.split(text)
+    if not parts:
+        return ""
+    quoted_parts = [shlex.quote(part) for part in parts]
+    if len(quoted_parts) == 1:
+        return quoted_parts[0]
+    return f" \\\n  ".join(quoted_parts)
+
+
 def _load_repository(workspace_dir: str | Path) -> pd.DataFrame:
     path = Path(workspace_dir) / "data" / "repository" / "repository.csv"
     return pd.read_csv(path)
@@ -400,7 +411,7 @@ def main() -> None:
         # --workspace-directory was consumed by our parser; restore it so the output is valid.
         if args.workspace_directory is not None and "--workspace-directory" not in parts:
             parts += ["--workspace-directory", args.workspace_directory]
-        text = " ".join(parts)
+        text = shlex.join(parts)
     elif args.input is not None:
         text = Path(args.input).read_text()
     else:
@@ -410,7 +421,7 @@ def main() -> None:
     repo_df = _load_repository(workspace) if workspace is not None else None
     result = process_with_details(text, repo_df, replace=args.replace, workspace_override=args.workspace_directory)
     _print_summary(result)
-    print(result.command, end="\n")
+    print(_format_shell_command(result.command), end="\n")
 
 
 if __name__ == "__main__":
