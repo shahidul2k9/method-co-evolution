@@ -31,8 +31,8 @@ class TestExpandT2PCandidates(unittest.TestCase):
         )
         method_df = pd.DataFrame(
             [
-                {"url": "test://A.testCopy", "artifact": "test"},
-                {"url": "prod://A.copy", "artifact": "production"},
+                {"url": "test://A.testCopy", "artifact": "#test-code #test-unit #test-method"},
+                {"url": "prod://A.copy", "artifact": "#production-code"},
             ]
         )
 
@@ -66,9 +66,9 @@ class TestExpandT2PCandidates(unittest.TestCase):
         )
         method_df = pd.DataFrame(
             [
-                {"url": "test://A.testCopy", "artifact": "test"},
-                {"url": "test-util://A.helper", "artifact": "test_util"},
-                {"url": "prod://A.copy", "artifact": "production"},
+                {"url": "test://A.testCopy", "artifact": "#test-code #test-unit #test-method"},
+                {"url": "test-util://A.helper", "artifact": "#test-code #test-unit #test-utility"},
+                {"url": "prod://A.copy", "artifact": "#production-code"},
             ]
         )
 
@@ -125,9 +125,9 @@ class TestExpandT2PCandidates(unittest.TestCase):
         )
         method_df = pd.DataFrame(
             [
-                {"url": "test://A.testPlugins", "artifact": "test"},
-                {"url": "test-util://A.findPlugin", "artifact": "test_util"},
-                {"url": "prod://Plugin.getShortName", "artifact": "production"},
+                {"url": "test://A.testPlugins", "artifact": "#test-code #test-unit #test-method"},
+                {"url": "test-util://A.findPlugin", "artifact": "#test-code #test-unit #test-utility"},
+                {"url": "prod://Plugin.getShortName", "artifact": "#production-code"},
             ]
         )
 

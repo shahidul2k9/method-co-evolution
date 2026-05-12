@@ -20,7 +20,7 @@ class FakeJavaMethod:
         method_name = Path(file_path).stem
         self.name = f"{method_name}_method"
         self.url = util.format_to_git_url(repository_url, commit_hash, file_path, 1)
-        self.artifact = "production"
+        self.artifact = "#production-code"
         self.start_line = 1
         self.end_line = 2
         self.expression = "method"
@@ -136,6 +136,88 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             self.assertFalse(ms._should_flush_scan_cache(10, now, 0, 0))
             self.assertFalse(ms._should_flush_scan_cache(10, now, -1, -1))
 
+    def test_finalize_method_scan_outputs_removes_float_suffix_from_integer_columns(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            cache_file = root / ".method" / "demo-project.csv"
+            output_file = root / "data" / "method" / "demo-project.csv"
+            error_file = root / ".method-error" / "demo-project.csv"
+            cache_file.parent.mkdir(parents=True)
+            pd.DataFrame(
+                [
+                    {
+                        **{col: None for col in ms.METHOD_SCAN_CACHE_COLUMNS},
+                        "project": "demo-project",
+                        "name": "run",
+                        "url": "https://github.com/example/demo/blob/abc123/src/Alpha.java#L72",
+                        "artifact": "#production-code",
+                        "start_line": "72.0",
+                        "end_line": 80.0,
+                        "expression": "method",
+                        "file": "src/Alpha.java",
+                        "abstract": "0.0",
+                        "hash": "abc123",
+                    },
+                    ms._build_scan_marker_row("demo-project", "src/Alpha.java", "abc123"),
+                ],
+                columns=ms.METHOD_SCAN_CACHE_COLUMNS,
+            ).to_csv(cache_file, index=False)
+
+            merged = ms._finalize_method_scan_outputs(
+                str(cache_file),
+                str(output_file),
+                str(error_file),
+                {"src/Alpha.java"},
+            )
+
+            self.assertTrue(merged)
+            output_text = output_file.read_text(encoding="utf-8")
+            self.assertNotIn("72.0", output_text)
+            self.assertNotIn("80.0", output_text)
+            output_df = pd.read_csv(output_file, dtype=str, keep_default_na=False, na_filter=False)
+            self.assertEqual("72", output_df.loc[0, "start_line"])
+            self.assertEqual("80", output_df.loc[0, "end_line"])
+            self.assertEqual("0", output_df.loc[0, "abstract"])
+
+    def test_finalize_method_code_outputs_removes_float_suffix_from_integer_columns(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            cache_file = root / ".method-code" / "demo-project.csv"
+            output_file = root / "data" / "method-code" / "demo-project.csv"
+            error_file = root / ".method-code-error" / "demo-project.csv"
+            cache_file.parent.mkdir(parents=True)
+            pd.DataFrame(
+                [
+                    {
+                        "project": "demo-project",
+                        "name": "run",
+                        "url": "https://github.com/example/demo/blob/abc123/src/Alpha.java#L72",
+                        "artifact": "#production-code",
+                        "start_line": "72.0",
+                        "end_line": 80.0,
+                        "code": "void run() {}",
+                        ms.METHOD_CODE_KEY_COLUMN: "key",
+                        ms.METHOD_CODE_FLAG_COLUMN: None,
+                        ms.METHOD_CODE_ERROR_COLUMN: None,
+                    }
+                ],
+                columns=ms.METHOD_CODE_CACHE_COLUMNS,
+            ).to_csv(cache_file, index=False)
+
+            merged = ms._finalize_method_code_outputs(
+                str(cache_file),
+                str(output_file),
+                str(error_file),
+                {"key"},
+            )
+
+            self.assertTrue(merged)
+            output_text = output_file.read_text(encoding="utf-8")
+            self.assertNotIn("72.0", output_text)
+            output_df = pd.read_csv(output_file, dtype=str, keep_default_na=False, na_filter=False)
+            self.assertEqual("72", output_df.loc[0, "start_line"])
+            self.assertEqual("80", output_df.loc[0, "end_line"])
+
     def _repository_df(self) -> pd.DataFrame:
         return pd.DataFrame(
             [
@@ -202,7 +284,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                         "project": "demo-project",
                         "name": "Alpha_method",
                         "url": "https://github.com/example/demo-project/blob/abc123/src/Alpha.java#L1",
-                        "artifact": "production",
+                        "artifact": "#production-code",
                         "start_line": 1,
                         "end_line": 2,
                         "expression": "method",

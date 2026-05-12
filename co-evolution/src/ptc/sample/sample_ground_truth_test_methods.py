@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+from mhc.artifacts import is_test_method, is_test_code
 
 from mhc.config import DATA_DIRECTORY, WORKSPACE_DIRECTORY
 
@@ -69,14 +70,14 @@ def _test_caller_pool(project: str) -> tuple[set[str], pd.DataFrame, str | None]
 
     method_df = pd.read_csv(method_file, keep_default_na=False, na_filter=False, usecols=["url", "artifact"])
     artifact_by_url = dict(zip(method_df["url"], method_df["artifact"]))
-    test_urls = set(method_df[method_df["artifact"] == "test"]["url"])
+    test_urls = set(method_df[method_df["artifact"].map(is_test_method)]["url"])
     if not test_urls:
-        return (*empty, "no methods marked artifact=test")
+        return (*empty, "no methods marked artifact=#test-method")
 
     cg_df = pd.read_csv(cg_file, keep_default_na=False, na_filter=False)
     cg_test = cg_df[cg_df["from_url"].isin(test_urls)].copy()
     if cg_test.empty:
-        return (*empty, "no candidate rows whose from_url matches an artifact=test method")
+        return (*empty, "no candidate rows whose from_url matches an artifact=#test-method method")
 
     cg_test["to_artifact"] = cg_test["to_url"].map(artifact_by_url).fillna("")
 
@@ -100,7 +101,7 @@ def _build_output_df(cg_rows: pd.DataFrame, selected_urls: set[str]) -> pd.DataF
             out[gt_col] = rows[cg_col].values
         else:
             out[gt_col] = pd.NA
-    out.loc[out["to_artifact"].isin({"test", "test_util"}), "label"] = 0
+    out.loc[out["to_artifact"].map(is_test_code), "label"] = 0
     return out[GROUND_TRUTH_COLUMNS].reset_index(drop=True)
 
 

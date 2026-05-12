@@ -56,6 +56,8 @@ mhc method-scan \
     --project "checkstyle"
 ```
 
+Pass `--artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection"` to use hierarchical artifact tags such as `#test-code #test-unit #test-method` and `#production-code`.
+
 Use `--replace` to regenerate the CSV even if it already exists.
 
 If `<workspace-directory>/config/logback.xml` exists it is passed to the JVM automatically as `-Dlogback.configurationFile=...`.
@@ -63,6 +65,27 @@ If `<workspace-directory>/config/logback.xml` exists it is passed to the JVM aut
 Previous `__error_marker__` cache rows are retried by default. Use `--retry-errors false` to treat those prior failures as already attempted and skip them on the next run.
 
 Use `--merge-threshold` and `--merge-interval-seconds` to control intermediate cache flushes. The flush happens as soon as either limit is reached.
+
+---
+
+### `mhc artifact-update`
+
+Updates existing `data/method/{project}.csv` and `data/class/{project}.csv` artifact columns without regenerating callgraphs.
+
+```bash
+mhc artifact-update \
+    --workspace-directory "workspace" \
+    --repository-directory "workspace/repository" \
+    --data-directory "workspace/data" \
+    --jar-directory "workspace/jar" \
+    --artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection" \
+    --project "jgit" \
+    --target method,class \
+    --backup
+```
+
+Artifact update always uses the Java artifact detector to parse method declarations and detect `#test-method`, `#test-fixture`, and `#test-utility` roles.
+With `--backup`, the previous CSV is saved beside the original as `bk_<project>.csv`.
 
 ---
 
@@ -140,12 +163,12 @@ Use `--merge-threshold` and `--merge-interval-seconds` to control intermediate c
 
 ---
 
-### `mhc complexity-analyzer`
+### `mhc method-complexity`
 
 Computes cyclomatic complexity for each method.
 
 ```bash
-mhc complexity-analyzer \
+mhc method-complexity \
     --workspace-directory "workspace" \
     --repository-directory "workspace/repository" \
     --data-directory "workspace/data" \

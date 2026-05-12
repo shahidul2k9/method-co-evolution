@@ -1,6 +1,7 @@
 from mhc.method_history_jar_runner import *
 from mhc.callgraph import execute_callgraph_per_file
 from mhc.class_scanner import scan_class as _scan_class
+from mhc.artifact_update import update_artifacts as _update_artifacts
 from mhc.complexity_analyzer import ComplexityAnalyzer
 from pathlib import Path
 import os
@@ -54,6 +55,7 @@ class MethodHistoryCollector:
         retry_errors: bool = True,
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_interval_seconds: int | None = None,
+        artifact_config_path: str | None = None,
     ):
         try:
             if not merge_only:
@@ -76,6 +78,7 @@ class MethodHistoryCollector:
                 retry_errors,
                 merge_threshold,
                 merge_interval_seconds,
+                artifact_config_path,
             )
         except Exception as e:
             raise e
@@ -97,6 +100,7 @@ class MethodHistoryCollector:
         retry_errors: bool = True,
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_interval_seconds: int | None = None,
+        artifact_config_path: str | None = None,
     ):
         try:
             if not merge_only:
@@ -119,6 +123,7 @@ class MethodHistoryCollector:
                 retry_errors,
                 merge_threshold,
                 merge_interval_seconds,
+                artifact_config_path,
             )
         except Exception as e:
             raise e
@@ -182,6 +187,7 @@ class MethodHistoryCollector:
         retry_errors: bool = True,
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_interval_seconds: int | None = None,
+        artifact_config_path: str | None = None,
     ):
         self.generate_callgraph_per_file(
             repositories,
@@ -196,6 +202,7 @@ class MethodHistoryCollector:
             retry_errors,
             merge_threshold,
             merge_interval_seconds,
+            artifact_config_path,
         )
 
     def generate_callgraph_per_file(
@@ -212,6 +219,7 @@ class MethodHistoryCollector:
         retry_errors: bool = True,
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_interval_seconds: int | None = None,
+        artifact_config_path: str | None = None,
     ):
         try:
             if not merge_only:
@@ -234,6 +242,7 @@ class MethodHistoryCollector:
                 retry_errors,
                 merge_threshold,
                 merge_interval_seconds,
+                artifact_config_path,
             )
         except Exception as e:
             raise e
@@ -282,3 +291,30 @@ class MethodHistoryCollector:
             merge_threshold,
             merge_interval_seconds,
         )
+
+    def update_artifacts(
+        self,
+        repositories: list[str],
+        artifact_config_path: str | None,
+        targets: list[str],
+        dry_run: bool = False,
+        backup: bool = False,
+        replace: bool = False,
+    ):
+        try:
+            ms.start_java_jar(
+                [self.jar_file_map["methodParser"]],
+                util.java_options_with_logback_config(None, self.workspace_directory),
+            )
+            _update_artifacts(
+                self.repository_df[self.repository_df["project"].isin(repositories)],
+                self.repository_directory,
+                self.data_directory,
+                artifact_config_path,
+                targets,
+                dry_run,
+                backup,
+                replace,
+            )
+        finally:
+            ms.stop_java_jar()

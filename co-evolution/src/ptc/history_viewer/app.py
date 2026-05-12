@@ -695,6 +695,16 @@ th {
   white-space: nowrap;
   vertical-align: top;
 }
+.ground-truth-compact-cell {
+  max-width: 1px;
+}
+.ground-truth-compact-text {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .ground-truth-detail-table th {
   text-transform: none;
   letter-spacing: 0;
@@ -1571,11 +1581,13 @@ class HistoryViewerApp:
   <td class="number-cell">{method.labelled_count}</td>
   <td><span class="{status_class}">{status_label}</span></td>
   <td><a href="{html.escape(method.from_url)}" target="_blank" rel="noreferrer">Source</a></td>
+  <td class="ground-truth-compact-cell"><span class="ground-truth-compact-text" title="{html.escape(method.tags)}">{html.escape(truncate_display_text(method.tags, 44))}</span></td>
+  <td class="ground-truth-compact-cell"><span class="ground-truth-compact-text" title="{html.escape(method.notes)}">{html.escape(truncate_display_text(method.notes, 56))}</span></td>
 </tr>
 """
             )
         if not rows:
-            rows.append('<tr><td colspan="5"><span class="muted">No test methods found in this CSV.</span></td></tr>')
+            rows.append('<tr><td colspan="7"><span class="muted">No test methods found in this CSV.</span></td></tr>')
 
         return f"""
 <main>
@@ -1590,11 +1602,13 @@ class HistoryViewerApp:
     <div class="eyebrow" style="text-transform:none; letter-spacing:0;">Test Methods</div>
     <table class="ground-truth-method-table">
       <colgroup>
-        <col style="width:57%;" />
+        <col style="width:39%;" />
+        <col style="width:10%;" />
+        <col style="width:10%;" />
         <col style="width:12%;" />
-        <col style="width:11%;" />
-        <col style="width:14%;" />
         <col style="width:6%;" />
+        <col style="width:11%;" />
+        <col style="width:12%;" />
       </colgroup>
       <thead>
         <tr>
@@ -1603,6 +1617,8 @@ class HistoryViewerApp:
           <th class="number-cell" style="text-transform:none; letter-spacing:0;">Labelled</th>
           <th style="text-transform:none; letter-spacing:0;">Completion</th>
           <th>URL</th>
+          <th style="text-transform:none; letter-spacing:0;">Tags</th>
+          <th style="text-transform:none; letter-spacing:0;">Notes</th>
         </tr>
       </thead>
       <tbody>{''.join(rows)}</tbody>

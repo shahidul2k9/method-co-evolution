@@ -2,8 +2,6 @@ package rnd.method.parser.call.graph.service;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseProblemException;
-import com.github.javaparser.ParserConfiguration;
-import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.Node;
@@ -14,13 +12,12 @@ import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
-import com.github.javaparser.symbolsolver.JavaSymbolSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import lombok.extern.slf4j.Slf4j;
+import rnd.method.parser.call.graph.artifact.ArtifactClassification;
+import rnd.method.parser.call.graph.artifact.TestArtifactDetector;
 import rnd.method.parser.call.graph.model.ClassMapping;
 import rnd.method.parser.call.graph.util.AltMethodDeclarationFqn;
+import rnd.method.parser.call.graph.util.JavaParserContext;
 import rnd.method.parser.call.graph.util.MethodParserUtil;
 
 import java.io.File;
@@ -32,13 +29,12 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ClassScannerImpl implements ClassScanner {
 
-    private static final Set<String> TEST_PACKAGE_ROOT_DIRECTORY = Set.of("test/java", "androidTest/java");
-
     private String repoRoot;
     private String repoUrl;
     private String commitHash;
     private String repositoryName;
     private JavaParser parserWithSymbolResolver;
+    private TestArtifactDetector artifactDetector;
 
     private ClassScannerImpl() {
     }
@@ -49,34 +45,28 @@ public class ClassScannerImpl implements ClassScanner {
 
     @Override
     public synchronized void init(String repoRoot, String repoUrl, String commitHash) {
+        init(repoRoot, repoUrl, commitHash, null);
+    }
+
+    public synchronized void init(String repoRoot, String repoUrl, String commitHash, String artifactConfigPath) {
         if (parserWithSymbolResolver != null) {
             throw new IllegalStateException("ClassScannerImpl.init must be called exactly once");
         }
 
         MethodParserUtil.prepareRepositoryForCommit(repoUrl, repoRoot, commitHash);
 
-        CombinedTypeSolver typeSolver = new CombinedTypeSolver();
-        typeSolver.add(new ReflectionTypeSolver());
-        List<Path> javaSourceRoots = MethodParserUtil.findAllJavaSourceRoots(Path.of(repoRoot));
-        if (javaSourceRoots.isEmpty()) {
-            typeSolver.add(new JavaParserTypeSolver(new File(repoRoot)));
-        } else {
-            for (Path root : javaSourceRoots) {
-                typeSolver.add(new JavaParserTypeSolver(root.toFile()));
-            }
-        }
-
-        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
-        ParserConfiguration config = new ParserConfiguration()
-                .setSymbolResolver(symbolSolver)
-                .setLanguageLevel(ParserConfiguration.LanguageLevel.BLEEDING_EDGE);
-
-        StaticJavaParser.setConfiguration(config);
+        JavaParserContext parserContext = JavaParserContext.create(Path.of(repoRoot));
         this.repoRoot = repoRoot;
         this.repoUrl = repoUrl;
         this.commitHash = commitHash;
         this.repositoryName = MethodParserUtil.extractRepositoryName(repoUrl);
-        this.parserWithSymbolResolver = new JavaParser(config);
+        this.parserWithSymbolResolver = parserContext.parser();
+        this.artifactDetector = TestArtifactDetector.load(
+                Path.of(repoRoot),
+                this.repositoryName,
+                artifactConfigPath == null || artifactConfigPath.isBlank() ? null : Path.of(artifactConfigPath),
+                parserContext.parser()
+        );
     }
 
     @Override
@@ -98,7 +88,11 @@ public class ClassScannerImpl implements ClassScanner {
                 .map(pd -> pd.getNameAsString())
                 .orElse("");
 
-        String artifact = determineArtifact(javaFile, packageName);
+        ArtifactClassification classification = artifactDetector.classify(javaFile.toPath(), packageName);
+        if (classification.isResource()) {
+            return Collections.emptyList();
+        }
+        String artifact = classification.encodedArtifact();
 
         List<ClassMapping> result = new ArrayList<>();
 
@@ -283,22 +277,4 @@ public class ClassScannerImpl implements ClassScanner {
                 .collect(Collectors.joining("|"));
     }
 
-    private String determineArtifact(File file, String pkg) {
-        String filePath = file.getPath().replace(File.separatorChar, '/');
-        String bareFileName = file.getName();
-        String packageWithSlash = pkg == null || pkg.isEmpty() ? "" : pkg.replace('.', '/');
-        String suffix = packageWithSlash.isEmpty()
-                ? "/" + bareFileName
-                : "/" + packageWithSlash + "/" + bareFileName;
-
-        if (filePath.endsWith(suffix)) {
-            String prefix = filePath.substring(0, filePath.length() - suffix.length());
-            for (String testRoot : TEST_PACKAGE_ROOT_DIRECTORY) {
-                if (prefix.endsWith("/" + testRoot)) {
-                    return "test";
-                }
-            }
-        }
-        return "production";
-    }
 }

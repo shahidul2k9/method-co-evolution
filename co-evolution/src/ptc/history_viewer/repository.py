@@ -134,6 +134,8 @@ class GroundTruthTestMethodSummary:
     from_url: str
     candidate_count: int
     labelled_count: int
+    tags: str = ""
+    notes: str = ""
 
     @property
     def is_complete(self) -> bool:
@@ -544,11 +546,18 @@ class HistoryRepository:
                     "from_name": row.values.get("from_name", "") or row.values.get("from_fqs", "") or from_url,
                     "candidate_count": 0,
                     "labelled_count": 0,
+                    "tags": set(),
+                    "notes": [],
                 },
             )
             group["candidate_count"] += 1
             if row.values.get("label", "").strip() != "":
                 group["labelled_count"] += 1
+            for tag in parse_ground_truth_tags(row.values.get("tags", "")):
+                group["tags"].add(tag)
+            notes_value = row.values.get("notes", row.values.get("note", "")).strip()
+            if notes_value and notes_value not in group["notes"]:
+                group["notes"].append(notes_value)
 
         summaries = [
             GroundTruthTestMethodSummary(
@@ -556,6 +565,8 @@ class HistoryRepository:
                 from_url=from_url,
                 candidate_count=int(values["candidate_count"]),
                 labelled_count=int(values["labelled_count"]),
+                tags=" ".join(sorted(values["tags"], key=str.lower)),
+                notes=" | ".join(values["notes"]),
             )
             for from_url, values in grouped.items()
         ]

@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 
 import mhc.util as util
+from mhc.artifacts import artifact_group
 from mhc.config import WORKSPACE_DIRECTORY, DATA_DIRECTORY
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
 from ptc.plot_util import (
@@ -75,7 +76,7 @@ def main(argv: list[str] | None = None) -> None:
             print(tool, link_strategy)
 
             for prefix in ["from_", "to_"]:
-                df[f"{prefix}artifact"] = df[f"{prefix}artifact"].map(lambda mt: "test" if mt == "test_util" else mt)
+                df[f"{prefix}artifact"] = df[f"{prefix}artifact"].map(artifact_group)
 
             change_cols = [c[len("from_"):] for c in df.columns if c.startswith("from_ch_")]
             projects = select_named_items(

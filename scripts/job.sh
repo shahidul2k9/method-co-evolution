@@ -17,7 +17,7 @@ Usage:
   job.sh --command testlinker --stage all --projects "commons-io" --top-k 1
 
 Options:
-  --command               Command to run: method-history, method-callgraph, method-scan, class-scan, method-code, complexity-analyzer, llm-m2m-link, testlinker
+  --command               Command to run: method-history, method-callgraph, method-scan, class-scan, method-code, artifact-update, method-complexity, llm-m2m-link, testlinker
   --tool-name             Tool name for non-LLM commands
   --java-options          Optional JVM arguments for Java-backed commands, e.g. "-Xmx4g"
   --timeout-seconds       Optional method-history command timeout in seconds (default: 30*60 = 1800)
@@ -25,6 +25,7 @@ Options:
   --merge-interval-seconds Optional cache flush interval for method-scan, class-scan, method-code, and method-callgraph (default: 900; 0 disables time trigger)
   --merge-only            Merge existing loose history JSON files without generating new history
   --retry-errors          Whether method-scan, class-scan, method-code, and method-callgraph retry previous __error_marker__ rows (default: true)
+  --artifact-config-path  Artifact detection YAML file or directory
   --command-options       Optional extra arguments forwarded to the selected command
   --stage                 LLM stage: execute or parse (default: execute)
   --api-type              LLM provider API type: auto, huggingface, or openai-responses (default: auto)
@@ -83,6 +84,7 @@ TOP_K="1"
 WORKSPACE_DIRECTORY="$PROJECT_DIRECTORY/workspace"
 HISTORY_DIRECTORY="${ME_HISTORY_DIRECTORY:-}"
 DATA_DIRECTORY=""
+ARTIFACT_CONFIG_PATH=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -129,6 +131,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --retry-errors=*)
             RETRY_ERRORS="${1#*=}"
+            shift
+            ;;
+        --artifact-config-path)
+            ARTIFACT_CONFIG_PATH="$2"
+            shift 2
+            ;;
+        --artifact-config-path=*)
+            ARTIFACT_CONFIG_PATH="${1#*=}"
             shift
             ;;
         --command-options)
@@ -333,7 +343,7 @@ if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
         usage
         exit 1
     fi
-elif [[ "$COMMAND_NAME" != "method-scan" && "$COMMAND_NAME" != "class-scan" && "$COMMAND_NAME" != "method-code" && "$COMMAND_NAME" != "index" && "$COMMAND_NAME" != "testlinker" ]]; then
+elif [[ "$COMMAND_NAME" != "method-scan" && "$COMMAND_NAME" != "class-scan" && "$COMMAND_NAME" != "method-code" && "$COMMAND_NAME" != "artifact-update" && "$COMMAND_NAME" != "index" && "$COMMAND_NAME" != "testlinker" ]]; then
     if [[ -z "$TOOL_NAME" ]]; then
         echo "Error: --tool-name is required for $COMMAND_NAME."
         usage
@@ -460,6 +470,9 @@ else
     fi
     if [[ "$COMMAND_NAME" == "method-scan" || "$COMMAND_NAME" == "class-scan" || "$COMMAND_NAME" == "method-code" || "$COMMAND_NAME" == "method-callgraph" ]]; then
         MHC_ARGS+=(--retry-errors "$RETRY_ERRORS")
+    fi
+    if [[ -n "$ARTIFACT_CONFIG_PATH" ]]; then
+        MHC_ARGS+=(--artifact-config-path "$ARTIFACT_CONFIG_PATH")
     fi
     if [[ -n "$PROJECT_NAME" ]]; then
         MHC_ARGS+=(--project "$PROJECT_NAME")

@@ -6,6 +6,7 @@ import pandas as pd
 from scipy.stats import kendalltau
 
 import mhc.util as util
+from mhc.artifacts import artifact_group
 from mhc.config import WORKSPACE_DIRECTORY, DATA_DIRECTORY
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
 from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, select_named_items
@@ -109,7 +110,7 @@ def main(argv: list[str] | None = None) -> None:
 
             df = pd.concat(history_repository_dfs)
             for prefix in ["from_", "to_"]:
-                df[f"{prefix}artifact"] = df[f"{prefix}artifact"].map(lambda mt: "test" if mt == "test_util" else mt)
+                df[f"{prefix}artifact"] = df[f"{prefix}artifact"].map(artifact_group)
 
             change_cols = [c[len("from_"):] for c in df.columns if c.startswith("from_ch_")]
             projects = select_named_items(

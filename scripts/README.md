@@ -26,7 +26,7 @@ Slurm `sbatch` wrapper for all `mhc`, `ptc-llm`, and `ptc-testlinker` commands. 
 job.sh --command <cmd> [options]
 ```
 
-`--command` must be one of: `method-history`, `method-callgraph`, `method-scan`, `class-scan`, `method-code`, `complexity-analyzer`, `llm-m2m-link`, `testlinker`.
+`--command` must be one of: `method-history`, `method-callgraph`, `method-scan`, `class-scan`, `method-code`, `artifact-update`, `method-complexity`, `llm-m2m-link`, `testlinker`.
 
 ### Project selection
 
@@ -125,13 +125,14 @@ sbatch --array=1-2 scripts/job.sh \
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--command` | required | Command to run |
-| `--tool-name` | — | Tool name for `method-history`, `method-callgraph`, `complexity-analyzer` |
+| `--tool-name` | — | Tool name for `method-history`, `method-callgraph`, `method-complexity` |
 | `--java-options` | — | Extra JVM flags (e.g. `"-Xmx4g"`) |
 | `--timeout-seconds` | `1800` | Per-method history timeout |
 | `--merge-threshold` | `10000` | History JSON merge threshold; for scan/code commands, pending cache rows before an intermediate flush, with `0` or `-1` disabling the threshold trigger |
 | `--merge-interval-seconds` | `900` | Time trigger for intermediate cache flushes in `method-scan`, `class-scan`, `method-code`, and `method-callgraph`; `0` disables the time trigger |
 | `--merge-only` | off | Merge without running history tools |
 | `--retry-errors` | `true` | Retry previous `__error_marker__` rows for `method-scan`, `class-scan`, `method-code`, and `method-callgraph`; set to `false` to skip them |
+| `--artifact-config-path` | — | Artifact detection YAML file or directory, for example `$ME_WORKSPACE_DIRECTORY/config/artifact-detection` |
 | `--stage` | `execute` | LLM or TestLinker stage |
 | `--api-type` | `auto` | LLM provider: `auto`, `huggingface`, `openai-responses` |
 | `--model-name-or-path` | — | HuggingFace model id or path |

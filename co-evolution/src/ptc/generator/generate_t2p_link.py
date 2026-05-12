@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 import pandas as pd
+from mhc.artifacts import is_test_method, is_production_code
 from pytctracer.config.constants.technique_threshold import TechniqueThreshold
 
 from mhc.config import *
@@ -268,7 +269,10 @@ def main(argv: list[str] | None = None) -> None:
         t2p_link_df = (t2p_tech_df.merge(method_df.add_prefix("from_"), on="from_url", how="inner")
                        .merge(method_df.add_prefix("to_"), on="to_url", how="inner"))
 
-        t2p_link_df = (t2p_link_df[(t2p_link_df["from_artifact"] == "test") & (t2p_link_df["to_artifact"] == "production")])
+        t2p_link_df = t2p_link_df[
+            t2p_link_df["from_artifact"].map(is_test_method)
+            & t2p_link_df["to_artifact"].map(is_production_code)
+        ]
 
 
         # Remove constructor unless all the to_url are constructors

@@ -2,6 +2,8 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 SRC_DIRECTORY = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIRECTORY) not in sys.path:
@@ -17,6 +19,8 @@ from ptc.generator.generate_t2p_tech import (
     apply_testlinker_technique,
     apply_traceability_techniques,
     llm_strategy_directory_names,
+    process_project,
+    run_project_subprocesses,
 )
 
 
@@ -254,6 +258,45 @@ class TestApplyLlmTechniques(unittest.TestCase):
 
             self.assertIn("tech_testlinker", result_df.columns)
             self.assertTrue(result_df["tech_testlinker"].isna().all())
+
+    def test_run_project_subprocesses_runs_one_child_per_project(self):
+        args = SimpleNamespace(skip_existing=True, replace=False)
+
+        with patch("ptc.generator.generate_t2p_tech.subprocess.run") as run:
+            run_project_subprocesses(args, ["ant", "dubbo"])
+
+        self.assertEqual(2, run.call_count)
+        first_command = run.call_args_list[0].args[0]
+        second_command = run.call_args_list[1].args[0]
+        self.assertIn("ptc.generator.generate_t2p_tech", first_command)
+        self.assertIn("--projects", first_command)
+        self.assertIn("ant", first_command)
+        self.assertIn("--no-isolate-projects", first_command)
+        self.assertIn("--skip-existing", first_command)
+        self.assertIn("dubbo", second_command)
+        self.assertTrue(all(call.kwargs["check"] for call in run.call_args_list))
+
+    def test_process_project_skip_existing_does_not_read_candidate_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            candidate_dir = Path(tmpdir) / "candidate"
+            output_dir = Path(tmpdir) / "output"
+            candidate_dir.mkdir()
+            output_dir.mkdir()
+            (candidate_dir / "demo.csv").write_text("from_url,to_url\n", encoding="utf-8")
+            (output_dir / "demo.csv").write_text("already,done\n", encoding="utf-8")
+
+            with patch("ptc.generator.generate_t2p_tech.T2P_CANDIDATE_DIR", str(candidate_dir)), patch(
+                "ptc.generator.generate_t2p_tech.OUTPUT_DIR", str(output_dir)
+            ), patch("ptc.generator.generate_t2p_tech.pd.read_csv") as read_csv:
+                process_project(
+                    "demo",
+                    "abc123",
+                    [],
+                    skip_existing=True,
+                    replace=False,
+                )
+
+        read_csv.assert_not_called()
 
 
 if __name__ == "__main__":

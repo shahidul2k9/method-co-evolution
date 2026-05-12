@@ -25,6 +25,10 @@ _KNOWN_OPTION_FLAGS = {
     "--shard",
     "--replace",
     "--retry-errors",
+    "--artifact-config-path",
+    "--target",
+    "--dry-run",
+    "--backup",
 }
 
 
@@ -274,6 +278,31 @@ def main(argv: list[str] | None = None):
         type=_parse_bool,
         help="Retry rows/files previously marked with __error_marker__ (default: true). Use '--retry-errors false' to skip them.",
     )
+    parser.add_argument(
+        "--artifact-config-path",
+        dest="artifact_config_path",
+        type=str,
+        help="Artifact detection YAML file or directory.",
+    )
+    parser.add_argument(
+        "--target",
+        dest="target",
+        type=str,
+        default="method,class",
+        help="Comma-separated artifact-update targets. Supported: method,class.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        dest="dry_run",
+        action="store_true",
+        help="Preview artifact-update changes without writing CSV files.",
+    )
+    parser.add_argument(
+        "--backup",
+        dest="backup",
+        action="store_true",
+        help="Create bk_<project>.csv files before artifact-update writes outputs.",
+    )
 
     normalized_argv = _normalize_dash_prefixed_option_values(
         list(sys.argv[1:] if argv is None else argv)
@@ -341,7 +370,7 @@ def main(argv: list[str] | None = None):
                 "Error: tool_name is required for call graph command."
             )
             sys.exit(1)
-        mhc.generate_callgraph(
+        call_args = [
             resolve_selected_projects(),
             [args.tool_name],
             args.replace,
@@ -355,9 +384,12 @@ def main(argv: list[str] | None = None):
             args.retry_errors,
             args.merge_threshold,
             args.merge_interval_seconds,
-        )
+        ]
+        if args.artifact_config_path:
+            call_args.append(args.artifact_config_path)
+        mhc.generate_callgraph(*call_args)
     elif command in ("class-scan", "scan-class"):
-        mhc.scan_class(
+        call_args = [
             resolve_selected_projects(),
             args.java_options,
             args.replace,
@@ -370,9 +402,12 @@ def main(argv: list[str] | None = None):
             args.retry_errors,
             args.merge_threshold,
             args.merge_interval_seconds,
-        )
+        ]
+        if args.artifact_config_path:
+            call_args.append(args.artifact_config_path)
+        mhc.scan_class(*call_args)
     elif command in ("method-scan", "scan-method"):
-        mhc.scan_method(
+        call_args = [
             resolve_selected_projects(),
             args.java_options,
             args.replace,
@@ -385,6 +420,18 @@ def main(argv: list[str] | None = None):
             args.retry_errors,
             args.merge_threshold,
             args.merge_interval_seconds,
+        ]
+        if args.artifact_config_path:
+            call_args.append(args.artifact_config_path)
+        mhc.scan_method(*call_args)
+    elif command in ("artifact-update", "update-artifacts"):
+        mhc.update_artifacts(
+            resolve_selected_projects(),
+            args.artifact_config_path,
+            [target.strip() for target in args.target.split(",") if target.strip()],
+            args.dry_run,
+            args.backup,
+            args.replace,
         )
     elif command == "method-code":
         mhc.generate_method_code(
@@ -402,10 +449,10 @@ def main(argv: list[str] | None = None):
         )
     elif command == "index":
         mhc.update_repository_index()
-    elif command == "complexity-analyzer":
+    elif command == "method-complexity":
         if not args.tool_name:
             print(
-                "Error: tool_name is required for complexity analyzer command."
+                "Error: tool_name is required for method-complexity command."
             )
             sys.exit(1)
         mhc.run_complexity_analyzer(resolve_selected_projects(), args.tool_name)

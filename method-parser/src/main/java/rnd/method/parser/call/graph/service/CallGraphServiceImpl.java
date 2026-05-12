@@ -1,9 +1,7 @@
 package rnd.method.parser.call.graph.service;
 
 import com.github.javaparser.JavaParser;
-import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.Range;
-import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.Node;
@@ -24,12 +22,12 @@ import com.github.javaparser.ast.nodeTypes.NodeWithRange;
 import com.github.javaparser.ast.nodeTypes.NodeWithSimpleName;
 import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
-import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
-import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import lombok.extern.slf4j.Slf4j;
+import rnd.method.parser.call.graph.artifact.ArtifactClassification;
+import rnd.method.parser.call.graph.artifact.TestArtifactDetector;
+import rnd.method.parser.call.graph.util.JavaParserContext;
 import rnd.method.parser.call.graph.util.MethodParserUtil;
 import rnd.method.parser.call.graph.model.Method;
 import rnd.method.parser.call.graph.model.MethodCall;
@@ -39,7 +37,6 @@ import rnd.method.parser.call.graph.util.AltMethodDeclarationFqn;
 import rnd.method.parser.call.graph.util.TestLinkerSignatureUtil;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -59,6 +56,7 @@ public class CallGraphServiceImpl implements CallGraphService {
     private JavaParser parserWithSymbolResolver;
     private MethodMappingIndex methodMappingIndex;
     private String absoluteRepositoryPath;
+    private TestArtifactDetector artifactDetector;
 
     public static CallGraphServiceImpl getInstance() {
         return new CallGraphServiceImpl();
@@ -66,6 +64,10 @@ public class CallGraphServiceImpl implements CallGraphService {
 
     @Override
     public synchronized void init(String repositoryUrl, String repositoryPath, String commitHash, String methodMappingFile) {
+        init(repositoryUrl, repositoryPath, commitHash, methodMappingFile, null);
+    }
+
+    public synchronized void init(String repositoryUrl, String repositoryPath, String commitHash, String methodMappingFile, String artifactConfigPath) {
         if (parserWithSymbolResolver != null) {
             throw new IllegalStateException("CallGraphServiceImpl.init must be called exactly once");
         }
@@ -75,22 +77,17 @@ public class CallGraphServiceImpl implements CallGraphService {
         this.commitHash = commitHash;
         this.repositoryName = MethodParserUtil.extractRepositoryName(repositoryUrl);
         this.methodMappingIndex = MethodMappingIndex.load(methodMappingFile);
-        this.typeSolver = new CombinedTypeSolver();
-        this.typeSolver.add(new ReflectionTypeSolver(true));
         Path repoPath = Paths.get(repositoryPath);
         this.absoluteRepositoryPath = repoPath.toFile().getAbsolutePath();
-        List<Path> allJavaSourceRoots = MethodParserUtil.findAllJavaSourceRootsFromPackageDeclarations(repoPath);
-        if (allJavaSourceRoots.isEmpty()) {
-            this.typeSolver.add(new JavaParserTypeSolver(new File(repositoryPath)));
-        } else {
-            for (Path path : allJavaSourceRoots) {
-                this.typeSolver.add(new JavaParserTypeSolver(path.toFile()));
-            }
-        }
-        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(this.typeSolver);
-        ParserConfiguration config = new ParserConfiguration().setSymbolResolver(symbolSolver);
-        StaticJavaParser.setConfiguration(config);
-        this.parserWithSymbolResolver = new JavaParser(config);
+        JavaParserContext parserContext = JavaParserContext.create(repoPath, true);
+        this.typeSolver = parserContext.typeSolver();
+        this.parserWithSymbolResolver = parserContext.parser();
+        this.artifactDetector = TestArtifactDetector.load(
+                repoPath,
+                this.repositoryName,
+                artifactConfigPath == null || artifactConfigPath.isBlank() ? null : Paths.get(artifactConfigPath),
+                parserContext.parser()
+        );
     }
 
     @Override
@@ -102,7 +99,15 @@ public class CallGraphServiceImpl implements CallGraphService {
             if (!result.isSuccessful()) {
                 return List.of();
             }
-            return result.getResult().get()
+            CompilationUnit cu = result.getResult().get();
+            String packageName = cu.getPackageDeclaration()
+                    .map(pd -> pd.getNameAsString())
+                    .orElse(null);
+            ArtifactClassification classification = artifactDetector.classify(Paths.get(absoluteFilePath), packageName);
+            if (classification.isResource()) {
+                return List.of();
+            }
+            return cu
                     .findAll(MethodDeclaration.class)
                     .stream()
                     .flatMap(fromMd -> buildCallgraphForMethod(fromMd, file).stream())

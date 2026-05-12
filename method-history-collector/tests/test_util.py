@@ -2,6 +2,8 @@ import unittest
 import tempfile
 from pathlib import Path
 
+import pandas as pd
+
 import mhc.util as util
 
 
@@ -38,5 +40,25 @@ class UtilCase(unittest.TestCase):
                 "-Xmx2g",
                 util.java_options_with_logback_config("-Xmx2g", temp_directory),
             )
+
+    def test_normalize_integer_columns_cleans_float_shaped_values(self):
+        df = pd.DataFrame(
+            {
+                "start_line": [72, 82.0, "96", "110.0", "", None],
+                "name": ["a", "b", "c", "d", "e", "f"],
+            }
+        )
+
+        normalized = util.normalize_integer_columns(df, ["start_line"])
+
+        self.assertEqual(["72", "82", "96", "110", "", ""], normalized["start_line"].tolist())
+        self.assertEqual(["a", "b", "c", "d", "e", "f"], normalized["name"].tolist())
+
+    def test_normalize_integer_columns_preserves_non_integer_text(self):
+        df = pd.DataFrame({"start_line": ["12.5", "unknown"]})
+
+        normalized = util.normalize_integer_columns(df, ["start_line"])
+
+        self.assertEqual(["12.5", "unknown"], normalized["start_line"].tolist())
 if __name__ == '__main__':
     unittest.main()

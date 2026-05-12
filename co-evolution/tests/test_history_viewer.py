@@ -68,7 +68,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
                 "to_url": "https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L20",
                 "to_fqs": "acme.Alpha.makeAlpha()",
-                "to_artifact": "production",
+                "to_artifact": "#production-code",
                 "to_call_depth": "",
                 "label": "1",
                 "tags": "#existing",
@@ -80,7 +80,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
                 "to_url": "https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L30",
                 "to_fqs": "acme.Alpha.helperAlpha(java.lang.String)",
-                "to_artifact": "production",
+                "to_artifact": "#production-code",
                 "to_call_depth": "2",
                 "label": "",
                 "tags": "",
@@ -92,7 +92,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_url": "https://github.com/acme/sample/blob/abc/src/test/BetaTest.java#L11",
                 "to_url": "https://github.com/acme/sample/blob/abc/src/main/Beta.java#L22",
                 "to_fqs": "acme.Beta.makeBeta()",
-                "to_artifact": "production",
+                "to_artifact": "#production-code",
                 "to_call_depth": "1",
                 "label": "0",
                 "tags": "#beta",
@@ -375,6 +375,9 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("testAlpha", method_body)
         self.assertIn("Method", method_body)
         self.assertIn("<th>URL</th>", method_body)
+        self.assertIn("<th style=\"text-transform:none; letter-spacing:0;\">Tags</th>", method_body)
+        self.assertIn("<th style=\"text-transform:none; letter-spacing:0;\">Notes</th>", method_body)
+        self.assertIn("#existing", method_body)
 
         detail_body = self.call_app(
             app,

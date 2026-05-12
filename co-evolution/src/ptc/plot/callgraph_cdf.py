@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 from mhc.config import WORKSPACE_DIRECTORY, DATA_DIRECTORY
+from mhc.artifacts import artifact_group
 from ptc.constants import ALL_REPOSITORY
 from ptc.plot_util import (
     GRAPH_STYLES,
@@ -49,7 +50,7 @@ def main(argv: list[str] | None = None) -> None:
         print("No call graph data available to plot.")
         return
 
-    df["artifact"] = df["artifact"].map(lambda mt: "test" if mt == "test_util" else mt)
+    df["artifact"] = df["artifact"].map(artifact_group)
 
     projects = select_named_items(
         sorted(df["project"].unique(), key=str.lower),

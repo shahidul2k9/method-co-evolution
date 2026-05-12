@@ -13,12 +13,11 @@ fi
 
 : "${ME_WORKSPACE_DIRECTORY:?ME_WORKSPACE_DIRECTORY must be set in .env}"
 
-mhc method-scan \
+mhc artifact-update \
     --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
     --repository-directory "$ME_WORKSPACE_DIRECTORY/repository" \
     --data-directory "$ME_WORKSPACE_DIRECTORY/data" \
     --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
     --artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection" \
-    --java-options "-Xmx2g -Dlogback.configurationFile=$ME_WORKSPACE_DIRECTORY/config/logback.xml" \
-    --project-index ":" \
-    --replace
+    --project-index "1:" \
+    --target method
