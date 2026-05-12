@@ -110,6 +110,46 @@ class ClassScannerCacheTestCase(unittest.TestCase):
             self.assertTrue(lock_file.exists())
             self.assertFalse(output_file.exists())
 
+    def test_finalize_class_scan_removes_float_suffix_from_integer_columns(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            cache_file = root / ".class" / "demo-project.csv"
+            output_file = root / "data" / "class" / "demo-project.csv"
+            error_file = root / ".class-error" / "demo-project.csv"
+            cache_file.parent.mkdir(parents=True)
+            pd.DataFrame(
+                [
+                    {
+                        **{col: None for col in cs.CLASS_SCAN_CACHE_COLUMNS},
+                        "project": "demo-project",
+                        "name": "Alpha",
+                        "fqn": "demo.Alpha",
+                        "file": "src/Alpha.java",
+                        "start_line": "72.0",
+                        "end_line": 80.0,
+                        "abstract": "0.0",
+                        "hash": "abc123",
+                    },
+                    cs._build_class_scan_marker("demo-project", "src/Alpha.java", "abc123"),
+                ],
+                columns=cs.CLASS_SCAN_CACHE_COLUMNS,
+            ).to_csv(cache_file, index=False)
+
+            merged = cs._finalize_class_scan_outputs(
+                str(cache_file),
+                str(output_file),
+                str(error_file),
+                {"src/Alpha.java"},
+            )
+
+            self.assertTrue(merged)
+            output_text = output_file.read_text(encoding="utf-8")
+            self.assertNotIn("72.0", output_text)
+            output_df = pd.read_csv(output_file, dtype=str, keep_default_na=False, na_filter=False)
+            self.assertEqual("72", output_df.loc[0, "start_line"])
+            self.assertEqual("80", output_df.loc[0, "end_line"])
+            self.assertEqual("0", output_df.loc[0, "abstract"])
+
 
 if __name__ == "__main__":
     unittest.main()

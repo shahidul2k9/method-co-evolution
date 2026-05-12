@@ -151,6 +151,45 @@ def convert_float_int_columns_to_nullable_int(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
+def normalize_integer_columns(df: pd.DataFrame, columns: Sequence[str]) -> pd.DataFrame:
+    """
+    Normalize integer-like CSV fields to plain integer text.
+
+    Pandas often widens integer columns to floats when scan rows are mixed with
+    marker rows containing missing values. Once those caches are read with
+    dtype=str, values such as "72.0" need string-level cleanup too.
+    """
+    df = df.copy()
+
+    for col in columns:
+        if col not in df.columns:
+            continue
+        df[col] = df[col].map(_normalize_integer_cell)
+
+    return df
+
+
+def _normalize_integer_cell(value) -> str:
+    if pd.isna(value):
+        return ""
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return ""
+    else:
+        text = str(value).strip()
+
+    try:
+        numeric = float(text)
+    except ValueError:
+        return text
+
+    if not np.isfinite(numeric) or not np.isclose(numeric, round(numeric)):
+        return text
+    return str(int(round(numeric)))
+
+
 def find_root(start: Path) -> Path:
     current = start.resolve()
     for path in [current, *current.parents]:

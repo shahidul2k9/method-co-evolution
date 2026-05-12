@@ -108,6 +108,7 @@ METHOD_SCAN_COLUMNS = [
     "resolver",
     "hash",
 ]
+METHOD_SCAN_INTEGER_COLUMNS = ["start_line", "end_line", "abstract"]
 METHOD_CODE_COLUMNS = [
     "project",
     "name",
@@ -117,6 +118,7 @@ METHOD_CODE_COLUMNS = [
     "end_line",
     "code",
 ]
+METHOD_CODE_INTEGER_COLUMNS = ["start_line", "end_line"]
 METHOD_CODE_MARKER = "__scan_marker__"
 METHOD_CODE_ERROR_MARKER = "__error_marker__"
 METHOD_CODE_FLAG_COLUMN = "_flag"
@@ -164,17 +166,30 @@ class Method:
         self.line = line
 
 
-def _write_dataframe_csv(output_file: str, dataframe: pd.DataFrame, columns: list[str]) -> None:
+def _write_dataframe_csv(
+    output_file: str,
+    dataframe: pd.DataFrame,
+    columns: list[str],
+    integer_columns: list[str] | None = None,
+) -> None:
     output_directory = os.path.dirname(output_file)
     if output_directory:
         os.makedirs(output_directory, exist_ok=True)
 
     temporary_output_file = f"{output_file}.tmp"
-    dataframe.reindex(columns=columns).to_csv(temporary_output_file, index=False)
+    out_df = dataframe.reindex(columns=columns)
+    if integer_columns:
+        out_df = util.normalize_integer_columns(out_df, integer_columns)
+    out_df.to_csv(temporary_output_file, index=False)
     os.replace(temporary_output_file, output_file)
 
 
-def _append_dataframe_csv(output_file: str, rows: list[dict], columns: list[str]) -> None:
+def _append_dataframe_csv(
+    output_file: str,
+    rows: list[dict],
+    columns: list[str],
+    integer_columns: list[str] | None = None,
+) -> None:
     if not rows:
         return
 
@@ -183,7 +198,10 @@ def _append_dataframe_csv(output_file: str, rows: list[dict], columns: list[str]
         os.makedirs(output_directory, exist_ok=True)
 
     file_exists = os.path.exists(output_file) and os.path.getsize(output_file) > 0
-    pd.DataFrame(rows, columns=columns).to_csv(
+    out_df = pd.DataFrame(rows, columns=columns)
+    if integer_columns:
+        out_df = util.normalize_integer_columns(out_df, integer_columns)
+    out_df.to_csv(
         output_file,
         mode="a" if file_exists else "w",
         header=not file_exists,
@@ -307,7 +325,12 @@ def _flush_method_scan_buffers(
             row for row in rows_copy
             if row.get("file") not in completed_files
         ]
-        _append_dataframe_csv(method_cache_file, rows_copy, METHOD_SCAN_CACHE_COLUMNS)
+        _append_dataframe_csv(
+            method_cache_file,
+            rows_copy,
+            METHOD_SCAN_CACHE_COLUMNS,
+            METHOD_SCAN_INTEGER_COLUMNS,
+        )
 
 
 def _finalize_method_scan_outputs(
@@ -334,11 +357,20 @@ def _finalize_method_scan_outputs(
         failed_files = _failed_method_scan_files(cache_df)
         error_rows = cache_df[cache_df["file"].isin(failed_files)].copy()
         method_df = cache_df[cache_df[METHOD_SCAN_FLAG_COLUMN].isna()].copy()
-        method_df = util.convert_float_int_columns_to_nullable_int(method_df)
-        _write_dataframe_csv(output_method_file, method_df, METHOD_SCAN_COLUMNS)
+        _write_dataframe_csv(
+            output_method_file,
+            method_df,
+            METHOD_SCAN_COLUMNS,
+            METHOD_SCAN_INTEGER_COLUMNS,
+        )
 
         if not error_rows.empty:
-            _write_dataframe_csv(error_output_file, error_rows, METHOD_SCAN_CACHE_COLUMNS)
+            _write_dataframe_csv(
+                error_output_file,
+                error_rows,
+                METHOD_SCAN_CACHE_COLUMNS,
+                METHOD_SCAN_INTEGER_COLUMNS,
+            )
         elif os.path.exists(error_output_file):
             os.remove(error_output_file)
 
@@ -496,7 +528,12 @@ def _flush_method_code_buffers(
             row for row in rows_copy
             if row.get(METHOD_CODE_KEY_COLUMN) not in completed_keys
         ]
-        _append_dataframe_csv(cache_file, rows_copy, METHOD_CODE_CACHE_COLUMNS)
+        _append_dataframe_csv(
+            cache_file,
+            rows_copy,
+            METHOD_CODE_CACHE_COLUMNS,
+            METHOD_CODE_INTEGER_COLUMNS,
+        )
 
 
 def _finalize_method_code_outputs(
@@ -523,14 +560,23 @@ def _finalize_method_code_outputs(
         failed_keys = _failed_method_code_keys(cache_df)
         error_rows = cache_df[cache_df[METHOD_CODE_KEY_COLUMN].isin(failed_keys)].copy()
         output_df = cache_df[cache_df[METHOD_CODE_FLAG_COLUMN].isna()].copy()
-        output_df = util.convert_float_int_columns_to_nullable_int(output_df)
-        _write_dataframe_csv(output_file, output_df, METHOD_CODE_COLUMNS)
+        _write_dataframe_csv(
+            output_file,
+            output_df,
+            METHOD_CODE_COLUMNS,
+            METHOD_CODE_INTEGER_COLUMNS,
+        )
 
         if not error_rows.empty:
             error_rows[METHOD_CODE_ERROR_COLUMN] = error_rows[METHOD_CODE_ERROR_COLUMN].apply(
                 lambda value: str(value)[:METHOD_CODE_ERROR_MAX_LENGTH] if pd.notna(value) else value
             )
-            _write_dataframe_csv(error_output_file, error_rows, METHOD_CODE_CACHE_COLUMNS)
+            _write_dataframe_csv(
+                error_output_file,
+                error_rows,
+                METHOD_CODE_CACHE_COLUMNS,
+                METHOD_CODE_INTEGER_COLUMNS,
+            )
         elif os.path.exists(error_output_file):
             os.remove(error_output_file)
 

@@ -449,10 +449,10 @@ def main(argv: list[str] | None = None):
         )
     elif command == "index":
         mhc.update_repository_index()
-    elif command == "complexity-analyzer":
+    elif command == "method-complexity":
         if not args.tool_name:
             print(
-                "Error: tool_name is required for complexity analyzer command."
+                "Error: tool_name is required for method-complexity command."
             )
             sys.exit(1)
         mhc.run_complexity_analyzer(resolve_selected_projects(), args.tool_name)

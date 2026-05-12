@@ -20,6 +20,5 @@ mhc artifact-update \
     --data-directory "$ME_WORKSPACE_DIRECTORY/data" \
     --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
     --artifact-config-path "$PROJECT_DIRECTORY/config/artifact-detection" \
-    --project-index "63" \
-    --target method \
-    --backup
+    --project-index "1:" \
+    --target method

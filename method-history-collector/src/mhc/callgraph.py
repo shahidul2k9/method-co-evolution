@@ -38,6 +38,13 @@ CALLGRAPH_COLUMNS = [
     "hash",
     "from_resolver", "to_resolver",
 ]
+CALLGRAPH_INTEGER_COLUMNS = [
+    "from_start", "from_end",
+    "to_start", "to_end",
+    "from_invocation", "to_invocation",
+    "from_lcba", "to_lcba",
+    "from_call_depth", "to_call_depth",
+]
 
 CALLGRAPH_CACHE_COLUMNS = CALLGRAPH_COLUMNS + [
     CALLGRAPH_FLAG_COLUMN,
@@ -221,7 +228,10 @@ def _flush_callgraph(
         if not rows_copy:
             return
         file_exists = os.path.exists(cache_file) and os.path.getsize(cache_file) > 0
-        pd.DataFrame(rows_copy, columns=CALLGRAPH_CACHE_COLUMNS).to_csv(
+        util.normalize_integer_columns(
+            pd.DataFrame(rows_copy, columns=CALLGRAPH_CACHE_COLUMNS),
+            CALLGRAPH_INTEGER_COLUMNS,
+        ).to_csv(
             cache_file,
             mode="a" if file_exists else "w",
             header=not file_exists,
@@ -249,7 +259,7 @@ def _fan_in_from_fan_out(fan_out_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _write_callgraph_csv(df: pd.DataFrame, output_file: str) -> None:
-    df = util.convert_float_int_columns_to_nullable_int(df)
+    df = util.normalize_integer_columns(df, CALLGRAPH_INTEGER_COLUMNS)
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
     tmp_file = f"{output_file}.tmp"
     df.reindex(columns=CALLGRAPH_COLUMNS).to_csv(tmp_file, index=False)

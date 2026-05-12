@@ -236,6 +236,41 @@ public class ArtifactDetectionTest {
         Assert.assertTrue(ArtifactTags.hasTag(methods.get("helper").encodedArtifact(), "test-utility"));
     }
 
+    @Test
+    public void javaSourceWinsWhenMavenResourceRootOverlapsSourceRoot() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-overlap-resource");
+        Files.writeString(repo.resolve("pom.xml"), """
+                <project>
+                  <artifactId>jfreechart</artifactId>
+                  <build>
+                    <sourceDirectory>source</sourceDirectory>
+                    <testSourceDirectory>tests</testSourceDirectory>
+                    <resources>
+                      <resource>
+                        <directory>source</directory>
+                      </resource>
+                    </resources>
+                  </build>
+                </project>
+                """);
+        Path sourceFile = Files.createDirectories(repo.resolve("source/org/jfree/chart"))
+                .resolve("ChartFactory.java");
+        Files.writeString(sourceFile, "package org.jfree.chart; class ChartFactory {}");
+        Path testResourceFile = Files.createDirectories(repo.resolve("src/test/resources/demo"))
+                .resolve("Fixture.java");
+        Files.writeString(testResourceFile, "class Fixture {}");
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "jfreechart", null);
+
+        ArtifactClassification source = detector.classify(sourceFile, "org.jfree.chart");
+        Assert.assertEquals("#production-code", source.encodedArtifact());
+        Assert.assertFalse(source.isResource());
+
+        ArtifactClassification testResource = detector.classify(testResourceFile, "");
+        Assert.assertEquals("#test-code #test-resource", testResource.encodedArtifact());
+        Assert.assertTrue(testResource.isResource());
+    }
+
     private static void runGit(Path repo, String... args) throws Exception {
         String[] command = new String[args.length + 1];
         command[0] = "git";

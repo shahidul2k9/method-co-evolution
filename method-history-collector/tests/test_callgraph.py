@@ -97,6 +97,13 @@ class CallGraphRunnerTest(unittest.TestCase):
                         "to_name": "callee",
                         "from_url": "caller-url",
                         "to_url": "callee-url",
+                        "from_start": "72.0",
+                        "from_end": 80.0,
+                        "to_start": "96.0",
+                        "to_end": 108.0,
+                        "from_invocation": "75.0",
+                        "from_lcba": "0.0",
+                        "to_lcba": 1.0,
                         "hash": "abc123",
                     }
                 ],
@@ -115,8 +122,21 @@ class CallGraphRunnerTest(unittest.TestCase):
             self.assertTrue(merged)
             self.assertFalse(cache_file.exists())
             self.assertFalse(lock_file.exists())
-            self.assertEqual(["caller"], pd.read_csv(callgraph_file)["from_name"].tolist())
-            self.assertEqual(["callee"], pd.read_csv(fanin_file)["from_name"].tolist())
+            callgraph_text = callgraph_file.read_text(encoding="utf-8")
+            fanin_text = fanin_file.read_text(encoding="utf-8")
+            self.assertNotIn("72.0", callgraph_text)
+            self.assertNotIn("96.0", callgraph_text)
+            self.assertNotIn("72.0", fanin_text)
+            callgraph_df = pd.read_csv(callgraph_file, dtype=str, keep_default_na=False, na_filter=False)
+            fanin_df = pd.read_csv(fanin_file, dtype=str, keep_default_na=False, na_filter=False)
+            self.assertEqual(["caller"], callgraph_df["from_name"].tolist())
+            self.assertEqual(["callee"], fanin_df["from_name"].tolist())
+            self.assertEqual("72", callgraph_df.loc[0, "from_start"])
+            self.assertEqual("96", callgraph_df.loc[0, "to_start"])
+            self.assertEqual("75", callgraph_df.loc[0, "from_invocation"])
+            self.assertEqual("0", callgraph_df.loc[0, "from_lcba"])
+            self.assertEqual("96", fanin_df.loc[0, "from_start"])
+            self.assertEqual("72", fanin_df.loc[0, "to_start"])
 
     def test_error_markers_are_retryable_for_shard_processing(self):
         with tempfile.TemporaryDirectory() as temp_directory:

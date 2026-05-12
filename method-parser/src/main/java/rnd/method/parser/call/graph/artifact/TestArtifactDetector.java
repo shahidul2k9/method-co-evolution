@@ -130,14 +130,20 @@ public final class TestArtifactDetector {
             tags.add(ArtifactTag.TEST_MODULE);
         }
 
+        RootMatch generatedTest = longestMatch(absoluteFile, module.generatedTestSourceRoots());
+        RootMatch generatedMain = longestMatch(absoluteFile, module.generatedMainSourceRoots());
+        RootMatch unit = longestMatch(absoluteFile, module.unitTestSourceRoots());
+        RootMatch integration = longestMatch(absoluteFile, module.integrationTestSourceRoots());
+        RootMatch main = longestMatch(absoluteFile, module.mainSourceRoots());
+
         RootMatch testResource = longestMatch(absoluteFile, module.testResourceRoots());
         RootMatch mainResource = longestMatch(absoluteFile, module.mainResourceRoots());
-        if (testResource.matched()) {
+        if (testResource.matched() && !sourceMatchAtLeastAsSpecific(testResource, generatedTest, generatedMain, unit, integration, main)) {
             addTestContext(tags, module);
             tags.add(ArtifactTag.TEST_RESOURCE);
             return classification(tags, module, testResource.root(), "test-resource-root");
         }
-        if (mainResource.matched()) {
+        if (mainResource.matched() && !sourceMatchAtLeastAsSpecific(mainResource, generatedTest, generatedMain, unit, integration, main)) {
             if (module.testModule()) {
                 addTestContext(tags, module);
                 tags.add(ArtifactTag.TEST_RESOURCE);
@@ -147,8 +153,6 @@ public final class TestArtifactDetector {
             return classification(tags, module, mainResource.root(), "main-resource-root");
         }
 
-        RootMatch generatedTest = longestMatch(absoluteFile, module.generatedTestSourceRoots());
-        RootMatch generatedMain = longestMatch(absoluteFile, module.generatedMainSourceRoots());
         if (generatedTest.matched()) {
             addTestContext(tags, module);
             tags.add(ArtifactTag.TEST_GENERATED);
@@ -165,10 +169,6 @@ public final class TestArtifactDetector {
             matchedRoot = generatedMain.root();
             reason = "generated-main-source-root";
         }
-
-        RootMatch unit = longestMatch(absoluteFile, module.unitTestSourceRoots());
-        RootMatch integration = longestMatch(absoluteFile, module.integrationTestSourceRoots());
-        RootMatch main = longestMatch(absoluteFile, module.mainSourceRoots());
 
         if (integration.matched()) {
             addTestContext(tags, module);
@@ -231,6 +231,19 @@ public final class TestArtifactDetector {
         }
 
         return classification(tags, module, matchedRoot, reason);
+    }
+
+    private boolean sourceMatchAtLeastAsSpecific(RootMatch resourceMatch, RootMatch... sourceMatches) {
+        if (!resourceMatch.matched()) {
+            return false;
+        }
+        int resourceDepth = resourceMatch.root().getNameCount();
+        for (RootMatch sourceMatch : sourceMatches) {
+            if (sourceMatch.matched() && sourceMatch.root().getNameCount() >= resourceDepth) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean shouldScanMethods(Path javaFile, String packageName) {

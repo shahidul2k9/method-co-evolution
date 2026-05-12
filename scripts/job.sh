@@ -17,7 +17,7 @@ Usage:
   job.sh --command testlinker --stage all --projects "commons-io" --top-k 1
 
 Options:
-  --command               Command to run: method-history, method-callgraph, method-scan, class-scan, method-code, artifact-update, complexity-analyzer, llm-m2m-link, testlinker
+  --command               Command to run: method-history, method-callgraph, method-scan, class-scan, method-code, artifact-update, method-complexity, llm-m2m-link, testlinker
   --tool-name             Tool name for non-LLM commands
   --java-options          Optional JVM arguments for Java-backed commands, e.g. "-Xmx4g"
   --timeout-seconds       Optional method-history command timeout in seconds (default: 30*60 = 1800)

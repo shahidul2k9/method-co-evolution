@@ -34,6 +34,7 @@ CLASS_SCAN_COLUMNS = [
     "parent_fqns",
     "hash",
 ]
+CLASS_SCAN_INTEGER_COLUMNS = ["start_line", "end_line", "abstract"]
 
 SCAN_CLASS_FLUSH_INTERVAL_SECONDS = 15 * 60
 CLASS_SCAN_MARKER = "__scan_marker__"
@@ -155,7 +156,12 @@ def _flush_class_scan_buffers(
             row for row in rows_copy
             if row.get("file") not in completed_files
         ]
-        _append_dataframe_csv(cache_file, rows_copy, CLASS_SCAN_CACHE_COLUMNS)
+        _append_dataframe_csv(
+            cache_file,
+            rows_copy,
+            CLASS_SCAN_CACHE_COLUMNS,
+            CLASS_SCAN_INTEGER_COLUMNS,
+        )
 
 
 def _is_class_output_current(output_file: str, commit_hash: str) -> bool:
@@ -224,11 +230,20 @@ def _finalize_class_scan_outputs(
         failed_files = _failed_class_scan_files(cache_df)
         error_rows = cache_df[cache_df["file"].isin(failed_files)].copy()
         out_df = cache_df[cache_df[CLASS_SCAN_FLAG_COLUMN].isna()].copy()
-        out_df = util.convert_float_int_columns_to_nullable_int(out_df)
-        _write_dataframe_csv(output_file, out_df, CLASS_SCAN_COLUMNS)
+        _write_dataframe_csv(
+            output_file,
+            out_df,
+            CLASS_SCAN_COLUMNS,
+            CLASS_SCAN_INTEGER_COLUMNS,
+        )
 
         if not error_rows.empty:
-            _write_dataframe_csv(error_output_file, error_rows, CLASS_SCAN_CACHE_COLUMNS)
+            _write_dataframe_csv(
+                error_output_file,
+                error_rows,
+                CLASS_SCAN_CACHE_COLUMNS,
+                CLASS_SCAN_INTEGER_COLUMNS,
+            )
         elif os.path.exists(error_output_file):
             os.remove(error_output_file)
 

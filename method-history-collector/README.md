@@ -163,12 +163,12 @@ Use `--merge-threshold` and `--merge-interval-seconds` to control intermediate c
 
 ---
 
-### `mhc complexity-analyzer`
+### `mhc method-complexity`
 
 Computes cyclomatic complexity for each method.
 
 ```bash
-mhc complexity-analyzer \
+mhc method-complexity \
     --workspace-directory "workspace" \
     --repository-directory "workspace/repository" \
     --data-directory "workspace/data" \

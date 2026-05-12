@@ -1,4 +1,8 @@
 import os
+import argparse
+import gc
+import subprocess
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -51,12 +55,30 @@ def llm_strategy_directory_names() -> list[str]:
 
 
 def build_parser():
-    return build_experiment_parser(
+    parser = build_experiment_parser(
         "Generate test-to-production technique scores.",
         include_tools=False,
         include_strategies=False,
         projects_help="Comma-separated project names to process.",
     )
+    parser.add_argument(
+        "--isolate-projects",
+        dest="isolate_projects",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Run each selected project in a fresh Python process to avoid cumulative memory growth.",
+    )
+    parser.add_argument(
+        "--skip-existing",
+        action="store_true",
+        help="Skip projects whose t2p-tech output CSV already exists.",
+    )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="Regenerate outputs even when t2p-tech output CSVs already exist.",
+    )
+    return parser
 
 
 def apply_llm_techniques(
@@ -276,8 +298,72 @@ def apply_traceability_techniques(t2p_candidate_df: pd.DataFrame) -> pd.DataFram
 # Main Processing
 # ---------------------------
 
+def run_project_subprocesses(args, projects: list[str]) -> None:
+    for project in projects:
+        command = [
+            sys.executable,
+            "-m",
+            "ptc.generator.generate_t2p_tech",
+            "--projects",
+            project,
+            "--no-isolate-projects",
+        ]
+        if args.skip_existing:
+            command.append("--skip-existing")
+        if args.replace:
+            command.append("--replace")
+        subprocess.run(command, check=True)
+
+
+def process_project(project: str, commit_hash: str, llm_directory_names: list[str], *, skip_existing: bool, replace: bool) -> None:
+    t2p_candidate_file = f"{T2P_CANDIDATE_DIR}/{project}.csv"
+    output_file = f"{OUTPUT_DIR}/{project}.csv"
+
+    if not os.path.exists(t2p_candidate_file):
+        return
+    if skip_existing and os.path.exists(output_file) and not replace:
+        print("Skipping existing:", project)
+        return
+
+    print("Processing:", project, flush=True)
+
+    t2p_candidate_df = pd.read_csv(t2p_candidate_file, na_filter=False, keep_default_na=False)
+
+    # ---------------------------
+    # Apply Techniques
+    # ---------------------------
+
+    t2p_candidate_df = apply_traceability_techniques(t2p_candidate_df)
+    t2p_candidate_df[TECHNIQUE_COLUMNS] = t2p_candidate_df[TECHNIQUE_COLUMNS].round(2)
+
+    t2p_candidate_df["tech_lc"] = (
+            t2p_candidate_df.groupby("from_url").cumcount()
+            == t2p_candidate_df.groupby("from_url")["from_url"].transform("size") - 1
+    ).astype(int)
+
+    t2p_candidate_df = apply_llm_techniques(
+        t2p_candidate_df=t2p_candidate_df,
+        project=project,
+        llm_directory_names=llm_directory_names,
+    )
+    t2p_candidate_df = apply_testlinker_technique(
+        t2p_candidate_df=t2p_candidate_df,
+        project=project,
+    )
+
+    expanded_df = util.convert_float_int_columns_to_nullable_int(t2p_candidate_df)
+
+    expanded_df.to_csv(output_file, index=False)
+    del t2p_candidate_df
+    del expanded_df
+    gc.collect()
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    if args.skip_existing and args.replace:
+        raise ValueError("--skip-existing and --replace cannot be used together.")
+
     _, selected_projects, _ = resolve_experiment_filters(
         use_filters=args.use_filters,
         projects=args.projects,
@@ -287,43 +373,21 @@ def main(argv: list[str] | None = None) -> None:
     repository_df = repository_df[repository_df["project"].isin(projects)]
     llm_directory_names = llm_strategy_directory_names()
 
+    if args.isolate_projects and len(projects) > 1:
+        run_project_subprocesses(args, projects)
+        print("Finished.")
+        return
+
     for _, repo in repository_df.iterrows():
         project = repo["project"]
         commit_hash = repo["updated_hash"]
-
-        t2p_candidate_file = f"{T2P_CANDIDATE_DIR}/{project}.csv"
-
-        if os.path.exists(t2p_candidate_file):
-            print("Processing:", project)
-
-            t2p_candidate_df = pd.read_csv(t2p_candidate_file, na_filter=False, keep_default_na=False)
-
-            # ---------------------------
-            # Apply Techniques
-            # ---------------------------
-
-            t2p_candidate_df = apply_traceability_techniques(t2p_candidate_df)
-            t2p_candidate_df[TECHNIQUE_COLUMNS] = t2p_candidate_df[TECHNIQUE_COLUMNS].round(2)
-
-            t2p_candidate_df["tech_lc"] = (
-                    t2p_candidate_df.groupby("from_url").cumcount()
-                    == t2p_candidate_df.groupby("from_url")["from_url"].transform("size") - 1
-            ).astype(int)
-
-            t2p_candidate_df = apply_llm_techniques(
-                t2p_candidate_df=t2p_candidate_df,
-                project=project,
-                llm_directory_names=llm_directory_names,
-            )
-            t2p_candidate_df = apply_testlinker_technique(
-                t2p_candidate_df=t2p_candidate_df,
-                project=project,
-            )
-
-            expanded_df = util.convert_float_int_columns_to_nullable_int(t2p_candidate_df)
-
-            output_file = f"{OUTPUT_DIR}/{project}.csv"
-            expanded_df.to_csv(output_file, index=False)
+        process_project(
+            project,
+            commit_hash,
+            llm_directory_names,
+            skip_existing=args.skip_existing,
+            replace=args.replace,
+        )
 
     print("Finished.")
 

@@ -388,6 +388,63 @@ class TestMhcScript(unittest.TestCase):
 
         mock_build_collector.assert_not_called()
 
+    @patch("mhc.main._build_method_history_collector")
+    def test_method_complexity_command_runs_complexity_analyzer(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame([{"project": "jgit"}])
+
+        test_args = [
+            "main.py",
+            "method-complexity",
+            "--workspace-directory",
+            WORKSPACE_DIRECTORY,
+            "--repository-directory",
+            REPOSITORY_DIRECTORY,
+            "--data-directory",
+            DATA_DIRECTORY,
+            "--jar-directory",
+            JAR_DIRECTORY,
+            "--tool-name",
+            "complexityAnalyzer",
+            "--project",
+            "jgit",
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            mhc_main.main()
+
+        mock_mhc_instance.run_complexity_analyzer.assert_called_once_with(
+            ["jgit"],
+            "complexityAnalyzer",
+        )
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_old_complexity_analyzer_command_is_rejected(self, mock_build_collector):
+        mock_build_collector.return_value.repository_df = pd.DataFrame([{"project": "jgit"}])
+        test_args = [
+            "main.py",
+            "complexity-analyzer",
+            "--workspace-directory",
+            WORKSPACE_DIRECTORY,
+            "--repository-directory",
+            REPOSITORY_DIRECTORY,
+            "--data-directory",
+            DATA_DIRECTORY,
+            "--jar-directory",
+            JAR_DIRECTORY,
+            "--tool-name",
+            "complexityAnalyzer",
+            "--project",
+            "jgit",
+        ]
+
+        with patch.object(sys, "argv", test_args):
+            with self.assertRaises(SystemExit) as cm:
+                mhc_main.main()
+            self.assertEqual(cm.exception.code, 1)
+
+        mock_build_collector.return_value.run_complexity_analyzer.assert_not_called()
+
     @unittest.skip("Legacy llm-m2m-link CLI path is no longer covered in mhc.main.")
     @patch("mhc.main.subprocess.run")
     @patch("mhc.main.importlib.util.find_spec", return_value=object())
