@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+from mhc.util import parse_project_index
 
 from ptc.testlinker.execute import execute_project
 from ptc.testlinker.postprocess import POSTPROCESS_MODES, postprocess_project
@@ -116,34 +117,6 @@ def _load_repository_projects(workspace_directory: str | Path) -> list[str]:
     return repository_df["project"].dropna().astype(str).tolist()
 
 
-def _parse_project_index(project_index: str | None, known_projects: list[str]) -> list[str]:
-    if not project_index:
-        return []
-
-    if ":" not in project_index:
-        try:
-            return [known_projects[int(project_index)]]
-        except (ValueError, IndexError):
-            raise ValueError(
-                "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
-            )
-
-    if project_index.count(":") != 1:
-        raise ValueError(
-            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
-        )
-
-    start_text, end_text = project_index.split(":", maxsplit=1)
-    try:
-        start_index = int(start_text) if start_text else None
-        end_index = int(end_text) if end_text else None
-    except ValueError:
-        raise ValueError(
-            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
-        )
-    return known_projects[start_index:end_index]
-
-
 def _resolve_projects(args: argparse.Namespace, parser: argparse.ArgumentParser) -> list[str]:
     provided_selection_count = sum(
         value is not None for value in (args.project, args.projects, args.project_index)
@@ -160,7 +133,7 @@ def _resolve_projects(args: argparse.Namespace, parser: argparse.ArgumentParser)
         return projects
 
     try:
-        return _parse_project_index(args.project_index, _load_repository_projects(args.workspace_directory))
+        return parse_project_index(args.project_index, _load_repository_projects(args.workspace_directory))
     except ValueError as exc:
         parser.error(str(exc))
 

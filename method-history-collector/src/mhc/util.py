@@ -9,6 +9,32 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+PROJECT_INDEX_HELP = "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+
+
+def parse_project_index(project_index: str | None, known_projects: Sequence[str]) -> list[str]:
+    if not project_index:
+        return []
+
+    projects = list(known_projects)
+    if ":" not in project_index:
+        try:
+            return [projects[int(project_index)]]
+        except (ValueError, IndexError):
+            raise ValueError(PROJECT_INDEX_HELP)
+
+    if project_index.count(":") != 1:
+        raise ValueError(PROJECT_INDEX_HELP)
+
+    start_text, end_text = project_index.split(":", maxsplit=1)
+    try:
+        start_index = int(start_text) if start_text else None
+        end_index = int(end_text) if end_text else None
+    except ValueError:
+        raise ValueError(PROJECT_INDEX_HELP)
+    return projects[start_index:end_index]
+
+
 def format_git_project_directory(repository_directory: str, repository_name: str) -> str:
     return os.path.join(f"{repository_directory}", repository_name)
 

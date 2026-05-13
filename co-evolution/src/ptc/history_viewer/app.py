@@ -30,7 +30,7 @@ from .repository import (
 
 DEFAULT_GROUND_TRUTH_DIRECTORY = (
     Path.cwd()
-    / "workspace-eval"
+    / "workspace"
     / "data"
     / "t2p-ground-truth-labelling"
     / "t2plinker-t2p-ground-truth-labelling"
@@ -129,6 +129,10 @@ button {
 button.secondary {
   background: linear-gradient(135deg, #ebe2d3, #e3d6c0);
   color: var(--ink);
+}
+button.danger {
+  background: linear-gradient(135deg, #b91c1c, #7f1d1d);
+  color: white;
 }
 .button-row {
   display: flex;
@@ -664,6 +668,32 @@ th {
   width: 100%;
   min-width: 0;
 }
+.ground-truth-tag-wrapper {
+  position: relative;
+}
+.ground-truth-tag-menu {
+  position: absolute;
+  z-index: 20;
+  display: none;
+  min-width: 180px;
+  max-width: min(320px, 90vw);
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #cfc4af;
+  border-radius: 12px;
+  background: #fffdfa;
+  box-shadow: var(--shadow);
+}
+.ground-truth-tag-menu button {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  font-weight: 600;
+}
 .ground-truth-detail-table {
   table-layout: fixed;
 }
@@ -671,9 +701,16 @@ th {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 12px;
   margin-top: 14px;
+}
+.ground-truth-actions-right {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-left: auto;
 }
 .ground-truth-bulk-actions {
   display: flex;
@@ -683,6 +720,43 @@ th {
 .ground-truth-bulk-actions button,
 .ground-truth-update-all {
   width: auto;
+}
+.ground-truth-add-entry {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid rgba(216, 207, 189, 0.85);
+  border-radius: 16px;
+  background: rgba(247, 244, 237, 0.66);
+}
+.ground-truth-add-search {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: end;
+}
+.ground-truth-add-results {
+  display: grid;
+  gap: 8px;
+}
+.ground-truth-add-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid rgba(216, 207, 189, 0.85);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.86);
+}
+.ground-truth-add-result strong,
+.ground-truth-add-result a,
+.ground-truth-add-result span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ground-truth-method-table {
   table-layout: fixed;
@@ -742,6 +816,13 @@ th {
   min-width: 0;
   padding: 10px 6px;
   font-size: 0.9rem;
+  white-space: nowrap;
+}
+.ground-truth-delete {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 8px;
+  font-size: 0.86rem;
   white-space: nowrap;
 }
 .status-complete {
@@ -807,6 +888,8 @@ class HistoryViewerApp:
                 return self._handle_ground_truth(environ, start_response)
             if method == "GET" and path == "/ground-truth/detail":
                 return self._handle_ground_truth_detail(environ, start_response)
+            if method == "GET" and path == "/api/ground-truth-method-search":
+                return self._handle_ground_truth_method_search(environ, start_response)
             if method == "GET" and path == "/api/history-json":
                 return self._handle_history_json(environ, start_response)
             if method == "POST" and path == "/api/notes":
@@ -815,6 +898,12 @@ class HistoryViewerApp:
                 return self._handle_update_ground_truth_label(environ, start_response)
             if method == "POST" and path == "/api/ground-truth-labels":
                 return self._handle_update_ground_truth_labels(environ, start_response)
+            if method == "POST" and path == "/api/ground-truth-delete-method":
+                return self._handle_delete_ground_truth_method(environ, start_response)
+            if method == "POST" and path == "/api/ground-truth-delete-candidate":
+                return self._handle_delete_ground_truth_candidate(environ, start_response)
+            if method == "POST" and path == "/api/ground-truth-add-candidate":
+                return self._handle_add_ground_truth_candidate(environ, start_response)
             if method == "POST" and path == "/api/revision-links":
                 return self._handle_write_revision_links(environ, start_response)
 
@@ -972,6 +1061,74 @@ class HistoryViewerApp:
             "complete": bool(candidates) and all(candidate.is_labelled for candidate in candidates),
         }
         return self._respond_json(start_response, response)
+
+    def _handle_delete_ground_truth_method(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
+        payload = _read_payload(environ)
+        deleted_count = self.repository.delete_ground_truth_test_method(
+            payload["ground_truth_csv"],
+            from_url=payload["from_url"],
+        )
+        return self._respond_json(start_response, {"ok": True, "deleted_count": deleted_count})
+
+    def _handle_delete_ground_truth_candidate(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
+        payload = _read_payload(environ)
+        deleted_count = self.repository.delete_ground_truth_candidate(
+            payload["ground_truth_csv"],
+            from_url=payload["from_url"],
+            to_url=payload["to_url"],
+        )
+        candidates = self.repository.read_ground_truth_candidates(
+            payload["ground_truth_csv"],
+            from_url=payload["from_url"],
+        )
+        return self._respond_json(
+            start_response,
+            {
+                "ok": True,
+                "deleted_count": deleted_count,
+                "labelled_count": sum(1 for candidate in candidates if candidate.is_labelled),
+                "candidate_count": len(candidates),
+            },
+        )
+
+    def _handle_ground_truth_method_search(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
+        params = _query_params(environ)
+        options = self.repository.search_ground_truth_method_options(
+            params["ground_truth_csv"],
+            query=params.get("q", ""),
+            mode=params.get("mode", "name"),
+        )
+        payload = {
+            "ok": True,
+            "options": [
+                {
+                    "row_index": option.row_index,
+                    "name": option.values.get("name", ""),
+                    "url": option.values.get("url", ""),
+                    "artifact": option.values.get("artifact", ""),
+                    "fqs": option.values.get("fqs", ""),
+                }
+                for option in options
+            ],
+        }
+        return self._respond_json(start_response, payload)
+
+    def _handle_add_ground_truth_candidate(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
+        payload = _read_payload(environ)
+        added = self.repository.append_ground_truth_candidate(
+            payload["ground_truth_csv"],
+            from_url=payload["from_url"],
+            method_row_index=int(payload["method_row_index"]),
+        )
+        return self._respond_json(
+            start_response,
+            {
+                "ok": True,
+                "row_index": added.row_index,
+                "to_name": added.values.get("to_name", ""),
+                "to_url": added.values.get("to_url", ""),
+            },
+        )
 
     def _handle_write_revision_links(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
         payload = _read_payload(environ)
@@ -1526,15 +1683,14 @@ class HistoryViewerApp:
 <tr>
   <td><a href="{html.escape(csv_url)}">{html.escape(summary.project)}</a></td>
   <td class="number-cell">{summary.total_rows}</td>
-  <td class="number-cell">{summary.test_method_count}</td>
-  <td class="number-cell">{summary.completed_test_method_count}</td>
+  <td class="number-cell">{summary.completed_test_method_count}/{summary.test_method_count}</td>
   <td class="number-cell">{summary.completion_percent:.1f}%</td>
   <td><a href="{html.escape(csv_url)}">{html.escape(csv_name)}</a></td>
 </tr>
 """
             )
         if not rows:
-            rows.append('<tr><td colspan="6"><span class="muted">No ground-truth CSV files found.</span></td></tr>')
+            rows.append('<tr><td colspan="5"><span class="muted">No ground-truth CSV files found.</span></td></tr>')
 
         return f"""
 <main>
@@ -1552,7 +1708,6 @@ class HistoryViewerApp:
         <tr>
           <th class="plain-eyebrow">Project</th>
           <th class="number-cell plain-eyebrow">Links</th>
-          <th class="number-cell plain-eyebrow">Test Methods</th>
           <th class="number-cell plain-eyebrow">Completed</th>
           <th class="number-cell plain-eyebrow">Progress</th>
           <th class="plain-eyebrow">CSV</th>
@@ -1575,20 +1730,22 @@ class HistoryViewerApp:
             status_label = "Completed" if method.is_complete else "Incomplete"
             rows.append(
                 f"""
-<tr>
+<tr data-ground-truth-method-from-url="{html.escape(method.from_url)}">
   <td><a class="ground-truth-method-link" href="{html.escape(detail_url)}" title="{html.escape(method.from_name)}"><strong>{html.escape(method.from_name)}</strong></a></td>
-  <td class="number-cell">{method.candidate_count}</td>
-  <td class="number-cell">{method.labelled_count}</td>
+  <td class="number-cell">{method.truth_count}</td>
+  <td class="number-cell">{method.labelled_count}/{method.candidate_count}</td>
   <td><span class="{status_class}">{status_label}</span></td>
-  <td><a href="{html.escape(method.from_url)}" target="_blank" rel="noreferrer">Source</a></td>
+  <td><a href="{html.escape(method.from_url)}" target="_blank" rel="noreferrer">Open</a></td>
   <td class="ground-truth-compact-cell"><span class="ground-truth-compact-text" title="{html.escape(method.tags)}">{html.escape(truncate_display_text(method.tags, 44))}</span></td>
   <td class="ground-truth-compact-cell"><span class="ground-truth-compact-text" title="{html.escape(method.notes)}">{html.escape(truncate_display_text(method.notes, 56))}</span></td>
+  <td><button type="button" class="danger ground-truth-delete ground-truth-delete-method" data-ground-truth-csv="{html.escape(ground_truth_csv)}" data-from-url="{html.escape(method.from_url)}">Delete</button></td>
 </tr>
 """
             )
         if not rows:
-            rows.append('<tr><td colspan="7"><span class="muted">No test methods found in this CSV.</span></td></tr>')
+            rows.append('<tr><td colspan="8"><span class="muted">No test methods found in this CSV.</span></td></tr>')
 
+        back_url = f"/ground-truth?ground_truth_dir={quote(str(Path(ground_truth_csv).parent), safe='')}"
         return f"""
 <main>
   <section class="hero">
@@ -1596,35 +1753,42 @@ class HistoryViewerApp:
     <h1>{html.escape(Path(ground_truth_csv).stem)}</h1>
     <p>Select a test method. A test method is complete when every production candidate under it has a non-empty label.</p>
     <p class="muted mono">{html.escape(display_project_path(ground_truth_csv))}</p>
+    <div class="chip-row ground-truth-detail-chips">
+      <span></span>
+      <a class="chip" href="{html.escape(back_url)}">Back to projects</a>
+    </div>
   </section>
 
   <section class="panel" style="margin-top:24px;">
     <div class="eyebrow" style="text-transform:none; letter-spacing:0;">Test Methods</div>
     <table class="ground-truth-method-table">
       <colgroup>
-        <col style="width:39%;" />
-        <col style="width:10%;" />
+        <col style="width:31%;" />
+        <col style="width:7%;" />
         <col style="width:10%;" />
         <col style="width:12%;" />
         <col style="width:6%;" />
         <col style="width:11%;" />
-        <col style="width:12%;" />
+        <col style="width:14%;" />
+        <col style="width:9%;" />
       </colgroup>
       <thead>
         <tr>
           <th style="text-transform:none; letter-spacing:0;">Method</th>
-          <th class="number-cell" style="text-transform:none; letter-spacing:0;">Candidates</th>
+          <th class="number-cell" style="text-transform:none; letter-spacing:0;">Truth</th>
           <th class="number-cell" style="text-transform:none; letter-spacing:0;">Labelled</th>
           <th style="text-transform:none; letter-spacing:0;">Completion</th>
           <th>URL</th>
           <th style="text-transform:none; letter-spacing:0;">Tags</th>
           <th style="text-transform:none; letter-spacing:0;">Notes</th>
+          <th style="text-transform:none; letter-spacing:0;">Delete</th>
         </tr>
       </thead>
       <tbody>{''.join(rows)}</tbody>
     </table>
   </section>
 </main>
+{GROUND_TRUTH_SCRIPT}
 """
 
     def _render_ground_truth_detail(
@@ -1636,9 +1800,9 @@ class HistoryViewerApp:
     ) -> str:
         from_name = candidates[0].values.get("from_name", from_url) if candidates else from_url
         labelled_count = sum(1 for candidate in candidates if candidate.is_labelled)
-        tag_options = "\n".join(
-            f'<option value="{html.escape(tag)}"></option>' for tag in self.repository.collect_ground_truth_tags(ground_truth_csv)
-        )
+        tag_values = self.repository.collect_ground_truth_tags(ground_truth_csv)
+        tag_options = "\n".join(f'<option value="{html.escape(tag)}"></option>' for tag in tag_values)
+        tag_json = json.dumps(tag_values).replace("</", "<\\/")
         rows = []
         for candidate in candidates:
             values = candidate.values
@@ -1670,13 +1834,14 @@ class HistoryViewerApp:
       <label><input type="radio" name="label-{candidate.row_index}" value="1" {"checked" if label_value == "1" else ""} /><span>1</span></label>
     </div>
   </td>
-  <td><input class="compact-tags" name="{html.escape(tags_name)}" list="ground-truth-tag-suggestions" value="{html.escape(values.get('tags', ''))}" /></td>
+  <td><div class="ground-truth-tag-wrapper"><input class="compact-tags" name="{html.escape(tags_name)}" list="ground-truth-tag-suggestions" value="{html.escape(values.get('tags', ''))}" /></div></td>
   <td><textarea class="compact-note" name="{html.escape(notes_name)}">{html.escape(candidate.notes)}</textarea></td>
+  <td><button type="button" class="danger ground-truth-delete ground-truth-delete-candidate" data-ground-truth-csv="{html.escape(ground_truth_csv)}" data-from-url="{html.escape(values.get('from_url', ''))}" data-to-url="{html.escape(values.get('to_url', ''))}">Delete</button></td>
 </tr>
 """
             )
         if not rows:
-            rows.append('<tr><td colspan="7"><span class="muted">No production candidates found for this test method.</span></td></tr>')
+            rows.append('<tr><td colspan="8"><span class="muted">No production candidates found for this test method.</span></td></tr>')
 
         back_url = f"/ground-truth?ground_truth_csv={quote(ground_truth_csv, safe='')}"
         return f"""
@@ -1696,26 +1861,50 @@ class HistoryViewerApp:
     <datalist id="ground-truth-tag-suggestions">
       {tag_options}
     </datalist>
+    <script type="application/json" id="ground-truth-tag-options">{tag_json}</script>
     <div class="ground-truth-actions">
       <div class="ground-truth-bulk-actions">
-        <button type="button" class="secondary ground-truth-bulk-label" data-label-value="0">All 0</button>
-        <button type="button" class="secondary ground-truth-bulk-label" data-label-value="1">All 1</button>
-        <button type="button" class="secondary ground-truth-reset-labels">Reset</button>
+        <button type="button" class="secondary ground-truth-add-entry-toggle">Add Entry</button>
       </div>
-      <div class="ground-truth-bulk-actions">
-        <span class="flash ground-truth-status" style="display:none;"></span>
-        <button type="button" class="ground-truth-update-all" data-ground-truth-csv="{html.escape(ground_truth_csv)}" data-from-url="{html.escape(from_url)}">Update All</button>
+      <div class="ground-truth-actions-right">
+        <div class="ground-truth-bulk-actions">
+          <button type="button" class="secondary ground-truth-bulk-label" data-label-value="0">All 0</button>
+          <button type="button" class="secondary ground-truth-bulk-label" data-label-value="1">All 1</button>
+          <button type="button" class="secondary ground-truth-reset-labels">Reset</button>
+        </div>
+        <div class="ground-truth-bulk-actions">
+          <span class="flash ground-truth-status" style="display:none;"></span>
+          <button type="button" class="ground-truth-update-all" data-ground-truth-csv="{html.escape(ground_truth_csv)}" data-from-url="{html.escape(from_url)}">Update All</button>
+        </div>
       </div>
+    </div>
+    <div class="ground-truth-add-entry" style="display:none;" data-ground-truth-csv="{html.escape(ground_truth_csv)}" data-from-url="{html.escape(from_url)}">
+      <div class="ground-truth-add-search">
+        <label>
+          Search by
+          <select class="ground-truth-add-mode">
+            <option value="name">Method name</option>
+            <option value="url">URL</option>
+          </select>
+        </label>
+        <label>
+          Query
+          <input class="ground-truth-add-query" type="search" placeholder="Type a method name or URL" />
+        </label>
+        <button type="button" class="ground-truth-add-search-button">Search</button>
+      </div>
+      <div class="ground-truth-add-results muted">Search the method CSV to add a candidate.</div>
     </div>
     <table class="ground-truth-detail-table">
       <colgroup>
-        <col style="width:31%;" />
-        <col style="width:9%;" />
-        <col style="width:7%;" />
-        <col style="width:7%;" />
+        <col style="width:27%;" />
         <col style="width:12%;" />
+        <col style="width:6%;" />
+        <col style="width:6%;" />
+        <col style="width:10%;" />
         <col style="width:15%;" />
-        <col style="width:19%;" />
+        <col style="width:18%;" />
+        <col style="width:6%;" />
       </colgroup>
       <thead>
         <tr>
@@ -1726,6 +1915,7 @@ class HistoryViewerApp:
           <th class="label-cell">Label</th>
           <th>Tags</th>
           <th>Notes</th>
+          <th>Delete</th>
         </tr>
       </thead>
       <tbody>{''.join(rows)}</tbody>
@@ -2599,8 +2789,18 @@ def safe_json_filename(history: MethodHistory) -> str:
 
 def display_project_path(path_value: str | Path) -> str:
     path = Path(path_value).expanduser()
+    resolved = path.resolve()
+    workspace_roots = [
+        Path.cwd().resolve() / "workspace",
+        Path.cwd().resolve() / "workspace-eval",
+    ]
+    for workspace_root in workspace_roots:
+        try:
+            return f"/{resolved.relative_to(workspace_root.resolve())}"
+        except ValueError:
+            continue
     try:
-        return f"/{path.resolve().relative_to(Path.cwd().resolve())}"
+        return f"/{resolved.relative_to(Path.cwd().resolve())}"
     except ValueError:
         return str(path)
 
@@ -2707,6 +2907,77 @@ if (revisionButton) {
 
 GROUND_TRUTH_SCRIPT = """
 <script>
+function groundTruthStatus(text, isError = false) {
+  const status = document.querySelector(".ground-truth-status");
+  if (!status) return;
+  status.style.display = "inline-flex";
+  status.textContent = text;
+  status.classList.toggle("error", isError);
+}
+
+function groundTruthSelectedTags(input) {
+  return input.value.split(/[\\s,]+/).map((value) => value.trim()).filter(Boolean).map((value) => value.startsWith("#") ? value : `#${value}`);
+}
+
+const tagOptionsNode = document.getElementById("ground-truth-tag-options");
+const groundTruthTagOptions = tagOptionsNode ? JSON.parse(tagOptionsNode.textContent || "[]") : [];
+const groundTruthTagMenu = document.createElement("div");
+groundTruthTagMenu.className = "ground-truth-tag-menu";
+document.body.appendChild(groundTruthTagMenu);
+
+function groundTruthCurrentTagToken(input) {
+  const cursor = input.selectionStart || input.value.length;
+  const beforeCursor = input.value.slice(0, cursor);
+  const separator = Math.max(beforeCursor.lastIndexOf(" "), beforeCursor.lastIndexOf(","));
+  const start = separator + 1;
+  return { start, end: cursor, token: beforeCursor.slice(start).trim() };
+}
+
+function groundTruthApplyTag(input, tag) {
+  const token = groundTruthCurrentTagToken(input);
+  const prefix = input.value.slice(0, token.start);
+  const suffix = input.value.slice(token.end);
+  input.value = `${prefix}${tag} ${suffix}`.replace(/\\s+/g, " ").trimStart();
+  input.focus();
+  groundTruthTagMenu.style.display = "none";
+}
+
+function groundTruthShowTagSuggestions(input) {
+  const token = groundTruthCurrentTagToken(input);
+  const query = token.token.replace(/^#/, "").toLowerCase();
+  const selected = new Set(groundTruthSelectedTags(input));
+  const matches = groundTruthTagOptions
+    .filter((tag) => !selected.has(tag) || tag.toLowerCase().includes(query))
+    .filter((tag) => !query || tag.toLowerCase().includes(query))
+    .slice(0, 8);
+  if (!matches.length) {
+    groundTruthTagMenu.style.display = "none";
+    return;
+  }
+  groundTruthTagMenu.innerHTML = "";
+  for (const tag of matches) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.textContent = tag;
+    button.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      groundTruthApplyTag(input, tag);
+    });
+    groundTruthTagMenu.appendChild(button);
+  }
+  const rect = input.getBoundingClientRect();
+  groundTruthTagMenu.style.left = `${window.scrollX + rect.left}px`;
+  groundTruthTagMenu.style.top = `${window.scrollY + rect.bottom + 4}px`;
+  groundTruthTagMenu.style.width = `${rect.width}px`;
+  groundTruthTagMenu.style.display = "block";
+}
+
+for (const input of document.querySelectorAll(".compact-tags")) {
+  input.addEventListener("input", () => groundTruthShowTagSuggestions(input));
+  input.addEventListener("focus", () => groundTruthShowTagSuggestions(input));
+  input.addEventListener("blur", () => setTimeout(() => { groundTruthTagMenu.style.display = "none"; }, 120));
+}
+
 for (const button of document.querySelectorAll(".ground-truth-bulk-label")) {
   button.addEventListener("click", () => {
     for (const row of document.querySelectorAll("[data-ground-truth-row]")) {
@@ -2753,19 +3024,135 @@ for (const button of document.querySelectorAll(".ground-truth-update-all")) {
     try {
       const response = await fetch("/api/ground-truth-labels", { method: "POST", body: payload });
       const data = await response.json();
-      status.style.display = "inline-flex";
-      status.textContent = data.ok ? "Updated" : "Update failed";
-      status.classList.toggle("error", !data.ok);
+      groundTruthStatus(data.ok ? "Updated" : "Update failed", !data.ok);
       const progress = document.getElementById("ground-truth-progress");
       if (progress && data.ok) {
         progress.textContent = `${data.labelled_count} of ${data.candidate_count} labelled`;
       }
     } catch (error) {
-      status.style.display = "inline-flex";
-      status.textContent = "Update failed";
-      status.classList.add("error");
+      groundTruthStatus("Update failed", true);
     } finally {
       button.disabled = false;
+    }
+  });
+}
+
+for (const button of document.querySelectorAll(".ground-truth-delete-method")) {
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    const payload = new URLSearchParams({
+      ground_truth_csv: button.dataset.groundTruthCsv,
+      from_url: button.dataset.fromUrl,
+    });
+    try {
+      const response = await fetch("/api/ground-truth-delete-method", { method: "POST", body: payload });
+      const data = await response.json();
+      if (!data.ok) throw new Error("delete failed");
+      const row = button.closest("tr");
+      if (row) row.remove();
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = "Failed";
+    }
+  });
+}
+
+for (const button of document.querySelectorAll(".ground-truth-delete-candidate")) {
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    const payload = new URLSearchParams({
+      ground_truth_csv: button.dataset.groundTruthCsv,
+      from_url: button.dataset.fromUrl,
+      to_url: button.dataset.toUrl,
+    });
+    try {
+      const response = await fetch("/api/ground-truth-delete-candidate", { method: "POST", body: payload });
+      const data = await response.json();
+      if (!data.ok) throw new Error("delete failed");
+      const row = button.closest("tr");
+      if (row) row.remove();
+      const progress = document.getElementById("ground-truth-progress");
+      if (progress) progress.textContent = `${data.labelled_count} of ${data.candidate_count} labelled`;
+      groundTruthStatus("Deleted");
+    } catch (error) {
+      button.disabled = false;
+      groundTruthStatus("Delete failed", true);
+    }
+  });
+}
+
+const addToggle = document.querySelector(".ground-truth-add-entry-toggle");
+const addPanel = document.querySelector(".ground-truth-add-entry");
+if (addToggle && addPanel) {
+  addToggle.addEventListener("click", () => {
+    addPanel.style.display = addPanel.style.display === "none" ? "grid" : "none";
+  });
+  const searchButton = addPanel.querySelector(".ground-truth-add-search-button");
+  const results = addPanel.querySelector(".ground-truth-add-results");
+  searchButton.addEventListener("click", async () => {
+    const mode = addPanel.querySelector(".ground-truth-add-mode").value;
+    const query = addPanel.querySelector(".ground-truth-add-query").value.trim();
+    if (!query) {
+      results.textContent = "Type a search query first.";
+      return;
+    }
+    searchButton.disabled = true;
+    results.textContent = "Searching...";
+    try {
+      const params = new URLSearchParams({
+        ground_truth_csv: addPanel.dataset.groundTruthCsv,
+        mode,
+        q: query,
+      });
+      const response = await fetch(`/api/ground-truth-method-search?${params.toString()}`);
+      const data = await response.json();
+      if (!data.ok) throw new Error("search failed");
+      if (!data.options.length) {
+        results.textContent = "No matching methods found.";
+        return;
+      }
+      results.innerHTML = "";
+      for (const option of data.options) {
+        const item = document.createElement("div");
+        item.className = "ground-truth-add-result";
+        const text = document.createElement("div");
+        const name = document.createElement("a");
+        name.href = option.url;
+        name.target = "_blank";
+        name.rel = "noreferrer";
+        name.textContent = option.name || option.url;
+        const meta = document.createElement("span");
+        meta.className = "muted mono";
+        meta.textContent = option.artifact || "";
+        text.appendChild(name);
+        text.appendChild(meta);
+        const select = document.createElement("button");
+        select.type = "button";
+        select.textContent = "Add";
+        select.addEventListener("click", async () => {
+          select.disabled = true;
+          const payload = new URLSearchParams({
+            ground_truth_csv: addPanel.dataset.groundTruthCsv,
+            from_url: addPanel.dataset.fromUrl,
+            method_row_index: option.row_index,
+          });
+          const addResponse = await fetch("/api/ground-truth-add-candidate", { method: "POST", body: payload });
+          const addData = await addResponse.json();
+          if (addData.ok) {
+            window.location.reload();
+          } else {
+            select.disabled = false;
+            groundTruthStatus("Add failed", true);
+          }
+        });
+        item.appendChild(text);
+        item.appendChild(select);
+        results.appendChild(item);
+      }
+    } catch (error) {
+      results.textContent = "Search failed.";
+    } finally {
+      searchButton.disabled = false;
     }
   });
 }

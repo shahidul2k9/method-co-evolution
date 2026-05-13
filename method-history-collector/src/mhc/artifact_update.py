@@ -187,7 +187,14 @@ def _classify_methods(detector, repo_root: str, rel_file: str, pkg: str) -> dict
 
     PathClass = JClass("java.nio.file.Path")
     package_name = pkg or _read_package(Path(repo_root) / rel_file)
-    classifications = detector.classifyMethodArtifacts(PathClass.of(str(Path(repo_root) / rel_file)), package_name)
+    try:
+        classifications = detector.classifyMethodArtifacts(PathClass.of(str(Path(repo_root) / rel_file)), package_name)
+    except BaseException as error:
+        if isinstance(error, (KeyboardInterrupt, SystemExit)):
+            raise
+        print(f"{rel_file}: method artifact parse failed, falling back to file-level artifact ({type(error).__name__})")
+        _request_java_gc()
+        return {}
     result: dict[tuple[str, str], str] = {}
     for classification in classifications:
         method_name = str(classification.methodName() or "")
@@ -195,6 +202,15 @@ def _classify_methods(detector, repo_root: str, rel_file: str, pkg: str) -> dict
         if method_name and start_line:
             result[(method_name, start_line)] = str(classification.encodedArtifact())
     return result
+
+
+def _request_java_gc() -> None:
+    try:
+        from jpype import JClass
+
+        JClass("java.lang.System").gc()
+    except BaseException:
+        return
 
 
 def _normalize_line(value) -> str:

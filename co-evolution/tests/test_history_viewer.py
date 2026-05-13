@@ -104,6 +104,45 @@ class TestHistoryViewer(unittest.TestCase):
             writer.writerows(rows)
         return csv_path
 
+    def write_method_fixture(self, data_directory: Path, project: str = "sample-project") -> Path:
+        method_dir = data_directory / "method"
+        method_dir.mkdir(parents=True, exist_ok=True)
+        csv_path = method_dir / f"{project}.csv"
+        fieldnames = [
+            "project",
+            "name",
+            "url",
+            "artifact",
+            "fqs",
+            "tctracer_fqs",
+            "testlinker_fqs",
+        ]
+        rows = [
+            {
+                "project": project,
+                "name": "newUtility",
+                "url": "https://github.com/acme/sample/blob/abc/src/main/NewUtility.java#L40",
+                "artifact": "#production-code",
+                "fqs": "acme.NewUtility.newUtility()",
+                "tctracer_fqs": "acme.NewUtility.newUtility()",
+                "testlinker_fqs": "acme.NewUtility.newUtility()",
+            },
+            {
+                "project": project,
+                "name": "testFixtureHelper",
+                "url": "https://github.com/acme/sample/blob/abc/src/test/TestFixture.java#L8",
+                "artifact": "#test-code",
+                "fqs": "acme.TestFixture.testFixtureHelper()",
+                "tctracer_fqs": "acme.TestFixture.testFixtureHelper()",
+                "testlinker_fqs": "acme.TestFixture.testFixtureHelper()",
+            },
+        ]
+        with csv_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        return csv_path
+
     def call_app(
         self,
         app: object,
@@ -326,6 +365,7 @@ class TestHistoryViewer(unittest.TestCase):
         alpha_summary = next(method for method in method_summaries if method.from_name == "testAlpha")
         self.assertEqual(2, alpha_summary.candidate_count)
         self.assertEqual(1, alpha_summary.labelled_count)
+        self.assertEqual(1, alpha_summary.truth_count)
         self.assertFalse(alpha_summary.is_complete)
 
     def test_update_ground_truth_label_targets_row_index_and_adds_note_column(self) -> None:
@@ -365,6 +405,8 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("Projects ready for labelling", project_body)
         self.assertIn("sample-project.csv", project_body)
         self.assertIn("Links", project_body)
+        self.assertNotIn("Test Methods</th>", project_body)
+        self.assertIn("1/2", project_body)
 
         method_body = self.call_app(
             app,
@@ -375,6 +417,13 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("testAlpha", method_body)
         self.assertIn("Method", method_body)
         self.assertIn("<th>URL</th>", method_body)
+        self.assertNotIn(">Candidates</th>", method_body)
+        self.assertIn(">Truth</th>", method_body)
+        self.assertIn("1/2", method_body)
+        self.assertIn("<td class=\"number-cell\">1</td>", method_body)
+        self.assertIn(">Open</a>", method_body)
+        self.assertIn("ground-truth-delete-method", method_body)
+        self.assertIn("Back to projects", method_body)
         self.assertIn("<th style=\"text-transform:none; letter-spacing:0;\">Tags</th>", method_body)
         self.assertIn("<th style=\"text-transform:none; letter-spacing:0;\">Notes</th>", method_body)
         self.assertIn("#existing", method_body)
@@ -393,16 +442,124 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("<th>Artifact</th>", detail_body)
         self.assertIn("production", detail_body)
         self.assertIn("Update All", detail_body)
+        self.assertIn("Add Entry", detail_body)
         self.assertIn("All 0", detail_body)
         self.assertIn("All 1", detail_body)
         self.assertIn("Reset", detail_body)
+        self.assertLess(detail_body.index("ground-truth-add-entry-toggle"), detail_body.index("ground-truth-bulk-label"))
         self.assertIn("<th>Tags</th>", detail_body)
         self.assertIn("<th>Notes</th>", detail_body)
+        self.assertIn("<th>Delete</th>", detail_body)
+        self.assertIn("ground-truth-delete-candidate", detail_body)
         self.assertIn("#existing", detail_body)
         self.assertIn("<summary>Details</summary>", detail_body)
         self.assertIn("<td class=\"number-cell\">1</td>", detail_body)
         self.assertIn('value="0"', detail_body)
         self.assertLess(detail_body.index('value="0"'), detail_body.index('value="1"'))
+
+    def test_ground_truth_delete_apis_remove_method_and_candidate_rows(self) -> None:
+        csv_path = self.write_ground_truth_fixture("ground-truth-delete-api")
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+
+        candidate_payload = urlencode(
+            {
+                "ground_truth_csv": str(csv_path),
+                "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+                "to_url": "https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L30",
+            }
+        ).encode("utf-8")
+        candidate_body = self.call_app(
+            app,
+            path="/api/ground-truth-delete-candidate",
+            method="POST",
+            body=candidate_payload,
+        )
+        candidate_response = json.loads(candidate_body)
+        self.assertTrue(candidate_response["ok"])
+        self.assertEqual(1, candidate_response["deleted_count"])
+
+        with csv_path.open("r", encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        self.assertEqual(2, len(rows))
+        self.assertNotIn("https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L30", [row["to_url"] for row in rows])
+
+        method_payload = urlencode(
+            {
+                "ground_truth_csv": str(csv_path),
+                "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+            }
+        ).encode("utf-8")
+        method_body = self.call_app(
+            app,
+            path="/api/ground-truth-delete-method",
+            method="POST",
+            body=method_payload,
+        )
+        method_response = json.loads(method_body)
+        self.assertTrue(method_response["ok"])
+        self.assertEqual(1, method_response["deleted_count"])
+
+        with csv_path.open("r", encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        self.assertEqual(["testBeta"], [row["from_name"] for row in rows])
+
+    def test_ground_truth_method_search_and_append_candidate_use_method_csv(self) -> None:
+        csv_path = self.write_ground_truth_fixture("ground-truth-append-api")
+        data_directory = csv_path.parent / "workspace-data"
+        self.write_method_fixture(data_directory)
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(data_directory))
+
+        search_body = self.call_app(
+            app,
+            path="/api/ground-truth-method-search",
+            query=urlencode({"ground_truth_csv": str(csv_path), "q": "fixture", "mode": "name"}),
+        )
+        search_response = json.loads(search_body)
+        self.assertTrue(search_response["ok"])
+        self.assertEqual("#test-code", search_response["options"][0]["artifact"])
+
+        append_payload = urlencode(
+            {
+                "ground_truth_csv": str(csv_path),
+                "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+                "method_row_index": "1",
+            }
+        ).encode("utf-8")
+        append_body = self.call_app(
+            app,
+            path="/api/ground-truth-add-candidate",
+            method="POST",
+            body=append_payload,
+        )
+        append_response = json.loads(append_body)
+        self.assertTrue(append_response["ok"])
+
+        with csv_path.open("r", encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        self.assertEqual("testFixtureHelper", rows[2]["to_name"])
+        self.assertEqual("testBeta", rows[3]["from_name"])
+        self.assertEqual("1", rows[2]["to_call_depth"])
+        self.assertEqual("", rows[2]["label"])
+        self.assertEqual("", rows[2]["tags"])
+        self.assertEqual("", rows[2]["notes"])
+
+    def test_ground_truth_detail_script_renders_linked_search_result_with_artifact_only(self) -> None:
+        csv_path = self.write_ground_truth_fixture("ground-truth-search-result-render")
+        detail_body = self.call_app(
+            create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY)),
+            path="/ground-truth/detail",
+            query=urlencode(
+                {
+                    "ground_truth_csv": str(csv_path),
+                    "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+                }
+            ),
+        )
+
+        self.assertIn('const name = document.createElement("a");', detail_body)
+        self.assertIn("name.href = option.url;", detail_body)
+        self.assertIn('meta.textContent = option.artifact || "";', detail_body)
+        self.assertNotIn('meta.textContent = `${option.artifact || "artifact"} ${option.fqs || option.url}`;', detail_body)
 
     def test_ground_truth_update_api_returns_progress(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-api")

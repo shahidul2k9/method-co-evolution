@@ -161,6 +161,33 @@ class TestArtifactUpdateLogging(unittest.TestCase):
             columns_output = self._run_update(csv_file)
             self.assertIn("skipped, required columns are missing", columns_output)
 
+    def test_classify_methods_handles_java_parser_failure(self):
+        class FakePath:
+            @staticmethod
+            def of(value):
+                return value
+
+        class FakeDetector:
+            def classifyMethodArtifacts(self, _path, _package_name):
+                raise RuntimeError("java parser failed")
+
+        output = io.StringIO()
+        with (
+            patch("jpype.JClass", return_value=FakePath),
+            patch("mhc.artifact_update._request_java_gc") as request_gc,
+            contextlib.redirect_stdout(output),
+        ):
+            result = artifact_update._classify_methods(
+                FakeDetector(),
+                "/repo",
+                "src/test/A.java",
+                "example",
+            )
+
+        self.assertEqual({}, result)
+        self.assertIn("src/test/A.java: method artifact parse failed", output.getvalue())
+        request_gc.assert_called_once()
+
     def _run_update(
         self,
         csv_file: Path,

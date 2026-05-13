@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import sys
 import tempfile
 import unittest
@@ -13,6 +14,7 @@ try:
 except ImportError:  # pragma: no cover
     pd = None
 
+from mhc.util import parse_project_index
 from ptc.sample import ground_truth_sample
 
 
@@ -21,10 +23,11 @@ class TestGroundTruthSample(unittest.TestCase):
     def test_project_index_selects_repository_rows(self):
         projects = ["commons-io", "commons-lang", "gson"]
 
-        self.assertEqual(["commons-lang"], ground_truth_sample._parse_project_index("1", projects))
-        self.assertEqual(["commons-lang", "gson"], ground_truth_sample._parse_project_index("1:", projects))
-        self.assertEqual(["commons-io", "commons-lang"], ground_truth_sample._parse_project_index(":2", projects))
-        self.assertEqual(["gson"], ground_truth_sample._parse_project_index("-1", projects))
+        self.assertEqual(["commons-lang"], parse_project_index("1", projects))
+        self.assertEqual(["commons-lang", "gson"], parse_project_index("1:", projects))
+        self.assertEqual(["commons-io", "commons-lang"], parse_project_index(":2", projects))
+        self.assertEqual(["gson"], parse_project_index("-1", projects))
+        self.assertEqual([], parse_project_index(None, projects))
 
     def test_regenerate_preserves_labels_and_fills_sample_from_fresh_candidates(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -52,6 +55,8 @@ class TestGroundTruthSample(unittest.TestCase):
                     sample_count_per_project=2,
                     working_dir=working_dir,
                     output_dir=output_dir,
+                    temp_dir=root / ".output",
+                    random_state=42,
                 )
 
             result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
@@ -76,6 +81,8 @@ class TestGroundTruthSample(unittest.TestCase):
                     sample_count_per_project=2,
                     working_dir=working_dir,
                     output_dir=output_dir,
+                    temp_dir=root / ".output",
+                    random_state=42,
                 )
 
             result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
@@ -102,6 +109,7 @@ class TestGroundTruthSample(unittest.TestCase):
                     sample_count_per_project=2,
                     working_dir=working_dir,
                     output_dir=output_dir,
+                    temp_dir=root / ".output",
                 )
 
             result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
@@ -122,11 +130,146 @@ class TestGroundTruthSample(unittest.TestCase):
                     sample_count_per_project=1,
                     working_dir=working_dir,
                     output_dir=output_dir,
+                    temp_dir=root / ".output",
                 )
 
             result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
             self.assertEqual(ground_truth_sample.GROUND_TRUTH_COLUMNS, result.columns.tolist())
             self.assertEqual(["test://A"], result["from_url"].drop_duplicates().tolist())
+
+    def test_same_working_and_output_directory_preserves_manual_rows(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            candidate_dir, method_dir, working_dir, output_dir = self._make_dirs(root)
+            output_dir = working_dir
+            self._write_project_inputs(candidate_dir, method_dir, project="demo", test_count=1)
+            pd.DataFrame(
+                [
+                    {
+                        "project": "demo",
+                        "from_name": "testA",
+                        "to_name": "manualToString",
+                        "from_url": "test://A",
+                        "to_url": "prod://manual",
+                        "to_fqs": "Demo.manualToString()",
+                        "to_artifact": "#production-code",
+                        "label": "1",
+                        "tags": "manual",
+                        "notes": "added from UI",
+                    }
+                ]
+            ).to_csv(working_dir / "demo.csv", index=False)
+
+            with self._patch_input_dirs(candidate_dir, method_dir):
+                stats = ground_truth_sample.regenerate_project(
+                    project="demo",
+                    sample_count_per_project=1,
+                    working_dir=working_dir,
+                    output_dir=output_dir,
+                    temp_dir=root / ".output",
+                )
+
+            result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
+            manual = result[result["to_url"] == "prod://manual"].iloc[0]
+            self.assertEqual(1, stats.manual_rows_preserved)
+            self.assertEqual("1", str(manual["label"]))
+            self.assertEqual("manual", manual["tags"])
+            self.assertEqual("added from UI", manual["notes"])
+
+    def test_exclude_test_artifact_regex_filters_random_additions_only(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            candidate_dir, method_dir, working_dir, output_dir = self._make_dirs(root)
+            self._write_project_inputs(
+                candidate_dir,
+                method_dir,
+                project="demo",
+                test_count=3,
+                test_artifacts={
+                    "test://B": "#test-code #test-module #test-method",
+                },
+            )
+            pd.DataFrame(
+                [{"project": "demo", "from_url": "test://A", "to_url": "prod://1", "label": "1"}]
+            ).to_csv(working_dir / "demo.csv", index=False)
+
+            with self._patch_input_dirs(candidate_dir, method_dir):
+                stats = ground_truth_sample.regenerate_project(
+                    project="demo",
+                    sample_count_per_project=2,
+                    working_dir=working_dir,
+                    output_dir=output_dir,
+                    temp_dir=root / ".output",
+                    exclude_test_artifact_pattern=re.compile("#test-module"),
+                    random_state=42,
+                )
+
+            result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
+            self.assertEqual(1, stats.excluded_test_methods)
+            self.assertEqual({"test://A", "test://C"}, set(result["from_url"]))
+            self.assertNotIn("test://B", set(result["from_url"]))
+
+    def test_excluded_existing_working_method_is_preserved(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            candidate_dir, method_dir, working_dir, output_dir = self._make_dirs(root)
+            self._write_project_inputs(
+                candidate_dir,
+                method_dir,
+                project="demo",
+                test_count=2,
+                test_artifacts={"test://B": "#test-code #test-module #test-method"},
+            )
+            pd.DataFrame(
+                [{"project": "demo", "from_url": "test://B", "to_url": "prod://1", "label": "1"}]
+            ).to_csv(working_dir / "demo.csv", index=False)
+
+            with self._patch_input_dirs(candidate_dir, method_dir):
+                stats = ground_truth_sample.regenerate_project(
+                    project="demo",
+                    sample_count_per_project=1,
+                    working_dir=working_dir,
+                    output_dir=output_dir,
+                    temp_dir=root / ".output",
+                    exclude_test_artifact_pattern=re.compile("#test-module"),
+                )
+
+            result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
+            self.assertEqual(1, stats.reused_test_methods)
+            self.assertEqual({"test://B"}, set(result["from_url"]))
+
+    def test_default_sampling_does_not_pass_fixed_random_state(self):
+        with mock.patch.object(pd.Series, "sample", autospec=True, return_value=pd.Series(["test://B"])) as sample:
+            selected, reused_count, added_count = ground_truth_sample._select_test_methods(
+                available_urls=["test://A", "test://B", "test://C"],
+                working_urls=["test://A"],
+                sample_count_per_project=2,
+            )
+
+        self.assertEqual({"test://A", "test://B"}, selected)
+        self.assertEqual(1, reused_count)
+        self.assertEqual(1, added_count)
+        self.assertIsNone(sample.call_args.kwargs["random_state"])
+
+    def test_invalid_exclude_regex_errors_before_regeneration(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            working_dir = Path(tmpdir) / "working"
+            working_dir.mkdir()
+            with mock.patch.object(ground_truth_sample, "regenerate_project") as regenerate:
+                with self.assertRaises(SystemExit):
+                    ground_truth_sample.main(
+                        [
+                            "--project-index",
+                            "0",
+                            "--sample-count-per-project",
+                            "1",
+                            "--ground-truth-working-inprogress",
+                            str(working_dir),
+                            "--exclude-test-artifact-regex",
+                            "[",
+                        ]
+                    )
+            regenerate.assert_not_called()
 
     def _make_dirs(self, root: Path) -> tuple[Path, Path, Path, Path]:
         candidate_dir = root / "t2p-candidate-expanded"
@@ -151,7 +294,9 @@ class TestGroundTruthSample(unittest.TestCase):
         *,
         project: str,
         test_count: int,
+        test_artifacts: dict[str, str] | None = None,
     ) -> None:
+        test_artifacts = test_artifacts or {}
         test_urls = [f"test://{chr(ord('A') + index)}" for index in range(test_count)]
         candidate_rows = []
         method_rows = [
@@ -159,7 +304,12 @@ class TestGroundTruthSample(unittest.TestCase):
             {"url": "test-helper://1", "artifact": "#test-code #test-utility"},
         ]
         for index, test_url in enumerate(test_urls):
-            method_rows.append({"url": test_url, "artifact": "#test-code #test-unit #test-method"})
+            method_rows.append(
+                {
+                    "url": test_url,
+                    "artifact": test_artifacts.get(test_url, "#test-code #test-unit #test-method"),
+                }
+            )
             candidate_rows.extend(
                 [
                     {

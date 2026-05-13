@@ -134,6 +134,7 @@ class GroundTruthTestMethodSummary:
     from_url: str
     candidate_count: int
     labelled_count: int
+    truth_count: int = 0
     tags: str = ""
     notes: str = ""
 
@@ -155,6 +156,12 @@ class GroundTruthCandidateRow:
     @property
     def notes(self) -> str:
         return self.values.get("notes", self.values.get("note", ""))
+
+
+@dataclass
+class GroundTruthMethodOption:
+    row_index: int
+    values: dict[str, str]
 
 
 def repository_root() -> Path:
@@ -282,6 +289,31 @@ def parse_ground_truth_tags(value: str) -> list[str]:
 
 def normalize_ground_truth_tags(value: str) -> str:
     return " ".join(parse_ground_truth_tags(value))
+
+
+def ensure_ground_truth_fieldnames(fieldnames: list[str]) -> list[str]:
+    normalized = normalize_ground_truth_fieldnames(fieldnames)
+    for fieldname in (
+        "project",
+        "from_name",
+        "to_name",
+        "from_url",
+        "to_url",
+        "from_fqs",
+        "from_tctracer_fqs",
+        "from_testlinker_fqs",
+        "to_fqs",
+        "to_tctracer_fqs",
+        "to_testlinker_fqs",
+        "to_artifact",
+        "to_call_depth",
+        "label",
+        "tags",
+        "notes",
+    ):
+        if fieldname not in normalized:
+            normalized.append(fieldname)
+    return normalized
 
 
 def parse_method_url(url: str) -> MethodUrlRef:
@@ -546,13 +578,17 @@ class HistoryRepository:
                     "from_name": row.values.get("from_name", "") or row.values.get("from_fqs", "") or from_url,
                     "candidate_count": 0,
                     "labelled_count": 0,
+                    "truth_count": 0,
                     "tags": set(),
                     "notes": [],
                 },
             )
             group["candidate_count"] += 1
-            if row.values.get("label", "").strip() != "":
+            label_value = row.values.get("label", "").strip()
+            if label_value != "":
                 group["labelled_count"] += 1
+            if label_value == "1":
+                group["truth_count"] += 1
             for tag in parse_ground_truth_tags(row.values.get("tags", "")):
                 group["tags"].add(tag)
             notes_value = row.values.get("notes", row.values.get("note", "")).strip()
@@ -565,6 +601,7 @@ class HistoryRepository:
                 from_url=from_url,
                 candidate_count=int(values["candidate_count"]),
                 labelled_count=int(values["labelled_count"]),
+                truth_count=int(values["truth_count"]),
                 tags=" ".join(sorted(values["tags"], key=str.lower)),
                 notes=" | ".join(values["notes"]),
             )
@@ -678,6 +715,143 @@ class HistoryRepository:
             writer.writerows(rows)
 
         return updated_rows
+
+    def delete_ground_truth_test_method(self, csv_path: str | Path, *, from_url: str) -> int:
+        path = Path(csv_path).expanduser()
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = normalize_ground_truth_fieldnames(reader.fieldnames or [])
+            rows = [normalize_ground_truth_row(row) for row in reader]
+
+        remaining_rows = [row for row in rows if row.get("from_url", "") != from_url]
+        deleted_count = len(rows) - len(remaining_rows)
+        if deleted_count == 0:
+            raise ValueError("No ground-truth rows matched that test method")
+
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(remaining_rows)
+        return deleted_count
+
+    def delete_ground_truth_candidate(self, csv_path: str | Path, *, from_url: str, to_url: str) -> int:
+        path = Path(csv_path).expanduser()
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = normalize_ground_truth_fieldnames(reader.fieldnames or [])
+            rows = [normalize_ground_truth_row(row) for row in reader]
+
+        remaining_rows = [
+            row for row in rows if not (row.get("from_url", "") == from_url and row.get("to_url", "") == to_url)
+        ]
+        deleted_count = len(rows) - len(remaining_rows)
+        if deleted_count == 0:
+            raise ValueError("No ground-truth row matched that candidate")
+
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(remaining_rows)
+        return deleted_count
+
+    def ground_truth_project_name(self, csv_path: str | Path) -> str:
+        path = Path(csv_path).expanduser()
+        for row in self.read_sample_rows(path):
+            project = row.values.get("project", "").strip()
+            if project:
+                return project
+        return path.stem
+
+    def ground_truth_method_csv_path(self, csv_path: str | Path) -> Path:
+        project = self.ground_truth_project_name(csv_path)
+        return self.data_directory / "method" / f"{project}.csv"
+
+    def search_ground_truth_method_options(
+        self,
+        csv_path: str | Path,
+        *,
+        query: str,
+        mode: str = "name",
+        limit: int = 25,
+    ) -> list[GroundTruthMethodOption]:
+        method_path = self.ground_truth_method_csv_path(csv_path)
+        if not method_path.is_file():
+            raise ValueError(f"Method CSV does not exist: {method_path}")
+        normalized_query = query.strip().lower()
+        if not normalized_query:
+            return []
+        search_mode = "url" if mode == "url" else "name"
+        options: list[GroundTruthMethodOption] = []
+        with method_path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            for row_index, row in enumerate(reader):
+                values = {key: value or "" for key, value in row.items() if key is not None}
+                haystack = values.get("url", "") if search_mode == "url" else " ".join(
+                    [values.get("name", ""), values.get("fqs", ""), values.get("fqn", "")]
+                )
+                if normalized_query not in haystack.lower():
+                    continue
+                options.append(GroundTruthMethodOption(row_index=row_index, values=values))
+                if len(options) >= limit:
+                    break
+        return options
+
+    def append_ground_truth_candidate(
+        self,
+        csv_path: str | Path,
+        *,
+        from_url: str,
+        method_row_index: int,
+    ) -> GroundTruthCandidateRow:
+        path = Path(csv_path).expanduser()
+        with path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = ensure_ground_truth_fieldnames(reader.fieldnames or [])
+            rows = [normalize_ground_truth_row(row) for row in reader]
+
+        matching_indexes = [index for index, row in enumerate(rows) if row.get("from_url", "") == from_url]
+        if not matching_indexes:
+            raise ValueError("No current test method rows matched that from_url")
+
+        method_path = self.ground_truth_method_csv_path(path)
+        if not method_path.is_file():
+            raise ValueError(f"Method CSV does not exist: {method_path}")
+        with method_path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            method_rows = [{key: value or "" for key, value in row.items() if key is not None} for row in reader]
+        if method_row_index < 0 or method_row_index >= len(method_rows):
+            raise ValueError("Method row index is out of range")
+
+        source_row = rows[matching_indexes[0]]
+        method_row = method_rows[method_row_index]
+        to_url = method_row.get("url", "")
+        if not to_url:
+            raise ValueError("Selected method does not have a URL")
+        if any(row.get("from_url", "") == from_url and row.get("to_url", "") == to_url for row in rows):
+            raise ValueError("Selected method is already a candidate for this test method")
+
+        new_row = {fieldname: "" for fieldname in fieldnames}
+        for fieldname in ("project", "from_name", "from_url", "from_fqs", "from_tctracer_fqs", "from_testlinker_fqs"):
+            new_row[fieldname] = source_row.get(fieldname, "")
+        new_row["project"] = new_row.get("project", "") or self.ground_truth_project_name(path)
+        new_row["to_name"] = method_row.get("name", "")
+        new_row["to_url"] = to_url
+        new_row["to_fqs"] = method_row.get("fqs", "")
+        new_row["to_tctracer_fqs"] = method_row.get("tctracer_fqs", "")
+        new_row["to_testlinker_fqs"] = method_row.get("testlinker_fqs", "")
+        new_row["to_artifact"] = method_row.get("artifact", "")
+        new_row["to_call_depth"] = "1"
+        new_row["label"] = ""
+        new_row["tags"] = ""
+        new_row["notes"] = ""
+
+        insert_at = matching_indexes[-1] + 1
+        rows.insert(insert_at, new_row)
+        with path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        return GroundTruthCandidateRow(csv_path=path, row_index=insert_at, values=new_row)
 
     def find_related_production_methods(
         self,

@@ -3,6 +3,7 @@ import os
 import sys
 from mhc.method_history_collector import *
 from mhc.method_history_jar_runner import DEFAULT_MERGE_THRESHOLD
+from mhc.util import parse_project_index
 
 _DASH_VALUE_OPTIONS = {"--java-options", "--command-options"}
 _KNOWN_OPTION_FLAGS = {
@@ -88,34 +89,6 @@ def _parse_projects_csv(projects: str | None) -> list[str]:
     return [project.strip() for project in projects.split(",") if project.strip()]
 
 
-def _parse_project_index(project_index: str | None, known_projects: list[str]) -> list[str]:
-    if not project_index:
-        return []
-
-    if ":" not in project_index:
-        try:
-            return [known_projects[int(project_index)]]
-        except (ValueError, IndexError):
-            raise ValueError(
-                "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
-            )
-
-    if project_index.count(":") != 1:
-        raise ValueError(
-            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
-        )
-
-    start_text, end_text = project_index.split(":", maxsplit=1)
-    try:
-        start_index = int(start_text) if start_text else None
-        end_index = int(end_text) if end_text else None
-    except ValueError:
-        raise ValueError(
-            "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
-        )
-    return known_projects[start_index:end_index]
-
-
 def _resolve_projects(
     project: str | None,
     projects: str | None,
@@ -133,7 +106,7 @@ def _resolve_projects(
         candidate_projects = known_projects
 
     if project_index is not None:
-        return _parse_project_index(project_index, candidate_projects)
+        return parse_project_index(project_index, candidate_projects)
     if project is not None or projects is not None:
         return candidate_projects
     raise ValueError("exactly one of --project, --projects, or --project-index is required")
