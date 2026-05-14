@@ -69,8 +69,8 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
                 "to_url": "https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L20",
                 "to_fqs": "acme.Alpha.makeAlpha()",
-                "from_artifact": "#test-code #test-unit #test-method",
-                "to_artifact": "#production-code",
+                "from_artifact": "#test-code #test-case-method",
+                "to_artifact": "#main-code",
                 "to_call_depth": "",
                 "label": "1",
                 "tags": "#existing",
@@ -82,8 +82,8 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
                 "to_url": "https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L30",
                 "to_fqs": "acme.Alpha.helperAlpha(java.lang.String)",
-                "from_artifact": "#test-code #test-unit #test-method",
-                "to_artifact": "#production-code",
+                "from_artifact": "#test-code #test-case-method",
+                "to_artifact": "#main-code",
                 "to_call_depth": "2",
                 "label": "",
                 "tags": "",
@@ -95,8 +95,8 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_url": "https://github.com/acme/sample/blob/abc/src/test/BetaTest.java#L11",
                 "to_url": "https://github.com/acme/sample/blob/abc/src/main/Beta.java#L22",
                 "to_fqs": "acme.Beta.makeBeta()",
-                "from_artifact": "#test-code #test-unit #test-method",
-                "to_artifact": "#production-code",
+                "from_artifact": "#test-code #test-case-method",
+                "to_artifact": "#main-code",
                 "to_call_depth": "1",
                 "label": "0",
                 "tags": "#beta",
@@ -128,7 +128,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "name": "newUtility",
                 "url": "https://github.com/acme/sample/blob/abc/src/main/NewUtility.java#L40",
                 "file": "src/main/NewUtility.java",
-                "artifact": "#production-code",
+                "artifact": "#main-code",
                 "fqs": "acme.NewUtility.newUtility()",
                 "tctracer_fqs": "acme.NewUtility.newUtility()",
                 "testlinker_fqs": "acme.NewUtility.newUtility()",
@@ -554,7 +554,7 @@ class TestHistoryViewer(unittest.TestCase):
             rows = list(csv.DictReader(handle))
         self.assertEqual("testFixtureHelper", rows[2]["to_name"])
         self.assertEqual("testBeta", rows[3]["from_name"])
-        self.assertEqual("#test-code #test-unit #test-method", rows[2]["from_artifact"])
+        self.assertEqual("#test-code #test-case-method", rows[2]["from_artifact"])
         self.assertEqual("1", rows[2]["to_call_depth"])
         self.assertEqual("", rows[2]["label"])
         self.assertEqual("", rows[2]["tags"])

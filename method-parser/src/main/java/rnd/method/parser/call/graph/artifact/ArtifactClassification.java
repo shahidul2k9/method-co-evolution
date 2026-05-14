@@ -100,6 +100,6 @@ public final class ArtifactClassification {
 
     public boolean isResource() {
         return tags.contains(ArtifactTag.TEST_RESOURCE)
-                || tags.contains(ArtifactTag.PRODUCTION_RESOURCE);
+                || tags.contains(ArtifactTag.MAIN_RESOURCE);
     }
 }

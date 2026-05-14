@@ -4,7 +4,7 @@ from collections import defaultdict, deque
 import pandas as pd
 
 from mhc.config import *
-from mhc.artifacts import is_test_method, is_test_code, is_production_code
+from mhc.artifacts import is_test_case_method, is_test_code, is_main_code
 from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, select_named_items
 
 
@@ -41,10 +41,6 @@ def is_test_artifact(artifact: str) -> bool:
     return is_test_code(artifact)
 
 
-def is_production_artifact(artifact: str) -> bool:
-    return is_production_code(artifact)
-
-
 def set_direct_call_depth(row: pd.Series) -> pd.Series:
     new_row = row.copy()
     new_row["to_call_depth"] = 1
@@ -72,7 +68,7 @@ def expand_transitive_test_calls(
         visited.add(current_to_url)
         artifact = method_artifact_mapping.get(current_to_url, "")
 
-        if is_production_artifact(artifact):
+        if is_main_code(artifact):
             new_row = row.copy()
 
             for col in current_row.index:
@@ -105,7 +101,7 @@ def expand_candidate_df(
         from_artifact = method_artifact.get(row["from_url"], "")
         to_artifact = method_artifact.get(row["to_url"], "")
 
-        if is_test_method(from_artifact) and is_test_artifact(to_artifact):
+        if is_test_case_method(from_artifact) and is_test_artifact(to_artifact):
             expanded_rows.append(set_direct_call_depth(row))
             expanded_rows.extend(
                 expand_transitive_test_calls(

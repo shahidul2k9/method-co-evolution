@@ -9,17 +9,16 @@ import java.util.stream.Collectors;
 public final class ArtifactTags {
     private static final ArtifactTag[] ORDER = {
             ArtifactTag.TEST_MODULE,
+            ArtifactTag.DOC_MODULE,
             ArtifactTag.TEST_CODE,
-            ArtifactTag.TEST_UNIT,
-            ArtifactTag.TEST_INTEGRATION,
-            ArtifactTag.TEST_METHOD,
-            ArtifactTag.TEST_FIXTURE,
-            ArtifactTag.TEST_UTILITY,
+            ArtifactTag.MAIN_CODE,
+            ArtifactTag.TEST_CASE_METHOD,
+            ArtifactTag.TEST_FIXTURE_METHOD,
+            ArtifactTag.TEST_HELPER_METHOD,
             ArtifactTag.TEST_RESOURCE,
-            ArtifactTag.PRODUCTION_RESOURCE,
-            ArtifactTag.TEST_GENERATED,
-            ArtifactTag.PRODUCTION_GENERATED,
-            ArtifactTag.PRODUCTION_CODE,
+            ArtifactTag.MAIN_RESOURCE,
+            ArtifactTag.TEST_CODE_GENERATED,
+            ArtifactTag.MAIN_CODE_GENERATED,
     };
 
     private ArtifactTags() {

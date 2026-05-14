@@ -43,6 +43,7 @@ public final class ArtifactDetectionConfig {
         public final List<String> generatedMainSourceRoots = new ArrayList<>();
         public final List<String> generatedTestSourceRoots = new ArrayList<>();
         public final List<String> testModulePatterns = new ArrayList<>();
+        public final List<String> docModulePatterns = new ArrayList<>();
 
         public static RuleSet defaults() {
             RuleSet rules = new RuleSet();
@@ -53,7 +54,8 @@ public final class ArtifactDetectionConfig {
             rules.testResourceRoots.addAll(List.of("src/test/resources", "src/integrationTest/resources", "test-resources", "testData", "tst-rsrc"));
             rules.generatedMainSourceRoots.addAll(List.of("target/generated-sources", "build/generated/sources/main", "build/generated/sources/annotationProcessor/java/main"));
             rules.generatedTestSourceRoots.addAll(List.of("target/generated-test-sources", "testGen", "build/generated/sources/test", "build/generated/sources/annotationProcessor/java/test"));
-            rules.testModulePatterns.addAll(List.of("*.test", "*.tests", "*-test", "*-tests"));
+            rules.testModulePatterns.addAll(List.of("*.test", "*.tests", "*-test", "*-tests", "test", "tests", "integrationtest", "integration-test"));
+            rules.docModulePatterns.addAll(List.of("documentation", "docs"));
             return rules;
         }
 
@@ -72,6 +74,7 @@ public final class ArtifactDetectionConfig {
             addAll(generatedMainSourceRoots, other.generatedMainSourceRoots);
             addAll(generatedTestSourceRoots, other.generatedTestSourceRoots);
             addAll(testModulePatterns, other.testModulePatterns);
+            addAll(docModulePatterns, other.docModulePatterns);
         }
 
         private void addAll(List<String> target, List<String> source) {

@@ -26,7 +26,7 @@ class TestArtifactUpdateLogging(unittest.TestCase):
                         "pkg": "example",
                         "name": "m",
                         "start_line": "10",
-                        "artifact": "#test-code #test-unit #test-method",
+                        "artifact": "#test-code #test-case-method",
                     }
                 ]
             ).to_csv(csv_file, index=False)
@@ -34,10 +34,10 @@ class TestArtifactUpdateLogging(unittest.TestCase):
             output = self._run_update(
                 csv_file,
                 is_method=True,
-                file_artifacts={("src/test/A.java", "example"): "#test-code #test-unit"},
+                file_artifacts={("src/test/A.java", "example"): "#test-code"},
                 method_artifacts={
                     ("src/test/A.java", "example"): {
-                        ("m", "10"): "#test-code #test-unit #test-method",
+                        ("m", "10"): "#test-code #test-case-method",
                     }
                 },
             )
@@ -62,14 +62,14 @@ class TestArtifactUpdateLogging(unittest.TestCase):
             output = self._run_update(
                 csv_file,
                 backup=True,
-                file_artifacts={("src/main/A.java", "example"): "#production-code"},
+                file_artifacts={("src/main/A.java", "example"): "#main-code"},
             )
 
             self.assertIn("processed 1 row(s), 1 changed, 0 unchanged", output)
             self.assertIn("wrote updated CSV", output)
             self.assertTrue((Path(tmp) / "bk_sample.csv").exists())
             updated = pd.read_csv(csv_file, dtype=str, keep_default_na=False, na_filter=False)
-            self.assertEqual(updated.loc[0, "artifact"], "#production-code")
+            self.assertEqual(updated.loc[0, "artifact"], "#main-code")
 
     def test_update_csv_dry_run_does_not_write(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -82,7 +82,7 @@ class TestArtifactUpdateLogging(unittest.TestCase):
                 csv_file,
                 dry_run=True,
                 backup=True,
-                file_artifacts={("src/main/A.java", "example"): "#production-code"},
+                file_artifacts={("src/main/A.java", "example"): "#main-code"},
             )
 
             self.assertIn("1 changed", output)
@@ -95,13 +95,13 @@ class TestArtifactUpdateLogging(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             csv_file = Path(tmp) / "sample.csv"
             pd.DataFrame(
-                [{"file": "src/main/A.java", "pkg": "example", "artifact": "#production-code"}]
+                [{"file": "src/main/A.java", "pkg": "example", "artifact": "#main-code"}]
             ).to_csv(csv_file, index=False)
 
             output = self._run_update(
                 csv_file,
                 replace=True,
-                file_artifacts={("src/main/A.java", "example"): "#production-code"},
+                file_artifacts={("src/main/A.java", "example"): "#main-code"},
             )
 
             self.assertIn("0 changed", output)
@@ -113,13 +113,13 @@ class TestArtifactUpdateLogging(unittest.TestCase):
             pd.DataFrame(
                 [
                     {"file": "", "pkg": "example", "artifact": "old"},
-                    {"file": "src/main/A.java", "pkg": "example", "artifact": "#production-code"},
+                    {"file": "src/main/A.java", "pkg": "example", "artifact": "#main-code"},
                 ]
             ).to_csv(csv_file, index=False)
 
             output = self._run_update(
                 csv_file,
-                file_artifacts={("src/main/A.java", "example"): "#production-code"},
+                file_artifacts={("src/main/A.java", "example"): "#main-code"},
             )
 
             self.assertIn("processed 1 row(s), 0 changed, 1 unchanged, 1 skipped", output)
@@ -142,13 +142,13 @@ class TestArtifactUpdateLogging(unittest.TestCase):
             output = self._run_update(
                 csv_file,
                 is_method=True,
-                file_artifacts={("src/test/A.java", "example"): "#test-code #test-unit"},
+                file_artifacts={("src/test/A.java", "example"): "#test-code"},
                 method_artifacts={("src/test/A.java", "example"): {}},
             )
 
             self.assertIn("1 fallback", output)
             updated = pd.read_csv(csv_file, dtype=str, keep_default_na=False, na_filter=False)
-            self.assertEqual(updated.loc[0, "artifact"], "#test-code #test-unit #test-utility")
+            self.assertEqual(updated.loc[0, "artifact"], "#test-code #test-helper-method")
 
     def test_update_csv_reports_missing_file_and_columns(self):
         with tempfile.TemporaryDirectory() as tmp:

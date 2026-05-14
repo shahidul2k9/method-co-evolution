@@ -126,9 +126,7 @@ public final class TestArtifactDetector {
         Path matchedRoot = null;
         String reason = "fallback";
 
-        if (module.testModule()) {
-            tags.add(ArtifactTag.TEST_MODULE);
-        }
+        addModuleContext(tags, module);
 
         RootMatch generatedTest = longestMatch(absoluteFile, module.generatedTestSourceRoots());
         RootMatch generatedMain = longestMatch(absoluteFile, module.generatedMainSourceRoots());
@@ -139,95 +137,52 @@ public final class TestArtifactDetector {
         RootMatch testResource = longestMatch(absoluteFile, module.testResourceRoots());
         RootMatch mainResource = longestMatch(absoluteFile, module.mainResourceRoots());
         if (testResource.matched() && !sourceMatchAtLeastAsSpecific(testResource, generatedTest, generatedMain, unit, integration, main)) {
-            addTestContext(tags, module);
             tags.add(ArtifactTag.TEST_RESOURCE);
             return classification(tags, module, testResource.root(), "test-resource-root");
         }
         if (mainResource.matched() && !sourceMatchAtLeastAsSpecific(mainResource, generatedTest, generatedMain, unit, integration, main)) {
-            if (module.testModule()) {
-                addTestContext(tags, module);
-                tags.add(ArtifactTag.TEST_RESOURCE);
-                return classification(tags, module, mainResource.root(), "test-module-main-resource-root");
-            }
-            tags.add(ArtifactTag.PRODUCTION_RESOURCE);
+            tags.add(ArtifactTag.MAIN_RESOURCE);
             return classification(tags, module, mainResource.root(), "main-resource-root");
         }
 
         if (generatedTest.matched()) {
-            addTestContext(tags, module);
-            tags.add(ArtifactTag.TEST_GENERATED);
+            tags.add(ArtifactTag.TEST_CODE);
+            tags.add(ArtifactTag.TEST_CODE_GENERATED);
             matchedRoot = generatedTest.root();
             reason = "generated-test-source-root";
         } else if (generatedMain.matched()) {
-            if (module.testModule()) {
-                addTestContext(tags, module);
-                tags.add(ArtifactTag.TEST_GENERATED);
-            } else {
-                tags.add(ArtifactTag.PRODUCTION_CODE);
-                tags.add(ArtifactTag.PRODUCTION_GENERATED);
-            }
+            tags.add(ArtifactTag.MAIN_CODE);
+            tags.add(ArtifactTag.MAIN_CODE_GENERATED);
             matchedRoot = generatedMain.root();
             reason = "generated-main-source-root";
         }
 
         if (integration.matched()) {
-            addTestContext(tags, module);
-            tags.add(ArtifactTag.TEST_INTEGRATION);
+            tags.add(ArtifactTag.TEST_CODE);
             matchedRoot = integration.root();
             reason = "integration-test-source-root";
         } else if (unit.matched()) {
-            addTestContext(tags, module);
-            tags.add(ArtifactTag.TEST_UNIT);
+            tags.add(ArtifactTag.TEST_CODE);
             matchedRoot = unit.root();
             reason = "unit-test-source-root";
         } else if (main.matched()) {
-            if (module.testModule()) {
-                addTestContext(tags, module);
-            } else {
-                tags.add(ArtifactTag.PRODUCTION_CODE);
-            }
+            tags.add(ArtifactTag.MAIN_CODE);
             matchedRoot = main.root();
             reason = "main-source-root";
         } else if (packageSourceRoot != null) {
             RootKind inferred = inferRootKind(module, packageSourceRoot);
             switch (inferred) {
-                case INTEGRATION -> {
-                    addTestContext(tags, module);
-                    tags.add(ArtifactTag.TEST_INTEGRATION);
-                }
-                case UNIT -> {
-                    addTestContext(tags, module);
-                    tags.add(ArtifactTag.TEST_UNIT);
-                }
-                case TEST_RESOURCE -> {
-                    addTestContext(tags, module);
-                    tags.add(ArtifactTag.TEST_RESOURCE);
-                }
-                case MAIN -> {
-                    if (module.testModule()) {
-                        addTestContext(tags, module);
-                    } else {
-                        tags.add(ArtifactTag.PRODUCTION_CODE);
-                    }
-                }
-                default -> {
-                    if (module.testModule()) {
-                        addTestContext(tags, module);
-                    } else {
-                        tags.add(ArtifactTag.PRODUCTION_CODE);
-                    }
-                }
+                case INTEGRATION, UNIT -> tags.add(ArtifactTag.TEST_CODE);
+                case TEST_RESOURCE -> tags.add(ArtifactTag.TEST_RESOURCE);
+                case MAIN -> tags.add(ArtifactTag.MAIN_CODE);
+                default -> tags.add(ArtifactTag.MAIN_CODE);
             }
             matchedRoot = packageSourceRoot;
             reason = "package-derived-source-root";
-        } else if (module.testModule()) {
-            addTestContext(tags, module);
-            matchedRoot = module.moduleRoot();
-            reason = "test-module-fallback";
         } else {
-            tags.add(ArtifactTag.PRODUCTION_CODE);
+            tags.add(ArtifactTag.MAIN_CODE);
             matchedRoot = module.moduleRoot();
-            reason = "production-fallback";
+            reason = module.testModule() ? "test-module-fallback" : "main-fallback";
         }
 
         return classification(tags, module, matchedRoot, reason);
@@ -259,20 +214,20 @@ public final class TestArtifactDetector {
 
         if (classification.isTestCode()) {
             if (node instanceof MethodDeclaration method && isTestMethod(method, classification, false)) {
-                tags.add(ArtifactTag.TEST_METHOD);
+                tags.add(ArtifactTag.TEST_CASE_METHOD);
             } else if (node instanceof MethodDeclaration method && isFixtureMethod(method, classification, false)) {
-                tags.add(ArtifactTag.TEST_FIXTURE);
+                tags.add(ArtifactTag.TEST_FIXTURE_METHOD);
             } else if (node instanceof ConstructorDeclaration constructor) {
                 Optional<MethodDeclaration> parentMethod = constructor.findAncestor(MethodDeclaration.class);
                 if (parentMethod.isPresent() && isTestMethod(parentMethod.get(), classification, false)) {
-                    tags.add(ArtifactTag.TEST_METHOD);
+                    tags.add(ArtifactTag.TEST_CASE_METHOD);
                 } else if (parentMethod.isPresent() && isFixtureMethod(parentMethod.get(), classification, false)) {
-                    tags.add(ArtifactTag.TEST_FIXTURE);
+                    tags.add(ArtifactTag.TEST_FIXTURE_METHOD);
                 } else {
-                    tags.add(ArtifactTag.TEST_UTILITY);
+                    tags.add(ArtifactTag.TEST_HELPER_METHOD);
                 }
             } else {
-                tags.add(ArtifactTag.TEST_UTILITY);
+                tags.add(ArtifactTag.TEST_HELPER_METHOD);
             }
         }
 
@@ -474,11 +429,13 @@ public final class TestArtifactDetector {
         return new ArtifactClassification(tags, module.moduleRoot(), sourceRoot, module.moduleName(), reason);
     }
 
-    private void addTestContext(EnumSet<ArtifactTag> tags, ModuleInfo module) {
+    private void addModuleContext(EnumSet<ArtifactTag> tags, ModuleInfo module) {
         if (module.testModule()) {
             tags.add(ArtifactTag.TEST_MODULE);
         }
-        tags.add(ArtifactTag.TEST_CODE);
+        if (module.docModule()) {
+            tags.add(ArtifactTag.DOC_MODULE);
+        }
     }
 
     private List<ModuleInfo> discoverModules() {
@@ -494,7 +451,7 @@ public final class TestArtifactDetector {
         for (ModuleInfo module : indexed.values()) {
             ArtifactDetectionConfig.RuleSet rules = config.rulesForModule(repositoryName, module.moduleName());
             addConfiguredRoots(module, rules);
-            applyTestModuleFlag(module, rules);
+            applyModuleContextFlags(module, rules);
             if (Files.exists(module.moduleRoot().resolve("pom.xml"))) {
                 readMaven(module, module.moduleRoot().resolve("pom.xml"));
             }
@@ -543,7 +500,7 @@ public final class TestArtifactDetector {
     private ModuleInfo syntheticRootModule() {
         ModuleInfo module = new ModuleInfo(repoRoot, repoRoot.getFileName().toString());
         addConfiguredRoots(module, config.rulesForProject(repositoryName));
-        applyTestModuleFlag(module, config.rulesForProject(repositoryName));
+        applyModuleContextFlags(module, config.rulesForProject(repositoryName));
         return module;
     }
 
@@ -563,13 +520,45 @@ public final class TestArtifactDetector {
         rules.generatedTestSourceRoots.forEach(module::addGeneratedTestSourceRoot);
     }
 
-    private void applyTestModuleFlag(ModuleInfo module, ArtifactDetectionConfig.RuleSet rules) {
+    private void applyModuleContextFlags(ModuleInfo module, ArtifactDetectionConfig.RuleSet rules) {
         for (String pattern : rules.testModulePatterns) {
-            if (globMatches(pattern, module.moduleName()) || globMatches(pattern, module.moduleRoot().getFileName().toString())) {
+            if (matchesModulePattern(module, pattern)) {
                 module.setTestModule(true);
-                return;
+                break;
             }
         }
+        for (String pattern : rules.docModulePatterns) {
+            if (matchesModulePattern(module, pattern)) {
+                module.setDocModule(true);
+                break;
+            }
+        }
+    }
+
+    private boolean matchesModulePattern(ModuleInfo module, String pattern) {
+        if (pattern == null || pattern.isBlank()) {
+            return false;
+        }
+        if (globMatches(pattern, module.moduleName())
+                || globMatches(pattern, module.moduleRoot().getFileName().toString())) {
+            return true;
+        }
+        Path relative;
+        try {
+            relative = repoRoot.relativize(module.moduleRoot());
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        String relativePath = relative.toString().replace('\\', '/');
+        if (globMatches(pattern, relativePath)) {
+            return true;
+        }
+        for (Path part : relative) {
+            if (globMatches(pattern, part.toString())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean globMatches(String pattern, String value) {

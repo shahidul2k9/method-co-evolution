@@ -111,7 +111,8 @@ public final class ArtifactConfigLoader {
         return switch (key) {
             case "mainSourceRoots", "unitTestSourceRoots", "integrationTestSourceRoots",
                     "mainResourceRoots", "testResourceRoots", "generatedMainSourceRoots",
-                    "generatedTestSourceRoots", "testModulePatterns" -> true;
+                    "generatedTestSourceRoots", "testModulePatterns", "docModulePatterns",
+                    "documentationModulePatterns" -> true;
             default -> false;
         };
     }
@@ -126,6 +127,7 @@ public final class ArtifactConfigLoader {
             case "generatedMainSourceRoots" -> add(rules.generatedMainSourceRoots, value);
             case "generatedTestSourceRoots" -> add(rules.generatedTestSourceRoots, value);
             case "testModulePatterns" -> add(rules.testModulePatterns, value);
+            case "docModulePatterns", "documentationModulePatterns" -> add(rules.docModulePatterns, value);
             default -> {
             }
         }

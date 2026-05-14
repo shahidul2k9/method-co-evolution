@@ -12,6 +12,7 @@ except ImportError:  # pragma: no cover
     pd = None
 
 from ptc.generator.generate_t2p_link import (
+    filter_test_case_to_main_code_links,
     _llm_stage_column_name,
     select_one_stage_indices,
     strategy_output_key,
@@ -135,6 +136,31 @@ class TestGenerateT2PLink(unittest.TestCase):
 
         self.assertEqual([1], list(indexes))
         self.assertEqual("testlinker", strategy_output_key(LinkStrategy.TESTLINKER))
+
+    def test_filters_test_case_methods_to_main_code(self):
+        frame = pd.DataFrame(
+            [
+                {
+                    "from_artifact": "#test-code #test-case-method",
+                    "to_artifact": "#test-module #main-code",
+                    "to_url": "main-in-test-module",
+                },
+                {
+                    "from_artifact": "#test-code #test-helper-method",
+                    "to_artifact": "#main-code",
+                    "to_url": "helper-source",
+                },
+                {
+                    "from_artifact": "#test-code #test-case-method",
+                    "to_artifact": "#doc-module #main-code",
+                    "to_url": "doc-main",
+                },
+            ]
+        )
+
+        filtered = filter_test_case_to_main_code_links(frame)
+
+        self.assertEqual(["main-in-test-module", "doc-main"], filtered["to_url"].tolist())
 
 
 if __name__ == "__main__":

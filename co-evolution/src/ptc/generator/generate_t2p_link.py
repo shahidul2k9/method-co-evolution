@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-from mhc.artifacts import is_test_method, is_production_code
+from mhc.artifacts import is_test_case_method, is_main_code
 from pytctracer.config.constants.technique_threshold import TechniqueThreshold
 
 from mhc.config import *
@@ -253,6 +253,13 @@ def strategy_output_key(mask: LinkStrategy) -> str:
     return "--".join(parts) if parts else "none"
 
 
+def filter_test_case_to_main_code_links(t2p_link_df: pd.DataFrame) -> pd.DataFrame:
+    return t2p_link_df[
+        t2p_link_df["from_artifact"].map(is_test_case_method)
+        & t2p_link_df["to_artifact"].map(is_main_code)
+    ].copy()
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     _, selected_projects, _ = resolve_experiment_filters(
@@ -269,10 +276,7 @@ def main(argv: list[str] | None = None) -> None:
         t2p_link_df = (t2p_tech_df.merge(method_df.add_prefix("from_"), on="from_url", how="inner")
                        .merge(method_df.add_prefix("to_"), on="to_url", how="inner"))
 
-        t2p_link_df = t2p_link_df[
-            t2p_link_df["from_artifact"].map(is_test_method)
-            & t2p_link_df["to_artifact"].map(is_production_code)
-        ]
+        t2p_link_df = filter_test_case_to_main_code_links(t2p_link_df)
 
 
         # Remove constructor unless all the to_url are constructors
