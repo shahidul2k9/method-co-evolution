@@ -29,6 +29,18 @@ class TestGroundTruthSample(unittest.TestCase):
         self.assertEqual(["gson"], parse_project_index("-1", projects))
         self.assertEqual([], parse_project_index(None, projects))
 
+    def test_parse_update_columns_accepts_comma_separated_values(self):
+        self.assertEqual(
+            ["to_artifact", "to_name", "to_fqs"],
+            ground_truth_sample.parse_update_columns("to_artifact, to_name,to_fqs,to_name"),
+        )
+
+    def test_parse_update_columns_rejects_unknown_and_protected_columns(self):
+        with self.assertRaisesRegex(ValueError, "unknown update column"):
+            ground_truth_sample.parse_update_columns("to_artifact,missing_column")
+        with self.assertRaisesRegex(ValueError, "protected update column"):
+            ground_truth_sample.parse_update_columns("to_artifact,label")
+
     def test_regenerate_preserves_labels_and_fills_sample_from_fresh_candidates(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -68,6 +80,47 @@ class TestGroundTruthSample(unittest.TestCase):
             self.assertEqual("1", str(preserved["label"]))
             self.assertEqual("needs-check", preserved["tags"])
             self.assertEqual("keep this", preserved["notes"])
+
+    def test_update_columns_keeps_fresh_values_for_callgraph_backed_rows(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            candidate_dir, method_dir, working_dir, output_dir = self._make_dirs(root)
+            self._write_project_inputs(candidate_dir, method_dir, project="demo", test_count=1)
+            pd.DataFrame(
+                [
+                    {
+                        "project": "demo",
+                        "from_name": "testA",
+                        "to_name": "staleProd",
+                        "from_url": "test://A",
+                        "to_url": "prod://1",
+                        "to_artifact": "stale-artifact",
+                        "label": "1",
+                        "tags": "reviewed",
+                        "notes": "keep these",
+                    }
+                ]
+            ).to_csv(working_dir / "demo.csv", index=False)
+
+            with self._patch_input_dirs(candidate_dir, method_dir):
+                stats = ground_truth_sample.regenerate_project(
+                    project="demo",
+                    sample_count_per_project=1,
+                    working_dir=working_dir,
+                    output_dir=output_dir,
+                    temp_dir=root / ".output",
+                    update_columns=["to_artifact", "to_name"],
+                )
+
+            result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
+            prod = result[(result["from_url"] == "test://A") & (result["to_url"] == "prod://1")].iloc[0]
+            self.assertEqual(1, stats.rows_refreshed)
+            self.assertEqual(0, stats.rows_not_refreshed)
+            self.assertEqual("production", prod["to_artifact"])
+            self.assertEqual("prod1", prod["to_name"])
+            self.assertEqual("1", str(prod["label"]))
+            self.assertEqual("reviewed", prod["tags"])
+            self.assertEqual("keep these", prod["notes"])
 
     def test_regenerate_without_working_csv_samples_requested_count(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -175,6 +228,104 @@ class TestGroundTruthSample(unittest.TestCase):
             self.assertEqual("1", str(manual["label"]))
             self.assertEqual("manual", manual["tags"])
             self.assertEqual("added from UI", manual["notes"])
+
+    def test_update_columns_refreshes_manual_row_from_method_csv(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            candidate_dir, method_dir, working_dir, output_dir = self._make_dirs(root)
+            self._write_project_inputs(
+                candidate_dir,
+                method_dir,
+                project="demo",
+                test_count=1,
+                extra_methods=[
+                    {
+                        "url": "prod://manual",
+                        "name": "freshToString",
+                        "artifact": "#production-code",
+                        "fqs": "Demo.freshToString()",
+                        "tctracer_fqs": "Demo.freshToString()",
+                        "testlinker_fqs": "Demo.freshToString()",
+                    }
+                ],
+            )
+            pd.DataFrame(
+                [
+                    {
+                        "project": "demo",
+                        "from_name": "testA",
+                        "to_name": "staleToString",
+                        "from_url": "test://A",
+                        "to_url": "prod://manual",
+                        "to_fqs": "Demo.staleToString()",
+                        "to_tctracer_fqs": "Demo.staleToString()",
+                        "to_testlinker_fqs": "Demo.staleToString()",
+                        "to_artifact": "stale-artifact",
+                        "label": "1",
+                        "tags": "manual",
+                        "notes": "keep label metadata",
+                    }
+                ]
+            ).to_csv(working_dir / "demo.csv", index=False)
+
+            with self._patch_input_dirs(candidate_dir, method_dir):
+                stats = ground_truth_sample.regenerate_project(
+                    project="demo",
+                    sample_count_per_project=1,
+                    working_dir=working_dir,
+                    output_dir=output_dir,
+                    temp_dir=root / ".output",
+                    update_columns=["to_artifact", "to_name", "to_fqs", "to_tctracer_fqs", "to_testlinker_fqs"],
+                )
+
+            result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
+            manual = result[result["to_url"] == "prod://manual"].iloc[0]
+            self.assertEqual(1, stats.rows_refreshed)
+            self.assertEqual(0, stats.rows_not_refreshed)
+            self.assertEqual("freshToString", manual["to_name"])
+            self.assertEqual("Demo.freshToString()", manual["to_fqs"])
+            self.assertEqual("Demo.freshToString()", manual["to_tctracer_fqs"])
+            self.assertEqual("Demo.freshToString()", manual["to_testlinker_fqs"])
+            self.assertEqual("#production-code", manual["to_artifact"])
+            self.assertEqual("1", str(manual["label"]))
+            self.assertEqual("manual", manual["tags"])
+            self.assertEqual("keep label metadata", manual["notes"])
+
+    def test_update_columns_keeps_manual_row_when_method_lookup_missing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            candidate_dir, method_dir, working_dir, output_dir = self._make_dirs(root)
+            self._write_project_inputs(candidate_dir, method_dir, project="demo", test_count=1)
+            pd.DataFrame(
+                [
+                    {
+                        "project": "demo",
+                        "from_name": "testA",
+                        "to_name": "manualOnly",
+                        "from_url": "test://A",
+                        "to_url": "prod://missing",
+                        "to_artifact": "manual-artifact",
+                        "label": "1",
+                    }
+                ]
+            ).to_csv(working_dir / "demo.csv", index=False)
+
+            with self._patch_input_dirs(candidate_dir, method_dir):
+                stats = ground_truth_sample.regenerate_project(
+                    project="demo",
+                    sample_count_per_project=1,
+                    working_dir=working_dir,
+                    output_dir=output_dir,
+                    temp_dir=root / ".output",
+                    update_columns=["to_artifact", "to_name"],
+                )
+
+            result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
+            manual = result[result["to_url"] == "prod://missing"].iloc[0]
+            self.assertEqual(0, stats.rows_refreshed)
+            self.assertEqual(1, stats.rows_not_refreshed)
+            self.assertEqual("manualOnly", manual["to_name"])
+            self.assertEqual("manual-artifact", manual["to_artifact"])
 
     def test_exclude_test_artifact_regex_filters_random_additions_only(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -295,19 +446,39 @@ class TestGroundTruthSample(unittest.TestCase):
         project: str,
         test_count: int,
         test_artifacts: dict[str, str] | None = None,
+        extra_methods: list[dict[str, str]] | None = None,
     ) -> None:
         test_artifacts = test_artifacts or {}
+        extra_methods = extra_methods or []
         test_urls = [f"test://{chr(ord('A') + index)}" for index in range(test_count)]
         candidate_rows = []
         method_rows = [
-            {"url": "prod://1", "artifact": "production"},
-            {"url": "test-helper://1", "artifact": "#test-code #test-utility"},
+            {
+                "url": "prod://1",
+                "name": "prod1",
+                "artifact": "production",
+                "fqs": "Demo.prod1()",
+                "tctracer_fqs": "Demo.prod1()",
+                "testlinker_fqs": "Demo.prod1()",
+            },
+            {
+                "url": "test-helper://1",
+                "name": "helper",
+                "artifact": "#test-code #test-utility",
+                "fqs": "DemoTest.helper()",
+                "tctracer_fqs": "DemoTest.helper()",
+                "testlinker_fqs": "DemoTest.helper()",
+            },
         ]
         for index, test_url in enumerate(test_urls):
             method_rows.append(
                 {
                     "url": test_url,
+                    "name": f"test{chr(ord('A') + index)}",
                     "artifact": test_artifacts.get(test_url, "#test-code #test-unit #test-method"),
+                    "fqs": f"DemoTest.test{index}()",
+                    "tctracer_fqs": f"DemoTest.test{index}()",
+                    "testlinker_fqs": f"DemoTest.test{index}()",
                 }
             )
             candidate_rows.extend(
@@ -343,6 +514,7 @@ class TestGroundTruthSample(unittest.TestCase):
                 ]
             )
 
+        method_rows.extend(extra_methods)
         pd.DataFrame(candidate_rows).to_csv(candidate_dir / f"{project}.csv", index=False)
         pd.DataFrame(method_rows).to_csv(method_dir / f"{project}.csv", index=False)
 

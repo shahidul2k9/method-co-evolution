@@ -30,6 +30,14 @@ GROUND_TRUTH_COLUMNS = [
     "tags",
     "notes",
 ]
+PROTECTED_UPDATE_COLUMNS = {"from_url", "to_url", "label", "tags", "notes"}
+METHOD_TO_GT_COLUMNS = {
+    "to_name": "name",
+    "to_fqs": "fqs",
+    "to_tctracer_fqs": "tctracer_fqs",
+    "to_testlinker_fqs": "testlinker_fqs",
+    "to_artifact": "artifact",
+}
 
 _DATA = Path(DATA_DIRECTORY)
 REPOSITORY_FILE = _DATA / "repository" / "repository.csv"
@@ -50,6 +58,8 @@ class GroundTruthProjectStats:
     selected_test_methods: int
     generated_rows: int
     manual_rows_preserved: int
+    rows_refreshed: int
+    rows_not_refreshed: int
     carried_label_rows: int
     new_or_unlabelled_rows: int
     output_file: Path
@@ -138,6 +148,36 @@ def _read_working_ground_truth(project: str, working_dir: Path) -> pd.DataFrame:
     return working_df
 
 
+def _load_method_rows_by_url(project: str) -> dict[str, dict[str, str]]:
+    method_file = METHOD_DIR / f"{project}.csv"
+    if not method_file.exists():
+        return {}
+    method_df = pd.read_csv(method_file, keep_default_na=False, na_filter=False)
+    if "url" not in method_df.columns:
+        return {}
+    return {
+        str(row.get("url", "")): {str(key): str(value) for key, value in row.items()}
+        for row in method_df.to_dict(orient="records")
+        if str(row.get("url", ""))
+    }
+
+
+def parse_update_columns(value: str | None) -> list[str]:
+    if not value:
+        return []
+
+    columns = list(dict.fromkeys(column.strip() for column in value.split(",") if column.strip()))
+    unknown_columns = [column for column in columns if column not in GROUND_TRUTH_COLUMNS]
+    if unknown_columns:
+        raise ValueError(f"unknown update column(s): {', '.join(unknown_columns)}")
+
+    protected_columns = [column for column in columns if column in PROTECTED_UPDATE_COLUMNS]
+    if protected_columns:
+        raise ValueError(f"protected update column(s) cannot be refreshed: {', '.join(protected_columns)}")
+
+    return columns
+
+
 def _working_labels_by_pair(working_df: pd.DataFrame) -> dict[tuple[str, str], dict[str, str]]:
     labels: dict[tuple[str, str], dict[str, str]] = {}
     if working_df.empty or not {"from_url", "to_url"}.issubset(working_df.columns):
@@ -178,13 +218,19 @@ def _select_test_methods(
     return selected_urls, len(reused_unique), len(added_urls)
 
 
-def _merge_working_labels(output_df: pd.DataFrame, working_df: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+def _merge_working_labels(
+    output_df: pd.DataFrame,
+    working_df: pd.DataFrame,
+    *,
+    update_columns: list[str] | None = None,
+) -> tuple[pd.DataFrame, int, int]:
     working_labels = _working_labels_by_pair(working_df)
     if not working_labels:
-        return output_df, 0
+        return output_df, 0, 0
 
     merged_df = output_df.copy()
     carried_label_rows = 0
+    refreshed_rows = 0
     for index, row in merged_df.iterrows():
         labels = working_labels.get((str(row["from_url"]), str(row["to_url"])))
         if labels is None:
@@ -193,16 +239,21 @@ def _merge_working_labels(output_df: pd.DataFrame, working_df: pd.DataFrame) -> 
             merged_df.at[index, column] = labels[column]
         if labels["label"].strip():
             carried_label_rows += 1
-    return merged_df, carried_label_rows
+        if update_columns:
+            refreshed_rows += 1
+    return merged_df, carried_label_rows, refreshed_rows
 
 
 def _append_missing_working_rows(
     output_df: pd.DataFrame,
     working_df: pd.DataFrame,
     selected_urls: set[str],
-) -> tuple[pd.DataFrame, int, int]:
+    *,
+    method_rows_by_url: dict[str, dict[str, str]] | None = None,
+    update_columns: list[str] | None = None,
+) -> tuple[pd.DataFrame, int, int, int, int]:
     if working_df.empty:
-        return output_df, 0, 0
+        return output_df, 0, 0, 0, 0
 
     existing_pairs = {
         (str(row["from_url"]), str(row["to_url"]))
@@ -211,6 +262,10 @@ def _append_missing_working_rows(
     }
     manual_rows: list[dict[str, str]] = []
     manual_labelled_rows = 0
+    rows_refreshed = 0
+    rows_not_refreshed = 0
+    update_columns = update_columns or []
+    method_rows_by_url = method_rows_by_url or {}
     for row in working_df.to_dict(orient="records"):
         from_url = str(row.get("from_url", ""))
         to_url = str(row.get("to_url", ""))
@@ -220,16 +275,51 @@ def _append_missing_working_rows(
         if pair in existing_pairs:
             continue
         manual_row = {column: str(row.get(column, "")) for column in GROUND_TRUTH_COLUMNS}
+        refreshed = _refresh_manual_row_from_method(
+            manual_row,
+            method_row=method_rows_by_url.get(to_url),
+            update_columns=update_columns,
+        )
+        if update_columns:
+            if refreshed:
+                rows_refreshed += 1
+            else:
+                rows_not_refreshed += 1
         manual_rows.append(manual_row)
         existing_pairs.add(pair)
         if manual_row["label"].strip():
             manual_labelled_rows += 1
 
     if not manual_rows:
-        return output_df, 0, 0
+        return output_df, 0, 0, 0, 0
 
     merged_df = pd.concat([output_df, pd.DataFrame(manual_rows)], ignore_index=True)
-    return merged_df[GROUND_TRUTH_COLUMNS], len(manual_rows), manual_labelled_rows
+    return (
+        merged_df[GROUND_TRUTH_COLUMNS],
+        len(manual_rows),
+        manual_labelled_rows,
+        rows_refreshed,
+        rows_not_refreshed,
+    )
+
+
+def _refresh_manual_row_from_method(
+    manual_row: dict[str, str],
+    *,
+    method_row: dict[str, str] | None,
+    update_columns: list[str],
+) -> bool:
+    if not update_columns or method_row is None:
+        return False
+
+    refreshed = False
+    for column in update_columns:
+        method_column = METHOD_TO_GT_COLUMNS.get(column)
+        if method_column is None or method_column not in method_row:
+            continue
+        manual_row[column] = method_row.get(method_column, "")
+        refreshed = True
+    return refreshed
 
 
 def _write_output_atomic(output_df: pd.DataFrame, *, project: str, output_dir: Path, temp_dir: Path) -> Path:
@@ -251,6 +341,7 @@ def regenerate_project(
     temp_dir: Path = TEMP_DIR,
     random_state: int | None = None,
     exclude_test_artifact_pattern: Pattern[str] | None = None,
+    update_columns: list[str] | None = None,
 ) -> GroundTruthProjectStats | None:
     cg_df, fresh_pool_urls, excluded_count, skip_reason = _test_caller_pool(
         project,
@@ -274,13 +365,22 @@ def regenerate_project(
     )
 
     output_df = _build_output_df(cg_df, selected_urls)
-    output_df, carried_label_rows = _merge_working_labels(output_df, working_df)
-    output_df, manual_rows_preserved, manual_labelled_rows = _append_missing_working_rows(
+    output_df, carried_label_rows, fresh_rows_refreshed = _merge_working_labels(
         output_df,
         working_df,
-        selected_urls,
+        update_columns=update_columns,
+    )
+    output_df, manual_rows_preserved, manual_labelled_rows, manual_rows_refreshed, manual_rows_not_refreshed = (
+        _append_missing_working_rows(
+            output_df,
+            working_df,
+            selected_urls,
+            method_rows_by_url=_load_method_rows_by_url(project),
+            update_columns=update_columns,
+        )
     )
     carried_label_rows += manual_labelled_rows
+    rows_refreshed = fresh_rows_refreshed + manual_rows_refreshed
 
     output_file = _write_output_atomic(output_df, project=project, output_dir=output_dir, temp_dir=temp_dir)
 
@@ -294,6 +394,8 @@ def regenerate_project(
         selected_test_methods=len(selected_urls),
         generated_rows=len(output_df),
         manual_rows_preserved=manual_rows_preserved,
+        rows_refreshed=rows_refreshed,
+        rows_not_refreshed=manual_rows_not_refreshed,
         carried_label_rows=carried_label_rows,
         new_or_unlabelled_rows=new_or_unlabelled_rows,
         output_file=output_file,
@@ -324,6 +426,11 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Regex matched against method artifact tags; matching test methods are excluded from fresh random additions.",
     )
+    parser.add_argument(
+        "--update-columns",
+        default=None,
+        help="Comma-separated ground-truth columns to refresh on reused rows when source data is available.",
+    )
     return parser
 
 
@@ -345,6 +452,11 @@ def main(argv: list[str] | None = None) -> int:
             parser.error(f"--exclude-test-artifact-regex is invalid: {exc}")
 
     try:
+        update_columns = parse_update_columns(args.update_columns)
+    except ValueError as exc:
+        parser.error(str(exc))
+
+    try:
         projects = parse_project_index(args.project_index, _load_repository_projects())
     except ValueError as exc:
         parser.error(str(exc))
@@ -360,6 +472,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Temporary output directory: {TEMP_DIR}")
     if args.exclude_test_artifact_regex:
         print(f"Exclude test artifact regex: {args.exclude_test_artifact_regex}")
+    if update_columns:
+        print(f"Update columns: {', '.join(update_columns)}")
     print()
 
     stats: list[GroundTruthProjectStats] = []
@@ -371,6 +485,7 @@ def main(argv: list[str] | None = None) -> int:
             output_dir=OUTPUT_DIR,
             temp_dir=TEMP_DIR,
             exclude_test_artifact_pattern=exclude_test_artifact_pattern,
+            update_columns=update_columns,
         )
         if project_stats is None:
             continue
@@ -382,6 +497,8 @@ def main(argv: list[str] | None = None) -> int:
             f"excluded {project_stats.excluded_test_methods}, "
             f"rows {project_stats.generated_rows}, "
             f"manual rows {project_stats.manual_rows_preserved}, "
+            f"refreshed {project_stats.rows_refreshed}, "
+            f"not refreshed {project_stats.rows_not_refreshed}, "
             f"carried labels {project_stats.carried_label_rows}, "
             f"unlabelled {project_stats.new_or_unlabelled_rows} -> "
             f"{project_stats.output_file}"
@@ -395,6 +512,8 @@ def main(argv: list[str] | None = None) -> int:
         f"{sum(item.excluded_test_methods for item in stats)} excluded test methods, "
         f"{sum(item.generated_rows for item in stats)} rows, "
         f"{sum(item.manual_rows_preserved for item in stats)} manual rows preserved, "
+        f"{sum(item.rows_refreshed for item in stats)} rows refreshed, "
+        f"{sum(item.rows_not_refreshed for item in stats)} rows not refreshed, "
         f"{sum(item.carried_label_rows for item in stats)} carried labels, "
         f"{sum(item.new_or_unlabelled_rows for item in stats)} unlabelled rows"
     )
