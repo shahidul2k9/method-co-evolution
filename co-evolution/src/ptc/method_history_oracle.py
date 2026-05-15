@@ -5,7 +5,7 @@ import os
 import random
 from dataclasses import dataclass
 from pathlib import Path
-from mhc.artifacts import is_test_method
+from mhc.artifacts import is_test_case_method
 
 try:
     from dotenv import load_dotenv
@@ -257,7 +257,7 @@ def load_test_method_candidates(repository: Repository, method_dir: Path) -> lis
     with method_file.open(newline="", encoding="utf-8") as handle:
         reader = csv.DictReader(handle)
         for row in reader:
-            if not is_test_method(row.get("artifact") or ""):
+            if not is_test_case_method(row.get("artifact") or ""):
                 continue
 
             candidates.append(

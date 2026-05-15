@@ -19,5 +19,6 @@ mhc artifact-update \
     --data-directory "$ME_WORKSPACE_DIRECTORY/data" \
     --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
     --artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection" \
-    --project-index "1:" \
+    --java-options "-Xmx12g" \
+    --project-index "47" \
     --target method

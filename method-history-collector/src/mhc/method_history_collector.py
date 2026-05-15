@@ -295,6 +295,7 @@ class MethodHistoryCollector:
     def update_artifacts(
         self,
         repositories: list[str],
+        java_options: str | None,
         artifact_config_path: str | None,
         targets: list[str],
         dry_run: bool = False,
@@ -304,7 +305,7 @@ class MethodHistoryCollector:
         try:
             ms.start_java_jar(
                 [self.jar_file_map["methodParser"]],
-                util.java_options_with_logback_config(None, self.workspace_directory),
+                util.java_options_with_logback_config(java_options, self.workspace_directory),
             )
             _update_artifacts(
                 self.repository_df[self.repository_df["project"].isin(repositories)],

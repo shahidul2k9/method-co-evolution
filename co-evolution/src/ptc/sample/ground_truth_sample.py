@@ -7,7 +7,7 @@ import re
 from re import Pattern
 
 import pandas as pd
-from mhc.artifacts import is_test_code, is_test_method
+from mhc.artifacts import is_test_code, is_test_case_method
 from mhc.util import parse_project_index
 
 from mhc.config import DATA_DIRECTORY
@@ -93,15 +93,15 @@ def _test_caller_pool(
 
     method_df = pd.read_csv(method_file, keep_default_na=False, na_filter=False, usecols=["url", "artifact"])
     artifact_by_url = dict(zip(method_df["url"], method_df["artifact"]))
-    test_method_df = method_df[method_df["artifact"].map(is_test_method)].copy()
+    test_method_df = method_df[method_df["artifact"].map(is_test_case_method)].copy()
     test_urls = set(test_method_df["url"])
     if not test_urls:
-        return pd.DataFrame(), [], 0, "no methods marked artifact=#test-method"
+        return pd.DataFrame(), [], 0, "no methods marked artifact=#test-case-method"
 
     cg_df = pd.read_csv(cg_file, keep_default_na=False, na_filter=False)
     cg_test = cg_df[cg_df["from_url"].isin(test_urls)].copy()
     if cg_test.empty:
-        return pd.DataFrame(), [], 0, "no candidate rows whose from_url matches an artifact=#test-method method"
+        return pd.DataFrame(), [], 0, "no candidate rows whose from_url matches an artifact=#test-case-method method"
 
     cg_test["from_artifact"] = cg_test["from_url"].map(artifact_by_url).fillna("")
     cg_test["to_artifact"] = cg_test["to_url"].map(artifact_by_url).fillna("")

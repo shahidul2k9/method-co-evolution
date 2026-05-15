@@ -8,6 +8,7 @@ public final class ModuleInfo {
     private final Path moduleRoot;
     private String moduleName;
     private boolean testModule;
+    private boolean docModule;
     private final Set<Path> mainSourceRoots = new LinkedHashSet<>();
     private final Set<Path> unitTestSourceRoots = new LinkedHashSet<>();
     private final Set<Path> integrationTestSourceRoots = new LinkedHashSet<>();
@@ -41,6 +42,14 @@ public final class ModuleInfo {
 
     public void setTestModule(boolean testModule) {
         this.testModule = testModule;
+    }
+
+    public boolean docModule() {
+        return docModule;
+    }
+
+    public void setDocModule(boolean docModule) {
+        this.docModule = docModule;
     }
 
     public Set<Path> mainSourceRoots() {

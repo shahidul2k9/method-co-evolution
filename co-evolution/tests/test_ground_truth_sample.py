@@ -77,7 +77,7 @@ class TestGroundTruthSample(unittest.TestCase):
             self.assertEqual(1, stats.added_test_methods)
             self.assertEqual(2, result["from_url"].nunique())
             preserved = result[(result["from_url"] == "test://A") & (result["to_url"] == "prod://1")].iloc[0]
-            self.assertEqual("#test-code #test-unit #test-method", preserved["from_artifact"])
+            self.assertEqual("#test-code #test-case-method", preserved["from_artifact"])
             self.assertEqual("1", str(preserved["label"]))
             self.assertEqual("needs-check", preserved["tags"])
             self.assertEqual("keep this", preserved["notes"])
@@ -118,8 +118,8 @@ class TestGroundTruthSample(unittest.TestCase):
             prod = result[(result["from_url"] == "test://A") & (result["to_url"] == "prod://1")].iloc[0]
             self.assertEqual(1, stats.rows_refreshed)
             self.assertEqual(0, stats.rows_not_refreshed)
-            self.assertEqual("#test-code #test-unit #test-method", prod["from_artifact"])
-            self.assertEqual("production", prod["to_artifact"])
+            self.assertEqual("#test-code #test-case-method", prod["from_artifact"])
+            self.assertEqual("#main-code", prod["to_artifact"])
             self.assertEqual("prod1", prod["to_name"])
             self.assertEqual("1", str(prod["label"]))
             self.assertEqual("reviewed", prod["tags"])
@@ -208,7 +208,7 @@ class TestGroundTruthSample(unittest.TestCase):
                         "from_url": "test://A",
                         "to_url": "prod://manual",
                         "to_fqs": "Demo.manualToString()",
-                        "to_artifact": "#production-code",
+                        "to_artifact": "#main-code",
                         "label": "1",
                         "tags": "manual",
                         "notes": "added from UI",
@@ -245,7 +245,7 @@ class TestGroundTruthSample(unittest.TestCase):
                     {
                         "url": "prod://manual",
                         "name": "freshToString",
-                        "artifact": "#production-code",
+                        "artifact": "#main-code",
                         "fqs": "Demo.freshToString()",
                         "tctracer_fqs": "Demo.freshToString()",
                         "testlinker_fqs": "Demo.freshToString()",
@@ -293,12 +293,12 @@ class TestGroundTruthSample(unittest.TestCase):
             manual = result[result["to_url"] == "prod://manual"].iloc[0]
             self.assertEqual(1, stats.rows_refreshed)
             self.assertEqual(0, stats.rows_not_refreshed)
-            self.assertEqual("#test-code #test-unit #test-method", manual["from_artifact"])
+            self.assertEqual("#test-code #test-case-method", manual["from_artifact"])
             self.assertEqual("freshToString", manual["to_name"])
             self.assertEqual("Demo.freshToString()", manual["to_fqs"])
             self.assertEqual("Demo.freshToString()", manual["to_tctracer_fqs"])
             self.assertEqual("Demo.freshToString()", manual["to_testlinker_fqs"])
-            self.assertEqual("#production-code", manual["to_artifact"])
+            self.assertEqual("#main-code", manual["to_artifact"])
             self.assertEqual("1", str(manual["label"]))
             self.assertEqual("manual", manual["tags"])
             self.assertEqual("keep label metadata", manual["notes"])
@@ -349,7 +349,7 @@ class TestGroundTruthSample(unittest.TestCase):
                 project="demo",
                 test_count=3,
                 test_artifacts={
-                    "test://B": "#test-code #test-module #test-method",
+                    "test://B": "#test-module #test-code #test-case-method",
                 },
             )
             pd.DataFrame(
@@ -381,7 +381,7 @@ class TestGroundTruthSample(unittest.TestCase):
                 method_dir,
                 project="demo",
                 test_count=2,
-                test_artifacts={"test://B": "#test-code #test-module #test-method"},
+                test_artifacts={"test://B": "#test-module #test-code #test-case-method"},
             )
             pd.DataFrame(
                 [{"project": "demo", "from_url": "test://B", "to_url": "prod://1", "label": "1"}]
@@ -468,7 +468,7 @@ class TestGroundTruthSample(unittest.TestCase):
             {
                 "url": "prod://1",
                 "name": "prod1",
-                "artifact": "production",
+                "artifact": "#main-code",
                 "fqs": "Demo.prod1()",
                 "tctracer_fqs": "Demo.prod1()",
                 "testlinker_fqs": "Demo.prod1()",
@@ -476,7 +476,7 @@ class TestGroundTruthSample(unittest.TestCase):
             {
                 "url": "test-helper://1",
                 "name": "helper",
-                "artifact": "#test-code #test-utility",
+                "artifact": "#test-code #test-helper-method",
                 "fqs": "DemoTest.helper()",
                 "tctracer_fqs": "DemoTest.helper()",
                 "testlinker_fqs": "DemoTest.helper()",
@@ -487,7 +487,7 @@ class TestGroundTruthSample(unittest.TestCase):
                 {
                     "url": test_url,
                     "name": f"test{chr(ord('A') + index)}",
-                    "artifact": test_artifacts.get(test_url, "#test-code #test-unit #test-method"),
+                    "artifact": test_artifacts.get(test_url, "#test-code #test-case-method"),
                     "fqs": f"DemoTest.test{index}()",
                     "tctracer_fqs": f"DemoTest.test{index}()",
                     "testlinker_fqs": f"DemoTest.test{index}()",

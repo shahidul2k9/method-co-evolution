@@ -20,7 +20,7 @@ class FakeJavaMethod:
         method_name = Path(file_path).stem
         self.name = f"{method_name}_method"
         self.url = util.format_to_git_url(repository_url, commit_hash, file_path, 1)
-        self.artifact = "#production-code"
+        self.artifact = "#main-code"
         self.start_line = 1
         self.end_line = 2
         self.expression = "method"
@@ -150,7 +150,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                         "project": "demo-project",
                         "name": "run",
                         "url": "https://github.com/example/demo/blob/abc123/src/Alpha.java#L72",
-                        "artifact": "#production-code",
+                        "artifact": "#main-code",
                         "start_line": "72.0",
                         "end_line": 80.0,
                         "expression": "method",
@@ -192,7 +192,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                         "project": "demo-project",
                         "name": "run",
                         "url": "https://github.com/example/demo/blob/abc123/src/Alpha.java#L72",
-                        "artifact": "#production-code",
+                        "artifact": "#main-code",
                         "start_line": "72.0",
                         "end_line": 80.0,
                         "code": "void run() {}",
@@ -284,7 +284,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                         "project": "demo-project",
                         "name": "Alpha_method",
                         "url": "https://github.com/example/demo-project/blob/abc123/src/Alpha.java#L1",
-                        "artifact": "#production-code",
+                        "artifact": "#main-code",
                         "start_line": 1,
                         "end_line": 2,
                         "expression": "method",

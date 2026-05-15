@@ -16,20 +16,20 @@ import java.util.stream.Collectors;
 public class ArtifactDetectionTest {
     @Test
     public void tagEncodingAndLookupUseHashDelimitedTags() {
-        String artifact = "#test-module #test-code #test-unit #test-method";
+        String artifact = "#test-module #test-code #test-case-method";
 
-        Assert.assertTrue(ArtifactTags.hasTag(artifact, "test-method"));
-        Assert.assertTrue(ArtifactTags.hasTag(artifact, "#test-method"));
+        Assert.assertTrue(ArtifactTags.hasTag(artifact, "test-case-method"));
+        Assert.assertTrue(ArtifactTags.hasTag(artifact, "#test-case-method"));
         Assert.assertTrue(ArtifactTags.hasTag(artifact, "test-code"));
         Assert.assertFalse(ArtifactTags.hasTag(artifact, "test"));
     }
 
     @Test
     public void tagLookupToleratesLegacyCompactHashTags() {
-        String artifact = "#test-module#test-code#test-unit#test-method";
+        String artifact = "#test-module#test-code#test-case-method";
 
-        Assert.assertTrue(ArtifactTags.hasTag(artifact, "test-method"));
-        Assert.assertTrue(ArtifactTags.hasTag(artifact, "#test-method"));
+        Assert.assertTrue(ArtifactTags.hasTag(artifact, "test-case-method"));
+        Assert.assertTrue(ArtifactTags.hasTag(artifact, "#test-case-method"));
         Assert.assertFalse(ArtifactTags.hasTag(artifact, "test"));
     }
 
@@ -63,6 +63,9 @@ public class ArtifactDetectionTest {
         Path unitFile = Files.createDirectories(module.resolve("tst/org/eclipse/jgit"))
                 .resolve("ExampleTest.java");
         Files.writeString(unitFile, "package org.eclipse.jgit; class ExampleTest {}");
+        Path mainFile = Files.createDirectories(module.resolve("src/org/eclipse/jgit"))
+                .resolve("Helper.java");
+        Files.writeString(mainFile, "package org.eclipse.jgit; class Helper {}");
         Path resourceFile = Files.createDirectories(module.resolve("tst-rsrc"))
                 .resolve("Example.java");
         Files.writeString(resourceFile, "class Example {}");
@@ -70,11 +73,35 @@ public class ArtifactDetectionTest {
         TestArtifactDetector detector = TestArtifactDetector.load(repo, "jgit", configDir);
 
         ArtifactClassification unit = detector.classify(unitFile, "org.eclipse.jgit");
-        Assert.assertEquals("#test-module #test-code #test-unit", unit.encodedArtifact());
+        Assert.assertEquals("#test-module #test-code", unit.encodedArtifact());
+
+        ArtifactClassification main = detector.classify(mainFile, "org.eclipse.jgit");
+        Assert.assertEquals("#test-module #main-code", main.encodedArtifact());
 
         ArtifactClassification resource = detector.classify(resourceFile, "");
-        Assert.assertEquals("#test-module #test-code #test-resource", resource.encodedArtifact());
+        Assert.assertEquals("#test-module #test-resource", resource.encodedArtifact());
         Assert.assertTrue(resource.isResource());
+    }
+
+    @Test
+    public void moduleContextPatternsMatchAncestorDirectories() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-context");
+        Path integrationModule = Files.createDirectories(repo.resolve("integrationtest/search"));
+        Files.writeString(integrationModule.resolve("pom.xml"), "<project><artifactId>search-it</artifactId></project>");
+        Path integrationMain = Files.createDirectories(integrationModule.resolve("src/main/java/demo"))
+                .resolve("SearchDriver.java");
+        Files.writeString(integrationMain, "package demo; class SearchDriver {}");
+
+        Path docModule = Files.createDirectories(repo.resolve("documentation/reference"));
+        Files.writeString(docModule.resolve("pom.xml"), "<project><artifactId>reference</artifactId></project>");
+        Path docMain = Files.createDirectories(docModule.resolve("src/main/java/demo"))
+                .resolve("Snippet.java");
+        Files.writeString(docMain, "package demo; class Snippet {}");
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "demo", null);
+
+        Assert.assertEquals("#test-module #main-code", detector.classify(integrationMain, "demo").encodedArtifact());
+        Assert.assertEquals("#doc-module #main-code", detector.classify(docMain, "demo").encodedArtifact());
     }
 
     @Test
@@ -110,15 +137,15 @@ public class ArtifactDetectionTest {
 
         Assert.assertTrue(ArtifactTags.hasTag(
                 artifacts.get("testDelegationTokenIdentiferSerializationRoundTrip"),
-                "test-utility"
+                "test-helper-method"
         ));
         Assert.assertFalse(ArtifactTags.hasTag(
                 artifacts.get("testDelegationTokenIdentiferSerializationRoundTrip"),
-                "test-method"
+                "test-case-method"
         ));
         Assert.assertTrue(ArtifactTags.hasTag(
                 artifacts.get("testPublicNamingConvention"),
-                "test-method"
+                "test-case-method"
         ));
     }
 
@@ -165,30 +192,30 @@ public class ArtifactDetectionTest {
 
         Assert.assertTrue(ArtifactTags.hasTag(
                 testMethods.get("testDelegationTokenIdentiferSerializationRoundTrip").encodedArtifact(),
-                "test-utility"
+                "test-helper-method"
         ));
         Assert.assertFalse(ArtifactTags.hasTag(
                 testMethods.get("testDelegationTokenIdentiferSerializationRoundTrip").encodedArtifact(),
-                "test-method"
+                "test-case-method"
         ));
         Assert.assertTrue(ArtifactTags.hasTag(
                 testMethods.get("testPublicNamingConvention").encodedArtifact(),
-                "test-method"
+                "test-case-method"
         ));
         Assert.assertTrue(ArtifactTags.hasTag(
                 testMethods.get("privateAnnotatedTest").encodedArtifact(),
-                "test-method"
+                "test-case-method"
         ));
         Assert.assertTrue(ArtifactTags.hasTag(
                 testMethods.get("setUp").encodedArtifact(),
-                "test-fixture"
+                "test-fixture-method"
         ));
         Assert.assertNotNull(testMethods.get("setUp").startLine());
         Assert.assertNotNull(testMethods.get("setUp").endLine());
 
         ArtifactClassification productionMethod = detector.classifyMethodArtifacts(mainFile, "demo").get(0);
         Assert.assertEquals("shouldRetry", productionMethod.methodName());
-        Assert.assertEquals("#production-code", productionMethod.encodedArtifact());
+        Assert.assertEquals("#main-code", productionMethod.encodedArtifact());
     }
 
     @Test
@@ -232,8 +259,8 @@ public class ArtifactDetectionTest {
                 .stream()
                 .collect(Collectors.toMap(ArtifactClassification::methodName, classification -> classification));
 
-        Assert.assertTrue(ArtifactTags.hasTag(methods.get("ru").encodedArtifact(), "test-method"));
-        Assert.assertTrue(ArtifactTags.hasTag(methods.get("helper").encodedArtifact(), "test-utility"));
+        Assert.assertTrue(ArtifactTags.hasTag(methods.get("ru").encodedArtifact(), "test-case-method"));
+        Assert.assertTrue(ArtifactTags.hasTag(methods.get("helper").encodedArtifact(), "test-helper-method"));
     }
 
     @Test
@@ -263,11 +290,11 @@ public class ArtifactDetectionTest {
         TestArtifactDetector detector = TestArtifactDetector.load(repo, "jfreechart", null);
 
         ArtifactClassification source = detector.classify(sourceFile, "org.jfree.chart");
-        Assert.assertEquals("#production-code", source.encodedArtifact());
+        Assert.assertEquals("#main-code", source.encodedArtifact());
         Assert.assertFalse(source.isResource());
 
         ArtifactClassification testResource = detector.classify(testResourceFile, "");
-        Assert.assertEquals("#test-code #test-resource", testResource.encodedArtifact());
+        Assert.assertEquals("#test-resource", testResource.encodedArtifact());
         Assert.assertTrue(testResource.isResource());
     }
 

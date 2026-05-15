@@ -2,17 +2,16 @@ package rnd.method.parser.call.graph.artifact;
 
 public enum ArtifactTag {
     TEST_MODULE("test-module"),
+    DOC_MODULE("doc-module"),
     TEST_CODE("test-code"),
-    TEST_METHOD("test-method"),
-    TEST_UTILITY("test-utility"),
-    TEST_FIXTURE("test-fixture"),
-    TEST_UNIT("test-unit"),
-    TEST_INTEGRATION("test-integration"),
+    MAIN_CODE("main-code"),
+    TEST_CASE_METHOD("test-case-method"),
+    TEST_HELPER_METHOD("test-helper-method"),
+    TEST_FIXTURE_METHOD("test-fixture-method"),
     TEST_RESOURCE("test-resource"),
-    PRODUCTION_RESOURCE("production-resource"),
-    TEST_GENERATED("test-generated"),
-    PRODUCTION_GENERATED("production-generated"),
-    PRODUCTION_CODE("production-code");
+    MAIN_RESOURCE("main-resource"),
+    TEST_CODE_GENERATED("test-code-generated"),
+    MAIN_CODE_GENERATED("main-code-generated");
 
     private final String value;
 

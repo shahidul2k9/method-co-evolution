@@ -31,8 +31,8 @@ class TestExpandT2PCandidates(unittest.TestCase):
         )
         method_df = pd.DataFrame(
             [
-                {"url": "test://A.testCopy", "artifact": "#test-code #test-unit #test-method"},
-                {"url": "prod://A.copy", "artifact": "#production-code"},
+                {"url": "test://A.testCopy", "artifact": "#test-code #test-case-method"},
+                {"url": "prod://A.copy", "artifact": "#main-code"},
             ]
         )
 
@@ -41,7 +41,7 @@ class TestExpandT2PCandidates(unittest.TestCase):
         self.assertEqual(1, len(expanded_df))
         self.assertEqual(1, expanded_df.loc[0, "to_call_depth"])
 
-    def test_test_helper_call_expands_to_production_with_depth(self):
+    def test_test_helper_call_expands_to_main_code_with_depth(self):
         fan_out_df = pd.DataFrame(
             [
                 {
@@ -66,9 +66,9 @@ class TestExpandT2PCandidates(unittest.TestCase):
         )
         method_df = pd.DataFrame(
             [
-                {"url": "test://A.testCopy", "artifact": "#test-code #test-unit #test-method"},
-                {"url": "test-util://A.helper", "artifact": "#test-code #test-unit #test-utility"},
-                {"url": "prod://A.copy", "artifact": "#production-code"},
+                {"url": "test://A.testCopy", "artifact": "#test-code #test-case-method"},
+                {"url": "test-util://A.helper", "artifact": "#test-code #test-helper-method"},
+                {"url": "prod://A.copy", "artifact": "#test-module #main-code"},
             ]
         )
 
@@ -125,9 +125,9 @@ class TestExpandT2PCandidates(unittest.TestCase):
         )
         method_df = pd.DataFrame(
             [
-                {"url": "test://A.testPlugins", "artifact": "#test-code #test-unit #test-method"},
-                {"url": "test-util://A.findPlugin", "artifact": "#test-code #test-unit #test-utility"},
-                {"url": "prod://Plugin.getShortName", "artifact": "#production-code"},
+                {"url": "test://A.testPlugins", "artifact": "#test-code #test-case-method"},
+                {"url": "test-util://A.findPlugin", "artifact": "#test-code #test-helper-method"},
+                {"url": "prod://Plugin.getShortName", "artifact": "#main-code"},
             ]
         )
 

@@ -56,7 +56,7 @@ mhc method-scan \
     --project "checkstyle"
 ```
 
-Pass `--artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection"` to use hierarchical artifact tags such as `#test-code #test-unit #test-method` and `#production-code`.
+Pass `--artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection"` to use hierarchical artifact tags such as `#test-code #test-case-method` and `#main-code`.
 
 Use `--replace` to regenerate the CSV even if it already exists.
 
@@ -84,7 +84,7 @@ mhc artifact-update \
     --backup
 ```
 
-Artifact update always uses the Java artifact detector to parse method declarations and detect `#test-method`, `#test-fixture`, and `#test-utility` roles.
+Artifact update always uses the Java artifact detector to parse method declarations and detect `#test-case-method`, `#test-fixture-method`, and `#test-helper-method` roles.
 With `--backup`, the previous CSV is saved beside the original as `bk_<project>.csv`.
 
 ---

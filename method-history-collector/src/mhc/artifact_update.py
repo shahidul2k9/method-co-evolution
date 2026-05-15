@@ -9,7 +9,7 @@ import pandas as pd
 from pandas import DataFrame
 
 import mhc.util as util
-from mhc.artifacts import encode_tags, is_test_code, is_test_resource, is_production_resource, split_tags
+from mhc.artifacts import encode_tags, is_test_code, is_test_resource, is_main_resource, split_tags
 from mhc.method_scanner import clone_and_checkout_commit
 
 
@@ -112,7 +112,7 @@ def _update_csv(
         if context is None:
             context = _classify_file(detector, repo_root, rel_file, pkg)
             file_context_cache[(rel_file, pkg)] = context
-        if is_test_resource(context) or is_production_resource(context):
+        if is_test_resource(context) or is_main_resource(context):
             stats.resource_rows += 1
             df.at[index, "artifact"] = context
             continue
@@ -124,7 +124,7 @@ def _update_csv(
             artifact = artifacts.get((str(row.get("name") or ""), _normalize_line(row.get("start_line") or "")))
             if artifact is None:
                 stats.fallback_method_rows += 1
-                artifact = encode_tags([*split_tags(context), "test-utility"])
+                artifact = encode_tags([*split_tags(context), "test-helper-method"])
             df.at[index, "artifact"] = artifact
         else:
             df.at[index, "artifact"] = context
