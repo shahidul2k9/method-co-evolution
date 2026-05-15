@@ -19,6 +19,8 @@ mhc method-scan \
     --data-directory "$ME_WORKSPACE_DIRECTORY/data" \
     --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
     --artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection" \
-    --java-options "-Xmx2g -Dlogback.configurationFile=$ME_WORKSPACE_DIRECTORY/config/logback.xml" \
-    --project-index ":" \
-    --replace
+    --java-options "-Xmx4g -Xss16m -Dlogback.configurationFile=$ME_WORKSPACE_DIRECTORY/config/logback.xml" \
+    --project-index "47" \
+    --retry-errors true \
+    --merge-threshold 500 \
+    --merge-interval-seconds 0

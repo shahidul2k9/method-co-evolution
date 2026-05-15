@@ -100,9 +100,8 @@ def expand_candidate_df(
     for _, row in fan_out_df.iterrows():
         from_artifact = method_artifact.get(row["from_url"], "")
         to_artifact = method_artifact.get(row["to_url"], "")
-
-        if is_test_case_method(from_artifact) and is_test_artifact(to_artifact):
-            expanded_rows.append(set_direct_call_depth(row))
+        expanded_rows.append(set_direct_call_depth(row))
+        if is_test_artifact(from_artifact) and is_test_artifact(to_artifact):
             expanded_rows.extend(
                 expand_transitive_test_calls(
                     row,
@@ -111,8 +110,6 @@ def expand_candidate_df(
                     max_depth,
                 )
             )
-        else:
-            expanded_rows.append(set_direct_call_depth(row))
 
     return pd.DataFrame(expanded_rows)
 
