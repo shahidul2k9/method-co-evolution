@@ -400,6 +400,7 @@ def main(argv: list[str] | None = None):
     elif command in ("artifact-update", "update-artifacts"):
         mhc.update_artifacts(
             resolve_selected_projects(),
+            args.java_options,
             args.artifact_config_path,
             [target.strip() for target in args.target.split(",") if target.strip()],
             args.dry_run,

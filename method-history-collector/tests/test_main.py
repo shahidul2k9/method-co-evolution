@@ -355,6 +355,7 @@ class TestMhcScript(unittest.TestCase):
 
         mock_mhc_instance.update_artifacts.assert_called_once_with(
             ["jgit"],
+            None,
             "/tmp/artifact-detection",
             ["method", "class"],
             False,
