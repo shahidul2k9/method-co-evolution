@@ -16,21 +16,8 @@ from pytctracer.techniques.tarantula import Tarantula
 from pytctracer.techniques.tfidf import TFIDF
 
 import mhc.util as util
-from mhc.config import *
-from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, select_named_items
+from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
 from ptc.link_strategy import STRATEGY_KEYS
-
-# ---------------------------
-# Config
-# ---------------------------
-
-T2P_CANDIDATE_DIR = f"{DATA_DIRECTORY}/t2p-candidate-filtered"
-OUTPUT_DIR = f"{DATA_DIRECTORY}/t2p-tech"
-LLM_PREDICTION_DIR = Path(WORKSPACE_DIRECTORY) / "data" / "llm" / "t2p-link"
-TESTLINKER_PREDICTION_DIR = Path(WORKSPACE_DIRECTORY) / "data" / "testlinker" / "t2p-link" / "codet5"
-
-os.makedirs(T2P_CANDIDATE_DIR, exist_ok=True)
-os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # ---------------------------
 # Techniques
@@ -59,6 +46,7 @@ def build_parser():
         "Generate test-to-production technique scores.",
         include_tools=False,
         include_strategies=False,
+        include_experiment=True,
         projects_help="Comma-separated project names to process.",
     )
     parser.add_argument(
@@ -85,7 +73,7 @@ def apply_llm_techniques(
     t2p_candidate_df: pd.DataFrame,
     project: str,
     llm_directory_names: list[str],
-    llm_prediction_root: Path = LLM_PREDICTION_DIR,
+    llm_prediction_root: Path,
 ) -> pd.DataFrame:
     enriched_df = t2p_candidate_df.copy()
 
@@ -120,7 +108,7 @@ def apply_llm_techniques(
 def apply_testlinker_technique(
     t2p_candidate_df: pd.DataFrame,
     project: str,
-    testlinker_prediction_root: Path = TESTLINKER_PREDICTION_DIR,
+    testlinker_prediction_root: Path,
 ) -> pd.DataFrame:
     enriched_df = t2p_candidate_df.copy()
     column_name = "tech_testlinker"
@@ -308,6 +296,10 @@ def run_project_subprocesses(args, projects: list[str]) -> None:
             project,
             "--no-isolate-projects",
         ]
+        if getattr(args, "workspace_directory", None):
+            command.extend(["--workspace-directory", args.workspace_directory])
+        if args.experiment_name:
+            command.extend(["--experiment-name", args.experiment_name])
         if args.skip_existing:
             command.append("--skip-existing")
         if args.replace:
@@ -315,9 +307,20 @@ def run_project_subprocesses(args, projects: list[str]) -> None:
         subprocess.run(command, check=True)
 
 
-def process_project(project: str, commit_hash: str, llm_directory_names: list[str], *, skip_existing: bool, replace: bool) -> None:
-    t2p_candidate_file = f"{T2P_CANDIDATE_DIR}/{project}.csv"
-    output_file = f"{OUTPUT_DIR}/{project}.csv"
+def process_project(
+    project: str,
+    commit_hash: str,
+    llm_directory_names: list[str],
+    *,
+    t2p_candidate_dir: Path,
+    output_dir: Path,
+    llm_prediction_dir: Path,
+    testlinker_prediction_dir: Path,
+    skip_existing: bool,
+    replace: bool,
+) -> None:
+    t2p_candidate_file = t2p_candidate_dir / f"{project}.csv"
+    output_file = output_dir / f"{project}.csv"
 
     if not os.path.exists(t2p_candidate_file):
         return
@@ -345,10 +348,12 @@ def process_project(project: str, commit_hash: str, llm_directory_names: list[st
         t2p_candidate_df=t2p_candidate_df,
         project=project,
         llm_directory_names=llm_directory_names,
+        llm_prediction_root=llm_prediction_dir,
     )
     t2p_candidate_df = apply_testlinker_technique(
         t2p_candidate_df=t2p_candidate_df,
         project=project,
+        testlinker_prediction_root=testlinker_prediction_dir,
     )
 
     expanded_df = util.convert_float_int_columns_to_nullable_int(t2p_candidate_df)
@@ -361,6 +366,16 @@ def process_project(project: str, commit_hash: str, llm_directory_names: list[st
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    experiment_directory = resolve_experiment_paths(
+        getattr(args, "workspace_directory", None),
+        args.experiment_name,
+    ).experiment_directory
+    t2p_candidate_dir = experiment_directory / "t2p-candidate-filtered"
+    output_dir = experiment_directory / "t2p-tech"
+    llm_prediction_dir = experiment_directory / "llm" / "t2p-link"
+    testlinker_prediction_dir = experiment_directory / "testlinker" / "t2p-link" / "codet5"
+    os.makedirs(t2p_candidate_dir, exist_ok=True)
+    os.makedirs(output_dir, exist_ok=True)
     if args.skip_existing and args.replace:
         raise ValueError("--skip-existing and --replace cannot be used together.")
 
@@ -368,14 +383,13 @@ def main(argv: list[str] | None = None) -> None:
         use_filters=args.use_filters,
         projects=args.projects,
     )
-    repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
+    repository_df = pd.read_csv(experiment_directory / "project.csv")
     projects = select_named_items(repository_df["project"].tolist(), selected_projects, item_label="project")
     repository_df = repository_df[repository_df["project"].isin(projects)]
     llm_directory_names = llm_strategy_directory_names()
 
     if args.isolate_projects and len(projects) > 1:
         run_project_subprocesses(args, projects)
-        print("Finished.")
         return
 
     for _, repo in repository_df.iterrows():
@@ -385,6 +399,10 @@ def main(argv: list[str] | None = None) -> None:
             project,
             commit_hash,
             llm_directory_names,
+            t2p_candidate_dir=t2p_candidate_dir,
+            output_dir=output_dir,
+            llm_prediction_dir=llm_prediction_dir,
+            testlinker_prediction_dir=testlinker_prediction_dir,
             skip_existing=args.skip_existing,
             replace=args.replace,
         )

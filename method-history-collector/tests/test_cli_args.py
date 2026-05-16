@@ -14,6 +14,31 @@ import mhc.main as mhc_main
 
 class TestCliArgs(unittest.TestCase):
     @patch("mhc.main._build_method_history_collector")
+    def test_experiment_derives_default_runtime_directories(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
+
+        mhc_main.main(
+            [
+                "method-code",
+                "--workspace-directory",
+                "/tmp/workspace",
+                "--experiment-name",
+                "exp-a",
+                "--project",
+                "checkstyle",
+            ]
+        )
+
+        mock_build_collector.assert_called_once_with(
+            "/tmp/workspace",
+            "/tmp/workspace/experiment/exp-a",
+            "/tmp/workspace/experiment/exp-a/repository",
+            "/tmp/workspace/jar",
+            "/tmp/workspace/experiment/exp-a/history",
+        )
+
+    @patch("mhc.main._build_method_history_collector")
     def test_scan_method_accepts_dash_prefixed_java_options(self, mock_build_collector):
         mock_mhc_instance = mock_build_collector.return_value
         mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
@@ -25,8 +50,6 @@ class TestCliArgs(unittest.TestCase):
                 "workspace",
                 "--repository-directory",
                 "workspace/repository",
-                "--data-directory",
-                "workspace/data",
                 "--jar-directory",
                 "workspace/jar",
                 "--java-options",
@@ -63,8 +86,6 @@ class TestCliArgs(unittest.TestCase):
                 "workspace",
                 "--repository-directory",
                 "workspace/repository",
-                "--data-directory",
-                "workspace/data",
                 "--jar-directory",
                 "workspace/jar",
                 "--project",
@@ -100,8 +121,6 @@ class TestCliArgs(unittest.TestCase):
                 "workspace",
                 "--repository-directory",
                 "workspace/repository",
-                "--data-directory",
-                "workspace/data",
                 "--jar-directory",
                 "workspace/jar",
                 "--tool-name",
@@ -140,8 +159,6 @@ class TestCliArgs(unittest.TestCase):
                 "workspace",
                 "--repository-directory",
                 "workspace/repository",
-                "--data-directory",
-                "workspace/data",
                 "--jar-directory",
                 "workspace/jar",
                 "--project",
@@ -178,8 +195,6 @@ class TestCliArgs(unittest.TestCase):
                 "workspace",
                 "--repository-directory",
                 "workspace/repository",
-                "--data-directory",
-                "workspace/data",
                 "--jar-directory",
                 "workspace/jar",
                 "--project",
@@ -220,8 +235,6 @@ class TestCliArgs(unittest.TestCase):
                 "workspace",
                 "--repository-directory",
                 "workspace/repository",
-                "--data-directory",
-                "workspace/data",
                 "--jar-directory",
                 "workspace/jar",
                 "--tool-name",
@@ -266,8 +279,6 @@ class TestCliArgs(unittest.TestCase):
                 "workspace",
                 "--repository-directory",
                 "workspace/repository",
-                "--data-directory",
-                "workspace/data",
                 "--jar-directory",
                 "workspace/jar",
                 "--tool-name",
@@ -312,8 +323,6 @@ class TestCliArgs(unittest.TestCase):
                 "/scratch/history-json",
                 "--repository-directory",
                 "workspace/repository",
-                "--data-directory",
-                "workspace/data",
                 "--jar-directory",
                 "workspace/jar",
                 "--tool-name",
@@ -325,8 +334,8 @@ class TestCliArgs(unittest.TestCase):
 
         mock_build_collector.assert_called_once_with(
             "workspace",
+            "workspace/experiment/main",
             "workspace/repository",
-            "workspace/data",
             "workspace/jar",
             "/scratch/history-json",
         )
@@ -343,8 +352,6 @@ class TestCliArgs(unittest.TestCase):
                 "workspace",
                 "--repository-directory",
                 "workspace/repository",
-                "--data-directory",
-                "workspace/data",
                 "--jar-directory",
                 "workspace/jar",
                 "--tool-name",
@@ -383,8 +390,6 @@ class TestCliArgs(unittest.TestCase):
                 "workspace",
                 "--repository-directory",
                 "workspace/repository",
-                "--data-directory",
-                "workspace/data",
                 "--jar-directory",
                 "workspace/jar",
                 "--tool-name",
@@ -422,8 +427,6 @@ class TestCliArgs(unittest.TestCase):
                 "workspace",
                 "--repository-directory",
                 "workspace/repository",
-                "--data-directory",
-                "workspace/data",
                 "--jar-directory",
                 "workspace/jar",
                 "--tool-name",

@@ -12,15 +12,17 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 : "${ME_WORKSPACE_DIRECTORY:?ME_WORKSPACE_DIRECTORY must be set in .env}"
+ME_EXPERIMENT_NAME="${ME_EXPERIMENT_NAME:-main}"
 
 mhc method-scan \
     --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
-    --repository-directory "$ME_WORKSPACE_DIRECTORY/repository" \
-    --data-directory "$ME_WORKSPACE_DIRECTORY/data" \
+    --experiment-name "$ME_EXPERIMENT_NAME" \
     --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
     --artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection" \
     --java-options "-Xmx4g -Xss16m -Dlogback.configurationFile=$ME_WORKSPACE_DIRECTORY/config/logback.xml" \
-    --project-index "47" \
+    --project-index ":" \
     --retry-errors true \
-    --merge-threshold 500 \
+    --merge-threshold 1000 \
+    --shards 1 \
+    --shard 1 \
     --merge-interval-seconds 0

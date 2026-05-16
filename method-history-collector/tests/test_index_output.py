@@ -53,7 +53,7 @@ class TestIndexOutput(unittest.TestCase):
                 execute_method_history_if_missing(
                     repository_df,
                     str(temp_path / "repository"),
-                    str(temp_path / "data"),
+                    str(temp_path),
                     str(temp_path / "cache" / "history"),
                     ["codeShovel"],
                     {"codeShovel": "codeShovel.jar"},
@@ -87,7 +87,7 @@ class TestIndexOutput(unittest.TestCase):
             execute_method_history_if_missing(
                 repository_df,
                 str(temp_path / "repository"),
-                str(temp_path / "data"),
+                str(temp_path),
                 str(temp_path / "cache" / "history"),
                 ["codeShovel"],
                 {"codeShovel": "codeShovel.jar"},
@@ -119,7 +119,7 @@ class TestIndexOutput(unittest.TestCase):
             execute_method_history_if_missing(
                 repository_df,
                 str(temp_path / "repository"),
-                str(temp_path / "data"),
+                str(temp_path),
                 str(temp_path / "cache" / "history"),
                 ["codeShovel"],
                 {"codeShovel": "codeShovel.jar"},
@@ -153,7 +153,7 @@ class TestIndexOutput(unittest.TestCase):
             execute_method_history_if_missing(
                 repository_df,
                 str(temp_path / "repository"),
-                str(temp_path / "data"),
+                str(temp_path),
                 str(temp_path / "cache" / "history"),
                 ["codeShovel"],
                 {"codeShovel": "codeShovel.jar"},
@@ -188,7 +188,7 @@ class TestIndexOutput(unittest.TestCase):
             execute_method_history_if_missing(
                 repository_df,
                 str(temp_path / "repository"),
-                str(temp_path / "data"),
+                str(temp_path),
                 str(temp_path / "cache" / "history"),
                 ["codeShovel"],
                 {"codeShovel": "codeShovel.jar"},
@@ -222,7 +222,7 @@ class TestIndexOutput(unittest.TestCase):
             execute_method_history_if_missing(
                 repository_df,
                 str(temp_path / "repository"),
-                str(temp_path / "data"),
+                str(temp_path),
                 str(temp_path / "cache" / "history"),
                 ["codeShovel"],
                 {"codeShovel": "codeShovel.jar"},
@@ -235,7 +235,7 @@ class TestIndexOutput(unittest.TestCase):
     def test_zero_merge_threshold_disables_intermediate_merge_only(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            data_directory = temp_path / "data"
+            data_directory = temp_path
             method_dir = data_directory / "method"
             method_dir.mkdir(parents=True)
             pd.DataFrame(
@@ -279,7 +279,7 @@ class TestIndexOutput(unittest.TestCase):
     def test_negative_merge_threshold_disables_all_merging(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            data_directory = temp_path / "data"
+            data_directory = temp_path
             method_dir = data_directory / "method"
             method_dir.mkdir(parents=True)
             pd.DataFrame(
@@ -324,7 +324,7 @@ class TestIndexOutput(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             workspace_directory = temp_path / "cache"
-            data_directory = temp_path / "data"
+            data_directory = temp_path
 
             method_dir = data_directory / "method"
             method_dir.mkdir(parents=True)

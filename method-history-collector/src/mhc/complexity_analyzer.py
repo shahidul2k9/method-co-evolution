@@ -28,12 +28,9 @@ class ComplexityAnalyzer:
 
         self.project_info_path = os.path.join(
             self.data_directory,
-            "repository",
             f"project_info_{str(uuid.uuid4())}.txt",
         )
-        self.repository_df_path = os.path.join(
-            self.data_directory, "repository", "repository.csv"
-        )
+        self.repository_df_path = os.path.join(self.data_directory, "project.csv")
 
         self.history_json_dir = os.path.join(self.repository_directory, "historyJSON")
         os.makedirs(self.history_json_dir, exist_ok=True)

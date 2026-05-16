@@ -8,7 +8,7 @@ from mhc.config import *
 
 class GitTestCase(unittest.TestCase):
     def test_commit_count(self):
-        repository_df = pd.read_csv(os.path.join(WORKSPACE_DIRECTORY, "data/repository/repository.csv"))
+        repository_df = pd.read_csv(os.path.join(WORKSPACE_DIRECTORY, "project.csv"))
 
         def get_commit_count(row):
             try:
@@ -26,7 +26,7 @@ class GitTestCase(unittest.TestCase):
         repository_df["commits"] = repository_df.apply(
             get_commit_count,
             axis=1)
-        repository_df.to_csv(os.path.join(WORKSPACE_DIRECTORY, "data/repository/repository.csv"), index=False)
+        repository_df.to_csv(os.path.join(WORKSPACE_DIRECTORY, "project.csv"), index=False)
 
 
 if __name__ == '__main__':

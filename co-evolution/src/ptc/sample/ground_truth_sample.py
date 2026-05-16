@@ -10,7 +10,7 @@ import pandas as pd
 from mhc.artifacts import is_test_code, is_test_case_method
 from mhc.util import parse_project_index
 
-from mhc.config import DATA_DIRECTORY
+from mhc.config import EXPERIMENT_DIRECTORY
 
 GROUND_TRUTH_COLUMNS = [
     "project",
@@ -45,8 +45,8 @@ METHOD_TO_GT_COLUMNS = {
     "to_artifact": "artifact",
 }
 
-_DATA = Path(DATA_DIRECTORY)
-REPOSITORY_FILE = _DATA / "repository" / "repository.csv"
+_DATA = Path(EXPERIMENT_DIRECTORY)
+REPOSITORY_FILE = _DATA / "project.csv"
 T2P_CANDIDATE_DIR = _DATA / "t2p-candidate-expanded"
 METHOD_DIR = _DATA / "method"
 
@@ -417,7 +417,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--project-index",
         required=True,
-        help="Python-style project index or slice from data/repository/repository.csv.",
+        help="Python-style project index or slice from project.csv.",
     )
     parser.add_argument(
         "--sample-count-per-project",

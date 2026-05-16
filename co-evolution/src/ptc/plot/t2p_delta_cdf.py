@@ -8,7 +8,7 @@ import pandas as pd
 
 import mhc.util as util
 from mhc.artifacts import artifact_group
-from mhc.config import WORKSPACE_DIRECTORY, DATA_DIRECTORY
+from mhc.config import WORKSPACE_DIRECTORY
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
 from ptc.plot_util import (
     GRAPH_STYLES,
@@ -17,6 +17,7 @@ from ptc.plot_util import (
     ecdf,
     list_csv_files,
     resolve_experiment_filters,
+    resolve_experiment_paths,
     select_named_items,
 )
 
@@ -30,12 +31,13 @@ def build_parser():
 
 
 def load_history_repository_dfs(
+    experiment_directory: Path,
     tool: str,
     link_strategy: str,
     selected_projects: list[str] | None,
 ) -> list[pd.DataFrame]:
     csv_files = list_csv_files(
-        Path(DATA_DIRECTORY) / "t2p-change" / tool / link_strategy,
+        experiment_directory / "t2p-change" / tool / link_strategy,
         selected_projects,
         strict=False,
     )
@@ -48,6 +50,10 @@ def load_history_repository_dfs(
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    experiment_directory = resolve_experiment_paths(
+        getattr(args, "workspace_directory", None),
+        args.experiment_name,
+    ).experiment_directory
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
         use_filters=args.use_filters,
         tools=args.tools,
@@ -56,19 +62,19 @@ def main(argv: list[str] | None = None) -> None:
     )
 
     tools = select_named_items(
-        util.sorted_directory_names(Path(DATA_DIRECTORY) / "t2p-change"),
+        util.sorted_directory_names(experiment_directory / "t2p-change"),
         selected_tools,
         item_label="tool",
     )
 
     for tool in tools:
         strategies = select_named_items(
-            util.sorted_directory_names(Path(DATA_DIRECTORY) / "t2p-change" / tool),
+            util.sorted_directory_names(experiment_directory / "t2p-change" / tool),
             selected_strategies,
             item_label="strategy",
         )
         for link_strategy in strategies:
-            history_repository_dfs = load_history_repository_dfs(tool, link_strategy, selected_projects)
+            history_repository_dfs = load_history_repository_dfs(experiment_directory, tool, link_strategy, selected_projects)
             if not history_repository_dfs:
                 continue
 

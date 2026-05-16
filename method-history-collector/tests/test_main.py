@@ -11,7 +11,13 @@ if str(SRC_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SRC_DIRECTORY))
 
 import mhc.main as mhc_main
-from mhc.config import WORKSPACE_DIRECTORY, REPOSITORY_DIRECTORY, DATA_DIRECTORY, JAR_DIRECTORY, HISTORY_DIRECTORY
+from mhc.config import (
+    WORKSPACE_DIRECTORY,
+    REPOSITORY_DIRECTORY,
+    JAR_DIRECTORY,
+    HISTORY_DIRECTORY,
+    EXPERIMENT_DIRECTORY,
+)
 
 
 
@@ -30,8 +36,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
             "--tool-name",
@@ -48,8 +52,8 @@ class TestMhcScript(unittest.TestCase):
 
         mock_build_collector.assert_called_once_with(
             WORKSPACE_DIRECTORY,
+            EXPERIMENT_DIRECTORY,
             REPOSITORY_DIRECTORY,
-            DATA_DIRECTORY,
             JAR_DIRECTORY,
             HISTORY_DIRECTORY,
         )
@@ -78,8 +82,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
         ]
@@ -101,8 +103,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
         ]
@@ -127,8 +127,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
             "--tool-name",
@@ -173,8 +171,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
             "--tool-name",
@@ -219,8 +215,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
             "--project-index",
@@ -259,8 +253,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
             "--project-index",
@@ -299,8 +291,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
             "--project-index",
@@ -337,8 +327,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
             "--artifact-config-path",
@@ -372,8 +360,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
             "--project",
@@ -401,8 +387,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
             "--tool-name",
@@ -429,8 +413,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
             "--tool-name",
@@ -463,8 +445,6 @@ class TestMhcScript(unittest.TestCase):
             WORKSPACE_DIRECTORY,
             "--repository-directory",
             REPOSITORY_DIRECTORY,
-            "--data-directory",
-            DATA_DIRECTORY,
             "--jar-directory",
             JAR_DIRECTORY,
             "--project",

@@ -17,9 +17,9 @@ except ImportError:  # pragma: no cover - local shell may not have pandas instal
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-FAN_OUT_FILE = REPOSITORY_ROOT / "workspace-eval" / "data" / "callgraph" / "commons-io.csv"
-FAN_IN_FILE = REPOSITORY_ROOT / "workspace-eval" / "data" / "fanin" / "commons-io.csv"
-METHOD_CODE_FILE = REPOSITORY_ROOT / "workspace-eval" / "data" / "method-code" / "commons-io.csv"
+FAN_OUT_FILE = REPOSITORY_ROOT / "workspace-eval" / "callgraph" / "commons-io.csv"
+FAN_IN_FILE = REPOSITORY_ROOT / "workspace-eval" / "fanin" / "commons-io.csv"
+METHOD_CODE_FILE = REPOSITORY_ROOT / "workspace-eval" / "method-code" / "commons-io.csv"
 
 T2P_SOURCE_URL = (
     "https://github.com/apache/commons-io/blob/"

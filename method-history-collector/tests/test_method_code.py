@@ -44,7 +44,7 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
     def test_generate_method_code_extracts_code_from_checked_out_repository(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
-            data_directory = Path(temp_directory) / "data"
+            data_directory = Path(temp_directory)
             repository_directory = root / "repositories"
             input_file = Path(util.format_method_list_file(str(data_directory), "commons-io"))
             input_file.parent.mkdir(parents=True, exist_ok=True)
@@ -134,7 +134,7 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
     def test_generate_method_code_skips_non_utf8_source_files(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
-            data_directory = root / "data"
+            data_directory = root
             repository_directory = root / "repositories"
             input_file = Path(util.format_method_list_file(str(data_directory), "argouml"))
             input_file.parent.mkdir(parents=True, exist_ok=True)
@@ -213,8 +213,6 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
             "/tmp/cache",
             "--repository-directory",
             "/tmp/repository",
-            "--data-directory",
-            "/tmp/data",
             "--jar-directory",
             "/tmp/jar",
             "--project",
@@ -247,8 +245,6 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
             "/tmp/cache",
             "--repository-directory",
             "/tmp/repository",
-            "--data-directory",
-            "/tmp/data",
             "--jar-directory",
             "/tmp/jar",
         ]
@@ -265,7 +261,7 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
             root = Path(temp_directory)
             cache_file = root / ".method-code" / "demo.csv"
             lock_file = root / ".method-code" / "demo.lock"
-            output_file = root / "data" / "method-code" / "demo.csv"
+            output_file = root / "method-code" / "demo.csv"
             error_file = root / ".method-code-error" / "demo.csv"
             cache_file.parent.mkdir(parents=True)
             lock_file.write_text("", encoding="utf-8")
@@ -318,7 +314,7 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
             root = Path(temp_directory)
             cache_file = root / ".method-code" / "demo.csv"
             lock_file = root / ".method-code" / "demo.lock"
-            output_file = root / "data" / "method-code" / "demo.csv"
+            output_file = root / "method-code" / "demo.csv"
             error_file = root / ".method-code-error" / "demo.csv"
             cache_file.parent.mkdir(parents=True)
             lock_file.write_text("", encoding="utf-8")

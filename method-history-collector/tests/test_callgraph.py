@@ -85,8 +85,8 @@ class CallGraphRunnerTest(unittest.TestCase):
             root = Path(temp_directory)
             cache_file = root / "cache.csv"
             lock_file = root / "cache.lock"
-            callgraph_file = root / "data" / "callgraph" / "demo.csv"
-            fanin_file = root / "data" / "fanin" / "demo.csv"
+            callgraph_file = root / "callgraph" / "demo.csv"
+            fanin_file = root / "fanin" / "demo.csv"
             lock_file.write_text("", encoding="utf-8")
             pd.DataFrame(
                 [
@@ -114,7 +114,7 @@ class CallGraphRunnerTest(unittest.TestCase):
                 str(cache_file),
                 str(callgraph_file),
                 str(fanin_file),
-                str(root / "data" / ".callgraph-error" / "demo.csv"),
+                str(root / ".callgraph-error" / "demo.csv"),
                 {"src/Caller.java"},
                 str(lock_file),
             )
@@ -170,9 +170,9 @@ class CallGraphRunnerTest(unittest.TestCase):
             root = Path(temp_directory)
             cache_file = root / "cache.csv"
             lock_file = root / "cache.lock"
-            callgraph_file = root / "data" / "callgraph" / "demo.csv"
-            fanin_file = root / "data" / "fanin" / "demo.csv"
-            error_file = root / "data" / ".callgraph-error" / "demo.csv"
+            callgraph_file = root / "callgraph" / "demo.csv"
+            fanin_file = root / "fanin" / "demo.csv"
+            error_file = root / ".callgraph-error" / "demo.csv"
             lock_file.write_text("", encoding="utf-8")
             pd.DataFrame(
                 [_build_callgraph_scan_marker("src/Done.java")],
@@ -198,9 +198,9 @@ class CallGraphRunnerTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
             cache_file = root / "cache.csv"
-            callgraph_file = root / "data" / "callgraph" / "demo.csv"
-            fanin_file = root / "data" / "fanin" / "demo.csv"
-            error_file = root / "data" / ".callgraph-error" / "demo.csv"
+            callgraph_file = root / "callgraph" / "demo.csv"
+            fanin_file = root / "fanin" / "demo.csv"
+            error_file = root / ".callgraph-error" / "demo.csv"
             pd.DataFrame(
                 [
                     {

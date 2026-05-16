@@ -1,6 +1,8 @@
 import argparse
 import os
 import sys
+from pathlib import Path
+from mhc import config
 from mhc.method_history_collector import *
 from mhc.method_history_jar_runner import DEFAULT_MERGE_THRESHOLD
 from mhc.util import parse_project_index
@@ -10,8 +12,8 @@ _KNOWN_OPTION_FLAGS = {
     "--workspace-directory",
     "--history-directory",
     "--repository-directory",
-    "--data-directory",
     "--jar-directory",
+    "--experiment-name",
     "--tool-name",
     "--command-options",
     "--java-options",
@@ -69,15 +71,15 @@ def _normalize_dash_prefixed_option_values(argv: list[str]) -> list[str]:
 
 def _build_method_history_collector(
     workspace_directory: str,
+    experiment_directory: str,
     repository_directory: str,
-    data_directory: str,
     jar_directory: str,
     history_directory: str | None = None,
 ) -> MethodHistoryCollector:
     return MethodHistoryCollector(
         workspace_directory,
+        experiment_directory,
         repository_directory,
-        data_directory,
         jar_directory,
         history_directory,
     )
@@ -122,30 +124,30 @@ def main(argv: list[str] | None = None):
         "--workspace-directory",
         type=str,
         required=True,
-        help="Cache directory path"
+        help="Shared workspace root. Experiment outputs default to <workspace-directory>/experiment/<experiment>.",
+    )
+    parser.add_argument(
+        "--experiment-name",
+        type=str,
+        default=None,
+        help="Experiment name. Defaults to ME_EXPERIMENT_NAME.",
     )
     parser.add_argument(
         "--repository-directory",
         type=str,
-        required=True,
-        help="Repository directory path",
+        default=None,
+        help="Repository directory path. Defaults to <workspace-directory>/experiment/<experiment>/repository.",
     )
     parser.add_argument(
         "--history-directory",
         type=str,
-        help="Method history JSON/archive directory path. Defaults to ME_HISTORY_DIRECTORY or <workspace-directory>/history.",
-    )
-    parser.add_argument(
-        "--data-directory",
-        type=str,
-        required=True,
-        help="Data directory path"
+        help="Method history JSON/archive directory path. Defaults to <workspace-directory>/experiment/<experiment>/history.",
     )
     parser.add_argument(
         "--jar-directory",
         type=str,
-        required=True,
-        help="Jar directory path"
+        default=None,
+        help="Jar directory path. Defaults to <workspace-directory>/jar.",
     )
 
     # Conditional args for long-running project commands
@@ -220,7 +222,7 @@ def main(argv: list[str] | None = None):
         "--project-index",
         dest="project_index",
         type=str,
-        help="Python-style project index or slice from repository.csv, for example '10', '-1', '10:20', ':10', '10:', or ':'.",
+        help="Python-style project index or slice from project.csv, for example '10', '-1', '10:20', ':10', '10:', or ':'.",
     )
     parser.add_argument(
         "--shards",
@@ -281,16 +283,25 @@ def main(argv: list[str] | None = None):
         list(sys.argv[1:] if argv is None else argv)
     )
     args = parser.parse_args(normalized_argv)
-    history_directory = args.history_directory or os.environ.get(
-        "ME_HISTORY_DIRECTORY",
-        os.path.join(args.workspace_directory, "history"),
+    try:
+        experiment_name = config.resolve_experiment_name(args.experiment_name)
+    except ValueError as exc:
+        parser.error(str(exc))
+    workspace_directory = str(Path(args.workspace_directory))
+    experiment_directory = str(config.resolve_experiment_directory(workspace_directory, experiment_name))
+    repository_directory = str(
+        config.resolve_repository_directory(workspace_directory, experiment_name, args.repository_directory)
     )
+    history_directory = str(
+        config.resolve_history_directory(workspace_directory, experiment_name, args.history_directory)
+    )
+    jar_directory = str(config.resolve_jar_directory(workspace_directory, args.jar_directory))
 
     mhc = _build_method_history_collector(
-        args.workspace_directory,
-        args.repository_directory,
-        args.data_directory,
-        args.jar_directory,
+        workspace_directory,
+        experiment_directory,
+        repository_directory,
+        jar_directory,
         history_directory,
     )
     if args.shards <= 0:

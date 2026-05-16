@@ -5,12 +5,12 @@ from pathlib import Path
 import pandas as pd
 
 import mhc.util as util
-from mhc.config import WORKSPACE_DIRECTORY, DATA_DIRECTORY
 from ptc.constants import CODE_SHOVEL_UNSUPPORTED_CHANGES, MethodChangeType
 from ptc.experiment_util import (
     build_experiment_parser,
     list_csv_files,
     resolve_experiment_filters,
+    resolve_experiment_paths,
     select_named_items,
 )
 
@@ -19,7 +19,6 @@ CHANGE_COLUMNS = [
     "ch_diff",
     *[f"ch_{change_type.name.lower()}" for change_type in MethodChangeType],
 ]
-OUTPUT_FILE = Path(WORKSPACE_DIRECTORY) / "data" / "aggregate" / "t2p-delta.csv"
 CODE_SHOVEL_UNSUPPORTED_CHANGE_SET = {
     f"ch_{change_type.name.lower()}" for change_type in CODE_SHOVEL_UNSUPPORTED_CHANGES
 }
@@ -63,6 +62,10 @@ def build_row(tool: str, strategy: str, project: str, df: pd.DataFrame) -> dict:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    experiment_directory = resolve_experiment_paths(
+        getattr(args, "workspace_directory", None),
+        args.experiment_name,
+    ).experiment_directory
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
         use_filters=args.use_filters,
         tools=args.tools,
@@ -70,7 +73,7 @@ def main(argv: list[str] | None = None) -> None:
         strategies=args.strategies,
     )
 
-    input_root = Path(DATA_DIRECTORY) / "t2p-change"
+    input_root = experiment_directory / "t2p-change"
     tools = select_named_items(
         util.sorted_directory_names(input_root),
         selected_tools,
@@ -100,8 +103,9 @@ def main(argv: list[str] | None = None) -> None:
         for column in ["methods", *CHANGE_COLUMNS]:
             output_df[column] = output_df[column].astype("Int64")
 
-    os.makedirs(OUTPUT_FILE.parent, exist_ok=True)
-    output_df.to_csv(OUTPUT_FILE, index=False)
+    output_file = experiment_directory / "aggregate" / "t2p-delta.csv"
+    os.makedirs(output_file.parent, exist_ok=True)
+    output_df.to_csv(output_file, index=False)
 
 
 if __name__ == "__main__":

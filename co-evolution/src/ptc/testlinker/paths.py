@@ -38,7 +38,7 @@ def projects_all_functions_directory(root: Path) -> Path:
 
 
 def t2p_ground_truth_updated_file(project_directory: str | Path, project: str) -> Path:
-    return Path(project_directory) / "data" / "ground-truth" / f"{project}.csv"
+    return Path(project_directory) / "ground-truth" / f"{project}.csv"
 
 
 def default_model_directory(root: Path) -> Path:

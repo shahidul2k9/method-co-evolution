@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
+from mhc.config import resolve_experiment_directory, resolve_experiment_name
 from mhc.util import parse_project_index
 
 from ptc.testlinker.execute import execute_project
@@ -20,7 +21,12 @@ def build_parser() -> argparse.ArgumentParser:
         default="all",
         help="Pipeline stage to run.",
     )
-    parser.add_argument("--workspace-directory", required=True, help="Project cache directory.")
+    parser.add_argument(
+        "--workspace-directory",
+        required=True,
+        help="Shared workspace root. TestLinker runtime defaults to <workspace-directory>/experiment/<experiment>.",
+    )
+    parser.add_argument("--experiment-name", default=None, help="Experiment name. Defaults to ME_EXPERIMENT_NAME.")
     parser.add_argument(
         "--project-directory",
         dest="project_directory",
@@ -35,7 +41,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--project-index",
         default=None,
-        help="Python-style project index or slice from <workspace-directory>/data/repository/repository.csv. "
+        help="Python-style project index or slice from <workspace-directory>/experiment/<experiment>/project.csv. "
         "Examples: '10', '-1', '10:20', ':10', '10:', ':'.",
     )
     parser.add_argument(
@@ -107,7 +113,7 @@ def _parse_projects_csv(projects: str | None) -> list[str]:
 
 
 def _load_repository_projects(workspace_directory: str | Path) -> list[str]:
-    repository_file = Path(workspace_directory) / "data" / "repository" / "repository.csv"
+    repository_file = Path(workspace_directory) / "project.csv"
     if not repository_file.exists():
         raise ValueError(f"repository index does not exist: {repository_file}")
 
@@ -187,6 +193,7 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+    args.workspace_directory = str(resolve_experiment_directory(args.workspace_directory, resolve_experiment_name(args.experiment_name)))
     if args.top_k <= 0:
         parser.error("--top-k must be a positive integer")
 

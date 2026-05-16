@@ -10,7 +10,7 @@ for source_directory in (PTC_SRC_DIRECTORY, MHC_SRC_DIRECTORY):
         sys.path.insert(0, str(source_directory))
 
 from mhc.constant import WORKSPACE_DIRECTORY
-from ptc.llm.main import default_output_root, resolve_api_type, resolve_input_file, resolve_method_code_file
+from ptc.llm.main import build_parser, default_output_root, resolve_api_type, resolve_input_file, resolve_method_code_file
 from ptc.llm.providers.openai_responses import (
     normalize_openai_model_name,
     translate_provider_error,
@@ -20,11 +20,28 @@ TEST_WORKSPACE_DIRECTORY = Path(WORKSPACE_DIRECTORY) / "test" / "llm-m2m-link"
 
 
 class TestLlmMainHelpers(unittest.TestCase):
+    def test_parser_accepts_experiment(self):
+        args = build_parser().parse_args(
+            [
+                "llm-m2m-link",
+                "--workspace-directory",
+                "/tmp/workspace",
+                "--experiment-name",
+                "exp-a",
+                "--project",
+                "commons-io",
+                "--model-name-or-path",
+                "openai/gpt-oss-20b",
+            ]
+        )
+
+        self.assertEqual("exp-a", args.experiment_name)
+
     def test_resolve_input_file_from_workspace_directory_for_t2p(self):
         input_file = resolve_input_file(str(TEST_WORKSPACE_DIRECTORY), "commons-io", "t2p")
 
         self.assertEqual(
-            TEST_WORKSPACE_DIRECTORY / "data" / "t2p-candidate-filtered" / "commons-io.csv",
+            TEST_WORKSPACE_DIRECTORY / "t2p-candidate-filtered" / "commons-io.csv",
             input_file,
         )
 
@@ -32,13 +49,13 @@ class TestLlmMainHelpers(unittest.TestCase):
         input_file = resolve_input_file(str(TEST_WORKSPACE_DIRECTORY), "commons-io", "p2t")
 
         self.assertEqual(
-            TEST_WORKSPACE_DIRECTORY / "data" / "fanin" / "commons-io.csv",
+            TEST_WORKSPACE_DIRECTORY / "fanin" / "commons-io.csv",
             input_file,
         )
 
     def test_default_output_root_uses_workspace_directory_when_present(self):
         self.assertEqual(
-            TEST_WORKSPACE_DIRECTORY / "data" / "llm",
+            TEST_WORKSPACE_DIRECTORY / "llm",
             default_output_root(str(TEST_WORKSPACE_DIRECTORY)),
         )
 
@@ -46,7 +63,7 @@ class TestLlmMainHelpers(unittest.TestCase):
         method_code_file = resolve_method_code_file(str(TEST_WORKSPACE_DIRECTORY), "commons-io")
 
         self.assertEqual(
-            TEST_WORKSPACE_DIRECTORY / "data" / "method-code" / "commons-io.csv",
+            TEST_WORKSPACE_DIRECTORY / "method-code" / "commons-io.csv",
             method_code_file,
         )
 

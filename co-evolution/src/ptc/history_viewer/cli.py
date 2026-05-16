@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterable
 from wsgiref.simple_server import make_server
 
+from mhc.config import resolve_experiment_directory, resolve_experiment_name
 from .app import create_app
 from .repository import HistoryRepository
 
@@ -26,7 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve_parser.add_argument("--host", default="127.0.0.1")
     serve_parser.add_argument("--port", type=int, default=8765)
     serve_parser.add_argument("--workspace-directory", default=None)
-    serve_parser.add_argument("--data-directory", default=None)
+    serve_parser.add_argument("--experiment-name", default=None, help="Experiment name. Defaults to ME_EXPERIMENT_NAME.")
     serve_parser.add_argument("--reload", action="store_true", help="Restart the server automatically when viewer Python files change")
     serve_parser.add_argument("--reload-interval", type=float, default=1.0, help="Seconds between file-change checks when --reload is enabled")
 
@@ -34,12 +35,24 @@ def build_parser() -> argparse.ArgumentParser:
     link_parser.add_argument("--csv", required=True, help="Absolute path to the sampled CSV")
     link_parser.add_argument("--base-url", default="http://127.0.0.1:8765", help="Viewer base URL used in revision_url")
     link_parser.add_argument("--workspace-directory", default=None)
-    link_parser.add_argument("--data-directory", default=None)
+    link_parser.add_argument("--experiment-name", default=None, help="Experiment name. Defaults to ME_EXPERIMENT_NAME.")
 
     return parser
 
 
-def _serve_once(*, host: str, port: int, workspace_directory: str | None, data_directory: str | None) -> int:
+def _resolve_viewer_paths(
+    workspace_directory: str | None,
+    experiment: str | None,
+) -> tuple[str | None, str | None]:
+    if workspace_directory is None:
+        return workspace_directory, None
+    experiment_name = resolve_experiment_name(experiment)
+    experiment_directory = str(resolve_experiment_directory(workspace_directory, experiment_name))
+    return experiment_directory, experiment_directory
+
+
+def _serve_once(*, host: str, port: int, workspace_directory: str | None, experiment: str | None) -> int:
+    workspace_directory, data_directory = _resolve_viewer_paths(workspace_directory, experiment)
     app = create_app(workspace_directory=workspace_directory, data_directory=data_directory)
     with make_server(host, port, app) as server:
         print(f"Method history viewer listening on http://{host}:{port}", flush=True)
@@ -75,8 +88,8 @@ def build_reload_child_command(args: argparse.Namespace) -> list[str]:
     command = [sys.executable, "-m", "ptc.history_viewer.cli", "serve", "--host", args.host, "--port", str(args.port)]
     if args.workspace_directory:
         command.extend(["--workspace-directory", args.workspace_directory])
-    if args.data_directory:
-        command.extend(["--data-directory", args.data_directory])
+    if getattr(args, "experiment_name", None):
+        command.extend(["--experiment-name", args.experiment_name])
     return command
 
 
@@ -142,11 +155,15 @@ def main(argv: list[str] | None = None) -> int:
             host=args.host,
             port=args.port,
             workspace_directory=args.workspace_directory,
-            data_directory=args.data_directory,
+            experiment=args.experiment_name,
         )
 
     if args.command == "add-revision-links":
-        repository = HistoryRepository(workspace_directory=args.workspace_directory, data_directory=args.data_directory)
+        workspace_directory, data_directory = _resolve_viewer_paths(
+            args.workspace_directory,
+            args.experiment_name,
+        )
+        repository = HistoryRepository(workspace_directory=workspace_directory, data_directory=data_directory)
         rows = repository.write_revision_links(args.csv, base_url=args.base_url)
         print(f"Wrote revision_url for {rows} row(s) in {args.csv}")
         return 0

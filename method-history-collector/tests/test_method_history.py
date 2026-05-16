@@ -14,9 +14,9 @@ CODE_SHOVEL_REPOSITORIES = ["checkstyle", "commons-lang", "flink", "hibernate-or
 class MethodHistoryTestCase(unittest.TestCase):
     def __init__(self, *args, **kwargs):
         super(MethodHistoryTestCase, self).__init__(*args, **kwargs)
-        df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
+        df = pd.read_csv(f"{EXPERIMENT_DIRECTORY}/project.csv")
         self.repositories = df["project"].tolist()
-        self.method_collector = MethodHistoryCollector(WORKSPACE_DIRECTORY, REPOSITORY_DIRECTORY, DATA_DIRECTORY,
+        self.method_collector = MethodHistoryCollector(WORKSPACE_DIRECTORY, EXPERIMENT_DIRECTORY, REPOSITORY_DIRECTORY,
                                                        JAR_DIRECTORY)
 
     def test_method_listing(self):

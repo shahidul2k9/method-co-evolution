@@ -7,6 +7,7 @@ from ptc.experiment_util import (
     build_experiment_parser,
     list_csv_files,
     resolve_experiment_filters,
+    resolve_experiment_paths,
     select_named_items,
 )
 

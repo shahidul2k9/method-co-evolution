@@ -6,7 +6,7 @@ from collections.abc import Sequence
 
 import pandas as pd
 
-from mhc.config import DATA_DIRECTORY
+from mhc.config import EXPERIMENT_DIRECTORY
 from ptc.experiment_util import list_csv_files
 from ptc.link_strategy import LinkStrategy, keys_from_mask
 
@@ -121,8 +121,9 @@ def main(
         )
 
     strategy_key = _strategy_key(method_linking_strategy)
-    input_directory = Path(DATA_DIRECTORY) / "t2p-change" / tool_name / strategy_key
-    aggregate_directory = Path(DATA_DIRECTORY) / "aggregate"
+    experiment_directory = Path(EXPERIMENT_DIRECTORY)
+    input_directory = experiment_directory / "t2p-change" / tool_name / strategy_key
+    aggregate_directory = experiment_directory / "aggregate"
     aggregate_directory.mkdir(parents=True, exist_ok=True)
 
     project_files = list_csv_files(input_directory, projects, strict=False)

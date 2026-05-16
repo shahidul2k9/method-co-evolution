@@ -30,10 +30,10 @@ from ptc.history_viewer.app import (
 from ptc.history_viewer.repository import HistoryRepository, parse_commit_datetime, parse_method_url
 
 
-WORKSPACE_DIRECTORY = REPOSITORY_ROOT / "workspace"
-DATA_DIRECTORY = WORKSPACE_DIRECTORY / "data"
-SAMPLE_CSV = DATA_DIRECTORY / "t2p-change-sample" / "historyFinder" / "omc--nc--ncc" / "cucumber-jvm.csv"
-SAMPLE_DIR = DATA_DIRECTORY / "t2p-change-sample" / "historyFinder" / "omc--nc--ncc"
+WORKSPACE_DIRECTORY = REPOSITORY_ROOT / "workspace" / "experiment" / "main"
+EXPERIMENT_DIRECTORY = WORKSPACE_DIRECTORY
+SAMPLE_CSV = EXPERIMENT_DIRECTORY / "t2p-change-sample" / "historyFinder" / "omc--nc--ncc" / "cucumber-jvm.csv"
+SAMPLE_DIR = EXPERIMENT_DIRECTORY / "t2p-change-sample" / "historyFinder" / "omc--nc--ncc"
 HF_SAMPLE_URL = (
     "https://github.com/cucumber/cucumber-jvm/blob/4d9dd9304fe05e15c445c6f3b4d0e364d7c70223/"
     "cucumber-core/src/test/java/io/cucumber/core/plugin/UTF8PrintWriterTest.java#L17"
@@ -42,7 +42,7 @@ HF_SAMPLE_URL = (
 
 class TestHistoryViewer(unittest.TestCase):
     def setUp(self) -> None:
-        self.repository = HistoryRepository(workspace_directory=WORKSPACE_DIRECTORY, data_directory=DATA_DIRECTORY)
+        self.repository = HistoryRepository(workspace_directory=WORKSPACE_DIRECTORY, data_directory=EXPERIMENT_DIRECTORY)
 
     def write_ground_truth_fixture(self, directory_name: str = "ground-truth") -> Path:
         temp_dir = REPOSITORY_ROOT / "workspace" / "test" / "history-viewer" / directory_name
@@ -402,7 +402,7 @@ class TestHistoryViewer(unittest.TestCase):
 
     def test_ground_truth_routes_render_project_method_and_detail_pages(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-routes")
-        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
 
         project_body = self.call_app(
             app,
@@ -466,7 +466,7 @@ class TestHistoryViewer(unittest.TestCase):
 
     def test_ground_truth_delete_apis_remove_method_and_candidate_rows(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-delete-api")
-        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
 
         candidate_payload = urlencode(
             {
@@ -563,7 +563,7 @@ class TestHistoryViewer(unittest.TestCase):
     def test_ground_truth_detail_script_renders_linked_search_result_with_artifact_and_fqs(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-search-result-render")
         detail_body = self.call_app(
-            create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY)),
+            create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY)),
             path="/ground-truth/detail",
             query=urlencode(
                 {
@@ -582,7 +582,7 @@ class TestHistoryViewer(unittest.TestCase):
 
     def test_ground_truth_update_api_returns_progress(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-api")
-        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
         candidates = self.repository.read_ground_truth_candidates(
             csv_path,
             from_url="https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
@@ -609,7 +609,7 @@ class TestHistoryViewer(unittest.TestCase):
 
     def test_ground_truth_batch_update_api_returns_progress(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-batch-api")
-        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
         candidates = self.repository.read_ground_truth_candidates(
             csv_path,
             from_url="https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
@@ -700,7 +700,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertEqual(first_row["from_url"], calling_methods[0].from_url)
 
     def test_revision_route_renders_comparison_page(self) -> None:
-        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
         environ = {
             "REQUEST_METHOD": "GET",
             "PATH_INFO": "/revision",
@@ -748,7 +748,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertNotIn("Actual Source", body)
 
     def test_revision_route_uses_first_source_option_as_real_default(self) -> None:
-        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
         environ = {
             "REQUEST_METHOD": "GET",
             "PATH_INFO": "/revision",
@@ -779,7 +779,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("Loaded from <span class=\"mono\">t2p-link/ncc</span>", body)
 
     def test_sample_directory_route_lists_csv_files(self) -> None:
-        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
         environ = {
             "REQUEST_METHOD": "GET",
             "PATH_INFO": "/sample",
@@ -804,7 +804,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("CSV Files", body)
 
     def test_history_json_api_returns_raw_history(self) -> None:
-        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
         environ = {
             "REQUEST_METHOD": "GET",
             "PATH_INFO": "/api/history-json",
@@ -834,7 +834,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertTrue(any(header == ("Content-Type", "application/json; charset=utf-8") for header in captured["headers"]))
 
     def test_history_json_api_can_force_download(self) -> None:
-        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(DATA_DIRECTORY))
+        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
         environ = {
             "REQUEST_METHOD": "GET",
             "PATH_INFO": "/api/history-json",

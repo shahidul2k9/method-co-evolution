@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from mhc.config import resolve_experiment_directory, resolve_experiment_name
 from ptc.llm.models import GenerationConfig
 from ptc.llm.persistence import CsvRunStore
 from ptc.llm.prompting import JsonPredictionParser, MethodLinkingPromptFactory
@@ -39,7 +40,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--workspace-directory",
         dest="workspace_directory",
         required=True,
-        help="Cache directory root. The input CSV is resolved from <workspace_directory>/data plus project and input kind.",
+        help="Shared workspace root. Inputs/outputs default to <workspace-directory>/experiment/<experiment>.",
+    )
+    parser.add_argument(
+        "--experiment-name",
+        dest="experiment_name",
+        default=None,
+        help="Experiment name. Defaults to ME_EXPERIMENT_NAME.",
     )
     parser.add_argument(
         "--project",
@@ -148,6 +155,7 @@ def main() -> int:
 
     parser = build_parser()
     args = parser.parse_args()
+    args.workspace_directory = str(resolve_experiment_directory(args.workspace_directory, resolve_experiment_name(args.experiment_name)))
     exit_code = 0
 
     if args.stage == "parse":
@@ -209,7 +217,7 @@ def run_llm_t2p_link(args):
         input_file_name=candidate_file.name,
         short_model_name=args.short_model_name,
     )
-    output_file = Path(args.workspace_directory) / "data" / "llm" / "t2p-link" / run_store.model_directory_name / candidate_file.name
+    output_file = Path(args.workspace_directory) / "llm" / "t2p-link" / run_store.model_directory_name / candidate_file.name
     return project_t2p_links(
         candidate_file=candidate_file,
         llm_run_file=run_store.runs_file,
@@ -218,16 +226,16 @@ def run_llm_t2p_link(args):
 
 
 def default_output_root(workspace_directory: str) -> Path:
-    return Path(workspace_directory) / "data" / "llm"
+    return Path(workspace_directory) / "llm"
 
 
 def resolve_input_file(workspace_directory: str, project: str, input_kind: str) -> Path:
     fan_directory = "t2p-candidate-filtered" if input_kind == "t2p" else "fanin"
-    return Path(workspace_directory) / "data" / fan_directory / f"{project}.csv"
+    return Path(workspace_directory) / fan_directory / f"{project}.csv"
 
 
 def resolve_method_code_file(workspace_directory: str, project: str) -> Path:
-    return Path(workspace_directory) / "data" / "method-code" / f"{project}.csv"
+    return Path(workspace_directory) / "method-code" / f"{project}.csv"
 
 
 def load_method_code_lookup(method_code_path: Path) -> dict[str, dict[str, str]]:

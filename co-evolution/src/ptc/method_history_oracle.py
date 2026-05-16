@@ -6,6 +6,7 @@ import random
 from dataclasses import dataclass
 from pathlib import Path
 from mhc.artifacts import is_test_case_method
+from mhc.config import EXPERIMENT_DIRECTORY
 
 try:
     from dotenv import load_dotenv
@@ -17,10 +18,11 @@ if load_dotenv is not None:
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKSPACE_DIRECTORY = os.environ.get("ME_WORKSPACE_DIRECTORY", str(REPO_ROOT / "workspace"))
+EXPERIMENT_PATH = Path(EXPERIMENT_DIRECTORY)
 ME_TEST_METHOD_ORACLE_DIRECTORY = os.environ.get("ME_TEST_METHOD_ORACLE_DIRECTORY")
-DEFAULT_BLACKLIST_FILE = Path(f"{WORKSPACE_DIRECTORY}/data/oracle/blacklist-test-method-oracle.csv")
-DEFAULT_REPOSITORY_FILE = Path(f"{WORKSPACE_DIRECTORY}/data/repository/repository.csv")
-DEFAULT_METHOD_DIRECTORY = Path(f"{WORKSPACE_DIRECTORY}/data/method")
+DEFAULT_BLACKLIST_FILE = EXPERIMENT_PATH / "oracle" / "blacklist-test-method-oracle.csv"
+DEFAULT_REPOSITORY_FILE = EXPERIMENT_PATH / "project.csv"
+DEFAULT_METHOD_DIRECTORY = EXPERIMENT_PATH / "method"
 TARGET_REFS = {"grund", "islam"}
 BLACKLIST_FIELDNAMES = [
     "file",

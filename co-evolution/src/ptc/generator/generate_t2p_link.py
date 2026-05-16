@@ -5,8 +5,7 @@ import pandas as pd
 from mhc.artifacts import is_test_case_method, is_main_code
 from pytctracer.config.constants.technique_threshold import TechniqueThreshold
 
-from mhc.config import *
-from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters
+from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths
 from ptc.link_strategy import *
 
 LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
@@ -239,7 +238,7 @@ def select_links_cascade(
 
     for stage in iter_atomic_strategies(composite):
         stage_candidate_idx = select_one_stage_indices(pt_link_df, stage)
-        # stage_candidate_idx.to_series(index = False).to_csv(f"{DATA_DIRECTORY}/aggregate/stage-index-{project}.csv")
+        # stage_candidate_idx.to_series(index = False).to_csv(f"{EXPERIMENT_DIRECTORY}/aggregate/stage-index-{project}.csv")
         if len(stage_candidate_idx) > 0:
             keep_mask = _stage_mask_by_caller(pt_link_df=pt_link_df, candidate_idx=stage_candidate_idx,
                                               keep_mask=keep_mask)
@@ -262,15 +261,19 @@ def filter_test_case_to_main_code_links(t2p_link_df: pd.DataFrame) -> pd.DataFra
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    experiment_directory = resolve_experiment_paths(
+        getattr(args, "workspace_directory", None),
+        args.experiment_name,
+    ).experiment_directory
     _, selected_projects, _ = resolve_experiment_filters(
         use_filters=args.use_filters,
         projects=args.projects,
     )
-    for t2p_tech_file in list_csv_files(Path(f"{DATA_DIRECTORY}/t2p-tech"), selected_projects, strict=False):
+    for t2p_tech_file in list_csv_files(experiment_directory / "t2p-tech", selected_projects, strict=False):
         t2p_tech_df = pd.read_csv(t2p_tech_file, keep_default_na=False, na_filter=False)
         assert len(t2p_tech_df["project"].unique()) == 1, "Each file must be for the same repository_name"
         repository_name = t2p_tech_df["project"].iloc[0]
-        method_df = pd.read_csv(f"{DATA_DIRECTORY}/method/{repository_name}.csv", keep_default_na=False, na_filter=False)
+        method_df = pd.read_csv(experiment_directory / "method" / f"{repository_name}.csv", keep_default_na=False, na_filter=False)
         method_df = method_df[["url", "artifact"]]
 
         t2p_link_df = (t2p_tech_df.merge(method_df.add_prefix("from_"), on="from_url", how="inner")
@@ -291,8 +294,8 @@ def main(argv: list[str] | None = None) -> None:
             unique_t2p_link_df = t2p_link_df.loc[keep_mask].copy()
             unique_t2p_link_df = unique_t2p_link_df.drop_duplicates(subset=["from_url", "to_url"])
             print(repository_name, strategy_output_key(link_strategy), len(unique_t2p_link_df))
-            t2p_file = f"{DATA_DIRECTORY}/t2p-link/{strategy_output_key(link_strategy)}/{repository_name}.csv"
-            os.makedirs(os.path.dirname(t2p_file), exist_ok=True)
+            t2p_file = experiment_directory / "t2p-link" / strategy_output_key(link_strategy) / f"{repository_name}.csv"
+            os.makedirs(t2p_file.parent, exist_ok=True)
             unique_t2p_link_df.to_csv(t2p_file, index=False)
 
 

@@ -1,17 +1,9 @@
 from sklearn.metrics import precision_score, recall_score, f1_score, matthews_corrcoef
-from mhc.config import *
+from mhc.config import PROJECT_DIRECTORY
 from mhc.util import *
-from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters
+from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths
 
 ground_truth_dir = Path(f"{PROJECT_DIRECTORY}/data/ground-truth/testlinker-t2p-ground-truth")
-link_root_dir = Path(f"{WORKSPACE_DIRECTORY}/data/t2p-link")
-output_dir = Path(f"{WORKSPACE_DIRECTORY}/data/aggregate")
-mismatch_root_dir = Path(f"{WORKSPACE_DIRECTORY}/data/t2p-link-metric")
-
-output_dir.mkdir(parents=True, exist_ok=True)
-mismatch_root_dir.mkdir(parents=True, exist_ok=True)
-
-output_file = output_dir / "t2p_link_overall_metric.csv"
 
 TCTRACER_2020_AVG_PROJECTS = {"commons-io", "commons-lang", "jfreechart"}
 TCTRACER_2022_AVG_PROJECTS = {"commons-io", "commons-lang", "gson", "jfreechart"}
@@ -32,7 +24,13 @@ def load_link_df(csv_file: Path) -> pd.DataFrame:
     return df.drop_duplicates()
 
 
-def calculate_score(project: str, strategy_name: str, pred_detail_df: pd.DataFrame, gt_detail_df: pd.DataFrame):
+def calculate_score(
+    project: str,
+    strategy_name: str,
+    pred_detail_df: pd.DataFrame,
+    gt_detail_df: pd.DataFrame,
+    mismatch_root_dir: Path,
+):
     pred_url_df = pred_detail_df[["from_url", "to_url"]].drop_duplicates()
     pred_url_pairs = set(map(tuple, pred_url_df.to_records(index=False)))
 
@@ -127,6 +125,7 @@ def calculate_aggregate_score(
     project_label: str,
     strategy_name: str,
     project_pairs: dict[str, tuple[pd.DataFrame, pd.DataFrame]],
+    mismatch_root_dir: Path,
 ) -> dict:
     pred_df, gt_df = (
         pd.concat(items, ignore_index=True)
@@ -135,11 +134,21 @@ def calculate_aggregate_score(
 
     pred_df["project"] = project_label
     gt_df["project"] = project_label
-    return calculate_score(project_label, strategy_name, pred_df, gt_df)
+    return calculate_score(project_label, strategy_name, pred_df, gt_df, mismatch_root_dir)
 
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    experiment_directory = resolve_experiment_paths(
+        getattr(args, "workspace_directory", None),
+        args.experiment_name,
+    ).experiment_directory
+    link_root_dir = experiment_directory / "t2p-link"
+    output_dir = experiment_directory / "aggregate"
+    mismatch_root_dir = experiment_directory / "t2p-link-metric"
+    output_file = output_dir / "t2p_link_overall_metric.csv"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    mismatch_root_dir.mkdir(parents=True, exist_ok=True)
     _, selected_projects, _ = resolve_experiment_filters(
         use_filters=args.use_filters,
         projects=args.projects,
@@ -160,7 +169,7 @@ def main(argv: list[str] | None = None) -> None:
                     pred_detail_df = pred_detail_df[pred_detail_df["from_url"].isin(gt_detail_df["from_url"])]
 
                     project_pairs[project] = (pred_detail_df, gt_detail_df)
-                    rows.append(calculate_score(project, strategy_name, pred_detail_df, gt_detail_df))
+                    rows.append(calculate_score(project, strategy_name, pred_detail_df, gt_detail_df, mismatch_root_dir))
 
             for project_label, projects in aggregate_project_groups(set(project_pairs)):
                 aggregate_pairs = {
@@ -169,7 +178,7 @@ def main(argv: list[str] | None = None) -> None:
                     if project in projects
                 }
                 if aggregate_pairs:
-                    rows.append(calculate_aggregate_score(project_label, strategy_name, aggregate_pairs))
+                    rows.append(calculate_aggregate_score(project_label, strategy_name, aggregate_pairs, mismatch_root_dir))
 
     result_df = pd.DataFrame(rows)
     if result_df.empty:

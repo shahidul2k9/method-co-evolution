@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, unquote, urlencode, urlparse
 
+from mhc.config import EXPERIMENT_DIRECTORY
+
 
 DATE_PATTERNS = (
     "%d/%m/%y %H:%M",
@@ -169,13 +171,11 @@ def repository_root() -> Path:
 
 
 def default_workspace_directory() -> Path:
-    cwd_cache = Path.cwd() / "workspace"
-    return cwd_cache if cwd_cache.exists() else repository_root() / "workspace"
+    return Path(EXPERIMENT_DIRECTORY)
 
 
 def default_data_directory() -> Path:
-    workspace_directory = default_workspace_directory()
-    return workspace_directory / "data"
+    return Path(EXPERIMENT_DIRECTORY)
 
 
 def normalize_date_text(value: str) -> str:

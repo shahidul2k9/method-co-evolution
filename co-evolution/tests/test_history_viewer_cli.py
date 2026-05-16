@@ -20,7 +20,7 @@ class TestHistoryViewerCli(unittest.TestCase):
             host="127.0.0.1",
             port=8765,
             workspace_directory="/tmp/cache",
-            data_directory="/tmp/data",
+            experiment_name="exp-a",
         )
 
         command = build_reload_child_command(args)
@@ -29,8 +29,8 @@ class TestHistoryViewerCli(unittest.TestCase):
         self.assertEqual(["-m", "ptc.history_viewer.cli", "serve"], command[1:4])
         self.assertIn("--workspace-directory", command)
         self.assertIn("/tmp/cache", command)
-        self.assertIn("--data-directory", command)
-        self.assertIn("/tmp/data", command)
+        self.assertIn("--experiment-name", command)
+        self.assertIn("exp-a", command)
 
     def test_snapshot_change_detects_file_modification(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:

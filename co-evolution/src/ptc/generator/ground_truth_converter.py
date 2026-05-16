@@ -1,14 +1,16 @@
 import os.path
 import warnings
+from pathlib import Path
 
 import pandas as pd
 
-from mhc.config import *
+from mhc.config import EXPERIMENT_DIRECTORY
 from mhc.util import *
 
-method_dir = Path(f"{WORKSPACE_DIRECTORY}/data/method")
-ground_truth_dir = Path(f"{WORKSPACE_DIRECTORY}/data/t2p-ground-truth-updated")
-output_dir = Path(f"{WORKSPACE_DIRECTORY}/data/t2p-ground-truth-updated")
+experiment_directory = Path(EXPERIMENT_DIRECTORY)
+method_dir = experiment_directory / "method"
+ground_truth_dir = experiment_directory / "t2p-ground-truth-updated"
+output_dir = experiment_directory / "t2p-ground-truth-updated"
 output_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -68,14 +70,14 @@ def parse_three_columns(file_path):
 
 def escape_ground_truth_of_author_sun(projects: [str]):
     for file_name in projects:
-        input_file = f'{DATA_DIRECTORY}/ground-truth/{file_name}.csv'
+        input_file = experiment_directory / "ground-truth" / f"{file_name}.csv"
         # Use the generator to create the DataFrame
         # This is much safer for Slurm environments
         data_gen = parse_three_columns(input_file)
         df = pd.DataFrame(data_gen, columns=['project', 'test-fqn', 'tested-method-fqn'])
         df.rename(columns={'test-fqn': 'from_tctracer_fqs', 'tested-method-fqn':'to_tctracer_fqs'}, inplace=True)
-        output_file = f'{DATA_DIRECTORY}/ground-truth-escaped/{file_name}.csv'
-        os.makedirs(os.path.basename(output_file), exist_ok=True)
+        output_file = experiment_directory / "ground-truth-escaped" / f"{file_name}.csv"
+        os.makedirs(output_file.parent, exist_ok=True)
         # Save with QUOTE_ALL (quoting=1) to ensure columns 2 and 3 are escaped
         df.to_csv(output_file, index=False)
 

@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 
 import mhc.util as util
-from mhc.config import WORKSPACE_DIRECTORY
 from ptc.constants import ALL_REPOSITORY
 from ptc.plot_util import (
     GRAPH_GAPS,
@@ -15,10 +14,10 @@ from ptc.plot_util import (
     build_experiment_plot_parser,
     ecdf,
     resolve_experiment_filters,
+    resolve_experiment_paths,
     select_named_items,
 )
 
-STATS_FILE = f"{WORKSPACE_DIRECTORY}/data/aggregate/t2p-mwu.csv"
 SIZE_ORDER = ["negligible", "small", "medium", "large"]
 
 
@@ -28,6 +27,11 @@ def build_parser():
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    experiment_directory = resolve_experiment_paths(
+        getattr(args, "workspace_directory", None),
+        args.experiment_name,
+    ).experiment_directory
+    stats_file = experiment_directory / "aggregate" / "t2p-mwu.csv"
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
         use_filters=args.use_filters,
         tools=args.tools,
@@ -35,11 +39,11 @@ def main(argv: list[str] | None = None) -> None:
         strategies=args.strategies,
     )
 
-    if not os.path.exists(STATS_FILE):
-        print(f"Stats file not found: {STATS_FILE}")
+    if not os.path.exists(stats_file):
+        print(f"Stats file not found: {stats_file}")
         return
 
-    df = pd.read_csv(STATS_FILE, keep_default_na=False, na_values=[""])
+    df = pd.read_csv(stats_file, keep_default_na=False, na_values=[""])
     tools = select_named_items(
         sorted(df["tool"].dropna().unique(), key=str.lower),
         selected_tools,

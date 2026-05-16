@@ -47,8 +47,8 @@ def generate_mapping_files(
     workspace_root = Path(workspace_directory)
     root = testlinker_root(workspace_root, testlinker_directory)
 
-    class_file = workspace_root / "data" / "class" / f"{project}.csv"
-    method_file = workspace_root / "data" / "method" / f"{project}.csv"
+    class_file = workspace_root / "class" / f"{project}.csv"
+    method_file = workspace_root / "method" / f"{project}.csv"
 
     cls_map_dir = class_map_directory(root)
     functions_dir = projects_all_functions_directory(root)
@@ -176,11 +176,11 @@ def preprocess_project(
         input_df = pd.read_csv(output_file, keep_default_na=False, na_filter=False)
     else:
         generate_mapping_files(workspace_directory, project, testlinker_directory, project_directory)
-        candidate_file = workspace_root / "data" / "t2p-candidate-filtered" / f"{project}.csv"
+        candidate_file = workspace_root / "t2p-candidate-filtered" / f"{project}.csv"
         if not candidate_file.exists():
             raise FileNotFoundError(f"Candidate file not found: {candidate_file}")
 
-        method_code_file = workspace_root / "data" / "method-code" / f"{project}.csv"
+        method_code_file = workspace_root / "method-code" / f"{project}.csv"
         method_code_lookup = _load_method_code_lookup(method_code_file)
         label_lookup = _load_label_lookup(t2p_ground_truth_updated_file(project_directory or workspace_root, project)) if include_labels else {}
         invocation_order_lookup = _load_invocation_order_lookup(project, order_production_method, order_production_directory)

@@ -34,7 +34,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
     def test_main_project_index_selects_repository_rows(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cache_dir = Path(tmpdir)
-            repository_dir = cache_dir / "data" / "repository"
+            repository_dir = cache_dir / "experiment" / "main"
             repository_dir.mkdir(parents=True)
             pd.DataFrame(
                 [
@@ -42,7 +42,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
                     {"project": "commons-lang"},
                     {"project": "gson"},
                 ]
-            ).to_csv(repository_dir / "repository.csv", index=False)
+            ).to_csv(repository_dir / "project.csv", index=False)
 
             with mock.patch(
                 "ptc.testlinker.main.preprocess_project",
@@ -58,6 +58,8 @@ class TestTestLinkerPipeline(unittest.TestCase):
                         "preprocess",
                         "--workspace-directory",
                         str(cache_dir),
+                        "--experiment-name",
+                        "main",
                         "--project-index",
                         "1:",
                     ],
@@ -95,7 +97,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
     def test_preprocess_groups_candidates_by_test_url(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cache_dir = Path(tmpdir)
-            data_dir = cache_dir / "data"
+            data_dir = cache_dir
             (data_dir / "t2p-candidate-filtered").mkdir(parents=True)
             (data_dir / "method-code").mkdir(parents=True)
             pd.DataFrame(
@@ -216,7 +218,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
     def test_preprocess_can_use_author_invocation_order(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cache_dir = Path(tmpdir)
-            data_dir = cache_dir / "data"
+            data_dir = cache_dir
             author_result_dir = cache_dir / "testlinker"
             (data_dir / "t2p-candidate-filtered").mkdir(parents=True)
             (data_dir / "method-code").mkdir(parents=True)
@@ -275,7 +277,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
     def test_preprocess_optionally_adds_ground_truth_labels(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cache_dir = Path(tmpdir)
-            data_dir = cache_dir / "data"
+            data_dir = cache_dir
             testlinker_dir = cache_dir / "testlinker"
             (data_dir / "t2p-candidate-filtered").mkdir(parents=True)
             (data_dir / "method-code").mkdir(parents=True)
@@ -339,7 +341,7 @@ class TestTestLinkerPipeline(unittest.TestCase):
     def test_execute_and_postprocess_use_csv_interface(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             cache_dir = Path(tmpdir)
-            data_dir = cache_dir / "data"
+            data_dir = cache_dir
             (data_dir / "t2p-candidate-filtered").mkdir(parents=True)
             (data_dir / "method-code").mkdir(parents=True)
             pd.DataFrame(

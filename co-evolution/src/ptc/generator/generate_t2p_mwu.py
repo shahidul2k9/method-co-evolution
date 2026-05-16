@@ -7,9 +7,8 @@ from scipy.stats import kendalltau
 
 import mhc.util as util
 from mhc.artifacts import artifact_group
-from mhc.config import WORKSPACE_DIRECTORY, DATA_DIRECTORY
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
-from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, select_named_items
+from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths, select_named_items
 from ptc.plot_util import man_utest
 
 STAT_COLUMNS = [
@@ -75,6 +74,10 @@ def build_stat_row(project: str, tool: str, strategy: str, change: str, pair_df:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    experiment_directory = resolve_experiment_paths(
+        getattr(args, "workspace_directory", None),
+        args.experiment_name,
+    ).experiment_directory
     stats_rows = []
 
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
@@ -84,19 +87,19 @@ def main(argv: list[str] | None = None) -> None:
         strategies=args.strategies,
     )
     tools = select_named_items(
-        util.sorted_directory_names(f"{DATA_DIRECTORY}/t2p-change"),
+        util.sorted_directory_names(experiment_directory / "t2p-change"),
         selected_tools,
         item_label="tool",
     )
     for tool in tools:
         strategies = select_named_items(
-            util.sorted_directory_names(f"{DATA_DIRECTORY}/t2p-change/{tool}"),
+            util.sorted_directory_names(experiment_directory / "t2p-change" / tool),
             selected_strategies,
             item_label="strategy",
         )
         for strategy in strategies:
             csv_files = list_csv_files(
-                Path(f"{DATA_DIRECTORY}/t2p-change/{tool}/{strategy}"),
+                experiment_directory / "t2p-change" / tool / strategy,
                 selected_projects,
                 strict=False,
             )
@@ -132,8 +135,8 @@ def main(argv: list[str] | None = None) -> None:
                     if stat_row is not None:
                         stats_rows.append(stat_row)
 
-    stats_output_file = f"{WORKSPACE_DIRECTORY}/data/aggregate/t2p-mwu.csv"
-    os.makedirs(os.path.dirname(stats_output_file), exist_ok=True)
+    stats_output_file = experiment_directory / "aggregate" / "t2p-mwu.csv"
+    os.makedirs(stats_output_file.parent, exist_ok=True)
     stats_df = pd.DataFrame(stats_rows, columns=STAT_COLUMNS)
     stats_df = stats_df.sort_values(["project", "tool", "strategy", "change"]).reset_index(drop=True)
     stats_df.to_csv(stats_output_file, index=False)

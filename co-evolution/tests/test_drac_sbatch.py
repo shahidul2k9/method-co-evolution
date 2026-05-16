@@ -152,22 +152,22 @@ class TestOutputExists(unittest.TestCase):
         path.mkdir(parents=True, exist_ok=True)
 
     def test_method_scan_exists(self):
-        self._make_file("data", "method", "checkstyle.csv")
+        self._make_file("method", "checkstyle.csv")
         self.assertTrue(_output_exists("method-scan", self.workspace, "checkstyle", ""))
 
     def test_method_scan_alias(self):
-        self._make_file("data", "method", "checkstyle.csv")
+        self._make_file("method", "checkstyle.csv")
         self.assertTrue(_output_exists("scan-method", self.workspace, "checkstyle", ""))
 
     def test_method_scan_missing(self):
         self.assertFalse(_output_exists("method-scan", self.workspace, "checkstyle", ""))
 
     def test_callgraph_exists(self):
-        self._make_file("data", "callgraph", "commons-io.csv")
+        self._make_file("callgraph", "commons-io.csv")
         self.assertTrue(_output_exists("method-callgraph", self.workspace, "commons-io", ""))
 
     def test_callgraph_alias(self):
-        self._make_file("data", "callgraph", "commons-io.csv")
+        self._make_file("callgraph", "commons-io.csv")
         self.assertTrue(_output_exists("call-graph", self.workspace, "commons-io", ""))
 
     def test_callgraph_missing(self):
@@ -181,7 +181,7 @@ class TestOutputExists(unittest.TestCase):
         self.assertFalse(_output_exists("method-history", self.workspace, "checkstyle", "codeShovel"))
 
     def test_method_code_exists(self):
-        self._make_file("data", "method-code", "ant.csv")
+        self._make_file("method-code", "ant.csv")
         self.assertTrue(_output_exists("method-code", self.workspace, "ant", ""))
 
     def test_method_code_missing(self):
@@ -192,6 +192,7 @@ class TestProcess(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.workspace = self.tmp.name
+        self.runtime_workspace = Path(self.workspace, "experiment", "main")
         projects = [f"project-{i}" for i in range(50)]
         self.repo_df = _make_repo_df(projects)
 
@@ -231,14 +232,14 @@ class TestProcess(unittest.TestCase):
         self.assertIn("--array=4400-4599,5800-5999,7200-7399,9400-9599", result)
 
     def test_existing_file_skips_index(self):
-        path = Path(self.workspace, "data", "callgraph", "project-29.csv")
+        path = self.runtime_workspace / "callgraph" / "project-29.csv"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
         result = process(self._input(), self.repo_df, replace=False, workspace_override=self.workspace)
         self.assertIn("--array=4400-4599,7200-7399,9400-9599", result)
 
     def test_replace_overrides_existing_file(self):
-        path = Path(self.workspace, "data", "callgraph", "project-29.csv")
+        path = self.runtime_workspace / "callgraph" / "project-29.csv"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
         result = process(self._input(), self.repo_df, replace=True, workspace_override=self.workspace)
@@ -249,7 +250,7 @@ class TestProcess(unittest.TestCase):
         text = SAMPLE_INPUT.format(workspace=self.workspace).replace(
             "--array=22,29,36,47", "--array=22-24,29"
         )
-        path = Path(self.workspace, "data", "callgraph", "project-23.csv")
+        path = self.runtime_workspace / "callgraph" / "project-23.csv"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
         result = process(text, self.repo_df, replace=False, workspace_override=self.workspace)
@@ -261,7 +262,7 @@ class TestProcess(unittest.TestCase):
         self.assertIn("--job-name=method-callgraph-22-29-36-47", result)
 
     def test_no_workspace_skips_existence_check(self):
-        path = Path(self.workspace, "data", "callgraph", "project-29.csv")
+        path = self.runtime_workspace / "callgraph" / "project-29.csv"
         path.parent.mkdir(parents=True, exist_ok=True)
         path.touch()
         result = process(self._input(), repo_df=None, replace=False, workspace_override=None)
@@ -278,7 +279,7 @@ class TestProcess(unittest.TestCase):
     def test_existing_outputs_are_reported_separately_from_limit_exclusions(self):
         text = self._input().replace("--array=22,29,36,47", "--array=0-60")
         for idx in [1, 2, 50]:
-            path = Path(self.workspace, "data", "callgraph", f"project-{idx}.csv")
+            path = self.runtime_workspace / "callgraph" / f"project-{idx}.csv"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch()
         result = process_with_details(text, self.repo_df, replace=False, workspace_override=self.workspace)
@@ -305,7 +306,7 @@ class TestProcess(unittest.TestCase):
 
     def test_all_existing_raises(self):
         for idx in [22, 29, 36, 47]:
-            path = Path(self.workspace, "data", "callgraph", f"project-{idx}.csv")
+            path = self.runtime_workspace / "callgraph" / f"project-{idx}.csv"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.touch()
         with self.assertRaises(ValueError):

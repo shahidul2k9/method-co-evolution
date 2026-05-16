@@ -41,7 +41,7 @@ class ClassScannerCacheTestCase(unittest.TestCase):
             root = Path(temp_directory)
             cache_file = root / ".class" / "demo-project.csv"
             lock_file = root / ".class" / "demo-project.lock"
-            output_file = root / "data" / "class" / "demo-project.csv"
+            output_file = root / "class" / "demo-project.csv"
             error_file = root / ".class-error" / "demo-project.csv"
             cache_file.parent.mkdir(parents=True)
             lock_file.write_text("", encoding="utf-8")
@@ -88,7 +88,7 @@ class ClassScannerCacheTestCase(unittest.TestCase):
             root = Path(temp_directory)
             cache_file = root / ".class" / "demo-project.csv"
             lock_file = root / ".class" / "demo-project.lock"
-            output_file = root / "data" / "class" / "demo-project.csv"
+            output_file = root / "class" / "demo-project.csv"
             error_file = root / ".class-error" / "demo-project.csv"
             cache_file.parent.mkdir(parents=True)
             lock_file.write_text("", encoding="utf-8")
@@ -114,7 +114,7 @@ class ClassScannerCacheTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
             cache_file = root / ".class" / "demo-project.csv"
-            output_file = root / "data" / "class" / "demo-project.csv"
+            output_file = root / "class" / "demo-project.csv"
             error_file = root / ".class-error" / "demo-project.csv"
             cache_file.parent.mkdir(parents=True)
             pd.DataFrame(

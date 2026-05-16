@@ -140,7 +140,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
             cache_file = root / ".method" / "demo-project.csv"
-            output_file = root / "data" / "method" / "demo-project.csv"
+            output_file = root / "method" / "demo-project.csv"
             error_file = root / ".method-error" / "demo-project.csv"
             cache_file.parent.mkdir(parents=True)
             pd.DataFrame(
@@ -183,7 +183,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
             cache_file = root / ".method-code" / "demo-project.csv"
-            output_file = root / "data" / "method-code" / "demo-project.csv"
+            output_file = root / "method-code" / "demo-project.csv"
             error_file = root / ".method-code-error" / "demo-project.csv"
             cache_file.parent.mkdir(parents=True)
             pd.DataFrame(
@@ -267,7 +267,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
             repository_directory = root / "repositories"
-            data_directory = root / "data"
+            data_directory = root
             workspace_directory = root / "cache"
             project_directory = repository_directory / "demo-project"
 
@@ -276,7 +276,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
 
             repository_df = self._repository_df()
             output_method_file = Path(util.format_method_list_file(str(data_directory), "demo-project"))
-            method_cache_file = workspace_directory / "data" / ".method" / "demo-project.csv"
+            method_cache_file = workspace_directory / ".method" / "demo-project.csv"
 
             seed_rows = pd.DataFrame(
                 [
@@ -339,7 +339,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
             repository_directory = root / "repositories"
-            data_directory = root / "data"
+            data_directory = root
             workspace_directory = root / "cache"
             project_directory = repository_directory / "demo-project"
 
@@ -382,7 +382,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)
             repository_directory = root / "repositories"
-            data_directory = root / "data"
+            data_directory = root
             workspace_directory = root / "cache"
             project_directory = repository_directory / "demo-project"
 
@@ -415,7 +415,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             root = Path(temp_directory)
             cache_file = root / ".method" / "demo-project.csv"
             lock_file = root / ".method" / "demo-project.lock"
-            output_file = root / "data" / "method" / "demo-project.csv"
+            output_file = root / "method" / "demo-project.csv"
             error_file = root / ".method-error" / "demo-project.csv"
             cache_file.parent.mkdir(parents=True)
             lock_file.write_text("", encoding="utf-8")
@@ -462,7 +462,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             root = Path(temp_directory)
             cache_file = root / ".method" / "demo-project.csv"
             lock_file = root / ".method" / "demo-project.lock"
-            output_file = root / "data" / "method" / "demo-project.csv"
+            output_file = root / "method" / "demo-project.csv"
             error_file = root / ".method-error" / "demo-project.csv"
             cache_file.parent.mkdir(parents=True)
             lock_file.write_text("", encoding="utf-8")

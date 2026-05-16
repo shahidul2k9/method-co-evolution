@@ -635,10 +635,10 @@ def generate_method_code(
         repository_root = util.format_git_project_directory(repository_directory, repository_name)
         input_file = util.format_method_list_file(data_directory, repository_name)
         output_file = util.format_method_code_file(data_directory, repository_name)
-        cache_dir = os.path.join(workspace_directory, "data", ".method-code")
+        cache_dir = os.path.join(workspace_directory, ".method-code")
         cache_file = os.path.join(cache_dir, f"{repository_name}.csv")
         lock_path = os.path.join(cache_dir, f"{repository_name}.lock")
-        error_dir = os.path.join(workspace_directory, "data", ".method-code-error")
+        error_dir = os.path.join(workspace_directory, ".method-code-error")
         error_output_file = os.path.join(error_dir, f"{repository_name}.csv")
 
         if replace:
@@ -845,10 +845,10 @@ def scan_method(
         commit_hash = repository['updated_hash']
         dot_file_directory = util.format_git_project_directory(repository_directory, repository_name)
         output_method_file = util.format_method_list_file(f"{data_directory}", repository_name)
-        method_workspace_directory = os.path.join(_workspace_directory, "data", ".method")
+        method_workspace_directory = os.path.join(_workspace_directory, ".method")
         method_cache_file = os.path.join(method_workspace_directory, f"{repository_name}.csv")
         lock_path = os.path.join(method_workspace_directory, f"{repository_name}.lock")
-        error_directory = os.path.join(_workspace_directory, "data", ".method-error")
+        error_directory = os.path.join(_workspace_directory, ".method-error")
         error_output_file = os.path.join(error_directory, f"{repository_name}.csv")
         if replace:
             for existing_file in (output_method_file, method_cache_file, error_output_file):

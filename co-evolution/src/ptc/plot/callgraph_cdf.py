@@ -4,7 +4,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from mhc.config import WORKSPACE_DIRECTORY, DATA_DIRECTORY
+from mhc.config import WORKSPACE_DIRECTORY
 from mhc.artifacts import artifact_group
 from ptc.constants import ALL_REPOSITORY
 from ptc.plot_util import (
@@ -14,6 +14,7 @@ from ptc.plot_util import (
     ecdf,
     list_csv_files,
     resolve_experiment_filters,
+    resolve_experiment_paths,
     select_named_items,
 )
 
@@ -28,13 +29,17 @@ def build_parser():
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    experiment_directory = resolve_experiment_paths(
+        getattr(args, "workspace_directory", None),
+        args.experiment_name,
+    ).experiment_directory
     _, selected_projects, _ = resolve_experiment_filters(
         use_filters=args.use_filters,
         projects=args.projects,
     )
 
     csv_files = list_csv_files(
-        Path(DATA_DIRECTORY) / "callgraph-degree",
+        experiment_directory / "callgraph-degree",
         selected_projects,
         strict=False,
     )

@@ -260,7 +260,7 @@ class TestApplyLlmTechniques(unittest.TestCase):
             self.assertTrue(result_df["tech_testlinker"].isna().all())
 
     def test_run_project_subprocesses_runs_one_child_per_project(self):
-        args = SimpleNamespace(skip_existing=True, replace=False)
+        args = SimpleNamespace(experiment_name=None, skip_existing=True, replace=False)
 
         with patch("ptc.generator.generate_t2p_tech.subprocess.run") as run:
             run_project_subprocesses(args, ["ant", "dubbo"])
@@ -285,13 +285,15 @@ class TestApplyLlmTechniques(unittest.TestCase):
             (candidate_dir / "demo.csv").write_text("from_url,to_url\n", encoding="utf-8")
             (output_dir / "demo.csv").write_text("already,done\n", encoding="utf-8")
 
-            with patch("ptc.generator.generate_t2p_tech.T2P_CANDIDATE_DIR", str(candidate_dir)), patch(
-                "ptc.generator.generate_t2p_tech.OUTPUT_DIR", str(output_dir)
-            ), patch("ptc.generator.generate_t2p_tech.pd.read_csv") as read_csv:
+            with patch("ptc.generator.generate_t2p_tech.pd.read_csv") as read_csv:
                 process_project(
                     "demo",
                     "abc123",
                     [],
+                    t2p_candidate_dir=candidate_dir,
+                    output_dir=output_dir,
+                    llm_prediction_dir=Path(tmpdir) / "llm",
+                    testlinker_prediction_dir=Path(tmpdir) / "testlinker",
                     skip_existing=True,
                     replace=False,
                 )

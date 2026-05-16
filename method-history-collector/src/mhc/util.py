@@ -127,9 +127,9 @@ def aggregate_csv_files(
     output_dir: str | Path | None = None,
 ) -> None:
     if output_dir is None:
-        from mhc.config import DATA_DIRECTORY
+        from mhc.config import EXPERIMENT_DIRECTORY
 
-        output_dir = Path(DATA_DIRECTORY) / "aggregate"
+        output_dir = Path(EXPERIMENT_DIRECTORY) / "aggregate"
 
     dfs = [
         pd.read_csv(file, keep_default_na=False, na_filter=False)

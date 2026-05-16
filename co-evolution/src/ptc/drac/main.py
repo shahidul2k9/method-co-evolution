@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
+from mhc.config import resolve_experiment_directory, resolve_experiment_name
 
 
 _COMMAND_ALIASES = {
@@ -18,8 +19,8 @@ _SLURM_ARRAY_MAX_INDEX = 9999
 
 _ARRAY_RE = re.compile(r"--array=(\S+)")
 _JOB_INDEX_SHIFT_RE = re.compile(r"--job-index-shift(?:\s+\S+|=\S+)")
-_SPACED_RE = re.compile(r"--(?P<key>shards|command|workspace-directory|tool-name|job-index-shift)\s+(\S+)")
-_EQUALS_RE = re.compile(r"--(?P<key>shards|command|workspace-directory|tool-name|job-index-shift)=(\S+)")
+_SPACED_RE = re.compile(r"--(?P<key>shards|command|workspace-directory|experiment-name|tool-name|job-index-shift)\s+(\S+)")
+_EQUALS_RE = re.compile(r"--(?P<key>shards|command|workspace-directory|experiment-name|tool-name|job-index-shift)=(\S+)")
 
 
 @dataclass
@@ -225,21 +226,27 @@ def _format_shell_command(text: str) -> str:
 
 
 def _load_repository(workspace_dir: str | Path) -> pd.DataFrame:
-    path = Path(workspace_dir) / "data" / "repository" / "repository.csv"
+    path = Path(workspace_dir) / "project.csv"
     return pd.read_csv(path)
+
+
+def _resolve_runtime_workspace(workspace: str | Path | None, experiment: str | None) -> str | None:
+    if workspace is None:
+        return None
+    return str(resolve_experiment_directory(str(workspace), resolve_experiment_name(experiment)))
 
 
 def _output_exists(command: str, workspace: str | Path, project: str, tool_name: str) -> bool:
     canonical = _COMMAND_ALIASES.get(command, command)
     base = Path(workspace)
     if canonical == "method-scan":
-        return (base / "data" / "method" / f"{project}.csv").exists()
+        return (base / "method" / f"{project}.csv").exists()
     if canonical == "method-callgraph":
-        return (base / "data" / "callgraph" / f"{project}.csv").exists()
+        return (base / "callgraph" / f"{project}.csv").exists()
     if canonical == "method-history":
         return (base / "history" / tool_name / project).is_dir()
     if canonical == "method-code":
-        return (base / "data" / "method-code" / f"{project}.csv").exists()
+        return (base / "method-code" / f"{project}.csv").exists()
     return False
 
 
@@ -248,8 +255,15 @@ def process(
     repo_df: pd.DataFrame | None,
     replace: bool = False,
     workspace_override: str | None = None,
+    experiment_name_override: str | None = None,
 ) -> str:
-    return process_with_details(text, repo_df, replace=replace, workspace_override=workspace_override).command
+    return process_with_details(
+        text,
+        repo_df,
+        replace=replace,
+        workspace_override=workspace_override,
+        experiment_name_override=experiment_name_override,
+    ).command
 
 
 def process_with_details(
@@ -257,6 +271,7 @@ def process_with_details(
     repo_df: pd.DataFrame | None,
     replace: bool = False,
     workspace_override: str | None = None,
+    experiment_name_override: str | None = None,
 ) -> ProcessResult:
     array_match = _ARRAY_RE.search(text)
     if not array_match:
@@ -271,7 +286,10 @@ def process_with_details(
     if command is None:
         raise ValueError("No --command found in input")
 
-    workspace = workspace_override or _parse_arg(text, "workspace-directory")
+    workspace = _resolve_runtime_workspace(
+        workspace_override or _parse_arg(text, "workspace-directory"),
+        experiment_name_override or _parse_arg(text, "experiment-name"),
+    )
     tool_name = _parse_arg(text, "tool-name") or ""
 
     index_ranges = _parse_index_ranges(array_match.group(1))
@@ -346,7 +364,7 @@ def _print_summary(result: ProcessResult) -> None:
         file=sys.stderr,
     )
     print(
-        "Excluded because project index is outside repository.csv: "
+        "Excluded because project index is outside project.csv: "
         f"{_format_index_ranges(result.repository_excluded_index_ranges)}",
         file=sys.stderr,
     )
@@ -401,7 +419,13 @@ def main() -> None:
         "--workspace-directory",
         dest="workspace_directory",
         default=None,
-        help="Override workspace directory for repository.csv lookup and output existence checks",
+        help="Override shared workspace directory for project.csv lookup and output existence checks",
+    )
+    parser.add_argument(
+        "--experiment-name",
+        dest="experiment_name",
+        default=None,
+        help="Experiment name. Defaults to ME_EXPERIMENT_NAME.",
     )
     args, extra = parser.parse_known_args()
 
@@ -411,6 +435,8 @@ def main() -> None:
         # --workspace-directory was consumed by our parser; restore it so the output is valid.
         if args.workspace_directory is not None and "--workspace-directory" not in parts:
             parts += ["--workspace-directory", args.workspace_directory]
+        if args.experiment_name is not None and "--experiment-name" not in parts:
+            parts += ["--experiment-name", args.experiment_name]
         text = shlex.join(parts)
     elif args.input is not None:
         text = Path(args.input).read_text()
@@ -418,8 +444,16 @@ def main() -> None:
         text = sys.stdin.read()
 
     workspace = args.workspace_directory or _parse_arg(text, "workspace-directory")
-    repo_df = _load_repository(workspace) if workspace is not None else None
-    result = process_with_details(text, repo_df, replace=args.replace, workspace_override=args.workspace_directory)
+    experiment = args.experiment_name or _parse_arg(text, "experiment-name")
+    runtime_workspace = _resolve_runtime_workspace(workspace, experiment)
+    repo_df = _load_repository(runtime_workspace) if runtime_workspace is not None else None
+    result = process_with_details(
+        text,
+        repo_df,
+        replace=args.replace,
+        workspace_override=args.workspace_directory,
+        experiment_name_override=args.experiment_name,
+    )
     _print_summary(result)
     print(_format_shell_command(result.command), end="\n")
 

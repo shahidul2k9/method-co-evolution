@@ -3,18 +3,11 @@ from collections import defaultdict, deque
 
 import pandas as pd
 
-from mhc.config import *
 from mhc.artifacts import is_test_case_method, is_test_code, is_main_code
-from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, select_named_items
+from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
 
 
 MAX_EXPANSION_DEPTH = 5
-
-FANOUT_DIR = f"{DATA_DIRECTORY}/callgraph"
-METHOD_DIR = f"{DATA_DIRECTORY}/method"
-EXPANDED_T2P_CANDIDATE_DIR = f"{DATA_DIRECTORY}/t2p-candidate-expanded"
-
-os.makedirs(EXPANDED_T2P_CANDIDATE_DIR, exist_ok=True)
 
 
 def build_parser():
@@ -116,25 +109,33 @@ def expand_candidate_df(
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    experiment_directory = resolve_experiment_paths(
+        getattr(args, "workspace_directory", None),
+        args.experiment_name,
+    ).experiment_directory
+    fanout_dir = experiment_directory / "callgraph"
+    method_dir = experiment_directory / "method"
+    expanded_t2p_candidate_dir = experiment_directory / "t2p-candidate-expanded"
+    os.makedirs(expanded_t2p_candidate_dir, exist_ok=True)
     _, selected_projects, _ = resolve_experiment_filters(
         use_filters=args.use_filters,
         projects=args.projects,
     )
-    repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
+    repository_df = pd.read_csv(experiment_directory / "project.csv")
     projects = select_named_items(repository_df["project"].tolist(), selected_projects, item_label="project")
     repository_df = repository_df[repository_df["project"].isin(projects)]
 
     for _, repo in repository_df.iterrows():
         project = repo["project"]
-        fanout_file = f"{FANOUT_DIR}/{project}.csv"
-        method_file = f"{METHOD_DIR}/{project}.csv"
+        fanout_file = fanout_dir / f"{project}.csv"
+        method_file = method_dir / f"{project}.csv"
 
         if os.path.exists(fanout_file) and os.path.exists(method_file):
             print("Processing:", project)
             fan_out_df = pd.read_csv(fanout_file, na_filter=False, keep_default_na=False)
             method_df = pd.read_csv(method_file, na_filter=False, keep_default_na=False)
             expanded_df = expand_candidate_df(fan_out_df, method_df)
-            expanded_file = f"{EXPANDED_T2P_CANDIDATE_DIR}/{project}.csv"
+            expanded_file = expanded_t2p_candidate_dir / f"{project}.csv"
             expanded_df.to_csv(expanded_file, index=False)
 
     print("Finished.")

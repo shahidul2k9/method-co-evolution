@@ -3,8 +3,7 @@ import os.path
 import pandas as pd
 
 import mhc.util as util
-from mhc.config import *
-from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, select_named_items
+from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
 
 
 def build_parser():
@@ -31,12 +30,16 @@ def read_fan_count_if_exists(fan_file: str, url_column: str, fan_column: str):
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    experiment_directory = resolve_experiment_paths(
+        getattr(args, "workspace_directory", None),
+        args.experiment_name,
+    ).experiment_directory
     _, selected_projects, _ = resolve_experiment_filters(
         use_filters=args.use_filters,
         projects=args.projects,
     )
 
-    repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
+    repository_df = pd.read_csv(experiment_directory / "project.csv")
     projects = select_named_items(repository_df["project"].tolist(), selected_projects, item_label="project")
     repository_df = repository_df[repository_df["project"].isin(projects)]
 
@@ -47,18 +50,18 @@ def main(argv: list[str] | None = None) -> None:
             ("from_url", "callgraph", "fan_out"),
             ("to_url", "fanin", "fan_in"),
         ]:
-            fan_file = f"{DATA_DIRECTORY}/{fan}/{repository_name}.csv"
+            fan_file = str(experiment_directory / fan / f"{repository_name}.csv")
             fan_dfs.append(read_fan_count_if_exists(fan_file, url_column, fan_column))
         fan_out_df, fan_in_df = fan_dfs
         if fan_out_df is not None and fan_in_df is not None:
             in_out_df = pd.merge(fan_out_df, fan_in_df, on="url", how="outer")
             in_out_df[["fan_out", "fan_in"]] = in_out_df[["fan_out", "fan_in"]].fillna(0).astype(int)
             method_df = pd.read_csv(
-                util.format_method_list_file(DATA_DIRECTORY, repository_name),
+                util.format_method_list_file(str(experiment_directory), repository_name),
                 keep_default_na=False,
                 na_filter=False,
             )
-            fan_in_count_file = f"{DATA_DIRECTORY}/callgraph-degree/{repository_name}.csv"
+            fan_in_count_file = str(experiment_directory / "callgraph-degree" / f"{repository_name}.csv")
             os.makedirs(os.path.dirname(fan_in_count_file), exist_ok=True)
             pd.merge(method_df, in_out_df, on="url", how="inner").to_csv(
                 fan_in_count_file, index=False)

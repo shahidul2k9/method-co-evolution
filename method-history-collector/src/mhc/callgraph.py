@@ -347,12 +347,12 @@ def execute_callgraph_per_file(
         commit_hash = repository["updated_hash"]
         repository_path = util.format_git_project_directory(repository_directory, repository_name)
 
-        cache_dir = os.path.join(workspace_directory, "data", ".callgraph")
+        cache_dir = os.path.join(workspace_directory, ".callgraph")
         cache_file = os.path.join(cache_dir, f"{repository_name}.csv")
         lock_path = os.path.join(cache_dir, f"{repository_name}.lock")
         callgraph_output_file = os.path.join(data_directory, "callgraph", f"{repository_name}.csv")
         fanin_output_file = os.path.join(data_directory, "fanin", f"{repository_name}.csv")
-        error_dir = os.path.join(workspace_directory, "data", ".callgraph-error")
+        error_dir = os.path.join(workspace_directory, ".callgraph-error")
         error_output_file = os.path.join(error_dir, f"{repository_name}.csv")
 
         if replace:

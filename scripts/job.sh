@@ -37,14 +37,14 @@ Options:
   --resume                Resume mode: none, all, or error (default: none)
   --project               Single project name
   --projects              Comma-separated project list for the array job
-  --project-index         Python-style project index or slice from repository.csv, for example 10, -1, 10:20, :10, 10:, or :
+  --project-index         Python-style project index or slice from project.csv, for example 10, -1, 10:20, :10, 10:, or :
   --shards                Total method-history, method-scan, class-scan, method-code, or method-callgraph shards per project (default: 1)
   --job-index-shift       Offset added to SLURM_ARRAY_TASK_ID before deriving project/shard indexes (default: 0)
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
   --top-k                 TestLinker top-k invocation count (default: 1)
-  --workspace-directory       Relative or absolute cache directory (default: .cache)
-  --history-directory     Relative or absolute method history directory (default: ME_HISTORY_DIRECTORY or $HOME/scratch/$USER/method-co-evolution/workspace)
-  --data-directory        Relative or absolute data directory (default: <workspace-directory>/data)
+  --workspace-directory       Relative or absolute shared workspace directory (default: workspace)
+  --experiment-name            Experiment name (default: ME_EXPERIMENT_NAME)
+  --history-directory     Relative or absolute method history directory override
   --help                  Show this message
 EOF
 }
@@ -82,8 +82,8 @@ JOB_INDEX_SHIFT="0"
 INPUT_KIND="t2p"
 TOP_K="1"
 WORKSPACE_DIRECTORY="$PROJECT_DIRECTORY/workspace"
+EXPERIMENT_NAME="${ME_EXPERIMENT_NAME:-main}"
 HISTORY_DIRECTORY="${ME_HISTORY_DIRECTORY:-}"
-DATA_DIRECTORY=""
 ARTIFACT_CONFIG_PATH=""
 
 while [[ $# -gt 0 ]]; do
@@ -209,12 +209,16 @@ while [[ $# -gt 0 ]]; do
             WORKSPACE_DIRECTORY="$2"
             shift 2
             ;;
-        --history-directory)
-            HISTORY_DIRECTORY="$2"
+        --experiment-name)
+            EXPERIMENT_NAME="$2"
             shift 2
             ;;
-        --data-directory)
-            DATA_DIRECTORY="$2"
+        --experiment-name=*)
+            EXPERIMENT_NAME="${1#*=}"
+            shift
+            ;;
+        --history-directory)
+            HISTORY_DIRECTORY="$2"
             shift 2
             ;;
         --help|-h)
@@ -228,14 +232,6 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
-
-if [[ -z "$DATA_DIRECTORY" ]]; then
-    DATA_DIRECTORY="$WORKSPACE_DIRECTORY/data"
-fi
-
-if [[ -z "$HISTORY_DIRECTORY" ]]; then
-    HISTORY_DIRECTORY="$HOME/scratch/$USER/method-co-evolution/workspace/history"
-fi
 
 if [[ -z "$COMMAND_NAME" ]]; then
     echo "Error: --command is required."
@@ -407,6 +403,7 @@ if [[ "$COMMAND_NAME" == "llm-m2m-link" ]]; then
     fi
     srun ptc-llm llm-m2m-link \
         --workspace-directory "$WORKSPACE_DIRECTORY" \
+        --experiment-name "$EXPERIMENT_NAME" \
         --stage "$STAGE" \
         --api-type "$API_TYPE" \
         --model-name-or-path "$MODEL_NAME_OR_PATH" \
@@ -422,9 +419,9 @@ elif [[ "$COMMAND_NAME" == "testlinker" ]]; then
     TESTLINKER_ARGS=(
         testlinker
         --workspace-directory "$WORKSPACE_DIRECTORY"
+        --experiment-name "$EXPERIMENT_NAME"
         --stage "$STAGE"
         --top-k "$TOP_K"
-        --testlinker-directory "$WORKSPACE_DIRECTORY/testlinker"
         --checkpoint "best-acc_and_f1"
         --model-mode "codet5"
         --tokenizer-mode "original"
@@ -443,13 +440,15 @@ else
     MHC_ARGS=(
         "$COMMAND_NAME"
         --workspace-directory "$WORKSPACE_DIRECTORY"
-        --history-directory "$HISTORY_DIRECTORY"
+        --experiment-name "$EXPERIMENT_NAME"
         --repository-directory "$SLURM_TMPDIR/repository"
-        --data-directory "$DATA_DIRECTORY"
         --jar-directory "$WORKSPACE_DIRECTORY/jar"
         --timeout-seconds "$TIMEOUT_SECONDS"
         --merge-threshold "$MERGE_THRESHOLD"
     )
+    if [[ -n "$HISTORY_DIRECTORY" ]]; then
+        MHC_ARGS+=(--history-directory "$HISTORY_DIRECTORY")
+    fi
     if [[ "$COMMAND_NAME" == "method-scan" || "$COMMAND_NAME" == "class-scan" || "$COMMAND_NAME" == "method-code" || "$COMMAND_NAME" == "method-callgraph" ]]; then
         MHC_ARGS+=(--merge-interval-seconds "$MERGE_INTERVAL_SECONDS")
     fi

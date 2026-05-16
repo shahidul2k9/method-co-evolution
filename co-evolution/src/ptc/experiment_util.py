@@ -1,11 +1,24 @@
 import argparse
 import os
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
+
+from mhc.config import (
+    resolve_experiment_name,
+    resolve_experiment_directory,
+)
 
 
 TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
 FALSE_ENV_VALUES = {"0", "false", "no", "off"}
+
+
+@dataclass(frozen=True)
+class ExperimentPaths:
+    workspace_directory: Path
+    experiment_name: str
+    experiment_directory: Path
 
 
 def _env(name: str) -> str | None:
@@ -149,13 +162,23 @@ def build_experiment_parser(
     include_projects: bool = True,
     include_strategies: bool = True,
     include_filter_toggle: bool = True,
+    include_workspace: bool = True,
+    include_experiment: bool = True,
     filter_default: bool | None = None,
     filters_help: str | None = None,
     tools_help: str | None = None,
     projects_help: str | None = None,
     strategies_help: str | None = None,
+    experiment_help: str | None = None,
 ) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description)
+    if include_workspace:
+        parser.add_argument(
+            "--workspace-directory",
+            dest="workspace_directory",
+            default=None,
+            help="Shared workspace root. Defaults to ME_WORKSPACE_DIRECTORY.",
+        )
     if include_filter_toggle:
         parser.add_argument(
             "--filters",
@@ -185,4 +208,26 @@ def build_experiment_parser(
             type=str,
             help=strategies_help or "Comma-separated strategy names to include.",
         )
+    if include_experiment:
+        parser.add_argument(
+            "--experiment-name",
+            dest="experiment_name",
+            type=str,
+            help=experiment_help or "Experiment name. Defaults to ME_EXPERIMENT_NAME.",
+        )
     return parser
+
+
+def resolve_experiment_paths(
+    workspace_directory: str | Path | None = None,
+    experiment_name: str | None = None,
+) -> ExperimentPaths:
+    from mhc.config import WORKSPACE_DIRECTORY
+
+    base_workspace = Path(workspace_directory or WORKSPACE_DIRECTORY)
+    resolved_experiment_name = resolve_experiment_name(experiment_name)
+    return ExperimentPaths(
+        workspace_directory=base_workspace,
+        experiment_name=resolved_experiment_name,
+        experiment_directory=resolve_experiment_directory(base_workspace, resolved_experiment_name),
+    )

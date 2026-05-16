@@ -13,11 +13,13 @@ fi
 
 : "${ME_PROJECT_DIRECTORY:?ME_PROJECT_DIRECTORY must be set in .env}"
 : "${ME_WORKSPACE_DIRECTORY:?ME_WORKSPACE_DIRECTORY must be set in .env}"
+ME_EXPERIMENT_NAME="${ME_EXPERIMENT_NAME:-main}"
 
 ptc-testlinker testlinker \
     --stage all \
     --project-directory "$ME_PROJECT_DIRECTORY" \
     --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+    --experiment-name "$ME_EXPERIMENT_NAME" \
     --tokenizer-mode auto \
     --include-labels \
     --project-index "1" \

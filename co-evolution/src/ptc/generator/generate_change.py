@@ -1,12 +1,13 @@
 import json
 import logging
+import os
 import tarfile
 import warnings
 from pathlib import Path
 import pandas as pd
 import mhc.util as util
 from ptc.util.helper import extract_change_count
-from mhc.config import *
+from mhc.config import EXPERIMENT_DIRECTORY
 
 
 def iter_tool_history_directories(history_root: Path) -> list[Path]:
@@ -17,9 +18,10 @@ def iter_tool_history_directories(history_root: Path) -> list[Path]:
 
 
 def main() -> None:
-    repository_df = pd.read_csv(f"{DATA_DIRECTORY}/repository/repository.csv")
+    experiment_directory = Path(EXPERIMENT_DIRECTORY)
+    repository_df = pd.read_csv(experiment_directory / "project.csv")
     repository_name_map = {row["project"]: row for row in repository_df.to_dict(orient="records")}
-    history_root = Path(WORKSPACE_DIRECTORY) / "history"
+    history_root = experiment_directory / "method-history-gz"
 
     for tool_directory in iter_tool_history_directories(history_root):
         tool_name = tool_directory.name
@@ -68,7 +70,7 @@ def main() -> None:
                                 }
                                 method_history.update(change_history)
                                 method_history_list.append(method_history)
-                method_file = util.format_method_list_file(DATA_DIRECTORY, repository_name)
+                method_file = util.format_method_list_file(str(experiment_directory), repository_name)
                 if os.path.exists(method_file):
                     method_list_df = pd.read_csv(
                         method_file,
@@ -76,8 +78,8 @@ def main() -> None:
                         na_filter=False,
                         low_memory=False,
                     )
-                    repository_change_history_file = f"{DATA_DIRECTORY}/history/{tool_name}/{repository_name}.csv"
-                    os.makedirs(os.path.dirname(repository_change_history_file), exist_ok=True)
+                    repository_change_history_file = experiment_directory / "method-history" / tool_name / f"{repository_name}.csv"
+                    os.makedirs(repository_change_history_file.parent, exist_ok=True)
                     pd.merge(method_list_df, pd.DataFrame(method_history_list), on="url", how="inner").to_csv(
                         repository_change_history_file, index=False
                     )
