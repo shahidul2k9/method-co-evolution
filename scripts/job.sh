@@ -486,10 +486,10 @@ else
     fi
 
     echo "Resolved Java options: ${JAVA_OPTIONS:-unset}"
-    echo "========================================" >&2
-    echo "Running MHC command:" >&2
-    printf 'mhc %s\n' "${MHC_ARGS[@]}" >&2
-    echo "========================================" >&2
+    echo "========================================"
+    echo "Running MHC command:"
+    echo "mhc" "${MHC_ARGS[@]}"
+    echo "========================================"
     srun mhc "${MHC_ARGS[@]}"
     echo "Task finished on $(hostname) at $(date) for tool name $TOOL_NAME, project selection ${PROJECT:-$PROJECTS_CSV$PROJECT_INDEX}, shard $SHARD/$SHARDS"
 fi
