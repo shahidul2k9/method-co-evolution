@@ -167,6 +167,14 @@ def load_link_df(csv_file: Path) -> pd.DataFrame:
     return df.drop_duplicates()
 
 
+def load_ground_truth_df(csv_file: Path) -> pd.DataFrame:
+    df = load_link_df(csv_file)
+    if "label" in df.columns:
+        labels = pd.to_numeric(df["label"], errors="coerce")
+        df = df[labels == 1].copy()
+    return df
+
+
 def calculate_score(
     project: str,
     experiment: str,
@@ -316,7 +324,7 @@ def evaluate_member_experiment(
                 )
                 continue
 
-            gt_detail_df = load_link_df(gt_file)
+            gt_detail_df = load_ground_truth_df(gt_file)
             gt_detail_df.dropna(subset=["from_url", "to_url"], inplace=True)
             pred_detail_df = pred_detail_df[pred_detail_df["from_url"].isin(gt_detail_df["from_url"])]
 

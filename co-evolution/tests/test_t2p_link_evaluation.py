@@ -52,6 +52,22 @@ class TestT2PLinkEvaluation(unittest.TestCase):
         self.write_links(gt_file, rows)
         self.write_links(pred_file, rows)
 
+    def test_load_ground_truth_df_filters_zero_label_rows(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            gt_file = Path(temp_dir) / "ground-truth.csv"
+            self.write_links(
+                gt_file,
+                [
+                    {"from_url": "test-a", "to_url": "prod-a", "label": "1"},
+                    {"from_url": "test-a", "to_url": "prod-b", "label": "0"},
+                    {"from_url": "test-a", "to_url": "prod-c", "label": ""},
+                ],
+            )
+
+            result_df = t2p_link_evaluation.load_ground_truth_df(gt_file)
+
+        self.assertEqual([("test-a", "prod-a")], list(result_df[["from_url", "to_url"]].itertuples(index=False, name=None)))
+
     def test_load_config_treats_experiments_as_single_member_groups(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             config = t2p_link_evaluation.load_ground_truth_config(self.write_config(Path(temp_dir)))
@@ -110,6 +126,48 @@ class TestT2PLinkEvaluation(unittest.TestCase):
             [("avg-exp-a", "exp-a"), ("shared", "exp-a")],
             list(result_df[["project", "experiment"]].itertuples(index=False, name=None)),
         )
+
+    def test_evaluation_uses_only_positive_ground_truth_labels(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = root / "workspace"
+            config_file = self.write_config(root)
+            gt_file = root / "data" / "exp-a" / "t2p-ground-truth" / "project-a.csv"
+            pred_file = workspace / "experiment" / "exp-a" / "t2p-link" / "strategy-a" / "project-a.csv"
+            self.write_links(
+                gt_file,
+                [
+                    {"from_url": "test-a", "to_url": "prod-a", "label": "1"},
+                    {"from_url": "test-a", "to_url": "prod-b", "label": "0"},
+                ],
+            )
+            self.write_links(
+                pred_file,
+                [
+                    {"from_url": "test-a", "to_url": "prod-a"},
+                    {"from_url": "test-a", "to_url": "prod-b"},
+                ],
+            )
+
+            with mock.patch.object(t2p_link_evaluation, "PROJECT_DIRECTORY", str(root)):
+                t2p_link_evaluation.main(
+                    [
+                        "--workspace-directory",
+                        str(workspace),
+                        "--experiment-name",
+                        "exp-a",
+                        "--ground-truth-config",
+                        str(config_file),
+                    ]
+                )
+
+            result_df = pd.read_csv(workspace / "t2p_link_overall_metric.csv")
+
+        project_row = result_df[result_df["project"] == "project-a"].iloc[0]
+        self.assertEqual(1, project_row["gt_links"])
+        self.assertEqual(2, project_row["pred_links"])
+        self.assertEqual(1, project_row["tp"])
+        self.assertEqual(1, project_row["fp"])
 
     def test_group_keeps_overlapping_projects_distinct_and_writes_average(self):
         with tempfile.TemporaryDirectory() as temp_dir:
