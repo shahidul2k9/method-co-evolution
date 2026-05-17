@@ -7,48 +7,42 @@ from pathlib import Path
 
 import pandas as pd
 
-from ptc.testlinker.json_bridge import write_project_json
 from ptc.testlinker.paths import (
     class_map_directory,
     input_csv_path,
     projects_all_functions_directory,
-    raw_input_json_directory,
     t2p_ground_truth_updated_file,
     testlinker_root,
 )
-from ptc.testlinker.signatures import compact_signature, invocation_name, split_signature_params
+from ptc.testlinker.signatures import compact_signature, split_signature_params
 
 
 INPUT_COLUMNS = [
     "project",
-    "test_id",
-    "test_name",
-    "test_path",
-    "body",
-    "invocation",
-    "signature",
-    "candidate_name",
-    "params_json",
-    "detail_sigs_json",
-    "label",
-    "label_json",
     "from_url",
-    "candidate_url",
+    "from_name",
+    "from_file",
+    "body",
+    "to_url",
+    "to_name",
+    "from_testlinker_fqs",
+    "to_testlinker_fqs",
+    "to_testlinker_p",
+    "label",
 ]
 
 
 def generate_mapping_files(
-    workspace_directory: str | Path,
+    experiment_directory: str | Path,
     project: str,
-    testlinker_directory: str | Path | None = None,
     project_directory: str | Path | None = None,
 ) -> None:
     """Generate TestLinker mapping files from our class/method scan data."""
-    workspace_root = Path(workspace_directory)
-    root = testlinker_root(workspace_root, testlinker_directory)
+    experiment_root = Path(experiment_directory)
+    root = testlinker_root(experiment_root)
 
-    class_file = workspace_root / "class" / f"{project}.csv"
-    method_file = workspace_root / "method" / f"{project}.csv"
+    class_file = experiment_root / "class" / f"{project}.csv"
+    method_file = experiment_root / "method" / f"{project}.csv"
 
     cls_map_dir = class_map_directory(root)
     functions_dir = projects_all_functions_directory(root)
@@ -159,30 +153,29 @@ def _write_json_single_line(path: Path, data: object) -> None:
 
 def preprocess_project(
     *,
-    workspace_directory: str | Path,
+    experiment_directory: str | Path,
     project: str,
-    testlinker_directory: str | Path | None = None,
     include_labels: bool = False,
     order_production_method: str = "candidate",
     order_production_directory: str | Path | None = None,
     replace: bool = False,
     project_directory: str | Path | None = None,
 ) -> pd.DataFrame:
-    workspace_root = Path(workspace_directory)
-    root = testlinker_root(workspace_root, testlinker_directory)
+    experiment_root = Path(experiment_directory)
+    root = testlinker_root(experiment_root)
     output_file = input_csv_path(root, project)
 
     if not replace and output_file.exists():
         input_df = pd.read_csv(output_file, keep_default_na=False, na_filter=False)
     else:
-        generate_mapping_files(workspace_directory, project, testlinker_directory, project_directory)
-        candidate_file = workspace_root / "t2p-candidate-filtered" / f"{project}.csv"
+        generate_mapping_files(experiment_directory, project, project_directory)
+        candidate_file = experiment_root / "t2p-candidate-filtered" / f"{project}.csv"
         if not candidate_file.exists():
             raise FileNotFoundError(f"Candidate file not found: {candidate_file}")
 
-        method_code_file = workspace_root / "method-code" / f"{project}.csv"
+        method_code_file = experiment_root / "method-code" / f"{project}.csv"
         method_code_lookup = _load_method_code_lookup(method_code_file)
-        label_lookup = _load_label_lookup(t2p_ground_truth_updated_file(project_directory or workspace_root, project)) if include_labels else {}
+        label_lookup = _load_label_lookup(t2p_ground_truth_updated_file(project_directory or experiment_root, project)) if include_labels else {}
         invocation_order_lookup = _load_invocation_order_lookup(project, order_production_method, order_production_directory)
         candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)
         required_columns = {"project", "from_url", "from_name", "from_file", "to_url", "to_name"}
@@ -191,13 +184,11 @@ def preprocess_project(
             raise ValueError(f"Candidate file {candidate_file} is missing columns: {sorted(missing_columns)}")
 
         rows = []
-        for index, (from_url, group_df) in enumerate(candidate_df.groupby("from_url", sort=False), start=1):
+        for from_url, group_df in candidate_df.groupby("from_url", sort=False):
             group_df = group_df.reset_index(drop=True)
             first_row = group_df.iloc[0]
-            test_id = f"{index:06d}"
             body = _strip_method_declaration(method_code_lookup.get(from_url, ""))
             label_payload = label_lookup.get(from_url, {"signatures": [], "urls": set()})
-            labels = list(label_payload["signatures"])
             label_urls = set(label_payload["urls"])
             seen_rows: set[tuple[str, str]] = set()
             test_rows = []
@@ -207,7 +198,6 @@ def preprocess_project(
                 if not signature:
                     continue
                 signature = compact_signature(signature)
-                method_name = invocation_name(signature) or candidate_row.get("to_name", "")
                 to_url = candidate_row.get("to_url", "")
                 dedupe_key = (signature, to_url)
                 if dedupe_key in seen_rows:
@@ -218,19 +208,16 @@ def preprocess_project(
                 test_rows.append(
                     {
                         "project": project,
-                        "test_id": test_id,
                         "from_url": from_url,
-                        "test_name": first_row.get("from_name", ""),
-                        "test_path": _test_path(first_row),
+                        "from_name": first_row.get("from_name", ""),
+                        "from_file": first_row.get("from_file", ""),
                         "body": body,
-                        "invocation": method_name,
-                        "signature": signature,
-                        "candidate_url": to_url,
-                        "candidate_name": candidate_row.get("to_name", ""),
-                        "params_json": json.dumps(params, ensure_ascii=True),
-                        "detail_sigs_json": json.dumps([signature], ensure_ascii=True),
+                        "to_url": to_url,
+                        "to_name": candidate_row.get("to_name", ""),
+                        "from_testlinker_fqs": _source_signature(first_row),
+                        "to_testlinker_fqs": signature,
+                        "to_testlinker_p": json.dumps(params, ensure_ascii=True),
                         "label": 1 if to_url in label_urls else 0,
-                        "label_json": json.dumps(labels, ensure_ascii=True),
                     }
                 )
             rows.extend(_order_rows_by_invocation(test_rows, invocation_order_lookup.get(str(first_row.get("from_name", "")))))
@@ -239,15 +226,7 @@ def preprocess_project(
         output_file.parent.mkdir(parents=True, exist_ok=True)
         input_df.to_csv(output_file, index=False)
 
-    _build_input_json(input_df, root=root, project=project, replace=replace)
     return input_df
-
-
-def _build_input_json(input_df: pd.DataFrame, *, root: Path, project: str, replace: bool) -> None:
-    input_json_dir = raw_input_json_directory(root, project)
-    if not replace and input_json_dir.exists() and any(input_json_dir.glob("*.json")):
-        return
-    write_project_json(input_df, root=root, project=project)
 
 
 def _load_method_code_lookup(method_code_file: Path) -> dict[str, str]:
@@ -325,7 +304,7 @@ def _order_rows_by_invocation(rows: list[dict[str, object]], invocation_order: l
         row
         for _, row in sorted(
             indexed_rows,
-            key=lambda item: (order_index.get(str(item[1].get("invocation", "")), len(order_index)), item[0]),
+            key=lambda item: (order_index.get(str(item[1].get("to_name", "")), len(order_index)), item[0]),
         )
     ]
 
@@ -346,12 +325,9 @@ def _candidate_signature(row: dict[str, object]) -> str:
     return ""
 
 
-def _test_path(row: pd.Series) -> str:
-    from_fqn = str(row.get("from_fqn", "") or "")
-    if "." in from_fqn:
-        return from_fqn.rsplit(".", maxsplit=1)[0].replace(".", "/")
-
-    from_file = str(row.get("from_file", "") or "")
-    if from_file.endswith(".java"):
-        return from_file[:-len(".java")].replace("/", ".")
-    return from_file
+def _source_signature(row: pd.Series) -> str:
+    for column in ("from_testlinker_fqs", "from_tctracer_fqs", "from_fqs"):
+        value = str(row.get(column, "") or "").strip()
+        if value:
+            return compact_signature(value)
+    return ""

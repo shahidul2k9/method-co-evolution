@@ -45,14 +45,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Python-style project index or slice from <workspace-directory>/experiment/<experiment>/project.csv. "
         "Examples: '10', '-1', '10:20', ':10', '10:', ':'.",
     )
-    parser.add_argument(
-        "--testlinker-directory",
-        default=None,
-        help=(
-            "TestLinker runtime directory. Defaults to "
-            "<workspace-directory>/experiment/<experiment>/testlinker."
-        ),
-    )
     parser.add_argument("--top-k", dest="top_k", type=int, default=1, help="Number of invocations to select.")
     parser.add_argument("--model-name-or-path", default=None, help="CodeT5 base model directory.")
     parser.add_argument("--checkpoint-directory", default=None, help="Directory containing pytorch_model.bin.")
@@ -64,7 +56,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Method resolving modes to run (default: testlinker). "
             "testlinker applies the TestLinker signature mapping algorithm. "
-            "testlinkerv2 uses direct URL matching from the symbol solver."
+            "testlinkerv2 uses direct URL matching from the symbol solver. "
             "all computes output for both."
         ),
     )
@@ -76,11 +68,10 @@ def build_parser() -> argparse.ArgumentParser:
         default="original",
         help="Tokenizer loading mode. Use original for paper-faithful runs; auto/fallback are compatibility modes.",
     )
-    parser.add_argument("--only-model", action="store_true", help="Skip TestLinker rule-based shortcut.")
     parser.add_argument(
         "--include-labels",
         action="store_true",
-        help="Include labels from <testlinker-directory>/ground-truth/<project>.csv when present.",
+        help="Include labels from ground-truth/<project>.csv when present.",
     )
     parser.add_argument(
         "--order-production-method",
@@ -137,7 +128,7 @@ def _resolve_projects(args: argparse.Namespace, parser: argparse.ArgumentParser)
         return projects
 
     try:
-        return parse_project_index(args.project_index, _load_repository_projects(args.workspace_directory))
+        return parse_project_index(args.project_index, _load_repository_projects(args.experiment_directory))
     except ValueError as exc:
         parser.error(str(exc))
 
@@ -147,9 +138,8 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
 
     if args.stage in {"preprocess", "all"}:
         preprocess_df = preprocess_project(
-            workspace_directory=args.workspace_directory,
+            experiment_directory=args.experiment_directory,
             project=project,
-            testlinker_directory=args.testlinker_directory,
             include_labels=args.include_labels,
             order_production_method=args.order_production_method,
             order_production_directory=args.order_production_directory,
@@ -159,8 +149,7 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
         print(f"Wrote TestLinker input rows: {len(preprocess_df)}")
 
     if args.stage in {"execute", "all"}:
-        execute_df = execute_project(workspace_directory=args.workspace_directory, project=project,
-                                     testlinker_directory=args.testlinker_directory,
+        execute_df = execute_project(experiment_directory=args.experiment_directory, project=project,
                                      model_name_or_path=args.model_name_or_path,
                                      checkpoint_directory=args.checkpoint_directory,
                                      checkpoint_workspace_directory=args.checkpoint_workspace_directory,
@@ -170,8 +159,8 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
         print(f"Wrote model output rows: {len(execute_df)}")
 
     if args.stage in {"postprocess", "all"}:
-        postprocess_results = postprocess_project(workspace_directory=args.workspace_directory, project=project,
-                                                  top_k=args.top_k, testlinker_directory=args.testlinker_directory,
+        postprocess_results = postprocess_project(experiment_directory=args.experiment_directory, project=project,
+                                                  top_k=args.top_k,
                                                   method_resolver=args.method_resolver,
                                                   model_name_or_path=args.model_name_or_path, replace=args.replace)
         for mode, mode_df in postprocess_results.items():
@@ -182,7 +171,8 @@ def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
     paths = resolve_experiment_paths(args.workspace_directory, args.experiment_name)
-    args.workspace_directory = str(paths.experiment_directory)
+    args.experiment_directory = str(paths.experiment_directory)
+    args.workspace_directory = str(paths.workspace_directory)
     args.checkpoint_workspace_directory = str(paths.workspace_directory)
     if args.top_k <= 0:
         parser.error("--top-k must be a positive integer")

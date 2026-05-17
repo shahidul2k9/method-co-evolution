@@ -3,22 +3,12 @@ from __future__ import annotations
 from pathlib import Path
 
 
-def testlinker_root(workspace_directory: str | Path, testlinker_directory: str | Path | None = None) -> Path:
-    if testlinker_directory:
-        return Path(testlinker_directory)
+def testlinker_root(workspace_directory: str | Path) -> Path:
     return Path(workspace_directory) / "testlinker"
 
 
 def input_csv_path(root: Path, project: str) -> Path:
     return root / "input" / "model-csv-input" / f"{project}.csv"
-
-
-def raw_input_json_directory(root: Path, project: str) -> Path:
-    return root / "input" / "model-input-json" / project
-
-
-def model_output_json_path(root: Path, project: str, model_name: str) -> Path:
-    return root / "output" / model_name / "model-output-json" / f"{project}.json"
 
 
 def model_output_csv_path(root: Path, project: str, model_name: str) -> Path:
@@ -50,7 +40,9 @@ def default_checkpoint_directory(workspace_directory: Path, checkpoint: str, mod
     return workspace_directory / "testlinker-finetuned-checkpoints" / f"{model_name}-base" / f"checkpoint-{checkpoint}"
 
 
-def model_name_from_name_or_path(model_name_or_path: str) -> str:
-    if "codet5" in model_name_or_path:
+def model_name_from_name_or_path(model_name_or_path: str | Path | None) -> str:
+    if model_name_or_path is None:
         return "codet5"
-    return model_name_or_path
+    if "codet5" in str(model_name_or_path):
+        return "codet5"
+    return str(model_name_or_path)
