@@ -45,5 +45,5 @@ def default_model_directory(root: Path) -> Path:
     return root / "pretrained-models" / "codet5-base"
 
 
-def default_checkpoint_directory(root: Path, checkpoint: str) -> Path:
-    return root / "finetuned-checkpoints" / "codet5-base" / f"checkpoint-{checkpoint}"
+def default_checkpoint_directory(workspace_directory: Path, checkpoint: str) -> Path:
+    return workspace_directory / "testlinker-finetuned-checkpoints" / "codet5-base" / f"checkpoint-{checkpoint}"

@@ -27,6 +27,7 @@ def execute_project(
     testlinker_directory: str | Path | None = None,
     model_name_or_path: str | Path | None = None,
     checkpoint_directory: str | Path | None = None,
+    checkpoint_workspace_directory: str | Path | None = None,
     checkpoint: str = "best-acc_and_f1",
     model_mode: str = "codet5",
     eval_batch_size: int = 16,
@@ -51,6 +52,8 @@ def execute_project(
     examples = read_examples(input_json_dir)
 
     ranker = _build_ranker(
+        workspace_directory=workspace_directory,
+        checkpoint_workspace_directory=checkpoint_workspace_directory,
         root=root,
         model_name_or_path=model_name_or_path,
         checkpoint_directory=checkpoint_directory,
@@ -117,6 +120,8 @@ class _HeuristicRanker:
 
 def _build_ranker(
     *,
+    workspace_directory: str | Path,
+    checkpoint_workspace_directory: str | Path | None = None,
     root: Path,
     model_name_or_path: str | Path | None,
     checkpoint_directory: str | Path | None,
@@ -136,7 +141,10 @@ def _build_ranker(
     resolved_checkpoint_directory = (
         Path(checkpoint_directory)
         if checkpoint_directory
-        else default_checkpoint_directory(root, checkpoint)
+        else default_checkpoint_directory(
+            Path(checkpoint_workspace_directory or workspace_directory),
+            checkpoint,
+        )
     )
     checkpoint_file = resolved_checkpoint_directory / "pytorch_model.bin"
     if _looks_like_local_model_path(resolved_model) and not resolved_model.exists():

@@ -180,7 +180,7 @@ def _validate_pretrained_model_path(model_name_or_path: str) -> None:
         "CodeT5 base model files are missing from "
         f"{model_path}. This directory must contain the pretrained CodeT5 config, tokenizer, and base weights. "
         "Keep fine-tuned TestLinker checkpoints separately under "
-        "<testlinker-directory>/finetuned-checkpoints/codet5-base/checkpoint-*/pytorch_model.bin, "
+        "<workspace-directory>/testlinker-finetuned-checkpoints/codet5-base/checkpoint-*/pytorch_model.bin, "
         "or pass --model-name-or-path to a valid pretrained CodeT5 directory/model id."
     )
 

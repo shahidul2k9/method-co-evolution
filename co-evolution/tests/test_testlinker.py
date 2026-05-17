@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -14,7 +15,7 @@ try:
 except ImportError:  # pragma: no cover
     pd = None
 
-from ptc.testlinker.execute import execute_project
+from ptc.testlinker.execute import _build_ranker, execute_project
 from ptc.testlinker import main as testlinker_main
 from ptc.testlinker.convert_author_results import convert_author_result_directory
 from ptc.testlinker.model import _build_roberta_tokenizer_from_files
@@ -70,6 +71,81 @@ class TestTestLinkerPipeline(unittest.TestCase):
                 ["commons-lang", "gson"],
                 [call.kwargs["project"] for call in preprocess.call_args_list],
             )
+            self.assertEqual(
+                [repository_dir, repository_dir],
+                [Path(call.kwargs["workspace_directory"]) for call in preprocess.call_args_list],
+            )
+
+    def test_main_uses_experiment_directory_but_shared_checkpoint_workspace(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir)
+            experiment_dir = cache_dir / "experiment" / "exp-a"
+            experiment_dir.mkdir(parents=True)
+
+            with mock.patch(
+                "ptc.testlinker.main.preprocess_project",
+                side_effect=lambda **_: pd.DataFrame([{}]),
+            ) as preprocess:
+                with mock.patch(
+                    "ptc.testlinker.main.execute_project",
+                    side_effect=lambda **_: pd.DataFrame([{}]),
+                ) as execute:
+                    with mock.patch(
+                        "ptc.testlinker.main.postprocess_project",
+                        side_effect=lambda **_: {"testlinker-original": pd.DataFrame([{}])},
+                    ) as postprocess:
+                        with mock.patch.object(
+                            sys,
+                            "argv",
+                            [
+                                "ptc-testlinker",
+                                "testlinker",
+                                "--stage",
+                                "all",
+                                "--workspace-directory",
+                                str(cache_dir),
+                                "--experiment-name",
+                                "exp-a",
+                                "--project",
+                                "demo",
+                            ],
+                        ):
+                            self.assertEqual(0, testlinker_main.main())
+
+            self.assertEqual(experiment_dir, Path(preprocess.call_args.kwargs["workspace_directory"]))
+            self.assertEqual(experiment_dir, Path(execute.call_args.kwargs["workspace_directory"]))
+            self.assertEqual(experiment_dir, Path(postprocess.call_args.kwargs["workspace_directory"]))
+            self.assertEqual(cache_dir, Path(execute.call_args.kwargs["checkpoint_workspace_directory"]))
+
+    def test_build_ranker_defaults_checkpoint_to_shared_workspace(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            cache_dir = Path(tmpdir)
+            experiment_dir = cache_dir / "experiment" / "main"
+            expected_checkpoint = (
+                cache_dir
+                / "testlinker-finetuned-checkpoints"
+                / "codet5-base"
+                / "checkpoint-best-acc_and_f1"
+                / "pytorch_model.bin"
+            )
+
+            with self.assertRaisesRegex(
+                FileNotFoundError,
+                re.escape(f"CodeT5 checkpoint file not found: {expected_checkpoint}"),
+            ):
+                _build_ranker(
+                    workspace_directory=experiment_dir,
+                    checkpoint_workspace_directory=cache_dir,
+                    root=experiment_dir / "testlinker",
+                    model_name_or_path="Salesforce/codet5-base",
+                    checkpoint_directory=None,
+                    checkpoint="best-acc_and_f1",
+                    model_mode="codet5",
+                    eval_batch_size=16,
+                    max_source_length=512,
+                    tokenizer_mode="original",
+                    no_cuda=True,
+                )
 
     def test_tokenizer_fallback_uses_installed_constructor_parameter_names(self):
         class NewTokenizer:

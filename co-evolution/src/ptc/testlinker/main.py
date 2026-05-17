@@ -4,16 +4,23 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
-from mhc.config import resolve_experiment_directory, resolve_experiment_name
 from mhc.util import parse_project_index
 
+from ptc.experiment_util import build_experiment_parser, resolve_experiment_paths
 from ptc.testlinker.execute import execute_project
 from ptc.testlinker.postprocess import POSTPROCESS_MODES, postprocess_project
 from ptc.testlinker.preprocess import preprocess_project
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run TestLinker for a project.")
+    parser = build_experiment_parser(
+        "Run TestLinker for a project.",
+        include_tools=False,
+        include_projects=False,
+        include_strategies=False,
+        include_filter_toggle=False,
+        experiment_help="Experiment name. Defaults to ME_EXPERIMENT_NAME.",
+    )
     parser.add_argument("command", choices=["testlinker"], help="Command to execute.")
     parser.add_argument(
         "--stage",
@@ -21,12 +28,6 @@ def build_parser() -> argparse.ArgumentParser:
         default="all",
         help="Pipeline stage to run.",
     )
-    parser.add_argument(
-        "--workspace-directory",
-        required=True,
-        help="Shared workspace root. TestLinker runtime defaults to <workspace-directory>/experiment/<experiment>.",
-    )
-    parser.add_argument("--experiment-name", default=None, help="Experiment name. Defaults to ME_EXPERIMENT_NAME.")
     parser.add_argument(
         "--project-directory",
         dest="project_directory",
@@ -47,7 +48,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--testlinker-directory",
         default=None,
-        help="TestLinker runtime directory. Defaults to <workspace-directory>/testlinker.",
+        help=(
+            "TestLinker runtime directory. Defaults to "
+            "<workspace-directory>/experiment/<experiment>/testlinker."
+        ),
     )
     parser.add_argument("--top-k", dest="top_k", type=int, default=1, help="Number of invocations to select.")
     parser.add_argument("--model-name-or-path", default=None, help="CodeT5 base model directory.")
@@ -167,6 +171,7 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
             testlinker_directory=args.testlinker_directory,
             model_name_or_path=args.model_name_or_path,
             checkpoint_directory=args.checkpoint_directory,
+            checkpoint_workspace_directory=args.checkpoint_workspace_directory,
             checkpoint=args.checkpoint,
             model_mode=args.model_mode,
             eval_batch_size=args.eval_batch_size,
@@ -193,7 +198,9 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
-    args.workspace_directory = str(resolve_experiment_directory(args.workspace_directory, resolve_experiment_name(args.experiment_name)))
+    paths = resolve_experiment_paths(args.workspace_directory, args.experiment_name)
+    args.workspace_directory = str(paths.experiment_directory)
+    args.checkpoint_workspace_directory = str(paths.workspace_directory)
     if args.top_k <= 0:
         parser.error("--top-k must be a positive integer")
 

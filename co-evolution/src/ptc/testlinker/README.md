@@ -21,20 +21,27 @@ versions.
 Before running TestLinker, generate the normal project artifacts:
 
 ```text
-WORKSPACE_DIRECTORY/data/t2p-candidate-filtered/<project>.csv
-WORKSPACE_DIRECTORY/data/method-code/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/t2p-candidate-filtered/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/method-code/<project>.csv
 ```
 
-Place TestLinker assets in:
+TestLinker runtime artifacts and the pretrained base model default to the
+experiment directory:
 
 ```text
-WORKSPACE_DIRECTORY/testlinker/
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/
   pretrained-models/
     codet5-base/
       config.json
       pytorch_model.bin
       tokenizer files...
-  finetuned-checkpoints/
+```
+
+Place fine-tuned checkpoints in the shared workspace root:
+
+```text
+WORKSPACE_DIRECTORY/
+  testlinker-finetuned-checkpoints/
     codet5-base/
       checkpoint-best-acc/
         pytorch_model.bin
@@ -47,15 +54,16 @@ WORKSPACE_DIRECTORY/testlinker/
 ```
 
 The mapping files (`class_map/` and `projects_all_functions/`) are always
-auto-generated during the preprocess stage from `data/class/<project>.csv` and
-`data/method/<project>.csv`. Run `mhc class-scan` and `mhc method-scan` first
-to produce those CSVs.
+auto-generated during the preprocess stage from
+`experiment/EXPERIMENT_NAME/class/<project>.csv` and
+`experiment/EXPERIMENT_NAME/method/<project>.csv`. Run `mhc class-scan` and
+`mhc method-scan` first to produce those CSVs.
 
 The default run uses:
 
 ```text
-WORKSPACE_DIRECTORY/testlinker/pretrained-models/codet5-base
-WORKSPACE_DIRECTORY/testlinker/finetuned-checkpoints/codet5-base/checkpoint-best-acc_and_f1/pytorch_model.bin
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/pretrained-models/codet5-base
+WORKSPACE_DIRECTORY/testlinker-finetuned-checkpoints/codet5-base/checkpoint-best-acc_and_f1/pytorch_model.bin
 ```
 
 The pretrained CodeT5 directory is the base model/tokenizer loaded by
@@ -148,7 +156,7 @@ scripts/job.sh \
   --stage all \
   --projects "commons-io" \
   --top-k 1 \
-  --testlinker-directory "$WORKSPACE_DIRECTORY/testlinker"
+  --testlinker-directory "$WORKSPACE_DIRECTORY/experiment/$ME_EXPERIMENT_NAME/testlinker"
 ```
 
 For a SLURM array, `job.sh` selects the current project from `--projects` and
@@ -228,30 +236,25 @@ ptc-testlinker testlinker \
 `preprocess` reads project CSVs and writes:
 
 ```text
-WORKSPACE_DIRECTORY/testlinker/input/project-csv/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/input/model-csv-input/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/input/model-input-json/<project>/<test-id>.json
 ```
 
 This CSV has one row per invocation/signature candidate. Rows with the same
 `test_id` belong to the same test method and are grouped internally only when
 building temporary TestLinker JSON.
 
-`execute` reads that CSV, creates internal TestLinker JSON files, runs the
-model/ranker, and writes one set of files per mapping mode:
+`execute` reads the JSON files, runs the model/ranker, and writes:
 
 ```text
-WORKSPACE_DIRECTORY/testlinker/input/raw-json/<project>/<test-id>.json
-WORKSPACE_DIRECTORY/testlinker/input/mapped-json/<project>/<test-id>.json
-WORKSPACE_DIRECTORY/testlinker/output/<mapping-mode>/raw/<project>_detail.json
-WORKSPACE_DIRECTORY/testlinker/output/<mapping-mode>/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/output/model-output-json/<project>.json
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/output/model-output-csv/<project>.csv
 ```
-
-With `--mapping-mode testlinker-original testlinker-symbolsolver` both
-subdirectories are written in a single model pass.
 
 `postprocess` writes one output file per selected mode under:
 
 ```text
-WORKSPACE_DIRECTORY/data/testlinker/t2p-link/<mode>/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/output/<mode>/<project>.csv
 ```
 
 Default mode is `testlinker-original`. Pass `--postprocess-modes` to select
@@ -300,7 +303,7 @@ tech_testlinker
 
 ```text
 --top-k                 Number of model-ranked invocations to select.
---checkpoint            Checkpoint name under finetuned-checkpoints/codet5-base.
+--checkpoint            Checkpoint name under shared-workspace testlinker-finetuned-checkpoints/codet5-base.
 --checkpoint-directory  Explicit directory containing pytorch_model.bin.
 --model-name-or-path    Explicit pretrained CodeT5 base model/tokenizer directory or model id.
 --tokenizer-mode        original, auto, or fallback. Default: original.
