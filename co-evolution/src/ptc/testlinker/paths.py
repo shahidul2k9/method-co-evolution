@@ -25,8 +25,8 @@ def model_output_csv_path(root: Path, project: str) -> Path:
     return root / "output" / "model-output-csv" / f"{project}.csv"
 
 
-def postprocess_output_path(root: Path, project: str, mode: str = "testlinker-original") -> Path:
-    return root / "output" / mode / f"{project}.csv"
+def postprocess_output_path(root: Path, project: str, mode: str = "testlinker-original", model_name: str = "codet5") -> Path:
+    return root / "output" / model_name / mode / "t2p-link" / f"{project}.csv"
 
 
 def class_map_directory(root: Path) -> Path:
@@ -45,5 +45,10 @@ def default_model_directory(root: Path) -> Path:
     return root / "pretrained-models" / "codet5-base"
 
 
-def default_checkpoint_directory(workspace_directory: Path, checkpoint: str) -> Path:
-    return workspace_directory / "testlinker-finetuned-checkpoints" / "codet5-base" / f"checkpoint-{checkpoint}"
+def default_checkpoint_directory(workspace_directory: Path, checkpoint: str, model_name: str = "codet5") -> Path:
+    return workspace_directory / "testlinker-finetuned-checkpoints" / f"{model_name}-base" / f"checkpoint-{checkpoint}"
+
+def model_name_from_name_or_path(model_name_or_path: str) -> str:
+    if  "codet5" in model_name_or_path:
+        return "codet5"
+    return model_name_or_path

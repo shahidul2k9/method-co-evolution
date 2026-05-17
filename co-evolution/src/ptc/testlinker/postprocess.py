@@ -15,6 +15,7 @@ from ptc.testlinker.paths import (
     projects_all_functions_directory,
     raw_input_json_directory,
     testlinker_root,
+    model_name_from_name_or_path
 )
 from ptc.testlinker.signatures import invocation_name
 
@@ -52,6 +53,7 @@ def postprocess_project(
     top_k: int = 1,
     testlinker_directory: str | Path | None = None,
     modes: list[str] | None = None,
+    model_name_or_path: str = "codet5-base",
     replace: bool = False,
 ) -> dict[str, pd.DataFrame]:
     if modes is None:
@@ -63,7 +65,7 @@ def postprocess_project(
         results = {}
         pending_modes = []
         for mode in modes:
-            output_file = postprocess_output_path(root, project, mode)
+            output_file = postprocess_output_path(root, project, mode, model_name=model_name_from_name_or_path(model_name_or_path))
             if output_file.exists():
                 results[mode] = pd.read_csv(output_file, keep_default_na=False, na_filter=False)
             else:
@@ -110,7 +112,7 @@ def postprocess_project(
 
         columns = POSTPROCESS_OUTPUT_COLUMNS if mode == "testlinker-original" else SYMBOLSOLVER_OUTPUT_COLUMNS
         output_df = pd.DataFrame(prediction_rows, columns=columns)
-        output_file = postprocess_output_path(root, project, mode)
+        output_file = postprocess_output_path(root, project, mode, model_name=model_name_from_name_or_path(model_name_or_path))
         output_file.parent.mkdir(parents=True, exist_ok=True)
         output_df.to_csv(output_file, index=False)
         results[mode] = output_df

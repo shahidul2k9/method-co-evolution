@@ -14,6 +14,7 @@ from ptc.testlinker.paths import (
     model_output_json_path,
     raw_input_json_directory,
     testlinker_root,
+    model_name_from_name_or_path
 )
 
 
@@ -144,6 +145,7 @@ def _build_ranker(
         else default_checkpoint_directory(
             Path(checkpoint_workspace_directory or workspace_directory),
             checkpoint,
+            model_name=model_name_from_name_or_path(model_name_or_path),
         )
     )
     checkpoint_file = resolved_checkpoint_directory / "pytorch_model.bin"

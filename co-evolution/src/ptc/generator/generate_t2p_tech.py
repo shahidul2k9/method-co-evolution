@@ -383,7 +383,7 @@ def main(argv: list[str] | None = None) -> None:
     t2p_candidate_dir = experiment_directory / "t2p-candidate-filtered"
     output_dir = experiment_directory / "t2p-tech"
     llm_prediction_dir = experiment_directory / "llm" / "t2p-link"
-    testlinker_prediction_dir = experiment_directory / "testlinker" / "t2p-link" / "codet5"
+    testlinker_prediction_dir = experiment_directory / "testlinker" / "output" / "codet5" / "testlinker-original" / "t2p-link"
     os.makedirs(t2p_candidate_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
     if args.skip_existing and args.replace:

@@ -189,6 +189,7 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
             top_k=args.top_k,
             testlinker_directory=args.testlinker_directory,
             modes=args.postprocess_modes,
+            model_name_or_path=args.model_name_or_path,
             replace=args.replace,
         )
         for mode, mode_df in postprocess_results.items():
