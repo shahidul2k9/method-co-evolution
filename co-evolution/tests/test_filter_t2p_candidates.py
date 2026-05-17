@@ -1,5 +1,8 @@
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 import sys
+import tempfile
 import unittest
 
 SRC_DIRECTORY = Path(__file__).resolve().parents[1] / "src"
@@ -11,7 +14,13 @@ try:
 except ImportError:  # pragma: no cover - local shell may not have pandas installed
     pd = None
 
-from ptc.generator.filter_t2p_candidate import filter_candidate_df, filter_candidate_df_by_ground_truth
+if pd is not None:
+    from ptc.generator.filter_t2p_candidate import (
+        filter_candidate_df,
+        filter_candidate_df_by_ground_truth,
+        filter_expanded_candidate_files,
+        filter_expanded_candidate_files_by_ground_truth,
+    )
 
 
 @unittest.skipIf(pd is None, "pandas is required for filter candidate tests")
@@ -46,6 +55,113 @@ class TestFilterT2PCandidates(unittest.TestCase):
 
         self.assertEqual(2, len(filtered_df))
         self.assertEqual({"test://one"}, set(filtered_df["from_url"]))
+
+    def test_filter_expanded_candidate_files_writes_default_filtered_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            expanded_dir = root / "t2p-candidate-expanded"
+            filtered_dir = root / "t2p-candidate-filtered"
+            expanded_dir.mkdir()
+            filtered_dir.mkdir()
+            pd.DataFrame(
+                [
+                    {
+                        "from_url": "test://one",
+                        "from_fqs_alt": "alt test",
+                        "to_url": "prod://a",
+                        "to_fqs_alt": "alt prod",
+                    }
+                ]
+            ).to_csv(expanded_dir / "demo.csv", index=False)
+
+            with redirect_stdout(StringIO()):
+                filter_expanded_candidate_files(expanded_dir, filtered_dir, selected_projects=None)
+
+            output_df = pd.read_csv(filtered_dir / "demo.csv", keep_default_na=False, na_filter=False)
+            self.assertEqual(["from_url", "to_url"], output_df.columns.tolist())
+            self.assertEqual([{"from_url": "test://one", "to_url": "prod://a"}], output_df.to_dict("records"))
+
+    def test_filter_expanded_candidate_files_by_ground_truth_filters_matching_project(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            expanded_dir = root / "t2p-candidate-expanded"
+            filtered_dir = root / "t2p-candidate-filtered"
+            ground_truth_dir = root / "t2p-ground-truth"
+            expanded_dir.mkdir()
+            filtered_dir.mkdir()
+            ground_truth_dir.mkdir()
+            pd.DataFrame(
+                [
+                    {"from_url": "test://one", "from_fqs_alt": "alt", "to_url": "prod://a", "to_fqs_alt": "alt"},
+                    {"from_url": "test://two", "from_fqs_alt": "alt", "to_url": "prod://b", "to_fqs_alt": "alt"},
+                ]
+            ).to_csv(expanded_dir / "demo.csv", index=False)
+            pd.DataFrame([{"from_url": "test://one"}]).to_csv(ground_truth_dir / "demo.csv", index=False)
+
+            with redirect_stdout(StringIO()):
+                filter_expanded_candidate_files_by_ground_truth(
+                    expanded_dir,
+                    filtered_dir,
+                    ground_truth_dir,
+                    selected_projects=None,
+                )
+
+            output_df = pd.read_csv(filtered_dir / "demo.csv", keep_default_na=False, na_filter=False)
+            self.assertEqual(["from_url", "to_url"], output_df.columns.tolist())
+            self.assertEqual([{"from_url": "test://one", "to_url": "prod://a"}], output_df.to_dict("records"))
+
+    def test_filter_expanded_candidate_files_by_ground_truth_deletes_stale_output_when_missing_ground_truth(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            expanded_dir = root / "t2p-candidate-expanded"
+            filtered_dir = root / "t2p-candidate-filtered"
+            ground_truth_dir = root / "t2p-ground-truth"
+            expanded_dir.mkdir()
+            filtered_dir.mkdir()
+            ground_truth_dir.mkdir()
+            pd.DataFrame([{"from_url": "test://one", "to_url": "prod://a"}]).to_csv(
+                expanded_dir / "demo.csv",
+                index=False,
+            )
+            stale_output = filtered_dir / "demo.csv"
+            pd.DataFrame([{"from_url": "stale://test", "to_url": "stale://prod"}]).to_csv(
+                stale_output,
+                index=False,
+            )
+
+            with redirect_stdout(StringIO()):
+                filter_expanded_candidate_files_by_ground_truth(
+                    expanded_dir,
+                    filtered_dir,
+                    ground_truth_dir,
+                    selected_projects=None,
+                )
+
+            self.assertFalse(stale_output.exists())
+
+    def test_filter_expanded_candidate_files_by_ground_truth_does_not_create_output_when_missing_ground_truth(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            expanded_dir = root / "t2p-candidate-expanded"
+            filtered_dir = root / "t2p-candidate-filtered"
+            ground_truth_dir = root / "t2p-ground-truth"
+            expanded_dir.mkdir()
+            filtered_dir.mkdir()
+            ground_truth_dir.mkdir()
+            pd.DataFrame([{"from_url": "test://one", "to_url": "prod://a"}]).to_csv(
+                expanded_dir / "demo.csv",
+                index=False,
+            )
+
+            with redirect_stdout(StringIO()):
+                filter_expanded_candidate_files_by_ground_truth(
+                    expanded_dir,
+                    filtered_dir,
+                    ground_truth_dir,
+                    selected_projects=None,
+                )
+
+            self.assertFalse((filtered_dir / "demo.csv").exists())
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-
+import os
 import pandas as pd
 from mhc.artifacts import is_test_case_method, is_main_code
 from pytctracer.config.constants.technique_threshold import TechniqueThreshold

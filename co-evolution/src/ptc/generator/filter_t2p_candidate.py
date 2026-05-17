@@ -2,8 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from mhc.config import PROJECT_DIRECTORY
-from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths, resolve_experiment_name
+from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths
 
 
 UNNEEDED_CANDIDATE_COLUMNS = ["from_fqs_alt", "to_fqs_alt"]
@@ -17,9 +16,9 @@ def build_parser():
         projects_help="Comma-separated project names to process.",
     )
     parser.add_argument(
-        "--ground-truth",
-        action="store_true",
-        help="Filter existing candidate files to tests present in the ground-truth files.",
+        "--t2p-ground-truth-dir",
+        type=Path,
+        help="Directory of test-to-production ground-truth CSV files used to filter candidates.",
     )
     return parser
 
@@ -77,30 +76,42 @@ def filter_expanded_candidate_files(
         filtered_df.to_csv(output_file, index=False)
 
 
-def filter_candidate_files_by_ground_truth(t2p_ground_truth_dir:Path, filtered_t2p_candidate_dir: Path, selected_projects: list[str] | None) -> None:
+def filter_expanded_candidate_files_by_ground_truth(
+    expanded_t2p_candidate_dir: Path,
+    filtered_t2p_candidate_dir: Path,
+    t2p_ground_truth_dir: Path,
+    selected_projects: list[str] | None,
+) -> None:
     rows = []
     skipped = []
-    for candidate_file in list_csv_files(filtered_t2p_candidate_dir, selected_projects, strict=False):
+    print("Processing:", t2p_ground_truth_dir.name)
+    for candidate_file in list_csv_files(expanded_t2p_candidate_dir, selected_projects, strict=False):
+        print("Processing:", candidate_file.stem)
         ground_truth_file = t2p_ground_truth_dir / candidate_file.name
-        if not ground_truth_file.exists():
-            skipped.append(candidate_file.stem)
-            continue
+        output_file = filtered_t2p_candidate_dir / candidate_file.name
+        if ground_truth_file.exists():
+            candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)
+            candidate_df = filter_candidate_df(candidate_df)
+            ground_truth_df = pd.read_csv(ground_truth_file, keep_default_na=False, na_filter=False)
+            filtered_df = filter_candidate_df_by_ground_truth(candidate_df, ground_truth_df)
+            filtered_df.to_csv(output_file, index=False)
+            rows.append({
+                "project": candidate_file.stem,
+                "rows_before": len(candidate_df),
+                "rows_after": len(filtered_df),
+                "test_urls": filtered_df["from_url"].nunique(),
+                "prod_urls": filtered_df["to_url"].nunique(),
+                "links": filtered_df[["from_url", "to_url"]].drop_duplicates().shape[0],
+            })
+        else:
+            if output_file.exists():
+                output_file.unlink()
+                skipped.append((candidate_file.stem, "deleted stale output"))
+            else:
+                skipped.append((candidate_file.stem, "no stale output"))
 
-        candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)
-        ground_truth_df = pd.read_csv(ground_truth_file, keep_default_na=False, na_filter=False)
-        filtered_df = filter_candidate_df_by_ground_truth(candidate_df, ground_truth_df)
-        filtered_df.to_csv(candidate_file, index=False)
-        rows.append({
-            "project": candidate_file.stem,
-            "rows_before": len(candidate_df),
-            "rows_after": len(filtered_df),
-            "test_urls": filtered_df["from_url"].nunique(),
-            "prod_urls": filtered_df["to_url"].nunique(),
-            "links": filtered_df[["from_url", "to_url"]].drop_duplicates().shape[0],
-        })
-
-    for stem in skipped:
-        print(f"Skipping {stem}; no ground truth found.")
+    for stem, action in skipped:
+        print(f"Skipping {stem}; no ground truth found ({action}).")
 
     print_ground_truth_filter_summary(rows, filtered_t2p_candidate_dir)
 
@@ -118,15 +129,15 @@ def main(argv: list[str] | None = None) -> None:
         use_filters=args.use_filters,
         projects=args.projects,
     )
-    t2p_ground_truth_dir = Path(PROJECT_DIRECTORY) / "data" / resolve_experiment_name(args.experiment_name) / "t2p-ground-truth"
-
-    if args.ground_truth:
-        filter_candidate_files_by_ground_truth(t2p_ground_truth_dir, filtered_t2p_candidate_dir, selected_projects)
+    if args.t2p_ground_truth_dir:
+        filter_expanded_candidate_files_by_ground_truth(
+            expanded_t2p_candidate_dir,
+            filtered_t2p_candidate_dir,
+            args.t2p_ground_truth_dir,
+            selected_projects,
+        )
     else:
         filter_expanded_candidate_files(expanded_t2p_candidate_dir, filtered_t2p_candidate_dir, selected_projects)
-
-    print("Finished.")
-
 
 if __name__ == "__main__":
     main()

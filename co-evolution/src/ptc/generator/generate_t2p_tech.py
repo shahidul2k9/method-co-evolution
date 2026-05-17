@@ -407,8 +407,6 @@ def main(argv: list[str] | None = None) -> None:
             replace=args.replace,
         )
 
-    print("Finished.")
-
 
 if __name__ == "__main__":
     main()
