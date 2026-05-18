@@ -169,7 +169,7 @@ def preprocess_project(*, experiment_directory: str | Path, experiment_name:str,
         method_code_file = experiment_root / "method-code" / f"{project}.csv"
         method_code_lookup = _load_method_code_lookup(method_code_file)
         label_lookup = _load_label_lookup(
-            t2p_ground_truth_updated_file(project_directory or experiment_root, experiment_name, project)) if include_labels else {}
+            t2p_ground_truth_updated_file(project_directory or experiment_root, experiment_name, project), project) if include_labels else {}
         invocation_order_lookup = _load_invocation_order_lookup(project, order_production_method, order_production_directory)
         candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)
         required_columns = {"project", "from_url", "from_name", "from_file", "to_url", "to_name"}
@@ -202,12 +202,12 @@ def preprocess_project(*, experiment_directory: str | Path, experiment_name:str,
                 test_rows.append(
                     {
                         "project": project,
-                        "from_url": from_url,
                         "from_name": first_row.get("from_name", ""),
+                        "to_name": candidate_row.get("to_name", ""),
+                        "from_url": from_url,
+                        "to_url": to_url,
                         "from_file": first_row.get("from_file", ""),
                         "body": body,
-                        "to_url": to_url,
-                        "to_name": candidate_row.get("to_name", ""),
                         "from_testlinker_fqs": _source_signature(first_row),
                         "to_testlinker_fqs": signature,
                         "to_testlinker_p": json.dumps(params, ensure_ascii=True),
@@ -238,8 +238,9 @@ def _load_method_code_lookup(method_code_file: Path) -> dict[str, str]:
     }
 
 
-def _load_label_lookup(ground_truth_path: Path) -> dict[str, dict[str, object]]:
+def _load_label_lookup(ground_truth_path: Path, project:str) -> dict[str, dict[str, object]]:
     if not ground_truth_path.exists():
+        print(f"WARNING: Missing ground truth file for '{project}': {ground_truth_path}")
         return {}
 
     ground_truth_df = pd.read_csv(ground_truth_path, keep_default_na=False, na_filter=False)
@@ -248,6 +249,7 @@ def _load_label_lookup(ground_truth_path: Path) -> dict[str, dict[str, object]]:
         ground_truth_df = ground_truth_df[labels == 1]
     required_columns = {"from_url", "to_url"}
     if not required_columns.issubset(ground_truth_df.columns):
+        print(f"WARNING: Missing required columns for '{project}'")
         return {}
 
     label_lookup: dict[str, dict[str, object]] = {}

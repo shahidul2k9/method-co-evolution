@@ -142,7 +142,8 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
                                            project=project, include_labels=args.include_labels,
                                            order_production_method=args.order_production_method,
                                            order_production_directory=args.order_production_directory,
-                                           replace=args.replace, project_directory=args.project_directory)
+                                           replace=args.replace,
+                                           project_directory=args.project_directory)
         print(f"Wrote TestLinker input rows: {len(preprocess_df)}")
 
     if args.stage in {"execute", "all"}:
@@ -165,17 +166,23 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
 
 
 def main() -> int:
+    from mhc.config import PROJECT_DIRECTORY
     parser = build_parser()
     args = parser.parse_args()
     paths = resolve_experiment_paths(args.workspace_directory, args.experiment_name)
     args.experiment_directory = str(paths.experiment_directory)
     args.workspace_directory = str(paths.workspace_directory)
     args.checkpoint_workspace_directory = str(paths.workspace_directory)
+    args.project_directory = args.project_directory or PROJECT_DIRECTORY
     if args.top_k <= 0:
         parser.error("--top-k must be a positive integer")
 
     for project in _resolve_projects(args, parser):
-        _run_project(args, project)
+        try:
+            _run_project(args, project)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"WARNING: skipping project '{project}': {exc}")
+            continue
 
     return 0
 
