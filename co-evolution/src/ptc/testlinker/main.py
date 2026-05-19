@@ -4,16 +4,23 @@ import argparse
 from pathlib import Path
 
 import pandas as pd
-from mhc.config import resolve_experiment_directory, resolve_experiment_name
 from mhc.util import parse_project_index
 
+from ptc.experiment_util import build_experiment_parser, resolve_experiment_paths
 from ptc.testlinker.execute import execute_project
-from ptc.testlinker.postprocess import POSTPROCESS_MODES, postprocess_project
+from ptc.testlinker.postprocess import METHOD_RESOLVERS, postprocess_project
 from ptc.testlinker.preprocess import preprocess_project
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Run TestLinker for a project.")
+    parser = build_experiment_parser(
+        "Run TestLinker for a project.",
+        include_tools=False,
+        include_projects=False,
+        include_strategies=False,
+        include_filter_toggle=False,
+        experiment_help="Experiment name. Defaults to ME_EXPERIMENT_NAME.",
+    )
     parser.add_argument("command", choices=["testlinker"], help="Command to execute.")
     parser.add_argument(
         "--stage",
@@ -21,12 +28,6 @@ def build_parser() -> argparse.ArgumentParser:
         default="all",
         help="Pipeline stage to run.",
     )
-    parser.add_argument(
-        "--workspace-directory",
-        required=True,
-        help="Shared workspace root. TestLinker runtime defaults to <workspace-directory>/experiment/<experiment>.",
-    )
-    parser.add_argument("--experiment-name", default=None, help="Experiment name. Defaults to ME_EXPERIMENT_NAME.")
     parser.add_argument(
         "--project-directory",
         dest="project_directory",
@@ -44,20 +45,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Python-style project index or slice from <workspace-directory>/experiment/<experiment>/project.csv. "
         "Examples: '10', '-1', '10:20', ':10', '10:', ':'.",
     )
-    parser.add_argument(
-        "--testlinker-directory",
-        default=None,
-        help="TestLinker runtime directory. Defaults to <workspace-directory>/testlinker.",
-    )
     parser.add_argument("--top-k", dest="top_k", type=int, default=1, help="Number of invocations to select.")
     parser.add_argument("--model-name-or-path", default=None, help="CodeT5 base model directory.")
     parser.add_argument("--checkpoint-directory", default=None, help="Directory containing pytorch_model.bin.")
     parser.add_argument("--checkpoint", default="best-acc_and_f1", help="Checkpoint name used by the default layout.")
     parser.add_argument(
-        "--model-mode",
-        choices=["codet5", "heuristic"],
-        default="codet5",
-        help="Use codet5 for real inference or heuristic for local dry runs/tests.",
+        "--method-resolver",
+        choices=METHOD_RESOLVERS,
+        default="testlinker",
+        help=(
+            "Method resolving modes to run (default: testlinker). "
+            "testlinker applies the TestLinker signature mapping algorithm. "
+            "testlinkerv2 uses direct URL matching from the symbol solver. "
+            "all computes output for both."
+        ),
     )
     parser.add_argument("--eval-batch-size", type=int, default=16)
     parser.add_argument("--max-source-length", type=int, default=512)
@@ -67,11 +68,10 @@ def build_parser() -> argparse.ArgumentParser:
         default="original",
         help="Tokenizer loading mode. Use original for paper-faithful runs; auto/fallback are compatibility modes.",
     )
-    parser.add_argument("--only-model", action="store_true", help="Skip TestLinker rule-based shortcut.")
     parser.add_argument(
         "--include-labels",
         action="store_true",
-        help="Include labels from <testlinker-directory>/ground-truth/<project>.csv when present.",
+        help="Include labels from ground-truth/<project>.csv when present.",
     )
     parser.add_argument(
         "--order-production-method",
@@ -91,18 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Re-run stages even when output files already exist.",
     )
-    parser.add_argument(
-        "--postprocess-modes",
-        dest="postprocess_modes",
-        nargs="+",
-        choices=POSTPROCESS_MODES,
-        default=["testlinker-original"],
-        help=(
-            "Postprocessing modes to run (default: testlinker-original). "
-            "testlinker-original applies the TestLinker signature mapping algorithm. "
-            "testlinker-symbolsolver uses direct URL matching from the symbol solver."
-        ),
-    )
+
     return parser
 
 
@@ -139,7 +128,7 @@ def _resolve_projects(args: argparse.Namespace, parser: argparse.ArgumentParser)
         return projects
 
     try:
-        return parse_project_index(args.project_index, _load_repository_projects(args.workspace_directory))
+        return parse_project_index(args.project_index, _load_repository_projects(args.experiment_directory))
     except ValueError as exc:
         parser.error(str(exc))
 
@@ -148,57 +137,52 @@ def _run_project(args: argparse.Namespace, project: str) -> None:
     print(f"Running TestLinker for project: {project}")
 
     if args.stage in {"preprocess", "all"}:
-        preprocess_df = preprocess_project(
-            workspace_directory=args.workspace_directory,
-            project=project,
-            testlinker_directory=args.testlinker_directory,
-            include_labels=args.include_labels,
-            order_production_method=args.order_production_method,
-            order_production_directory=args.order_production_directory,
-            replace=args.replace,
-            project_directory=args.project_directory,
-        )
+        preprocess_df = preprocess_project(experiment_directory=args.experiment_directory,
+                                           experiment_name=args.experiment_name,
+                                           project=project, include_labels=args.include_labels,
+                                           order_production_method=args.order_production_method,
+                                           order_production_directory=args.order_production_directory,
+                                           replace=args.replace,
+                                           project_directory=args.project_directory)
         print(f"Wrote TestLinker input rows: {len(preprocess_df)}")
 
     if args.stage in {"execute", "all"}:
-        execute_df = execute_project(
-            workspace_directory=args.workspace_directory,
-            project=project,
-            testlinker_directory=args.testlinker_directory,
-            model_name_or_path=args.model_name_or_path,
-            checkpoint_directory=args.checkpoint_directory,
-            checkpoint=args.checkpoint,
-            model_mode=args.model_mode,
-            eval_batch_size=args.eval_batch_size,
-            max_source_length=args.max_source_length,
-            tokenizer_mode=args.tokenizer_mode,
-            no_cuda=args.no_cuda,
-            replace=args.replace,
-        )
+        execute_df = execute_project(experiment_directory=args.experiment_directory, project=project,
+                                     model_name_or_path=args.model_name_or_path,
+                                     checkpoint_directory=args.checkpoint_directory,
+                                     checkpoint_workspace_directory=args.checkpoint_workspace_directory,
+                                     checkpoint=args.checkpoint, eval_batch_size=args.eval_batch_size,
+                                     max_source_length=args.max_source_length, tokenizer_mode=args.tokenizer_mode,
+                                     no_cuda=args.no_cuda, replace=args.replace)
         print(f"Wrote model output rows: {len(execute_df)}")
 
     if args.stage in {"postprocess", "all"}:
-        postprocess_results = postprocess_project(
-            workspace_directory=args.workspace_directory,
-            project=project,
-            top_k=args.top_k,
-            testlinker_directory=args.testlinker_directory,
-            modes=args.postprocess_modes,
-            replace=args.replace,
-        )
+        postprocess_results = postprocess_project(experiment_directory=args.experiment_directory, project=project,
+                                                  top_k=args.top_k,
+                                                  method_resolver=args.method_resolver,
+                                                  model_name_or_path=args.model_name_or_path, replace=args.replace)
         for mode, mode_df in postprocess_results.items():
             print(f"Wrote TestLinker [{mode}] prediction rows: {len(mode_df)}")
 
 
 def main() -> int:
+    from mhc.config import PROJECT_DIRECTORY
     parser = build_parser()
     args = parser.parse_args()
-    args.workspace_directory = str(resolve_experiment_directory(args.workspace_directory, resolve_experiment_name(args.experiment_name)))
+    paths = resolve_experiment_paths(args.workspace_directory, args.experiment_name)
+    args.experiment_directory = str(paths.experiment_directory)
+    args.workspace_directory = str(paths.workspace_directory)
+    args.checkpoint_workspace_directory = str(paths.workspace_directory)
+    args.project_directory = args.project_directory or PROJECT_DIRECTORY
     if args.top_k <= 0:
         parser.error("--top-k must be a positive integer")
 
     for project in _resolve_projects(args, parser):
-        _run_project(args, project)
+        try:
+            _run_project(args, project)
+        except (FileNotFoundError, ValueError) as exc:
+            print(f"WARNING: skipping project '{project}': {exc}")
+            continue
 
     return 0
 

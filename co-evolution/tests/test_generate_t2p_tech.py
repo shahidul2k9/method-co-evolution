@@ -320,7 +320,7 @@ class TestApplyLlmTechniques(unittest.TestCase):
                     t2p_candidate_dir=candidate_dir,
                     output_dir=output_dir,
                     llm_prediction_dir=Path(tmpdir) / "llm",
-                    testlinker_prediction_dir=Path(tmpdir) / "testlinker",
+                    testlinker_output_dir=Path(tmpdir) / "testlinker",
                     skip_existing=True,
                     replace=False,
                 )

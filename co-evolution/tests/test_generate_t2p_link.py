@@ -22,6 +22,21 @@ from ptc.link_strategy import LinkStrategy, strategies_from_keys
 
 @unittest.skipIf(pd is None, "pandas is required for generate_t2p_link tests")
 class TestGenerateT2PLink(unittest.TestCase):
+    def test_omc_selects_groups_with_one_distinct_target(self):
+        frame = pd.DataFrame(
+            [
+                {"from_url": "testA", "to_url": "prodA"},
+                {"from_url": "testB", "to_url": "prodB"},
+                {"from_url": "testB", "to_url": "prodB"},
+                {"from_url": "testC", "to_url": "prodC"},
+                {"from_url": "testC", "to_url": "prodD"},
+            ]
+        )
+
+        indexes = select_one_stage_indices(frame, LinkStrategy.OMC)
+
+        self.assertEqual([0, 1, 2], list(indexes))
+
     def test_score_stages_select_threshold_scores_in_rank_order(self):
         frame = pd.DataFrame(
             [
@@ -82,6 +97,7 @@ class TestGenerateT2PLink(unittest.TestCase):
         self.assertEqual(LinkStrategy.TARANTULA, strategies_from_keys(["tarantula"]))
         self.assertEqual(LinkStrategy.TFIDF, strategies_from_keys(["tfidf"]))
         self.assertEqual(LinkStrategy.COMBINED, strategies_from_keys(["combined"]))
+        self.assertEqual(LinkStrategy.TESTLINKERV2, strategies_from_keys(["testlinkerv2"]))
         self.assertEqual("tarantula--combined", strategy_output_key(LinkStrategy.TARANTULA | LinkStrategy.COMBINED))
 
     def test_llm_stage_uses_hyphenated_column_name(self):
@@ -136,6 +152,20 @@ class TestGenerateT2PLink(unittest.TestCase):
 
         self.assertEqual([1], list(indexes))
         self.assertEqual("testlinker", strategy_output_key(LinkStrategy.TESTLINKER))
+
+    def test_testlinkerv2_stage_selects_positive_predictions(self):
+        frame = pd.DataFrame(
+            [
+                {"from_url": "f1", "tech_testlinkerv2": ""},
+                {"from_url": "f2", "tech_testlinkerv2": "1"},
+                {"from_url": "f3", "tech_testlinkerv2": "0"},
+            ]
+        )
+
+        indexes = select_one_stage_indices(frame, LinkStrategy.TESTLINKERV2)
+
+        self.assertEqual([1], list(indexes))
+        self.assertEqual("testlinkerv2", strategy_output_key(LinkStrategy.TESTLINKERV2))
 
     def test_filters_test_case_methods_to_main_code(self):
         frame = pd.DataFrame(

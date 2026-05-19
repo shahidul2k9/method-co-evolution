@@ -25,6 +25,7 @@ LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
     LinkStrategy.LLM_GPT_OSS_120B,
     LinkStrategy.LLM_QWEN_2D5B,
     LinkStrategy.TESTLINKER,
+    LinkStrategy.TESTLINKERV2,
 ]
 METHOD_LINK_STRATEGIES: list[LinkStrategy] = [
     LinkStrategy.OMC,
@@ -51,6 +52,7 @@ METHOD_LINK_STRATEGIES: list[LinkStrategy] = [
     LinkStrategy.LLM_GPT_OSS_120B,
     LinkStrategy.LLM_QWEN_2D5B,
     LinkStrategy.TESTLINKER,
+    LinkStrategy.TESTLINKERV2,
 
 ]
 
@@ -94,8 +96,8 @@ def select_one_stage_indices(
     indexes = pt_link_df.iloc[:0].index
     match stage:
         case LinkStrategy.OMC:
-            candidate_mask = (~pt_link_df.duplicated(subset=["from_url"], keep=False))
-            indexes = pt_link_df.loc[candidate_mask].index
+            distinct_target_count = pt_link_df.groupby("from_url")["to_url"].transform("nunique")
+            indexes = pt_link_df.loc[distinct_target_count == 1].index
         case LinkStrategy.NC:
             indexes = pt_link_df.loc[pt_link_df["tech_nc"] > 0].index
 
@@ -142,6 +144,8 @@ def select_one_stage_indices(
             indexes = _select_llm_stage_indices(pt_link_df, stage)
         case LinkStrategy.TESTLINKER:
             indexes = _select_binary_stage_indices(pt_link_df, "tech_testlinker")
+        case LinkStrategy.TESTLINKERV2:
+            indexes = _select_binary_stage_indices(pt_link_df, "tech_testlinkerv2")
         case _:
             raise ValueError(f"Unsupported stage: {stage}")
     return indexes
@@ -283,11 +287,12 @@ def main(argv: list[str] | None = None) -> None:
 
 
         # Remove constructor unless all the to_url are constructors
-        is_constructor = t2p_link_df["to_expression"].str.contains("constructor", case=False, na=False)
-        groups_with_methods = t2p_link_df.groupby("from_url")["to_expression"].transform(
-            lambda x: (~x.str.contains("constructor", case=False, na=False)).any()
-        )
-        t2p_link_df = t2p_link_df[~(is_constructor & groups_with_methods)]
+        # Enabling this filter could improve precision and recall(1%) as constructors are less likely to be production method.
+        # is_constructor = t2p_link_df["to_expression"].str.contains("constructor", case=False, na=False)
+        # groups_with_methods = t2p_link_df.groupby("from_url")["to_expression"].transform(
+        #     lambda x: (~x.str.contains("constructor", case=False, na=False)).any()
+        # )
+        # t2p_link_df = t2p_link_df[~(is_constructor & groups_with_methods)]
 
         for link_strategy in METHOD_LINK_STRATEGIES:
             keep_mask = select_links_cascade(t2p_link_df, link_strategy)

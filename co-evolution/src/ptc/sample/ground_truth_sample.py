@@ -45,13 +45,13 @@ METHOD_TO_GT_COLUMNS = {
     "to_artifact": "artifact",
 }
 
-_DATA = Path(EXPERIMENT_DIRECTORY)
-REPOSITORY_FILE = _DATA / "project.csv"
-T2P_CANDIDATE_DIR = _DATA / "t2p-candidate-expanded"
-METHOD_DIR = _DATA / "method"
+_EXPERIMENT_DIR = Path(EXPERIMENT_DIRECTORY)
+REPOSITORY_FILE = _EXPERIMENT_DIR / "project.csv"
+T2P_CANDIDATE_DIR = _EXPERIMENT_DIR / "t2p-candidate-expanded"
+METHOD_DIR = _EXPERIMENT_DIR / "method"
 
-OUTPUT_DIR = _DATA / "t2p-ground-truth-labelling" / "t2plinker-t2p-ground-truth-labelling"
-TEMP_DIR = _DATA / "t2p-ground-truth-labelling" / ".t2plinker-t2p-ground-truth-labelling"
+OUTPUT_DIR = _EXPERIMENT_DIR / "t2p-ground-truth" / "t2plinker-ground-truth"
+TEMP_DIR = _EXPERIMENT_DIR / "t2p-ground-truth" / ".t2plinker-ground-truth"
 
 
 @dataclass(frozen=True)

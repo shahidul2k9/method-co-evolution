@@ -21,20 +21,27 @@ versions.
 Before running TestLinker, generate the normal project artifacts:
 
 ```text
-WORKSPACE_DIRECTORY/data/t2p-candidate-filtered/<project>.csv
-WORKSPACE_DIRECTORY/data/method-code/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/t2p-candidate-filtered/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/method-code/<project>.csv
 ```
 
-Place TestLinker assets in:
+TestLinker runtime artifacts and the pretrained base model default to the
+experiment directory:
 
 ```text
-WORKSPACE_DIRECTORY/testlinker/
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/
   pretrained-models/
     codet5-base/
       config.json
       pytorch_model.bin
       tokenizer files...
-  finetuned-checkpoints/
+```
+
+Place fine-tuned checkpoints in the shared workspace root:
+
+```text
+WORKSPACE_DIRECTORY/
+  testlinker-finetuned-checkpoints/
     codet5-base/
       checkpoint-best-acc/
         pytorch_model.bin
@@ -47,15 +54,16 @@ WORKSPACE_DIRECTORY/testlinker/
 ```
 
 The mapping files (`class_map/` and `projects_all_functions/`) are always
-auto-generated during the preprocess stage from `data/class/<project>.csv` and
-`data/method/<project>.csv`. Run `mhc class-scan` and `mhc method-scan` first
-to produce those CSVs.
+auto-generated during the preprocess stage from
+`experiment/EXPERIMENT_NAME/class/<project>.csv` and
+`experiment/EXPERIMENT_NAME/method/<project>.csv`. Run `mhc class-scan` and
+`mhc method-scan` first to produce those CSVs.
 
 The default run uses:
 
 ```text
-WORKSPACE_DIRECTORY/testlinker/pretrained-models/codet5-base
-WORKSPACE_DIRECTORY/testlinker/finetuned-checkpoints/codet5-base/checkpoint-best-acc_and_f1/pytorch_model.bin
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/pretrained-models/codet5-base
+WORKSPACE_DIRECTORY/testlinker-finetuned-checkpoints/codet5-base/checkpoint-best-acc_and_f1/pytorch_model.bin
 ```
 
 The pretrained CodeT5 directory is the base model/tokenizer loaded by
@@ -85,11 +93,9 @@ project,from_tctracer_fqs,to_tctracer_fqs,from_url,to_url
 ```
 
 If the file is missing or does not have those columns, labels are skipped
-without an error. When labels are included, `input/project-csv/<project>.csv`
-contains `label_json` and a binary per-candidate `label`, and the final output
-CSV places `label` immediately before `label_pred`. The binary `label` is set
-by matching each candidate row's `to_url` against the ground-truth `to_url` for
-the same `from_url`.
+without an error. When labels are included, the model input CSV contains a
+binary per-candidate `label`, set by matching each candidate row's `to_url`
+against the ground-truth `to_url` for the same `from_url`.
 
 ## Tokenizer Fidelity
 
@@ -128,7 +134,7 @@ the tokenizer directly from `vocab.json` and `merges.txt` with the same special
 token strings. This is useful for checking the pipeline on a laptop, but final
 reported results should use `original` in an author-compatible environment.
 
-If every `pred_score` is almost identical, first suspect tokenizer loading. A
+If every `score` is almost identical, first suspect tokenizer loading. A
 broken fallback can encode each Java input as only special tokens, which makes
 CodeT5 see nearly the same empty input for every invocation. A healthy tokenizer
 should encode `closeQuietly` into several non-padding tokens, not only `<s>` and
@@ -147,8 +153,7 @@ scripts/job.sh \
   --command testlinker \
   --stage all \
   --projects "commons-io" \
-  --top-k 1 \
-  --testlinker-directory "$WORKSPACE_DIRECTORY/testlinker"
+  --top-k 1
 ```
 
 For a SLURM array, `job.sh` selects the current project from `--projects` and
@@ -208,88 +213,58 @@ ptc-testlinker testlinker \
   --top-k 1
 ```
 
-```bash
-# heuristics only (default)
-ptc-testlinker testlinker \
-  --stage postprocess \
-  --workspace-directory .cache \
-  --project commons-io
-
-# both outputs
-ptc-testlinker testlinker \
-  --stage postprocess \
-  --workspace-directory .cache \
-  --project commons-io \
-  --postprocess-modes testlinker-original testlinker-symbolsolver
-```
-
 ## Stage Outputs
 
 `preprocess` reads project CSVs and writes:
 
 ```text
-WORKSPACE_DIRECTORY/testlinker/input/project-csv/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/input/model-csv-input/<project>.csv
 ```
 
-This CSV has one row per invocation/signature candidate. Rows with the same
-`test_id` belong to the same test method and are grouped internally only when
-building temporary TestLinker JSON.
+This CSV has one row per candidate and includes `project,from_url,from_name,
+from_file,body,to_url,to_name,from_testlinker_fqs,to_testlinker_fqs,
+to_testlinker_p,label`.
 
-`execute` reads that CSV, creates internal TestLinker JSON files, runs the
-model/ranker, and writes one set of files per mapping mode:
+`execute` reads the CSV, runs the model/ranker, and writes the same rows plus
+`score,rank`:
 
 ```text
-WORKSPACE_DIRECTORY/testlinker/input/raw-json/<project>/<test-id>.json
-WORKSPACE_DIRECTORY/testlinker/input/mapped-json/<project>/<test-id>.json
-WORKSPACE_DIRECTORY/testlinker/output/<mapping-mode>/raw/<project>_detail.json
-WORKSPACE_DIRECTORY/testlinker/output/<mapping-mode>/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/output/<model>/model-output-csv/<project>.csv
 ```
 
-With `--mapping-mode testlinker-original testlinker-symbolsolver` both
-subdirectories are written in a single model pass.
-
-`postprocess` writes one output file per selected mode under:
+`postprocess` reads the model output CSV and writes the same rows plus
+`recommender,label_pred` under:
 
 ```text
-WORKSPACE_DIRECTORY/data/testlinker/t2p-link/<mode>/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/testlinker/output/<model>/<method-resolver>/<project>.csv
 ```
 
-Default mode is `testlinker-original`. Pass `--postprocess-modes` to select
-one or both modes:
+Default resolver is `testlinker`. Pass `--method-resolver` to select one or
+both resolvers:
 
 ```bash
-# default — heuristics only
 ptc-testlinker testlinker --stage postprocess --workspace-directory .cache --project commons-io
 
-# symbol-solver only
+# direct top-k URL match
 ptc-testlinker testlinker --stage postprocess --workspace-directory .cache --project commons-io \
-  --postprocess-modes testlinker-symbolsolver
+  --method-resolver testlinkerv2
 
 # both outputs
 ptc-testlinker testlinker --stage postprocess --workspace-directory .cache --project commons-io \
-  --postprocess-modes testlinker-original testlinker-symbolsolver
+  --method-resolver all
 ```
 
-**`testlinker-original`** output columns:
+Postprocess output appends:
 
 ```text
-project,from_name,to_name,label,label_pred,pred_score,recom_by,testlinker_signature,from_url,to_url
+recommender,label_pred
 ```
 
-`label_pred` is the 0/1 TestLinker model/rule recommendation. `pred_score` is
-the raw CodeT5 class-1 score; blank when a rule-based shortcut was used.
+`label_pred` is the 0/1 recommendation. `testlinker` resolves the top-k ranked
+rows through mapping JSON files, while `testlinkerv2` directly marks rows with
+`rank <= top_k`.
 
-**`testlinker-symbolsolver`** output columns:
-
-```text
-project,from_name,to_name,label,testlinker_symbolsolver,from_url,to_url
-```
-
-`testlinker_symbolsolver` is 1 when the `testlinker_signature` recommendation
-resolves to `to_url` according to our JavaParser symbol-solver method index
-(`data/method/<project>.csv`).
-
-`generate_t2p_tech.py` merges the `testlinker-original` output by
+`generate_t2p_tech.py` merges the `testlinker` output by
 `from_url,to_url` and creates:
 
 ```text
@@ -300,7 +275,7 @@ tech_testlinker
 
 ```text
 --top-k                 Number of model-ranked invocations to select.
---checkpoint            Checkpoint name under finetuned-checkpoints/codet5-base.
+--checkpoint            Checkpoint name under shared-workspace testlinker-finetuned-checkpoints/codet5-base.
 --checkpoint-directory  Explicit directory containing pytorch_model.bin.
 --model-name-or-path    Explicit pretrained CodeT5 base model/tokenizer directory or model id.
 --tokenizer-mode        original, auto, or fallback. Default: original.
@@ -311,51 +286,11 @@ tech_testlinker
                         Directory containing <project>_detail.json files when
                         using testlinker order. Default:
                         testlinker/code/result/TestLink.
---only-model            Skip TestLinker's rule-based shortcut.
 --no-cuda               Force CPU inference.
 --replace               Re-run stages even when output files already exist.
 --project-directory     Project root (ME_PROJECT_DIRECTORY). Used to locate
                         data/ground-truth/<project>.csv (when --include-labels)
                         and data/testlinker/class-mapping/ (copied into
                         testlinker class_map/ during preprocess).
---mapping-mode          testlinker-original (default) or testlinker-symbolsolver.
-                        Controls how recommendations are derived in the execute step.
-                        testlinker-original: model/heuristic ranks invocations and
-                        selects from mapped candidates. testlinker-symbolsolver: uses
-                        apply_signature_mapping detail_sigs directly, skipping the
-                        ranker (recom_by=symbolsolver). Mapping files are always
-                        generated from data/class and data/method CSVs.
---postprocess-modes     Space-separated list of postprocess outputs to write.
-                        Choices: testlinker-original testlinker-symbolsolver.
-                        Default: testlinker-original.
+--method-resolver       testlinker, testlinkerv2, or all. Default: testlinker.
 ```
-
-For local smoke tests without loading CodeT5:
-
-```bash
-ptc-testlinker testlinker \
-  --stage all \
-  --workspace-directory .cache \
-  --project commons-io \
-  --model-mode heuristic
-```
-
-To use the JavaParser symbol-solver mapping directly as recommendations (no model ranking):
-
-```bash
-ptc-testlinker testlinker \
-  --stage all \
-  --workspace-directory .cache \
-  --project commons-io \
-  --mapping-mode testlinker-symbolsolver \
-  --postprocess-modes testlinker-symbolsolver
-```
-
-`--model-mode` and `--mapping-mode` are independent:
-
-| | `testlinker-original` mapping | `testlinker-symbolsolver` mapping |
-|---|---|---|
-| `codet5` model | CodeT5 ranks invocations; mapping provides candidates | detail_sigs from symbol-solver used directly; `recom_by=symbolsolver` |
-| `heuristic` model | position-based ranking; mapping provides candidates | detail_sigs from symbol-solver used directly; `recom_by=symbolsolver` |
-
-Use `--model-mode heuristic` only for debugging; real evaluated runs should use `codet5`.

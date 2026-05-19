@@ -22,7 +22,8 @@ ptc-testlinker testlinker \
     --experiment-name "$ME_EXPERIMENT_NAME" \
     --tokenizer-mode auto \
     --include-labels \
-    --project-index "1" \
+    --project-index ":" \
+    --method-resolver all \
     --order-production-method testlinker \
     --replace \
     --model-name-or-path Salesforce/codet5-base

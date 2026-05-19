@@ -27,13 +27,13 @@ from .repository import (
     load_post_data,
 )
 
-
 DEFAULT_GROUND_TRUTH_DIRECTORY = (
     Path.cwd()
     / "workspace"
-    / "data"
-    / "t2p-ground-truth-labelling"
-    / "t2plinker-t2p-ground-truth-labelling"
+    / "experiment"
+    / "t2plinker"
+    / "t2p-ground-truth"
+    / "t2plinker-ground-truth"
 )
 
 STYLE = """

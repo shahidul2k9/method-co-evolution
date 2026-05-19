@@ -18,5 +18,6 @@ mhc method-code \
     --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
     --experiment-name "$ME_EXPERIMENT_NAME" \
     --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
-    --project-index ":" \
-    --replace
+    --artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection" \
+    --java-options "-Xmx16g -Xss16m -Dlogback.configurationFile=$ME_WORKSPACE_DIRECTORY/config/logback.xml" \
+    --project-index ":"

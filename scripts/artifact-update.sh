@@ -19,6 +19,6 @@ mhc artifact-update \
     --experiment-name "$ME_EXPERIMENT_NAME" \
     --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
     --artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection" \
-    --java-options "-Xmx12g" \
+    --java-options "-Xmx16g -Xss16m -Dlogback.configurationFile=$ME_WORKSPACE_DIRECTORY/config/logback.xml" \
     --project-index ":" \
     --target method

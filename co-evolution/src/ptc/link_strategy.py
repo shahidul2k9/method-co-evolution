@@ -18,6 +18,7 @@ class LinkStrategy(IntFlag):
     LLM_GPT_OSS_120B  = 1 << 13
     LLM_QWEN_2D5B  = 1 << 14
     TESTLINKER = 1 << 15
+    TESTLINKERV2 = 1 << 16
 
     ALL = (
         OMC
@@ -36,6 +37,7 @@ class LinkStrategy(IntFlag):
         | LLM_GPT_OSS_120B
         | LLM_QWEN_2D5B
         | TESTLINKER
+        | TESTLINKERV2
     )
 
 
@@ -57,6 +59,7 @@ STRATEGY_KEYS: dict[LinkStrategy, str] = {
     LinkStrategy.LLM_GPT_OSS_120B: "gpt-oss-120b",
     LinkStrategy.LLM_QWEN_2D5B: "qwen-2d5b",
     LinkStrategy.TESTLINKER: "testlinker",
+    LinkStrategy.TESTLINKERV2: "testlinkerv2",
 }
 
 # Reverse lookup (also no hardcoding elsewhere)

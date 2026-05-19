@@ -109,9 +109,10 @@ def apply_testlinker_technique(
     t2p_candidate_df: pd.DataFrame,
     project: str,
     testlinker_prediction_root: Path,
+    strategy_name: str = "testlinker",
 ) -> pd.DataFrame:
     enriched_df = t2p_candidate_df.copy()
-    column_name = "tech_testlinker"
+    column_name = strategy_name if strategy_name.startswith("tech_") else f"tech_{strategy_name}"
     prediction_file = testlinker_prediction_root / f"{project}.csv"
 
     if not prediction_file.exists():
@@ -325,7 +326,7 @@ def process_project(
     t2p_candidate_dir: Path,
     output_dir: Path,
     llm_prediction_dir: Path,
-    testlinker_prediction_dir: Path,
+    testlinker_output_dir: Path,
     skip_existing: bool,
     replace: bool,
 ) -> None:
@@ -363,7 +364,13 @@ def process_project(
     t2p_candidate_df = apply_testlinker_technique(
         t2p_candidate_df=t2p_candidate_df,
         project=project,
-        testlinker_prediction_root=testlinker_prediction_dir,
+        testlinker_prediction_root=testlinker_output_dir / "testlinker",
+    )
+    t2p_candidate_df = apply_testlinker_technique(
+        t2p_candidate_df=t2p_candidate_df,
+        project=project,
+        testlinker_prediction_root=testlinker_output_dir / "testlinkerv2",
+        strategy_name="tech_testlinkerv2",
     )
 
     expanded_df = util.convert_float_int_columns_to_nullable_int(t2p_candidate_df)
@@ -383,7 +390,7 @@ def main(argv: list[str] | None = None) -> None:
     t2p_candidate_dir = experiment_directory / "t2p-candidate-filtered"
     output_dir = experiment_directory / "t2p-tech"
     llm_prediction_dir = experiment_directory / "llm" / "t2p-link"
-    testlinker_prediction_dir = experiment_directory / "testlinker" / "t2p-link" / "codet5"
+    testlinker_output_dir = experiment_directory / "testlinker" / "output" / "codet5"
     os.makedirs(t2p_candidate_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
     if args.skip_existing and args.replace:
@@ -412,7 +419,7 @@ def main(argv: list[str] | None = None) -> None:
             t2p_candidate_dir=t2p_candidate_dir,
             output_dir=output_dir,
             llm_prediction_dir=llm_prediction_dir,
-            testlinker_prediction_dir=testlinker_prediction_dir,
+            testlinker_output_dir=testlinker_output_dir,
             skip_existing=args.skip_existing,
             replace=args.replace,
         )

@@ -44,7 +44,6 @@ htmlcov/
 .coverage.*
 workspace/
 workspace-eval/
-data/t2plinker/t2p-ground-truth/
 nosetests.xml
 coverage.xml
 *.cover
