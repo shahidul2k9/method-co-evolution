@@ -90,7 +90,7 @@ def filter_expanded_candidate_files_by_ground_truth(
         ground_truth_file = t2p_ground_truth_dir / candidate_file.name
         output_file = filtered_t2p_candidate_dir / candidate_file.name
         if ground_truth_file.exists():
-            candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)
+            candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False, low_memory=False)
             candidate_df = filter_candidate_df(candidate_df)
             ground_truth_df = pd.read_csv(ground_truth_file, keep_default_na=False, na_filter=False)
             filtered_df = filter_candidate_df_by_ground_truth(candidate_df, ground_truth_df)

@@ -22,6 +22,21 @@ from ptc.link_strategy import LinkStrategy, strategies_from_keys
 
 @unittest.skipIf(pd is None, "pandas is required for generate_t2p_link tests")
 class TestGenerateT2PLink(unittest.TestCase):
+    def test_omc_selects_groups_with_one_distinct_target(self):
+        frame = pd.DataFrame(
+            [
+                {"from_url": "testA", "to_url": "prodA"},
+                {"from_url": "testB", "to_url": "prodB"},
+                {"from_url": "testB", "to_url": "prodB"},
+                {"from_url": "testC", "to_url": "prodC"},
+                {"from_url": "testC", "to_url": "prodD"},
+            ]
+        )
+
+        indexes = select_one_stage_indices(frame, LinkStrategy.OMC)
+
+        self.assertEqual([0, 1, 2], list(indexes))
+
     def test_score_stages_select_threshold_scores_in_rank_order(self):
         frame = pd.DataFrame(
             [

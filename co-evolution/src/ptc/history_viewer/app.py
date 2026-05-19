@@ -31,7 +31,7 @@ DEFAULT_GROUND_TRUTH_DIRECTORY = (
     Path.cwd()
     / "workspace"
     / "experiment"
-    / "main"
+    / "t2plinker"
     / "t2p-ground-truth"
     / "t2plinker-ground-truth"
 )
