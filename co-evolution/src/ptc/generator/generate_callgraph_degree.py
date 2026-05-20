@@ -54,6 +54,7 @@ def main(argv: list[str] | None = None) -> None:
             fan_dfs.append(read_fan_count_if_exists(fan_file, url_column, fan_column))
         fan_out_df, fan_in_df = fan_dfs
         if fan_out_df is not None and fan_in_df is not None:
+            print(f"Processing: {repository_name}")
             in_out_df = pd.merge(fan_out_df, fan_in_df, on="url", how="outer")
             in_out_df[["fan_out", "fan_in"]] = in_out_df[["fan_out", "fan_in"]].fillna(0).astype(int)
             method_df = pd.read_csv(
@@ -66,6 +67,13 @@ def main(argv: list[str] | None = None) -> None:
             os.makedirs(os.path.dirname(fan_in_count_file), exist_ok=True)
             pd.merge(method_df, in_out_df, on="url", how="inner").to_csv(
                 fan_in_count_file, index=False)
+        else:
+            missing = []
+            if fan_out_df is None:
+                missing.append("callgraph")
+            if fan_in_df is None:
+                missing.append("fanin")
+            print(f"Skipping: {repository_name} (missing {', '.join(missing)} file)")
 
 
 if __name__ == "__main__":

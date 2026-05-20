@@ -130,7 +130,7 @@ def main(argv: list[str] | None = None) -> None:
     for tool in tools:
         csv_files = list_csv_files(method_history_dir / tool, selected_projects, strict=False)
         history_repository_dfs = [
-            pd.read_csv(repository_history_file, keep_default_na=False, na_filter=False)
+            pd.read_csv(repository_history_file, keep_default_na=False, na_filter=False, low_memory=False)
             for repository_history_file in csv_files
         ]
         history_repository_dfs = [df for df in history_repository_dfs if not df.empty]

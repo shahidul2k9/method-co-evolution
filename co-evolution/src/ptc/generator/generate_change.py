@@ -52,6 +52,7 @@ def main() -> None:
             method_history_list = []
             repository_name = zip_file.name[:-len(".tar.gz")]
             if repository_name in repository_name_map:
+                print(f"Processing: {repository_name} [{tool_name}]")
                 repository_url = repository_name_map[repository_name]["url"]
                 repository_hash = repository_name_map[repository_name]["updated_hash"]
                 try:
@@ -122,9 +123,11 @@ def main() -> None:
                     )
                     processed_count += 1
                 else:
+                    print(f"Skipping: {repository_name} [{tool_name}] (missing method file)")
                     warnings.warn(f"Missing method history file for {tool_name} {repository_name}")
                     skipped_count += 1
             else:
+                print(f"Skipping: {repository_name} [{tool_name}] (not in project.csv)")
                 skipped_count += 1
 
         print(

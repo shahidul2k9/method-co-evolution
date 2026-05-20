@@ -131,12 +131,19 @@ def main(argv: list[str] | None = None) -> None:
         method_file = method_dir / f"{project}.csv"
 
         if os.path.exists(fanout_file) and os.path.exists(method_file):
-            print("Processing:", project)
-            fan_out_df = pd.read_csv(fanout_file, na_filter=False, keep_default_na=False)
-            method_df = pd.read_csv(method_file, na_filter=False, keep_default_na=False)
+            print(f"Processing: {project}")
+            fan_out_df = pd.read_csv(fanout_file, na_filter=False, keep_default_na=False, low_memory=False)
+            method_df = pd.read_csv(method_file, na_filter=False, keep_default_na=False, low_memory=False)
             expanded_df = expand_candidate_df(fan_out_df, method_df)
             expanded_file = expanded_t2p_candidate_dir / f"{project}.csv"
             expanded_df.to_csv(expanded_file, index=False)
+        else:
+            missing = []
+            if not os.path.exists(fanout_file):
+                missing.append("callgraph")
+            if not os.path.exists(method_file):
+                missing.append("method")
+            print(f"Skipping: {project} (missing {', '.join(missing)} file)")
 
     print("Finished.")
 
