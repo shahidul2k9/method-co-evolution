@@ -6,7 +6,6 @@ import pandas as pd
 
 import mhc.util as util
 from mhc.artifacts import artifact_group
-from mhc.config import WORKSPACE_DIRECTORY
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
 from ptc.plot_util import (
     GRAPH_STYLES,

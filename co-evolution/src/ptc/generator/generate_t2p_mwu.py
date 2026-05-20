@@ -26,6 +26,7 @@ STAT_COLUMNS = [
     "mwu_d",
     "mwu_size",
 ]
+MIN_METHOD_PAIRS_FOR_MWU = 3
 code_shovel_unsupported_change_set = {
     f"ch_{change_type.name.lower()}" for change_type in CODE_SHOVEL_UNSUPPORTED_CHANGES
 }
@@ -135,6 +136,15 @@ def main(argv: list[str] | None = None) -> None:
 
             for project in projects:
                 project_df = df if project == ALL_REPOSITORY else df[df["project"] == project]
+                project_size = len(project_df)
+                if project_size < MIN_METHOD_PAIRS_FOR_MWU:
+                    warnings.warn(
+                        "Skipping MWU statistics for "
+                        f"project={project}, tool={tool}, strategy={strategy}: "
+                        f"size {project_size} is below minimum threshold {MIN_METHOD_PAIRS_FOR_MWU}."
+                    )
+                    continue
+
                 for change in change_cols:
                     if tool == "codeShovel" and change in code_shovel_unsupported_change_set:
                         continue

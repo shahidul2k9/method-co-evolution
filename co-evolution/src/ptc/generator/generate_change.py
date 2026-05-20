@@ -6,8 +6,15 @@ import warnings
 from pathlib import Path
 import pandas as pd
 import mhc.util as util
+from ptc.constants import MethodChangeType
 from ptc.util.helper import extract_change_count
 from mhc.config import EXPERIMENT_DIRECTORY
+
+CHANGE_COLUMNS = [
+    "ch_all",
+    "ch_diff",
+    *[f"ch_{change_type.name.lower()}" for change_type in MethodChangeType],
+]
 
 
 def iter_tool_history_directories(history_root: Path) -> list[Path]:
@@ -15,6 +22,17 @@ def iter_tool_history_directories(history_root: Path) -> list[Path]:
         return []
 
     return sorted(path for path in history_root.iterdir() if path.is_dir())
+
+
+def order_change_columns(df: pd.DataFrame) -> pd.DataFrame:
+    metadata_columns = [column for column in df.columns if not column.startswith("ch_")]
+    change_columns = [column for column in CHANGE_COLUMNS if column in df.columns]
+    extra_change_columns = [
+        column
+        for column in df.columns
+        if column.startswith("ch_") and column not in change_columns
+    ]
+    return df[metadata_columns + change_columns + extra_change_columns]
 
 
 def main() -> None:
@@ -92,8 +110,15 @@ def main() -> None:
                     )
                     repository_change_history_file = experiment_directory / "method-history" / tool_name / f"{repository_name}.csv"
                     os.makedirs(repository_change_history_file.parent, exist_ok=True)
-                    pd.merge(method_list_df, pd.DataFrame(method_history_list), on="url", how="inner").to_csv(
-                        repository_change_history_file, index=False
+                    repository_change_history_df = pd.merge(
+                        method_list_df,
+                        pd.DataFrame(method_history_list),
+                        on="url",
+                        how="inner",
+                    )
+                    order_change_columns(repository_change_history_df).to_csv(
+                        repository_change_history_file,
+                        index=False,
                     )
                     processed_count += 1
                 else:
