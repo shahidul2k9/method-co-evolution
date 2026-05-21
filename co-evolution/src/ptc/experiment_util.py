@@ -166,12 +166,15 @@ def build_experiment_parser(
     include_filter_toggle: bool = True,
     include_workspace: bool = True,
     include_experiment: bool = True,
+    include_replace: bool = False,
     filter_default: bool | None = None,
+    replace_default: bool = True,
     filters_help: str | None = None,
     tools_help: str | None = None,
     projects_help: str | None = None,
     strategies_help: str | None = None,
     experiment_help: str | None = None,
+    replace_help: str | None = None,
 ) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description)
     if include_workspace:
@@ -217,6 +220,14 @@ def build_experiment_parser(
             type=str,
             default=ME_EXPERIMENT_NAME,
             help=experiment_help or f"Experiment name. Defaults to ME_EXPERIMENT_NAME (currently: {ME_EXPERIMENT_NAME}).",
+        )
+    if include_replace:
+        parser.add_argument(
+            "--replace",
+            dest="replace",
+            action=argparse.BooleanOptionalAction,
+            default=replace_default,
+            help=replace_help or "Regenerate outputs even when output files already exist. Use --no-replace to skip existing outputs.",
         )
     return parser
 
