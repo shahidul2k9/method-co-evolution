@@ -47,7 +47,7 @@ def main(argv: list[str] | None = None) -> None:
     ]
     for tooName in select_named_items(tool_dirs, selected_tools, item_label="tool"):
         for change_file in list_csv_files(experiment_directory / "method-history" / tooName, selected_projects, strict=False):
-            change_df = pd.read_csv(change_file, keep_default_na=False, na_filter=False)
+            change_df = pd.read_csv(change_file, keep_default_na=False, na_filter=False, low_memory=False)
             change_columns = [column for column in selected_change_columns if column in change_df.columns]
             change_df = change_df[["url", *change_columns]]
 

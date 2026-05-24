@@ -134,7 +134,7 @@ def main(argv: list[str] | None = None) -> None:
         getattr(args, "workspace_directory", None),
         args.experiment_name,
     ).experiment_directory
-    stats_file = experiment_directory / "aggregate" / "revision_mwu.csv"
+    stats_file = experiment_directory / "aggregate" / "artifact-revision-mww.csv"
     selected_tools, selected_projects, _ = resolve_experiment_filters(
         tools=args.tools,
         projects=args.projects,
@@ -177,7 +177,7 @@ def main(argv: list[str] | None = None) -> None:
         if tool_df.empty:
             continue
 
-        tex_file = figure_directory / f"revision_mwu--{tool}.tex"
+        tex_file = figure_directory / f"artifact-revision-mww--{tool}.tex"
         tex_file.write_text(render_latex_table(tool, tool_df), encoding="utf-8")
         compile_latex(tex_file)
 

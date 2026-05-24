@@ -16,8 +16,7 @@ except ImportError:  # pragma: no cover
     pd = None
 
 from ptc.constants import ALL_REPOSITORY
-from ptc.generator.t2p_correlation import MIN_METHOD_PAIRS_FOR_MWU
-from ptc.generator.artifact_revision_mww import main
+from ptc.generator.artifact_revision_mww import MIN_REVISION_METHODS_FOR_MWU, main
 
 
 @unittest.skipIf(pd is None, "pandas is required for generate_revision_mwu tests")
@@ -44,9 +43,9 @@ class TestGenerateRevisionMwu(unittest.TestCase):
 
             diff_row = output_df[(output_df["project"] == "demo") & (output_df["change"] == "diff")].iloc[0]
             self.assertEqual("historyFinder", diff_row["tool"])
-            self.assertEqual(MIN_METHOD_PAIRS_FOR_MWU, diff_row["size"])
-            self.assertEqual(MIN_METHOD_PAIRS_FOR_MWU // 2, diff_row["main_size"])
-            self.assertEqual(MIN_METHOD_PAIRS_FOR_MWU // 2, diff_row["test_size"])
+            self.assertEqual(MIN_REVISION_METHODS_FOR_MWU, diff_row["size"])
+            self.assertEqual(MIN_REVISION_METHODS_FOR_MWU // 2, diff_row["main_size"])
+            self.assertEqual(MIN_REVISION_METHODS_FOR_MWU // 2, diff_row["test_size"])
             self.assertIn(diff_row["mwu_size"], {"negligible", "small", "medium", "large"})
             marked_columns = [column for column in ["N", "S", "M", "L"] if diff_row[column] == "x"]
             self.assertEqual(1, len(marked_columns))

@@ -15,10 +15,10 @@ from mhc.command_util import (
     select_revision_columns,
     select_named_items,
 )
-from ptc.generator.t2p_correlation import MIN_METHOD_PAIRS_FOR_MWU
 from ptc.plot_util import man_utest
 
 METHOD_KINDS = ["test-code", "main-code"]
+MIN_REVISION_METHODS_FOR_MWU = 30
 CHANGE_COLUMNS = [
     "ch_all",
     "ch_diff",
@@ -155,11 +155,11 @@ def main(argv: list[str] | None = None) -> None:
         for project in projects:
             project_df = df if project == ALL_REPOSITORY else df[df["project"] == project]
             project_size = len(project_df)
-            if project_size < MIN_METHOD_PAIRS_FOR_MWU:
+            if project_size < MIN_REVISION_METHODS_FOR_MWU:
                 warnings.warn(
                     "Skipping revision MWU statistics for "
                     f"project={project}, tool={tool}: "
-                    f"size {project_size} is below minimum threshold {MIN_METHOD_PAIRS_FOR_MWU}."
+                    f"size {project_size} is below minimum threshold {MIN_REVISION_METHODS_FOR_MWU}."
                 )
                 continue
 
@@ -168,7 +168,7 @@ def main(argv: list[str] | None = None) -> None:
                 if stat_row is not None:
                     stats_rows.append(stat_row)
 
-    stats_output_file = experiment_directory / "aggregate" / "revision_mwu.csv"
+    stats_output_file = experiment_directory / "aggregate" / "artifact-revision-mww.csv"
     os.makedirs(stats_output_file.parent, exist_ok=True)
     stats_df = pd.DataFrame(stats_rows, columns=STAT_COLUMNS)
     if not stats_df.empty:

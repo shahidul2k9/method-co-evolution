@@ -32,7 +32,7 @@ def main(argv: list[str] | None = None) -> None:
         getattr(args, "workspace_directory", None),
         args.experiment_name,
     ).experiment_directory
-    stats_file = experiment_directory / "aggregate" / "t2p-mwu.csv"
+    stats_file = experiment_directory / "aggregate" / "t2p-correlation.csv"
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
         tools=args.tools,
         projects=args.projects,

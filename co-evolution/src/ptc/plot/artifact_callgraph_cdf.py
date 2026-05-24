@@ -97,7 +97,7 @@ def main(argv: list[str] | None = None) -> None:
             ax.grid(True, alpha=0.25)
 
     fig.tight_layout()
-    fig_file = experiment_directory / "figure" / "callgraph-cdf.pdf"
+    fig_file = experiment_directory / "figure" / "artifact-callgraph-cdf.pdf"
     os.makedirs(os.path.dirname(fig_file), exist_ok=True)
     fig.savefig(fig_file, bbox_inches="tight")
     plt.close(fig)

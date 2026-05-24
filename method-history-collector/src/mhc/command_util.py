@@ -45,6 +45,18 @@ def _env_bool(name: str, default: bool | None = False) -> bool | None:
     )
 
 
+def non_negative_int(value: str | int) -> int:
+    try:
+        parsed_value = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"Expected a non-negative integer, got {value!r}.") from exc
+
+    if parsed_value < 0:
+        raise ValueError(f"Expected a non-negative integer, got {value!r}.")
+
+    return parsed_value
+
+
 def _parse_name_list(
     values: str | Sequence[str] | None,
     *,
@@ -119,6 +131,12 @@ def resolve_revision_types(revision_types: str | Sequence[str] | None = None) ->
         else _default_env_value("ME_REVISION_TYPES", config.ME_REVISION_TYPES),
         unrestricted_values=UNRESTRICTED_VALUES,
     )
+
+
+def resolve_min_t2p_links(min_t2p_links: str | int | None = None) -> int:
+    if min_t2p_links is not None:
+        return non_negative_int(min_t2p_links)
+    return non_negative_int(_default_env_value("ME_MIN_T2P_LINKS", config.ME_MIN_T2P_LINKS) or "30")
 
 
 def artifact_matches(artifact: str | None, selected_artifacts: str | Sequence[str] | None = None) -> bool:

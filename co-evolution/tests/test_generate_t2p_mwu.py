@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 import warnings
+from unittest import mock
 
 SRC_DIRECTORY = Path(__file__).resolve().parents[1] / "src"
 MHC_SRC_DIRECTORY = Path(__file__).resolve().parents[2] / "method-history-collector" / "src"
@@ -16,11 +17,20 @@ except ImportError:  # pragma: no cover
     pd = None
 
 from ptc.constants import ALL_REPOSITORY
-from ptc.generator.t2p_correlation import MIN_METHOD_PAIRS_FOR_MWU, main
+from ptc.generator.t2p_correlation import DEFAULT_MIN_T2P_LINKS, build_parser, main
 
 
 @unittest.skipIf(pd is None, "pandas is required for generate_t2p_mwu tests")
 class TestGenerateT2PMwu(unittest.TestCase):
+    def test_default_min_t2p_links_is_30(self):
+        with mock.patch.dict("os.environ", {"ME_MIN_T2P_LINKS": "30"}):
+            parser = build_parser()
+
+        args = parser.parse_args([])
+
+        self.assertEqual(30, DEFAULT_MIN_T2P_LINKS)
+        self.assertEqual(DEFAULT_MIN_T2P_LINKS, args.min_t2p_links)
+
     def test_project_below_threshold_is_skipped_with_warning(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             experiment_dir = self.create_experiment(tmpdir)
@@ -28,7 +38,15 @@ class TestGenerateT2PMwu(unittest.TestCase):
 
             with warnings.catch_warnings(record=True) as caught_warnings:
                 warnings.simplefilter("always")
-                main(["--workspace-directory", tmpdir, "--experiment-name", "demo"])
+                with mock.patch.dict("os.environ", {"ME_REVISION_TYPES": "ch_all"}):
+                    main([
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo",
+                        "--strategies",
+                        "tarantula",
+                    ])
 
             output_df = pd.read_csv(experiment_dir / "aggregate" / "t2p-mwu.csv")
 
@@ -39,7 +57,7 @@ class TestGenerateT2PMwu(unittest.TestCase):
                     "project=small" in message
                     and "tool=historyFinder" in message
                     and "strategy=tarantula" in message
-                    and "size 29 is below minimum threshold 30" in message
+                    and "t2p_links=29 is below min_t2p_links=30" in message
                     for message in warning_messages
                 )
             )
@@ -52,17 +70,92 @@ class TestGenerateT2PMwu(unittest.TestCase):
                 "historyFinder",
                 "tarantula",
                 "threshold",
-                MIN_METHOD_PAIRS_FOR_MWU,
+                DEFAULT_MIN_T2P_LINKS,
             )
 
-            main(["--workspace-directory", tmpdir, "--experiment-name", "demo"])
+            with mock.patch.dict("os.environ", {"ME_REVISION_TYPES": "ch_all"}):
+                main([
+                    "--workspace-directory",
+                    tmpdir,
+                    "--experiment-name",
+                    "demo",
+                    "--strategies",
+                    "tarantula",
+                ])
 
             output_df = pd.read_csv(experiment_dir / "aggregate" / "t2p-mwu.csv")
             project_df = output_df[output_df["project"] == "threshold"]
 
             self.assertEqual(1, len(project_df))
-            self.assertEqual(MIN_METHOD_PAIRS_FOR_MWU, project_df.iloc[0]["size"])
+            self.assertEqual(DEFAULT_MIN_T2P_LINKS, project_df.iloc[0]["size"])
             self.assertEqual("all", project_df.iloc[0]["change"])
+
+    def test_cli_min_t2p_links_allows_smaller_project(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            self.write_t2p_change_rows(experiment_dir, "historyFinder", "tarantula", "small", 29)
+
+            with mock.patch.dict("os.environ", {"ME_REVISION_TYPES": "ch_all"}):
+                main([
+                    "--workspace-directory",
+                    tmpdir,
+                    "--experiment-name",
+                    "demo",
+                    "--strategies",
+                    "tarantula",
+                    "--min-t2p-links",
+                    "29",
+                ])
+
+            output_df = pd.read_csv(experiment_dir / "aggregate" / "t2p-mwu.csv")
+
+            self.assertIn("small", set(output_df["project"]))
+            self.assertEqual([29], output_df.loc[output_df["project"] == "small", "size"].tolist())
+
+    def test_env_min_t2p_links_is_used_when_cli_absent(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            self.write_t2p_change_rows(experiment_dir, "historyFinder", "tarantula", "small", 29)
+
+            with mock.patch.dict("os.environ", {"ME_MIN_T2P_LINKS": "29", "ME_REVISION_TYPES": "ch_all"}):
+                main([
+                    "--workspace-directory",
+                    tmpdir,
+                    "--experiment-name",
+                    "demo",
+                    "--strategies",
+                    "tarantula",
+                ])
+
+            output_df = pd.read_csv(experiment_dir / "aggregate" / "t2p-mwu.csv")
+
+            self.assertIn("small", set(output_df["project"]))
+
+    def test_cli_min_t2p_links_overrides_env(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            self.write_t2p_change_rows(experiment_dir, "historyFinder", "tarantula", "small", 29)
+
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always")
+                with mock.patch.dict("os.environ", {"ME_MIN_T2P_LINKS": "29", "ME_REVISION_TYPES": "ch_all"}):
+                    main([
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo",
+                        "--strategies",
+                        "tarantula",
+                        "--min-t2p-links",
+                        "30",
+                    ])
+
+            output_df = pd.read_csv(experiment_dir / "aggregate" / "t2p-mwu.csv")
+
+            self.assertTrue(output_df.empty)
+            self.assertTrue(
+                any("t2p_links=29 is below min_t2p_links=30" in str(warning.message) for warning in caught_warnings)
+            )
 
     def test_mixed_projects_skip_small_and_keep_qualifying_project(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -73,12 +166,20 @@ class TestGenerateT2PMwu(unittest.TestCase):
                 "historyFinder",
                 "tarantula",
                 "large",
-                MIN_METHOD_PAIRS_FOR_MWU,
+                DEFAULT_MIN_T2P_LINKS,
             )
 
             with warnings.catch_warnings(record=True) as caught_warnings:
                 warnings.simplefilter("always")
-                main(["--workspace-directory", tmpdir, "--experiment-name", "demo"])
+                with mock.patch.dict("os.environ", {"ME_REVISION_TYPES": "ch_all"}):
+                    main([
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo",
+                        "--strategies",
+                        "tarantula",
+                    ])
 
             output_df = pd.read_csv(experiment_dir / "aggregate" / "t2p-mwu.csv")
 
@@ -86,7 +187,7 @@ class TestGenerateT2PMwu(unittest.TestCase):
             self.assertIn("large", set(output_df["project"]))
             self.assertIn(ALL_REPOSITORY, set(output_df["project"]))
             self.assertEqual(
-                [MIN_METHOD_PAIRS_FOR_MWU],
+                [DEFAULT_MIN_T2P_LINKS],
                 output_df.loc[output_df["project"] == "large", "size"].tolist(),
             )
             self.assertTrue(

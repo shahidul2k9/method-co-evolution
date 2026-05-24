@@ -12,7 +12,9 @@ from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
 from mhc.command_util import (
     build_experiment_parser,
     list_csv_files,
+    non_negative_int,
     resolve_experiment_filters,
+    resolve_min_t2p_links,
     resolve_experiment_paths,
     select_revision_columns,
     select_named_items,
@@ -33,17 +35,25 @@ STAT_COLUMNS = [
     "mwu_d",
     "mwu_size",
 ]
-MIN_METHOD_PAIRS_FOR_MWU = 30
+DEFAULT_MIN_T2P_LINKS = 30
 code_shovel_unsupported_change_set = {
     f"ch_{change_type.name.lower()}" for change_type in CODE_SHOVEL_UNSUPPORTED_CHANGES
 }
 
 
 def build_parser():
-    return build_experiment_parser(
+    parser = build_experiment_parser(
         "Aggregate Mann-Whitney U statistics for linked test/production changes.",
         projects_help="Comma-separated project names to process.",
     )
+    parser.add_argument(
+        "--min-t2p-links",
+        dest="min_t2p_links",
+        type=non_negative_int,
+        default=resolve_min_t2p_links(),
+        help="Minimum linked test-production pairs required before correlation statistics are generated. Defaults to ME_MIN_T2P_LINKS.",
+    )
+    return parser
 
 
 def build_stat_row(project: str, tool: str, strategy: str, change: str, pair_df: pd.DataFrame) -> dict | None:
@@ -94,6 +104,7 @@ def main(argv: list[str] | None = None) -> None:
         projects=args.projects,
         strategies=args.strategies,
     )
+    min_t2p_links = args.min_t2p_links
     t2p_change_dir = experiment_directory / "t2p-change"
     if not t2p_change_dir.exists():
         warnings.warn(f"Directory not found, skipping: {t2p_change_dir}")
@@ -145,11 +156,11 @@ def main(argv: list[str] | None = None) -> None:
             for project in projects:
                 project_df = df if project == ALL_REPOSITORY else df[df["project"] == project]
                 project_size = len(project_df)
-                if project_size < MIN_METHOD_PAIRS_FOR_MWU:
+                if project_size < min_t2p_links:
                     warnings.warn(
-                        "Skipping MWU statistics for "
+                        "Skipping "
                         f"project={project}, tool={tool}, strategy={strategy}: "
-                        f"size {project_size} is below minimum threshold {MIN_METHOD_PAIRS_FOR_MWU}."
+                        f"t2p_links={project_size} is below min_t2p_links={min_t2p_links}."
                     )
                     continue
 
@@ -162,7 +173,7 @@ def main(argv: list[str] | None = None) -> None:
                     if stat_row is not None:
                         stats_rows.append(stat_row)
     print(experiment_directory)
-    stats_output_file = experiment_directory / "aggregate" / "t2p-mwu.csv"
+    stats_output_file = experiment_directory / "aggregate" / "t2p-correlation.csv"
     os.makedirs(stats_output_file.parent, exist_ok=True)
     stats_df = pd.DataFrame(stats_rows, columns=STAT_COLUMNS)
     stats_df = stats_df.sort_values(["project", "tool", "strategy", "change"]).reset_index(drop=True)

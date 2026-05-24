@@ -30,6 +30,7 @@ ME_REVISION_TYPES = os.environ.get("ME_REVISION_TYPES", "ch_diff,ch_all")
 ME_PROJECT_INDEX = os.environ.get("ME_PROJECT_INDEX", ":")
 ME_PROJECTS = os.environ.get("ME_PROJECTS", ":")
 ME_REPLACE = os.environ.get("ME_REPLACE")
+ME_MIN_T2P_LINKS = os.environ.get("ME_MIN_T2P_LINKS", "30")
 
 
 def resolve_experiment_name(experiment: str | None = None) -> str:
