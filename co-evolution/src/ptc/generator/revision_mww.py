@@ -13,7 +13,7 @@ from ptc.experiment_util import (
     resolve_experiment_paths,
     select_named_items,
 )
-from ptc.generator.generate_t2p_mwu import MIN_METHOD_PAIRS_FOR_MWU
+from ptc.generator.t2p_correlation import MIN_METHOD_PAIRS_FOR_MWU
 from ptc.plot_util import man_utest
 
 METHOD_KINDS = ["test-code", "main-code"]

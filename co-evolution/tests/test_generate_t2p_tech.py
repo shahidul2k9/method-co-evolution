@@ -14,7 +14,7 @@ try:
 except ImportError:  # pragma: no cover - local shell may not have pandas installed
     pd = None
 
-from ptc.generator.generate_t2p_tech import (
+from ptc.generator.t2p_technique import (
     apply_llm_techniques,
     apply_testlinker_technique,
     apply_traceability_techniques,

@@ -12,7 +12,7 @@ SRC_DIRECTORY = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SRC_DIRECTORY))
 
-from ptc.generator import t2p_link_evaluation
+from ptc.generator import t2p_evaluation
 
 
 class TestT2PLinkEvaluation(unittest.TestCase):

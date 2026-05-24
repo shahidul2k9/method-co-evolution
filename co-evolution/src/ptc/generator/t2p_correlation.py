@@ -26,7 +26,7 @@ STAT_COLUMNS = [
     "mwu_d",
     "mwu_size",
 ]
-MIN_METHOD_PAIRS_FOR_MWU = 3
+MIN_METHOD_PAIRS_FOR_MWU = 30
 code_shovel_unsupported_change_set = {
     f"ch_{change_type.name.lower()}" for change_type in CODE_SHOVEL_UNSUPPORTED_CHANGES
 }
@@ -153,7 +153,7 @@ def main(argv: list[str] | None = None) -> None:
                     stat_row = build_stat_row(project, tool, strategy, change, pair_df)
                     if stat_row is not None:
                         stats_rows.append(stat_row)
-
+    print(experiment_directory)
     stats_output_file = experiment_directory / "aggregate" / "t2p-mwu.csv"
     os.makedirs(stats_output_file.parent, exist_ok=True)
     stats_df = pd.DataFrame(stats_rows, columns=STAT_COLUMNS)

@@ -2,7 +2,7 @@ import os
 
 import matplotlib
 
-from ptc.generator.ground_truth_converter import experiment_directory
+from ptc.generator.t2p_gt_converter import experiment_directory
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt

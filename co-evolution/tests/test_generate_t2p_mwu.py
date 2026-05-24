@@ -16,7 +16,7 @@ except ImportError:  # pragma: no cover
     pd = None
 
 from ptc.constants import ALL_REPOSITORY
-from ptc.generator.generate_t2p_mwu import MIN_METHOD_PAIRS_FOR_MWU, main
+from ptc.generator.t2p_correlation import MIN_METHOD_PAIRS_FOR_MWU, main
 
 
 @unittest.skipIf(pd is None, "pandas is required for generate_t2p_mwu tests")

@@ -277,7 +277,7 @@ def main(argv: list[str] | None = None) -> None:
         t2p_tech_df = pd.read_csv(t2p_tech_file, keep_default_na=False, na_filter=False)
         assert len(t2p_tech_df["project"].unique()) == 1, "Each file must be for the same repository_name"
         repository_name = t2p_tech_df["project"].iloc[0]
-        method_df = pd.read_csv(experiment_directory / "method" / f"{repository_name}.csv", keep_default_na=False, na_filter=False)
+        method_df = pd.read_csv(experiment_directory / "method" / f"{repository_name}.csv", keep_default_na=False, na_filter=False, low_memory=True)
         method_df = method_df[["url", "artifact"]]
 
         t2p_link_df = (t2p_tech_df.merge(method_df.add_prefix("from_"), on="from_url", how="inner")
