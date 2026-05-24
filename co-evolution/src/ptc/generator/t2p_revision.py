@@ -5,11 +5,12 @@ from pathlib import Path
 import pandas as pd
 
 from ptc.constants import MethodChangeType
-from ptc.experiment_util import (
+from mhc.command_util import (
     build_experiment_parser,
     list_csv_files,
     resolve_experiment_filters,
     resolve_experiment_paths,
+    select_revision_columns,
     select_named_items,
 )
 
@@ -23,7 +24,6 @@ CHANGE_COLUMNS = [
 def build_parser():
     return build_experiment_parser(
         "Merge test-to-production links with method change data.",
-        include_tools=False,
         projects_help="Comma-separated project names to process.",
         strategies_help="Comma-separated strategy names to process.",
     )
@@ -35,19 +35,21 @@ def main(argv: list[str] | None = None) -> None:
         getattr(args, "workspace_directory", None),
         args.experiment_name,
     ).experiment_directory
-    _, selected_projects, selected_strategies = resolve_experiment_filters(
-        use_filters=args.use_filters,
+    selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
+        tools=args.tools,
         projects=args.projects,
         strategies=args.strategies,
     )
+    selected_change_columns = select_revision_columns(CHANGE_COLUMNS, preferred_order=CHANGE_COLUMNS)
     tool_dirs = [
         name for name in os.listdir(experiment_directory / "method-history")
         if os.path.isdir(experiment_directory / "method-history" / name)
     ]
-    for tooName in tool_dirs:
+    for tooName in select_named_items(tool_dirs, selected_tools, item_label="tool"):
         for change_file in list_csv_files(experiment_directory / "method-history" / tooName, selected_projects, strict=False):
             change_df = pd.read_csv(change_file, keep_default_na=False, na_filter=False)
-            change_df = change_df[["url", *CHANGE_COLUMNS]]
+            change_columns = [column for column in selected_change_columns if column in change_df.columns]
+            change_df = change_df[["url", *change_columns]]
 
             repository_name = change_file.stem
             t2p_strategy_dirs = [
@@ -67,7 +69,7 @@ def main(argv: list[str] | None = None) -> None:
                                      .merge(change_df.add_prefix("to_"), on="to_url", how="inner"))
                     paired_change_columns = [
                         prefixed_column
-                        for change_column in CHANGE_COLUMNS
+                        for change_column in change_columns
                         for prefixed_column in (f"from_{change_column}", f"to_{change_column}")
                     ]
                     t2p_change_df = t2p_change_df[

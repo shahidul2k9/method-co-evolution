@@ -6,6 +6,7 @@ import warnings
 from pathlib import Path
 import pandas as pd
 import mhc.util as util
+from mhc.command_util import filter_artifact_dataframe, resolve_experiment_filters, select_named_items, select_revision_columns
 from ptc.constants import MethodChangeType
 from ptc.util.helper import extract_change_count
 from mhc.config import EXPERIMENT_DIRECTORY
@@ -26,22 +27,27 @@ def iter_tool_history_directories(history_root: Path) -> list[Path]:
 
 def order_change_columns(df: pd.DataFrame) -> pd.DataFrame:
     metadata_columns = [column for column in df.columns if not column.startswith("ch_")]
-    change_columns = [column for column in CHANGE_COLUMNS if column in df.columns]
-    extra_change_columns = [
-        column
-        for column in df.columns
-        if column.startswith("ch_") and column not in change_columns
-    ]
-    return df[metadata_columns + change_columns + extra_change_columns]
+    change_columns = select_revision_columns(df.columns, preferred_order=CHANGE_COLUMNS)
+    return df[metadata_columns + change_columns]
 
 
 def main() -> None:
     experiment_directory = Path(EXPERIMENT_DIRECTORY)
     repository_df = pd.read_csv(experiment_directory / "project.csv")
+    selected_tools, selected_projects, _ = resolve_experiment_filters()
+    projects = select_named_items(repository_df["project"].tolist(), selected_projects, item_label="project")
+    repository_df = repository_df[repository_df["project"].isin(projects)]
     repository_name_map = {row["project"]: row for row in repository_df.to_dict(orient="records")}
     history_root = experiment_directory / "method-history-gz"
 
-    for tool_directory in iter_tool_history_directories(history_root):
+    tool_directory_map = {path.name: path for path in iter_tool_history_directories(history_root)}
+    tool_names = select_named_items(
+        list(tool_directory_map),
+        selected_tools,
+        item_label="tool",
+    )
+    for tool_name in tool_names:
+        tool_directory = tool_directory_map[tool_name]
         tool_name = tool_directory.name
         processed_count = 0
         skipped_count = 0
@@ -117,7 +123,7 @@ def main() -> None:
                         on="url",
                         how="inner",
                     )
-                    order_change_columns(repository_change_history_df).to_csv(
+                    order_change_columns(filter_artifact_dataframe(repository_change_history_df)).to_csv(
                         repository_change_history_file,
                         index=False,
                     )

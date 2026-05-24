@@ -14,6 +14,8 @@ if str(SRC_DIRECTORY) not in sys.path:
 
 from ptc.generator import t2p_evaluation
 
+t2p_link_evaluation = t2p_evaluation
+
 
 class TestT2PLinkEvaluation(unittest.TestCase):
     def write_config(self, root: Path) -> Path:
@@ -366,7 +368,6 @@ class TestT2PLinkEvaluation(unittest.TestCase):
                             "exp-a",
                             "--ground-truth-config",
                             str(config_file),
-                            "--filters",
                             "--projects",
                             "project-a,missing-project",
                         ]

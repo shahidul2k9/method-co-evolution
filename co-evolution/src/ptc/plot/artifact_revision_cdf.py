@@ -15,9 +15,11 @@ from ptc.plot_util import (
     GRAPH_WIDTHS,
     build_experiment_plot_parser,
     ecdf,
+    filter_artifact_dataframe,
     list_csv_files,
     resolve_experiment_filters,
     resolve_experiment_paths,
+    select_revision_columns,
     select_named_items,
 )
 
@@ -42,9 +44,7 @@ def classify_method_kind(artifact: str | None) -> str | None:
 
 
 def order_change_columns(columns: list[str]) -> list[str]:
-    preferred_columns = [column for column in CHANGE_COLUMNS if column in columns]
-    extra_columns = [column for column in columns if column not in preferred_columns]
-    return preferred_columns + extra_columns
+    return select_revision_columns(columns, preferred_order=CHANGE_COLUMNS, include_extra=False)
 
 
 def build_parser():
@@ -65,7 +65,7 @@ def load_history_repository_dfs(
         strict=False,
     )
     history_repository_dfs = [
-        pd.read_csv(repository_history_file, keep_default_na=False, na_filter=False)
+        pd.read_csv(repository_history_file, keep_default_na=False, na_filter=False, low_memory=False)
         for repository_history_file in csv_files
     ]
     return [df for df in history_repository_dfs if not df.empty]
@@ -78,7 +78,6 @@ def main(argv: list[str] | None = None) -> None:
         args.experiment_name,
     ).experiment_directory
     selected_tools, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         tools=args.tools,
         projects=args.projects,
     )
@@ -105,6 +104,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"No method-history data available to plot for {tool}.")
             continue
 
+        df = filter_artifact_dataframe(df)
         df["method_kind"] = df["artifact"].map(classify_method_kind)
         df = df[df["method_kind"].isin(METHOD_KINDS)]
         if df.empty:
@@ -119,7 +119,7 @@ def main(argv: list[str] | None = None) -> None:
         print(tool)
         plotted_any_tool = True
         projects = select_named_items(
-            sorted(df["project"].unique(), key=str.lower),
+            list(dict.fromkeys(df["project"].dropna())),
             selected_projects,
             item_label="project",
             strict=False,
@@ -186,7 +186,7 @@ def main(argv: list[str] | None = None) -> None:
                 ax.grid(True, alpha=0.25)
 
         fig.tight_layout()
-        fig_file = experiment_directory / "figure" / f"revision-cdf--{tool}.pdf"
+        fig_file = experiment_directory / "figure" / f"artifact-revision-cdf--{tool}.pdf"
         os.makedirs(os.path.dirname(fig_file), exist_ok=True)
         fig.savefig(fig_file, bbox_inches="tight")
         plt.close(fig)

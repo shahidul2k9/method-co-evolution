@@ -17,7 +17,7 @@ from pytctracer.techniques.technique import DISCOUNT_FACTOR
 from pytctracer.techniques.tfidf import TFIDF
 
 import mhc.util as util
-from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
+from mhc.command_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
 from ptc.link_strategy import STRATEGY_KEYS
 
 # ---------------------------
@@ -451,7 +451,6 @@ def main(argv: list[str] | None = None) -> None:
     os.makedirs(output_dir, exist_ok=True)
 
     _, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         projects=args.projects,
     )
     repository_df = pd.read_csv(experiment_directory / "project.csv")

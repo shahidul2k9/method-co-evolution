@@ -19,6 +19,7 @@ from ptc.plot_util import (
     ecdf,
     resolve_experiment_filters,
     resolve_experiment_paths,
+    select_revision_columns,
     select_named_items,
 )
 
@@ -46,7 +47,6 @@ def main(argv: list[str] | None = None) -> None:
     ).experiment_directory
     stats_file = experiment_directory / "aggregate" / "t2p-delta.csv"
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
-        use_filters=args.use_filters,
         tools=args.tools,
         projects=args.projects,
         strategies=args.strategies,
@@ -57,7 +57,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     df = pd.read_csv(stats_file, keep_default_na=False, na_values=[""])
-    change_columns = [column for column in df.columns if column.startswith("ch_")]
+    change_columns = select_revision_columns([column for column in df.columns if column.startswith("ch_")])
     tools = select_named_items(
         sorted(df["tool"].dropna().unique(), key=str.lower),
         selected_tools,
@@ -69,13 +69,12 @@ def main(argv: list[str] | None = None) -> None:
         tool_df = tool_df[tool_df["project"] != ALL_REPOSITORY].copy()
 
         projects = select_named_items(
-            sorted(tool_df["project"].dropna().unique(), key=str.lower),
+            list(dict.fromkeys(tool_df["project"].dropna())),
             selected_projects,
             item_label="project",
             strict=False,
         )
-        if selected_projects is not None:
-            tool_df = tool_df[tool_df["project"].isin(projects)].copy()
+        tool_df = tool_df[tool_df["project"].isin(projects)].copy()
         if tool_df.empty:
             continue
 

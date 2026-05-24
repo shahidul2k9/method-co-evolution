@@ -136,7 +136,6 @@ def main(argv: list[str] | None = None) -> None:
     ).experiment_directory
     stats_file = experiment_directory / "aggregate" / "revision_mwu.csv"
     selected_tools, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         tools=args.tools,
         projects=args.projects,
     )
@@ -152,16 +151,15 @@ def main(argv: list[str] | None = None) -> None:
         raise ValueError(f"Missing required revision MWU column(s): {', '.join(missing_columns)}")
 
     df = df[df["change"] == "diff"].copy()
-    if selected_projects is not None:
-        projects = select_named_items(
-            sorted(df["project"].dropna().unique(), key=str.lower),
-            selected_projects,
-            item_label="project",
-            strict=False,
-        )
-        if ALL_REPOSITORY in set(df["project"]):
-            projects.append(ALL_REPOSITORY)
-        df = df[df["project"].isin(projects)].copy()
+    projects = select_named_items(
+        list(dict.fromkeys(df["project"].dropna())),
+        selected_projects,
+        item_label="project",
+        strict=False,
+    )
+    if ALL_REPOSITORY in set(df["project"]):
+        projects.append(ALL_REPOSITORY)
+    df = df[df["project"].isin(projects)].copy()
     if df.empty:
         print("No revision MWU diff rows found.")
         return

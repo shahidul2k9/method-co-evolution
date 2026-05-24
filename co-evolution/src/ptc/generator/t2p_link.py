@@ -5,7 +5,7 @@ import pandas as pd
 from mhc.artifacts import is_test_case_method, is_main_code
 from pytctracer.config.constants.technique_threshold import TechniqueThreshold
 
-from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths
+from mhc.command_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths
 from ptc.link_strategy import *
 
 LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
@@ -270,7 +270,6 @@ def main(argv: list[str] | None = None) -> None:
         args.experiment_name,
     ).experiment_directory
     _, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         projects=args.projects,
     )
     for t2p_tech_file in list_csv_files(experiment_directory / "t2p-tech", selected_projects, strict=False):

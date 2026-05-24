@@ -9,7 +9,14 @@ from scipy.stats import kendalltau
 import mhc.util as util
 from mhc.artifacts import artifact_group
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
-from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths, select_named_items
+from mhc.command_util import (
+    build_experiment_parser,
+    list_csv_files,
+    resolve_experiment_filters,
+    resolve_experiment_paths,
+    select_revision_columns,
+    select_named_items,
+)
 from ptc.plot_util import man_utest
 
 STAT_COLUMNS = [
@@ -83,7 +90,6 @@ def main(argv: list[str] | None = None) -> None:
     stats_rows = []
 
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
-        use_filters=args.use_filters,
         tools=args.tools,
         projects=args.projects,
         strategies=args.strategies,
@@ -125,9 +131,11 @@ def main(argv: list[str] | None = None) -> None:
             for prefix in ["from_", "to_"]:
                 df[f"{prefix}artifact"] = df[f"{prefix}artifact"].map(artifact_group)
 
-            change_cols = [c[len("from_"):] for c in df.columns if c.startswith("from_ch_")]
+            change_cols = select_revision_columns(
+                [c[len("from_"):] for c in df.columns if c.startswith("from_ch_")]
+            )
             projects = select_named_items(
-                sorted(df["project"].unique(), key=str.lower),
+                list(dict.fromkeys(df["project"].dropna())),
                 selected_projects,
                 item_label="project",
                 strict=False,

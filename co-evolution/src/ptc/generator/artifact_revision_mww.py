@@ -6,11 +6,13 @@ import pandas as pd
 import mhc.util as util
 from mhc.artifacts import is_main_code, is_test_code
 from ptc.constants import ALL_REPOSITORY, MethodChangeType
-from ptc.experiment_util import (
+from mhc.command_util import (
     build_experiment_parser,
+    filter_artifact_dataframe,
     list_csv_files,
     resolve_experiment_filters,
     resolve_experiment_paths,
+    select_revision_columns,
     select_named_items,
 )
 from ptc.generator.t2p_correlation import MIN_METHOD_PAIRS_FOR_MWU
@@ -56,9 +58,7 @@ def classify_method_kind(artifact: str | None) -> str | None:
 
 
 def order_change_columns(columns: list[str]) -> list[str]:
-    preferred_columns = [column for column in CHANGE_COLUMNS if column in columns]
-    extra_columns = [column for column in columns if column not in preferred_columns]
-    return preferred_columns + extra_columns
+    return select_revision_columns(columns, preferred_order=CHANGE_COLUMNS, include_extra=False)
 
 
 def build_parser():
@@ -113,7 +113,6 @@ def main(argv: list[str] | None = None) -> None:
     stats_rows = []
 
     selected_tools, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         tools=args.tools,
         projects=args.projects,
     )
@@ -138,6 +137,7 @@ def main(argv: list[str] | None = None) -> None:
             continue
 
         df = pd.concat(history_repository_dfs, ignore_index=True)
+        df = filter_artifact_dataframe(df)
         df["method_kind"] = df["artifact"].map(classify_method_kind)
         df = df[df["method_kind"].isin(METHOD_KINDS)].copy()
         if df.empty:
@@ -145,7 +145,7 @@ def main(argv: list[str] | None = None) -> None:
 
         change_cols = order_change_columns([c for c in df.columns if c.startswith("ch_")])
         projects = select_named_items(
-            sorted(df["project"].unique(), key=str.lower),
+            list(dict.fromkeys(df["project"].dropna())),
             selected_projects,
             item_label="project",
             strict=False,

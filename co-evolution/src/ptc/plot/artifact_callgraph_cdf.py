@@ -1,10 +1,8 @@
 import os
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from mhc.config import WORKSPACE_DIRECTORY
 from mhc.artifacts import artifact_group
 from ptc.constants import ALL_REPOSITORY
 from ptc.plot_util import (
@@ -12,6 +10,7 @@ from ptc.plot_util import (
     GRAPH_WIDTHS,
     build_experiment_plot_parser,
     ecdf,
+    filter_artifact_dataframe,
     list_csv_files,
     resolve_experiment_filters,
     resolve_experiment_paths,
@@ -34,7 +33,6 @@ def main(argv: list[str] | None = None) -> None:
         args.experiment_name,
     ).experiment_directory
     _, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         projects=args.projects,
     )
 
@@ -55,10 +53,11 @@ def main(argv: list[str] | None = None) -> None:
         print("No call graph data available to plot.")
         return
 
+    df = filter_artifact_dataframe(df)
     df["artifact"] = df["artifact"].map(artifact_group)
 
     projects = select_named_items(
-        sorted(df["project"].unique(), key=str.lower),
+        list(dict.fromkeys(df["project"].dropna())),
         selected_projects,
         item_label="project",
         strict=False,

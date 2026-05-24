@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths
+from mhc.command_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths
 
 
 UNNEEDED_CANDIDATE_COLUMNS = ["from_fqs_alt", "to_fqs_alt"]
@@ -126,7 +126,6 @@ def main(argv: list[str] | None = None) -> None:
     filtered_t2p_candidate_dir = experiment_directory / "t2p-candidate-filtered"
     filtered_t2p_candidate_dir.mkdir(parents=True, exist_ok=True)
     _, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         projects=args.projects,
     )
     if args.t2p_ground_truth_dir:

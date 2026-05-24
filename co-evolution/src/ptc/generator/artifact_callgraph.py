@@ -3,7 +3,13 @@ import os.path
 import pandas as pd
 
 import mhc.util as util
-from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
+from mhc.command_util import (
+    build_experiment_parser,
+    filter_artifact_dataframe,
+    resolve_experiment_filters,
+    resolve_experiment_paths,
+    select_named_items,
+)
 
 
 def build_parser():
@@ -35,7 +41,6 @@ def main(argv: list[str] | None = None) -> None:
         args.experiment_name,
     ).experiment_directory
     _, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         projects=args.projects,
     )
 
@@ -65,7 +70,7 @@ def main(argv: list[str] | None = None) -> None:
             )
             fan_in_count_file = str(experiment_directory / "callgraph-degree" / f"{repository_name}.csv")
             os.makedirs(os.path.dirname(fan_in_count_file), exist_ok=True)
-            pd.merge(method_df, in_out_df, on="url", how="inner").to_csv(
+            pd.merge(method_df, in_out_df, on="url", how="inner").pipe(filter_artifact_dataframe).to_csv(
                 fan_in_count_file, index=False)
         else:
             missing = []

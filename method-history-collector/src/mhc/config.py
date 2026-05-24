@@ -23,6 +23,13 @@ WORKSPACE_DIRECTORY = os.environ["ME_WORKSPACE_DIRECTORY"]
 GITHUB_API_KEY = os.environ["GITHUB_API_KEY"]
 HF_TOKEN = os.environ.get("HF_TOKEN")
 ME_EXPERIMENT_NAME = os.environ.get("ME_EXPERIMENT_NAME")
+ME_TOOLS = os.environ.get("ME_TOOLS", "historyFinder")
+ME_STRATEGIES = os.environ.get("ME_STRATEGIES", "omc,omc--nc--ncc")
+ME_ARTIFACTS = os.environ.get("ME_ARTIFACTS", "main-code,test-code")
+ME_REVISION_TYPES = os.environ.get("ME_REVISION_TYPES", "ch_diff,ch_all")
+ME_PROJECT_INDEX = os.environ.get("ME_PROJECT_INDEX", ":")
+ME_PROJECTS = os.environ.get("ME_PROJECTS", ":")
+ME_REPLACE = os.environ.get("ME_REPLACE")
 
 
 def resolve_experiment_name(experiment: str | None = None) -> str:

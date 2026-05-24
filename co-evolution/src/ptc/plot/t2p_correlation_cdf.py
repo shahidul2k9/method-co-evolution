@@ -15,6 +15,7 @@ from ptc.plot_util import (
     ecdf,
     resolve_experiment_filters,
     resolve_experiment_paths,
+    select_revision_columns,
     select_named_items,
 )
 
@@ -33,7 +34,6 @@ def main(argv: list[str] | None = None) -> None:
     ).experiment_directory
     stats_file = experiment_directory / "aggregate" / "t2p-mwu.csv"
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
-        use_filters=args.use_filters,
         tools=args.tools,
         projects=args.projects,
         strategies=args.strategies,
@@ -55,13 +55,12 @@ def main(argv: list[str] | None = None) -> None:
         tool_df = tool_df[tool_df["project"] != ALL_REPOSITORY].copy()
 
         projects = select_named_items(
-            sorted(tool_df["project"].dropna().unique(), key=str.lower),
+            list(dict.fromkeys(tool_df["project"].dropna())),
             selected_projects,
             item_label="project",
             strict=False,
         )
-        if selected_projects is not None:
-            tool_df = tool_df[tool_df["project"].isin(projects)].copy()
+        tool_df = tool_df[tool_df["project"].isin(projects)].copy()
         if tool_df.empty:
             continue
 
@@ -79,7 +78,13 @@ def main(argv: list[str] | None = None) -> None:
 
         for strategy_index, strategy in enumerate(strategies):
             strategy_df = tool_df[tool_df["strategy"] == strategy].copy()
-            change_names = sorted(strategy_df["change"].dropna().unique(), key=str.lower)
+            available_changes = sorted(strategy_df["change"].dropna().unique(), key=str.lower)
+            change_names = [
+                change.removeprefix("ch_")
+                for change in select_revision_columns(
+                    [change if str(change).startswith("ch_") else f"ch_{change}" for change in available_changes]
+                )
+            ]
 
             corr_ax = axes[strategy_index][0]
             p_ax = axes[strategy_index][1]

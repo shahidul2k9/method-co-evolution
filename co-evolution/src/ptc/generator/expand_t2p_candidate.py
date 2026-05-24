@@ -4,7 +4,7 @@ from collections import defaultdict, deque
 import pandas as pd
 
 from mhc.artifacts import is_test_case_method, is_test_code, is_main_code
-from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
+from mhc.command_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
 
 
 MAX_EXPANSION_DEPTH = 5
@@ -118,7 +118,6 @@ def main(argv: list[str] | None = None) -> None:
     expanded_t2p_candidate_dir = experiment_directory / "t2p-candidate-expanded"
     os.makedirs(expanded_t2p_candidate_dir, exist_ok=True)
     _, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         projects=args.projects,
     )
     repository_df = pd.read_csv(experiment_directory / "project.csv")
