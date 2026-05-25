@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.ticker import MaxNLocator
+from matplotlib.ticker import FuncFormatter, MaxNLocator, NullFormatter
 import pandas as pd
 
 import mhc.util as util
@@ -36,6 +36,8 @@ CODE_SHOVEL_UNSUPPORTED_CHANGE_SET = {
     f"ch_{change_type.name.lower()}" for change_type in CODE_SHOVEL_UNSUPPORTED_CHANGES
 }
 SERIES_COLOR = "tab:blue"
+SYMLIN_THRESHOLD = 10
+SYMLIN_TICKS = [-100, -50, -10, -5, -1, 1, 5, 10, 50, 100]
 
 
 def build_parser():
@@ -58,6 +60,16 @@ def format_percent(count: int, total: int) -> str:
     if total == 0:
         return "0.0%"
     return f"{(count / total) * 100:.1f}%"
+
+
+def format_revision_tick(value: float, _: int) -> str:
+    if abs(value - round(value)) > 1e-9:
+        return ""
+    return format_count(int(round(value)))
+
+
+def revision_axis_ticks(min_x: int, max_x: int) -> list[int]:
+    return [tick for tick in SYMLIN_TICKS if min_x <= tick <= max_x]
 
 
 def build_project_stats(project_df: pd.DataFrame) -> dict[str, int]:
@@ -165,6 +177,23 @@ def delta_cdf(df: pd.DataFrame, change: str) -> pd.Series:
     return frequencies.cumsum() / frequencies.sum()
 
 
+def style_delta_axis(ax, cdf: pd.Series) -> None:
+    min_x = int(cdf.index.min())
+    max_x = int(cdf.index.max())
+    if min_x < -SYMLIN_THRESHOLD or max_x > SYMLIN_THRESHOLD:
+        ax.set_xscale("symlog", linthresh=SYMLIN_THRESHOLD)
+        ticks = revision_axis_ticks(min_x, max_x)
+        if ticks:
+            ax.set_xticks(ticks)
+        ax.set_xticks([], minor=True)
+        ax.xaxis.set_major_formatter(FuncFormatter(format_revision_tick))
+        ax.xaxis.set_minor_formatter(NullFormatter())
+        ax.axvline(-SYMLIN_THRESHOLD, color="gray", linewidth=1, linestyle="--", alpha=0.3)
+        ax.axvline(SYMLIN_THRESHOLD, color="gray", linewidth=1, linestyle="--", alpha=0.3)
+
+    ax.axvline(0, color="black", linewidth=1.2, alpha=0.45)
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     experiment_directory = resolve_experiment_paths(
@@ -249,7 +278,7 @@ def main(argv: list[str] | None = None) -> None:
                 gridspec_kw={"width_ratios": [1.4, *([4] * len(change_cols))]},
                 squeeze=False,
             )
-            fig.supxlabel("test - production revisions", fontsize=20)
+            fig.supxlabel("test - production revisions (linear -10..10, log outside)", fontsize=20)
             fig.supylabel("CDF", fontsize=20)
 
             for project_index, project in enumerate(projects_to_plot):
@@ -305,7 +334,7 @@ def main(argv: list[str] | None = None) -> None:
                                         change_index % len(GRAPH_MARKER_SIZES)
                                     ],
                                 )
-                            ax.axvline(0, color="black", linewidth=1, alpha=0.35)
+                            style_delta_axis(ax, cdf)
 
                     ax.grid(True, alpha=0.25)
 
