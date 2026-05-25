@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import warnings
 
 SRC_DIRECTORY = Path(__file__).resolve().parents[1] / "src"
 MHC_SRC_DIRECTORY = Path(__file__).resolve().parents[2] / "method-history-collector" / "src"
@@ -19,7 +20,7 @@ from ptc.plot.t2p_revision_delta_cdf import delta_cdf, main
 
 @unittest.skipIf(pd is None, "pandas is required for t2p revision delta plot tests")
 class TestT2PRevisionDeltaPlot(unittest.TestCase):
-    def test_delta_cdf_uses_production_minus_test(self):
+    def test_delta_cdf_uses_test_minus_production(self):
         df = pd.DataFrame(
             [
                 {"from_ch_all": 5, "to_ch_all": 0},
@@ -32,7 +33,7 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
         cdf = delta_cdf(df, "ch_all")
 
         self.assertEqual(
-            {-5: 0.25, -4: 0.25, -3: 0.25, -2: 0.25, -1: 0.25, 0: 0.5, 1: 0.5, 2: 1.0},
+            {-2: 0.5, -1: 0.5, 0: 0.75, 1: 0.75, 2: 0.75, 3: 0.75, 4: 0.75, 5: 1.0},
             cdf.to_dict(),
         )
 
@@ -56,6 +57,8 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
                     "nc",
                     "--projects",
                     "projectA",
+                    "--min-t2p-links",
+                    "0",
                 ]
             )
 
@@ -86,11 +89,44 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
                     "nc",
                     "--projects",
                     "projectA",
+                    "--min-t2p-links",
+                    "0",
                 ]
             )
 
             self.assertTrue(
                 (experiment_dir / "figure" / "t2p-revision-delta-cdf--codeShovel--nc.pdf").exists()
+            )
+
+    def test_min_t2p_links_skips_small_projects_with_warning(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            self.write_t2p_change_rows(experiment_dir, "historyFinder", "nc", "projectA")
+
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always")
+                main(
+                    [
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo",
+                        "--tools",
+                        "historyFinder",
+                        "--strategies",
+                        "nc",
+                        "--projects",
+                        "projectA",
+                        "--min-t2p-links",
+                        "4",
+                    ]
+                )
+
+            self.assertFalse(
+                (experiment_dir / "figure" / "t2p-revision-delta-cdf--historyFinder--nc.pdf").exists()
+            )
+            self.assertTrue(
+                any("t2p_links=3 is below min_t2p_links=4" in str(warning.message) for warning in caught_warnings)
             )
 
     def create_experiment(self, workspace_dir: str) -> Path:

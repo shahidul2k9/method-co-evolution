@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import warnings
 
 import matplotlib
 
@@ -11,6 +12,7 @@ import pandas as pd
 
 import mhc.util as util
 from mhc.artifacts import is_main_code, is_test_case_method, is_test_code
+from mhc.command_util import non_negative_int, resolve_min_t2p_links
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES, MethodChangeType
 from ptc.plot_util import (
     GRAPH_MARKER_SIZES,
@@ -37,7 +39,15 @@ SERIES_COLOR = "tab:blue"
 
 
 def build_parser():
-    return build_experiment_plot_parser("Plot production-minus-test revision delta CDFs.")
+    parser = build_experiment_plot_parser("Plot test-minus-production revision delta CDFs.")
+    parser.add_argument(
+        "--min-t2p-links",
+        dest="min_t2p_links",
+        type=non_negative_int,
+        default=resolve_min_t2p_links(),
+        help="Minimum linked test-production pairs required before revision delta CDFs are plotted. Defaults to ME_MIN_T2P_LINKS.",
+    )
+    return parser
 
 
 def format_count(value: int) -> str:
@@ -87,7 +97,16 @@ def draw_row_info_axis(ax, project: str, project_df: pd.DataFrame) -> None:
         linespacing=1.2,
     )
     ax.legend(
-        handles=[Line2D([0], [0], color=SERIES_COLOR, linewidth=GRAPH_WIDTHS[0], linestyle=GRAPH_STYLES[0], label="delta CDF")],
+        handles=[
+            Line2D(
+                [0],
+                [0],
+                color=SERIES_COLOR,
+                linewidth=GRAPH_WIDTHS[0],
+                linestyle=GRAPH_STYLES[0],
+                label="test - production CDF",
+            )
+        ],
         loc="lower left",
         frameon=False,
         fontsize=12,
@@ -132,7 +151,7 @@ def delta_cdf(df: pd.DataFrame, change: str) -> pd.Series:
     if pair_df.empty:
         return pd.Series(dtype="int64")
 
-    delta = (pair_df[f"to_{change}"] - pair_df[f"from_{change}"]).astype("int64")
+    delta = (pair_df[f"from_{change}"] - pair_df[f"to_{change}"]).astype("int64")
     # delta = delta[delta >= 0]
 
     if delta.empty:
@@ -157,6 +176,7 @@ def main(argv: list[str] | None = None) -> None:
         projects=args.projects,
         strategies=args.strategies,
     )
+    min_t2p_links = args.min_t2p_links
 
     t2p_change_directory = experiment_directory / "t2p-change"
     tools = select_named_items(
@@ -191,26 +211,48 @@ def main(argv: list[str] | None = None) -> None:
                 continue
 
             print(tool, strategy)
-            plotted_any = True
             projects = select_named_items(
                 list(dict.fromkeys(df["project"].dropna())),
                 selected_projects,
                 item_label="project",
                 strict=False,
             )
-            projects.append(ALL_REPOSITORY)
+            projects_to_plot = []
+            for project in projects:
+                project_size = len(df[df["project"] == project])
+                if project_size < min_t2p_links:
+                    warnings.warn(
+                        f"Skipping T2P revision delta CDF for project={project}, tool={tool}, strategy={strategy}: "
+                        f"t2p_links={project_size} is below min_t2p_links={min_t2p_links}."
+                    )
+                    continue
+                projects_to_plot.append(project)
+
+            all_size = len(df)
+            if all_size >= min_t2p_links:
+                projects_to_plot.append(ALL_REPOSITORY)
+            else:
+                warnings.warn(
+                    f"Skipping T2P revision delta CDF for project={ALL_REPOSITORY}, tool={tool}, strategy={strategy}: "
+                    f"t2p_links={all_size} is below min_t2p_links={min_t2p_links}."
+                )
+
+            if not projects_to_plot:
+                continue
+
+            plotted_any = True
 
             fig, axes = plt.subplots(
-                len(projects),
+                len(projects_to_plot),
                 len(change_cols) + 1,
-                figsize=(1.8 + 4 * len(change_cols), 3.2 * len(projects)),
+                figsize=(1.8 + 4 * len(change_cols), 3.2 * len(projects_to_plot)),
                 gridspec_kw={"width_ratios": [1.4, *([4] * len(change_cols))]},
                 squeeze=False,
             )
-            fig.supxlabel("production - test revisions", fontsize=20)
+            fig.supxlabel("test - production revisions", fontsize=20)
             fig.supylabel("CDF", fontsize=20)
 
-            for project_index, project in enumerate(projects):
+            for project_index, project in enumerate(projects_to_plot):
                 project_df = df if project == ALL_REPOSITORY else df[df["project"] == project]
                 draw_row_info_axis(axes[project_index][0], project, project_df)
 
@@ -252,16 +294,17 @@ def main(argv: list[str] | None = None) -> None:
                                 linestyle=GRAPH_STYLES[0],
                                 where="post",
                             )
-                            ax.plot(
-                                cdf.index,
-                                cdf.values,
-                                linestyle="None",
-                                color=SERIES_COLOR,
-                                marker=GRAPH_MARKS[change_index % len(GRAPH_MARKS)],
-                                markersize=GRAPH_MARKER_SIZES[
-                                    change_index % len(GRAPH_MARKER_SIZES)
-                                ],
-                            )
+                            if len(change_cols) > 1:
+                                ax.plot(
+                                    cdf.index,
+                                    cdf.values,
+                                    linestyle="None",
+                                    color=SERIES_COLOR,
+                                    marker=GRAPH_MARKS[change_index % len(GRAPH_MARKS)],
+                                    markersize=GRAPH_MARKER_SIZES[
+                                        change_index % len(GRAPH_MARKER_SIZES)
+                                    ],
+                                )
                             ax.axvline(0, color="black", linewidth=1, alpha=0.35)
 
                     ax.grid(True, alpha=0.25)
