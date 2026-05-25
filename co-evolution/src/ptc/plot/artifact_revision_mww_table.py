@@ -14,7 +14,7 @@ from ptc.plot_util import (
     select_named_items,
 )
 
-TABLE_COLUMNS = ["project", "p-value", "d-value", "N", "S", "M", "L"]
+TABLE_COLUMNS = ["project", "p-value", "d-value", "+/-", "N", "S", "M", "L"]
 
 
 def build_parser():
@@ -62,6 +62,21 @@ def order_projects(df: pd.DataFrame) -> pd.DataFrame:
     )
 
 
+_EFFECT_SIZE_HEADER = r"\multicolumn{4}{c}{\textit{Effect size band (Cliff's~$\delta$)}}"
+# Effect size band thresholds follow Romano et al. for Cliff's delta:
+#   N = negligible: |d| < 0.147,  S = small: 0.147 <= |d| < 0.33,
+#   M = medium: 0.33 <= |d| < 0.474,  L = large: |d| >= 0.474
+# Exactly one band column is marked ``x'' per row; the rest are blank.
+_EFFECT_SIZE_NOTE = (
+    r"Effect size bands follow Romano et al.\ thresholds for Cliff's~$\delta$: "
+    r"\textbf{N}~negligible ($|\delta| < 0.147$), "
+    r"\textbf{S}~small ($0.147 \le |\delta| < 0.33$), "
+    r"\textbf{M}~medium ($0.33 \le |\delta| < 0.474$), "
+    r"\textbf{L}~large ($|\delta| \ge 0.474$). "
+    r"Exactly one band column is marked \texttt{x} per row."
+)
+
+
 def render_latex_table(tool: str, table_df: pd.DataFrame) -> str:
     rows = []
     for _, row in order_projects(table_df).iterrows():
@@ -69,8 +84,9 @@ def render_latex_table(tool: str, table_df: pd.DataFrame) -> str:
             " & ".join(
                 [
                     escape_latex(row["project"]),
-                    format_number(row["mwu_p"]),
-                    format_number(row["mwu_d"]),
+                    format_number(row["mww_p"]),
+                    format_number(row["d_value"]),
+                    escape_latex(row["d_sign"]),
                     escape_latex(row["N"]),
                     escape_latex(row["S"]),
                     escape_latex(row["M"]),
@@ -81,22 +97,50 @@ def render_latex_table(tool: str, table_df: pd.DataFrame) -> str:
         )
 
     body = "\n".join(rows)
+    # +/- and N S M L use equal-width centred columns; @{} removes trailing padding so L sits at the far right.
+    _E = r">{\centering\arraybackslash}p{2em}"
+    col_spec = rf"l r r {_E} {_E} {_E} {_E} {_E}@{{}}"
+    header_row = (
+        rf"{escape_latex(TABLE_COLUMNS[0])} & "
+        rf"{escape_latex(TABLE_COLUMNS[1])} & "
+        rf"{escape_latex(TABLE_COLUMNS[2])} & "
+        rf" & "
+        rf"{_EFFECT_SIZE_HEADER} \\"
+    )
+    subheader_row = (
+        rf" & & & "
+        rf"{escape_latex(TABLE_COLUMNS[3])} & "
+        rf"{escape_latex(TABLE_COLUMNS[4])} & "
+        rf"{escape_latex(TABLE_COLUMNS[5])} & "
+        rf"{escape_latex(TABLE_COLUMNS[6])} & "
+        rf"{escape_latex(TABLE_COLUMNS[7])} \\"
+    )
     return rf"""\documentclass{{article}}
 \usepackage[margin=1in]{{geometry}}
+\usepackage{{array}}
 \usepackage{{booktabs}}
 \usepackage{{longtable}}
 
 \begin{{document}}
 
-\section*{{Revision MWU Diff Table: {escape_latex(tool)}}}
+\section*{{Mann–Whitney U test for production and test code revisions}}
 
-\begin{{longtable}}{{lrrrrrr}}
+Two-sided Mann--Whitney U test comparing the number of revision of \textbf{{main-code}} methods versus \textbf{{test-code}} methods
+per project.
+Each row reports the two-sided $p$-value and Cliff's~$\delta$ effect size ($d$).
+{_EFFECT_SIZE_NOTE}
+
+\begin{{longtable}}{{{col_spec}}}
 \toprule
-{escape_latex(TABLE_COLUMNS[0])} & {escape_latex(TABLE_COLUMNS[1])} & {escape_latex(TABLE_COLUMNS[2])} & {escape_latex(TABLE_COLUMNS[3])} & {escape_latex(TABLE_COLUMNS[4])} & {escape_latex(TABLE_COLUMNS[5])} & {escape_latex(TABLE_COLUMNS[6])} \\
+{header_row}
+\cmidrule(l){{5-8}}
+{subheader_row}
 \midrule
 \endfirsthead
 \toprule
-{escape_latex(TABLE_COLUMNS[0])} & {escape_latex(TABLE_COLUMNS[1])} & {escape_latex(TABLE_COLUMNS[2])} & {escape_latex(TABLE_COLUMNS[3])} & {escape_latex(TABLE_COLUMNS[4])} & {escape_latex(TABLE_COLUMNS[5])} & {escape_latex(TABLE_COLUMNS[6])} \\
+{header_row}
+\cmidrule(l){{5-8}}
+{subheader_row}
 \midrule
 \endhead
 {body}
@@ -145,7 +189,7 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     df = pd.read_csv(stats_file, keep_default_na=False, na_values=[""])
-    required_columns = {"project", "tool", "change", "mwu_p", "mwu_d", "N", "S", "M", "L"}
+    required_columns = {"project", "tool", "change", "mww_p", "d_value", "d_sign", "N", "S", "M", "L"}
     missing_columns = sorted(required_columns - set(df.columns))
     if missing_columns:
         raise ValueError(f"Missing required revision MWU column(s): {', '.join(missing_columns)}")

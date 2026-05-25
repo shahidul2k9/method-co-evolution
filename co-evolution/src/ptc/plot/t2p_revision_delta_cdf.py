@@ -5,10 +5,12 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 from matplotlib.ticker import MaxNLocator
 import pandas as pd
 
 import mhc.util as util
+from mhc.artifacts import is_main_code, is_test_case_method, is_test_code
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES, MethodChangeType
 from ptc.plot_util import (
     GRAPH_MARKER_SIZES,
@@ -31,10 +33,67 @@ CHANGE_COLUMNS = [
 CODE_SHOVEL_UNSUPPORTED_CHANGE_SET = {
     f"ch_{change_type.name.lower()}" for change_type in CODE_SHOVEL_UNSUPPORTED_CHANGES
 }
+SERIES_COLOR = "tab:blue"
 
 
 def build_parser():
     return build_experiment_plot_parser("Plot production-minus-test revision delta CDFs.")
+
+
+def format_count(value: int) -> str:
+    return f"{value:,}"
+
+
+def format_percent(count: int, total: int) -> str:
+    if total == 0:
+        return "0.0%"
+    return f"{(count / total) * 100:.1f}%"
+
+
+def build_project_stats(project_df: pd.DataFrame) -> dict[str, int]:
+    total = len(project_df)
+    test_count = 0
+    production_count = 0
+    if "from_artifact" in project_df:
+        test_count = int(
+            project_df["from_artifact"]
+            .map(lambda artifact: is_test_code(artifact) or is_test_case_method(artifact))
+            .sum()
+        )
+    if "to_artifact" in project_df:
+        production_count = int(project_df["to_artifact"].map(is_main_code).sum())
+    return {"total": total, "test": test_count, "production": production_count}
+
+
+def draw_row_info_axis(ax, project: str, project_df: pd.DataFrame) -> None:
+    stats = build_project_stats(project_df)
+    total = stats["total"]
+    ax.axis("off")
+    ax.text(0.5, 0.92, project, transform=ax.transAxes, va="top", ha="center", fontsize=16, fontweight="bold")
+    ax.text(
+        0.0,
+        0.82,
+        "\n".join(
+            [
+                f"total={format_count(total)}",
+                f"test={format_count(stats['test'])} ({format_percent(stats['test'], total)})",
+                f"production={format_count(stats['production'])} ({format_percent(stats['production'], total)})",
+            ]
+        ),
+        transform=ax.transAxes,
+        va="top",
+        ha="left",
+        fontsize=13,
+        linespacing=1.2,
+    )
+    ax.legend(
+        handles=[Line2D([0], [0], color=SERIES_COLOR, linewidth=GRAPH_WIDTHS[0], linestyle=GRAPH_STYLES[0], label="delta CDF")],
+        loc="lower left",
+        frameon=False,
+        fontsize=12,
+        borderaxespad=0,
+        handlelength=2.6,
+    )
 
 
 def load_t2p_change_dfs(
@@ -143,8 +202,9 @@ def main(argv: list[str] | None = None) -> None:
 
             fig, axes = plt.subplots(
                 len(projects),
-                len(change_cols),
-                figsize=(4 * len(change_cols), 3.2 * len(projects)),
+                len(change_cols) + 1,
+                figsize=(1.8 + 4 * len(change_cols), 3.2 * len(projects)),
+                gridspec_kw={"width_ratios": [1.4, *([4] * len(change_cols))]},
                 squeeze=False,
             )
             fig.supxlabel("production - test revisions", fontsize=20)
@@ -152,9 +212,10 @@ def main(argv: list[str] | None = None) -> None:
 
             for project_index, project in enumerate(projects):
                 project_df = df if project == ALL_REPOSITORY else df[df["project"] == project]
+                draw_row_info_axis(axes[project_index][0], project, project_df)
 
                 for change_index, change in enumerate(change_cols):
-                    ax = axes[project_index][change_index]
+                    ax = axes[project_index][change_index + 1]
                     ax.set_title(format_change_name(change), fontsize=18)
                     ax.set_ylim(-0.02, 1.02)
                     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -187,6 +248,7 @@ def main(argv: list[str] | None = None) -> None:
                                 cdf.index,
                                 cdf.values,
                                 linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
+                                color=SERIES_COLOR,
                                 linestyle=GRAPH_STYLES[0],
                                 where="post",
                             )
@@ -194,6 +256,7 @@ def main(argv: list[str] | None = None) -> None:
                                 cdf.index,
                                 cdf.values,
                                 linestyle="None",
+                                color=SERIES_COLOR,
                                 marker=GRAPH_MARKS[change_index % len(GRAPH_MARKS)],
                                 markersize=GRAPH_MARKER_SIZES[
                                     change_index % len(GRAPH_MARKER_SIZES)
@@ -201,17 +264,6 @@ def main(argv: list[str] | None = None) -> None:
                             )
                             ax.axvline(0, color="black", linewidth=1, alpha=0.35)
 
-                    if change_index == 0:
-                        ax.text(
-                            -0.5,
-                            0.5,
-                            project,
-                            transform=ax.transAxes,
-                            rotation=90,
-                            va="center",
-                            ha="center",
-                            fontsize=18,
-                        )
                     ax.grid(True, alpha=0.25)
 
             fig.tight_layout(rect=(0.03, 0.03, 1, 1))

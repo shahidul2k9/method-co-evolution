@@ -5,6 +5,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import pandas as pd
 
 import mhc.util as util
@@ -28,6 +29,10 @@ METHOD_KIND_LABELS = {
     "test-code": "test",
     "main-code": "production",
 }
+METHOD_KIND_COLORS = {
+    "test-code": "tab:blue",
+    "main-code": "tab:orange",
+}
 CHANGE_COLUMNS = [
     "ch_all",
     "ch_diff",
@@ -45,6 +50,79 @@ def classify_method_kind(artifact: str | None) -> str | None:
 
 def order_change_columns(columns: list[str]) -> list[str]:
     return select_revision_columns(columns, preferred_order=CHANGE_COLUMNS, include_extra=False)
+
+
+def format_percent(count: int, total: int) -> str:
+    if total == 0:
+        return "0.0%"
+    return f"{(count / total) * 100:.1f}%"
+
+
+def format_count(value: int) -> str:
+    return f"{value:,}"
+
+
+def build_project_stats(project_df: pd.DataFrame) -> dict[str, int]:
+    total = len(project_df)
+    test_count = int((project_df["method_kind"] == "test-code").sum())
+    production_count = int((project_df["method_kind"] == "main-code").sum())
+    return {
+        "total": total,
+        "test": test_count,
+        "production": production_count,
+    }
+
+
+def draw_row_info_axis(ax, project: str, project_df: pd.DataFrame) -> None:
+    stats = build_project_stats(project_df)
+    total = stats["total"]
+    ax.axis("off")
+    ax.text(
+        0.5,
+        0.92,
+        project,
+        transform=ax.transAxes,
+        va="top",
+        ha="center",
+        fontsize=16,
+        fontweight="bold",
+    )
+    ax.text(
+        0.0,
+        0.82,
+        "\n".join(
+            [
+                f"total={format_count(total)}",
+                f"test={format_count(stats['test'])} ({format_percent(stats['test'], total)})",
+                f"production={format_count(stats['production'])} ({format_percent(stats['production'], total)})",
+            ]
+        ),
+        transform=ax.transAxes,
+        va="top",
+        ha="left",
+        fontsize=13,
+        linespacing=1.2,
+    )
+
+    legend_handles = [
+        Line2D(
+            [0],
+            [0],
+            color=METHOD_KIND_COLORS[method_kind],
+            linewidth=GRAPH_WIDTHS[0],
+            linestyle=GRAPH_STYLES[index % len(GRAPH_STYLES)],
+            label=METHOD_KIND_LABELS[method_kind],
+        )
+        for index, method_kind in enumerate(METHOD_KINDS)
+    ]
+    ax.legend(
+        handles=legend_handles,
+        loc="lower left",
+        frameon=False,
+        fontsize=12,
+        borderaxespad=0,
+        handlelength=2.6,
+    )
 
 
 def build_parser():
@@ -128,16 +206,18 @@ def main(argv: list[str] | None = None) -> None:
 
         fig, axes = plt.subplots(
             len(projects),
-            len(change_cols),
-            figsize=(4 * len(change_cols), 3.2 * len(projects)),
+            len(change_cols) + 1,
+            figsize=(1.8 + 4 * len(change_cols), 3.2 * len(projects)),
+            gridspec_kw={"width_ratios": [1.4, *([4] * len(change_cols))]},
             squeeze=False,
         )
 
         for repository_index, project in enumerate(projects):
             project_df = df if project == ALL_REPOSITORY else df[df["project"] == project]
+            draw_row_info_axis(axes[repository_index][0], project, project_df)
 
             for change_index, change in enumerate(change_cols):
-                ax = axes[repository_index][change_index]
+                ax = axes[repository_index][change_index + 1]
                 ax.set_title(f"{change.replace('ch_', '')}".capitalize(), fontsize=24)
 
                 max_x = 0
@@ -162,6 +242,7 @@ def main(argv: list[str] | None = None) -> None:
                         x,
                         y,
                         linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
+                        color=METHOD_KIND_COLORS[current_method_kind],
                         ls=GRAPH_STYLES[method_kind_index % len(GRAPH_STYLES)],
                         label=METHOD_KIND_LABELS[current_method_kind],
                     )
@@ -171,18 +252,6 @@ def main(argv: list[str] | None = None) -> None:
                     if min_positive_x is not None:
                         ax.set_xlim(left=min_positive_x)
 
-                if change_index == 0:
-                    ax.legend(loc="lower right", fontsize=20)
-                    ax.text(
-                        -0.5,
-                        0.5,
-                        project,
-                        transform=ax.transAxes,
-                        rotation=90,
-                        va="center",
-                        ha="center",
-                        fontsize=24,
-                    )
                 ax.grid(True, alpha=0.25)
 
         fig.tight_layout()

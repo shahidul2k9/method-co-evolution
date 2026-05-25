@@ -37,11 +37,12 @@ STAT_COLUMNS = [
     "size",
     "main_size",
     "test_size",
-    "mwu_u1",
-    "mwu_u2",
-    "mwu_p",
-    "mwu_d",
-    "mwu_size",
+    "mww_u1",
+    "mww_u2",
+    "mww_p",
+    "d_value",
+    "d_sign",
+    "mww_size",
     "N",
     "S",
     "M",
@@ -81,10 +82,11 @@ def build_stat_row(project: str, tool: str, change: str, project_df: pd.DataFram
     if main_change.empty or test_change.empty:
         return None
 
-    mwu_u1, mwu_p, mwu_d, mwu_size = man_utest(main_change, test_change)
-    mwu_u2 = len(main_change) * len(test_change) - mwu_u1
+    mww_u1, mww_p, d_value, mww_size = man_utest(main_change, test_change)
+    mww_u2 = len(main_change) * len(test_change) - mww_u1
+    d_sign = "+" if d_value > 0 else ("-" if d_value < 0 else "=")
     marker_values = {column: "" for column in SIZE_MARKER_COLUMNS.values()}
-    marker_column = SIZE_MARKER_COLUMNS.get(mwu_size)
+    marker_column = SIZE_MARKER_COLUMNS.get(mww_size)
     if marker_column is not None:
         marker_values[marker_column] = "x"
 
@@ -95,11 +97,12 @@ def build_stat_row(project: str, tool: str, change: str, project_df: pd.DataFram
         "size": len(project_df),
         "main_size": len(main_change),
         "test_size": len(test_change),
-        "mwu_u1": round(mwu_u1, 2),
-        "mwu_u2": round(mwu_u2, 2),
-        "mwu_p": round(mwu_p, 2),
-        "mwu_d": round(mwu_d, 2),
-        "mwu_size": mwu_size,
+        "mww_u1": round(mww_u1, 2),
+        "mww_u2": round(mww_u2, 2),
+        "mww_p": round(mww_p, 2),
+        "d_value": round(d_value, 2),
+        "d_sign": d_sign,
+        "mww_size": mww_size,
         **marker_values,
     }
 

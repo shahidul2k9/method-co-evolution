@@ -16,7 +16,7 @@ try:
 except ImportError:  # pragma: no cover
     pd = None
 
-from ptc.plot.artifact_revision_mww import main
+from ptc.plot.artifact_revision_mww_table import main
 
 
 @unittest.skipIf(pd is None, "pandas is required for revision_mwu plot tests")
