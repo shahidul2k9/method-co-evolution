@@ -1,4 +1,5 @@
 import os
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -8,7 +9,16 @@ from scipy.stats import kendalltau
 import mhc.util as util
 from mhc.artifacts import artifact_group
 from ptc.constants import ALL_REPOSITORY, CODE_SHOVEL_UNSUPPORTED_CHANGES
-from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths, select_named_items
+from mhc.command_util import (
+    build_experiment_parser,
+    list_csv_files,
+    non_negative_int,
+    resolve_experiment_filters,
+    resolve_min_t2p_links,
+    resolve_experiment_paths,
+    select_revision_columns,
+    select_named_items,
+)
 from ptc.plot_util import man_utest
 
 STAT_COLUMNS = [
@@ -25,16 +35,25 @@ STAT_COLUMNS = [
     "mwu_d",
     "mwu_size",
 ]
+DEFAULT_MIN_T2P_LINKS = 30
 code_shovel_unsupported_change_set = {
     f"ch_{change_type.name.lower()}" for change_type in CODE_SHOVEL_UNSUPPORTED_CHANGES
 }
 
 
 def build_parser():
-    return build_experiment_parser(
+    parser = build_experiment_parser(
         "Aggregate Mann-Whitney U statistics for linked test/production changes.",
         projects_help="Comma-separated project names to process.",
     )
+    parser.add_argument(
+        "--min-t2p-links",
+        dest="min_t2p_links",
+        type=non_negative_int,
+        default=resolve_min_t2p_links(),
+        help="Minimum linked test-production pairs required before correlation statistics are generated. Defaults to ME_MIN_T2P_LINKS.",
+    )
+    return parser
 
 
 def build_stat_row(project: str, tool: str, strategy: str, change: str, pair_df: pd.DataFrame) -> dict | None:
@@ -81,25 +100,33 @@ def main(argv: list[str] | None = None) -> None:
     stats_rows = []
 
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
-        use_filters=args.use_filters,
         tools=args.tools,
         projects=args.projects,
         strategies=args.strategies,
     )
+    min_t2p_links = args.min_t2p_links
+    t2p_change_dir = experiment_directory / "t2p-change"
+    if not t2p_change_dir.exists():
+        warnings.warn(f"Directory not found, skipping: {t2p_change_dir}")
+        return
     tools = select_named_items(
-        util.sorted_directory_names(experiment_directory / "t2p-change"),
+        util.sorted_directory_names(t2p_change_dir),
         selected_tools,
         item_label="tool",
     )
     for tool in tools:
+        tool_dir = t2p_change_dir / tool
+        if not tool_dir.exists():
+            warnings.warn(f"Tool directory not found, skipping: {tool_dir}")
+            continue
         strategies = select_named_items(
-            util.sorted_directory_names(experiment_directory / "t2p-change" / tool),
+            util.sorted_directory_names(tool_dir),
             selected_strategies,
             item_label="strategy",
         )
         for strategy in strategies:
             csv_files = list_csv_files(
-                experiment_directory / "t2p-change" / tool / strategy,
+                t2p_change_dir / tool / strategy,
                 selected_projects,
                 strict=False,
             )
@@ -115,9 +142,11 @@ def main(argv: list[str] | None = None) -> None:
             for prefix in ["from_", "to_"]:
                 df[f"{prefix}artifact"] = df[f"{prefix}artifact"].map(artifact_group)
 
-            change_cols = [c[len("from_"):] for c in df.columns if c.startswith("from_ch_")]
+            change_cols = select_revision_columns(
+                [c[len("from_"):] for c in df.columns if c.startswith("from_ch_")]
+            )
             projects = select_named_items(
-                sorted(df["project"].unique(), key=str.lower),
+                list(dict.fromkeys(df["project"].dropna())),
                 selected_projects,
                 item_label="project",
                 strict=False,
@@ -126,6 +155,15 @@ def main(argv: list[str] | None = None) -> None:
 
             for project in projects:
                 project_df = df if project == ALL_REPOSITORY else df[df["project"] == project]
+                project_size = len(project_df)
+                if project_size < min_t2p_links:
+                    warnings.warn(
+                        "Skipping "
+                        f"project={project}, tool={tool}, strategy={strategy}: "
+                        f"t2p_links={project_size} is below min_t2p_links={min_t2p_links}."
+                    )
+                    continue
+
                 for change in change_cols:
                     if tool == "codeShovel" and change in code_shovel_unsupported_change_set:
                         continue
@@ -134,8 +172,8 @@ def main(argv: list[str] | None = None) -> None:
                     stat_row = build_stat_row(project, tool, strategy, change, pair_df)
                     if stat_row is not None:
                         stats_rows.append(stat_row)
-
-    stats_output_file = experiment_directory / "aggregate" / "t2p-mwu.csv"
+    print(experiment_directory)
+    stats_output_file = experiment_directory / "aggregate" / "t2p-correlation.csv"
     os.makedirs(stats_output_file.parent, exist_ok=True)
     stats_df = pd.DataFrame(stats_rows, columns=STAT_COLUMNS)
     stats_df = stats_df.sort_values(["project", "tool", "strategy", "change"]).reset_index(drop=True)

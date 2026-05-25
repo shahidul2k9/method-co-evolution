@@ -3,11 +3,13 @@ import argparse
 import numpy as np
 import cliffs_delta
 from scipy.stats import mannwhitneyu
-from ptc.experiment_util import (
+from mhc.command_util import (
     build_experiment_parser,
+    filter_artifact_dataframe,
     list_csv_files,
     resolve_experiment_filters,
     resolve_experiment_paths,
+    select_revision_columns,
     select_named_items,
 )
 
@@ -38,22 +40,18 @@ def build_experiment_plot_parser(
     include_tools: bool = True,
     include_projects: bool = True,
     include_strategies: bool = True,
-    include_filter_toggle: bool = True,
 ) -> "argparse.ArgumentParser":
     return build_experiment_parser(
         description,
         include_tools=include_tools,
         include_projects=include_projects,
         include_strategies=include_strategies,
-        include_filter_toggle=include_filter_toggle,
-        filter_default=None,
-        filters_help="Apply tool, projects, and strategy filters. Use --no-filters to ignore them.",
-        tools_help="Comma-separated tool names to plot. Defaults to ME_EXPERIMENT_TOOLS when filters are enabled.",
+        tools_help="Comma-separated tool names to plot. Defaults to ME_TOOLS.",
         projects_help=(
-            "Comma-separated project names to include. Defaults to ME_EXPERIMENT_PROJECTS when filters are enabled."
+            "Comma-separated project names to include. Defaults to ME_PROJECTS."
         ),
         strategies_help=(
-            "Comma-separated strategy names to include. Defaults to ME_EXPERIMENT_STRATEGIES when filters are enabled."
+            "Comma-separated strategy names to include. Defaults to ME_STRATEGIES."
         ),
     )
 

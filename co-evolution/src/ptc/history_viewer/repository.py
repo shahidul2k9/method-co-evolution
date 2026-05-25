@@ -498,7 +498,7 @@ class HistoryRepository:
 
     @property
     def history_directory(self) -> Path:
-        return self.workspace_directory / "history"
+        return self.workspace_directory / "method-history-gz"
 
     def load_history_from_file(self, file_path: str | Path, tool: str | None = None) -> MethodHistory:
         path = Path(file_path).expanduser()

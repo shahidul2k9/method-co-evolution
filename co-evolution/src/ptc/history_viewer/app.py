@@ -1159,7 +1159,7 @@ class HistoryViewerApp:
 
     def _render_home(self) -> str:
         workspace_dir = html.escape(str(self.repository.workspace_directory))
-        sample_hint = html.escape(str(self.repository.data_directory / "aggregate"))
+        sample_hint = html.escape(str(self.repository.workspace_directory / "t2p-revision-review" / "historyFinder" / "nc"))
         ground_truth_hint = html.escape(str(DEFAULT_GROUND_TRUTH_DIRECTORY))
         return f"""
 <main>

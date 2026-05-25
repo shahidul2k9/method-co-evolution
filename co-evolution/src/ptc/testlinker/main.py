@@ -6,7 +6,7 @@ from pathlib import Path
 import pandas as pd
 from mhc.util import parse_project_index
 
-from ptc.experiment_util import build_experiment_parser, resolve_experiment_paths
+from mhc.command_util import build_experiment_parser, resolve_experiment_paths
 from ptc.testlinker.execute import execute_project
 from ptc.testlinker.postprocess import METHOD_RESOLVERS, postprocess_project
 from ptc.testlinker.preprocess import preprocess_project
@@ -18,7 +18,6 @@ def build_parser() -> argparse.ArgumentParser:
         include_tools=False,
         include_projects=False,
         include_strategies=False,
-        include_filter_toggle=False,
         experiment_help="Experiment name. Defaults to ME_EXPERIMENT_NAME.",
     )
     parser.add_argument("command", choices=["testlinker"], help="Command to execute.")

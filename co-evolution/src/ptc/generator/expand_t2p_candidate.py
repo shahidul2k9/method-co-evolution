@@ -4,7 +4,7 @@ from collections import defaultdict, deque
 import pandas as pd
 
 from mhc.artifacts import is_test_case_method, is_test_code, is_main_code
-from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
+from mhc.command_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
 
 
 MAX_EXPANSION_DEPTH = 5
@@ -118,7 +118,6 @@ def main(argv: list[str] | None = None) -> None:
     expanded_t2p_candidate_dir = experiment_directory / "t2p-candidate-expanded"
     os.makedirs(expanded_t2p_candidate_dir, exist_ok=True)
     _, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         projects=args.projects,
     )
     repository_df = pd.read_csv(experiment_directory / "project.csv")
@@ -131,12 +130,19 @@ def main(argv: list[str] | None = None) -> None:
         method_file = method_dir / f"{project}.csv"
 
         if os.path.exists(fanout_file) and os.path.exists(method_file):
-            print("Processing:", project)
-            fan_out_df = pd.read_csv(fanout_file, na_filter=False, keep_default_na=False)
-            method_df = pd.read_csv(method_file, na_filter=False, keep_default_na=False)
+            print(f"Processing: {project}")
+            fan_out_df = pd.read_csv(fanout_file, na_filter=False, keep_default_na=False, low_memory=False)
+            method_df = pd.read_csv(method_file, na_filter=False, keep_default_na=False, low_memory=False)
             expanded_df = expand_candidate_df(fan_out_df, method_df)
             expanded_file = expanded_t2p_candidate_dir / f"{project}.csv"
             expanded_df.to_csv(expanded_file, index=False)
+        else:
+            missing = []
+            if not os.path.exists(fanout_file):
+                missing.append("callgraph")
+            if not os.path.exists(method_file):
+                missing.append("method")
+            print(f"Skipping: {project} (missing {', '.join(missing)} file)")
 
     print("Finished.")
 

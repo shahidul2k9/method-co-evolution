@@ -5,7 +5,7 @@ import pandas as pd
 from mhc.artifacts import is_test_case_method, is_main_code
 from pytctracer.config.constants.technique_threshold import TechniqueThreshold
 
-from ptc.experiment_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths
+from mhc.command_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths
 from ptc.link_strategy import *
 
 LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
@@ -270,14 +270,13 @@ def main(argv: list[str] | None = None) -> None:
         args.experiment_name,
     ).experiment_directory
     _, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         projects=args.projects,
     )
     for t2p_tech_file in list_csv_files(experiment_directory / "t2p-tech", selected_projects, strict=False):
         t2p_tech_df = pd.read_csv(t2p_tech_file, keep_default_na=False, na_filter=False)
         assert len(t2p_tech_df["project"].unique()) == 1, "Each file must be for the same repository_name"
         repository_name = t2p_tech_df["project"].iloc[0]
-        method_df = pd.read_csv(experiment_directory / "method" / f"{repository_name}.csv", keep_default_na=False, na_filter=False)
+        method_df = pd.read_csv(experiment_directory / "method" / f"{repository_name}.csv", keep_default_na=False, na_filter=False, low_memory=True)
         method_df = method_df[["url", "artifact"]]
 
         t2p_link_df = (t2p_tech_df.merge(method_df.add_prefix("from_"), on="from_url", how="inner")

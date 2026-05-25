@@ -648,6 +648,15 @@ def generate_method_code(
             output_files.append(output_file)
             continue
 
+        if not os.path.exists(input_file):
+            logging.warning(
+                "Skipping %s: method index file not found (%s). "
+                "Run 'mhc scan-method' first to generate it.",
+                repository_name,
+                input_file,
+            )
+            continue
+
         method_df = pd.read_csv(input_file)
         missing_columns = [
             column for column in METHOD_CODE_COLUMNS if column != "code" and column not in method_df.columns

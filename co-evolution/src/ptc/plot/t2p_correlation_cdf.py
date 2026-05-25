@@ -1,6 +1,10 @@
 import os
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import pandas as pd
 
 import mhc.util as util
@@ -15,10 +19,54 @@ from ptc.plot_util import (
     ecdf,
     resolve_experiment_filters,
     resolve_experiment_paths,
+    select_revision_columns,
     select_named_items,
 )
 
 SIZE_ORDER = ["negligible", "small", "medium", "large"]
+
+
+def format_count(value: int) -> str:
+    return f"{value:,}"
+
+
+def change_color_map(changes: list[str]) -> dict[str, str]:
+    colors = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+    return {change: colors[index % len(colors)] for index, change in enumerate(changes)}
+
+
+def draw_row_info_axis(ax, strategy: str, strategy_df: pd.DataFrame, changes: list[str], colors: dict[str, str]) -> None:
+    ax.axis("off")
+    ax.text(0.5, 0.92, strategy, transform=ax.transAxes, va="top", ha="center", fontsize=16, fontweight="bold")
+    ax.text(
+        0.0,
+        0.82,
+        "\n".join(
+            [
+                f"total={format_count(len(strategy_df))}",
+                f"projects={format_count(strategy_df['project'].nunique())}",
+                f"changes={format_count(len(changes))}",
+            ]
+        ),
+        transform=ax.transAxes,
+        va="top",
+        ha="left",
+        fontsize=13,
+        linespacing=1.2,
+    )
+    handles = [
+        Line2D(
+            [0],
+            [0],
+            color=colors[change],
+            linewidth=GRAPH_WIDTHS[index % len(GRAPH_WIDTHS)],
+            linestyle=GRAPH_STYLES[index % len(GRAPH_STYLES)],
+            label=change,
+        )
+        for index, change in enumerate(changes)
+    ]
+    if handles:
+        ax.legend(handles=handles, loc="lower left", frameon=False, fontsize=11, borderaxespad=0, handlelength=2.6)
 
 
 def build_parser():
@@ -31,9 +79,8 @@ def main(argv: list[str] | None = None) -> None:
         getattr(args, "workspace_directory", None),
         args.experiment_name,
     ).experiment_directory
-    stats_file = experiment_directory / "aggregate" / "t2p-mwu.csv"
+    stats_file = experiment_directory / "aggregate" / "t2p-correlation.csv"
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
-        use_filters=args.use_filters,
         tools=args.tools,
         projects=args.projects,
         strategies=args.strategies,
@@ -55,13 +102,12 @@ def main(argv: list[str] | None = None) -> None:
         tool_df = tool_df[tool_df["project"] != ALL_REPOSITORY].copy()
 
         projects = select_named_items(
-            sorted(tool_df["project"].dropna().unique(), key=str.lower),
+            list(dict.fromkeys(tool_df["project"].dropna())),
             selected_projects,
             item_label="project",
             strict=False,
         )
-        if selected_projects is not None:
-            tool_df = tool_df[tool_df["project"].isin(projects)].copy()
+        tool_df = tool_df[tool_df["project"].isin(projects)].copy()
         if tool_df.empty:
             continue
 
@@ -73,17 +119,29 @@ def main(argv: list[str] | None = None) -> None:
         if not strategies:
             continue
 
-        fig, axes = plt.subplots(len(strategies), 3, figsize=(18, 5 * len(strategies)), squeeze=False)
-        legend_handles = None
-        legend_labels = None
+        fig, axes = plt.subplots(
+            len(strategies),
+            4,
+            figsize=(19.8, 5 * len(strategies)),
+            gridspec_kw={"width_ratios": [1.4, 4, 4, 4]},
+            squeeze=False,
+        )
 
         for strategy_index, strategy in enumerate(strategies):
             strategy_df = tool_df[tool_df["strategy"] == strategy].copy()
-            change_names = sorted(strategy_df["change"].dropna().unique(), key=str.lower)
+            available_changes = sorted(strategy_df["change"].dropna().unique(), key=str.lower)
+            change_names = [
+                change.removeprefix("ch_")
+                for change in select_revision_columns(
+                    [change if str(change).startswith("ch_") else f"ch_{change}" for change in available_changes]
+                )
+            ]
+            change_colors = change_color_map(change_names)
+            draw_row_info_axis(axes[strategy_index][0], strategy, strategy_df, change_names, change_colors)
 
-            corr_ax = axes[strategy_index][0]
-            p_ax = axes[strategy_index][1]
-            size_ax = axes[strategy_index][2]
+            corr_ax = axes[strategy_index][1]
+            p_ax = axes[strategy_index][2]
+            size_ax = axes[strategy_index][3]
 
             for line_index, change in enumerate(change_names):
                 change_df = strategy_df[strategy_df["change"] == change]
@@ -95,6 +153,7 @@ def main(argv: list[str] | None = None) -> None:
                         x,
                         y,
                         linewidth=GRAPH_WIDTHS[line_index % len(GRAPH_WIDTHS)],
+                        color=change_colors[change],
                         linestyle=GRAPH_STYLES[line_index % len(GRAPH_STYLES)],
                         where="post",
                         label=change,
@@ -102,6 +161,7 @@ def main(argv: list[str] | None = None) -> None:
                     corr_ax.plot(
                         x,
                         y,
+                        color=change_colors[change],
                         linestyle="None",
                         marker=GRAPH_MARKS[line_index % len(GRAPH_MARKS)],
                         markevery=max(1, GRAPH_GAPS[line_index % len(GRAPH_GAPS)]),
@@ -115,6 +175,7 @@ def main(argv: list[str] | None = None) -> None:
                         x,
                         y,
                         linewidth=GRAPH_WIDTHS[line_index % len(GRAPH_WIDTHS)],
+                        color=change_colors[change],
                         linestyle=GRAPH_STYLES[line_index % len(GRAPH_STYLES)],
                         where="post",
                         label=change,
@@ -122,14 +183,12 @@ def main(argv: list[str] | None = None) -> None:
                     p_ax.plot(
                         x,
                         y,
+                        color=change_colors[change],
                         linestyle="None",
                         marker=GRAPH_MARKS[line_index % len(GRAPH_MARKS)],
                         markevery=max(1, GRAPH_GAPS[line_index % len(GRAPH_GAPS)]),
                         markersize=GRAPH_MARKER_SIZES[line_index % len(GRAPH_MARKER_SIZES)],
                     )
-
-            if strategy_index == 0:
-                legend_handles, legend_labels = corr_ax.get_legend_handles_labels()
 
             size_counts = (
                 strategy_df.dropna(subset=["mwu_size"])
@@ -147,16 +206,6 @@ def main(argv: list[str] | None = None) -> None:
             corr_ax.set_ylabel("ECDF", fontsize=14)
             corr_ax.set_xlim(-1.05, 1.05)
             corr_ax.grid(True, alpha=0.25)
-            corr_ax.text(
-                -0.42,
-                0.5,
-                strategy,
-                transform=corr_ax.transAxes,
-                rotation=90,
-                va="center",
-                ha="center",
-                fontsize=18,
-            )
 
             p_ax.set_title("P-value CDF", fontsize=18)
             p_ax.set_xlabel("mwu_p", fontsize=14)
@@ -165,7 +214,7 @@ def main(argv: list[str] | None = None) -> None:
             p_ax.axvspan(0, 0.05, color="tomato", alpha=0.08)
             p_ax.axvline(0.05, color="tomato", linestyle="--", linewidth=2)
             p_ax.text(
-                0.05,
+                0.0,
                 0.98,
                 "p=0.05",
                 transform=p_ax.get_xaxis_transform(),
@@ -184,17 +233,8 @@ def main(argv: list[str] | None = None) -> None:
             if strategy_index == 0 and not size_counts.empty:
                 size_ax.legend(fontsize=10)
 
-        if legend_handles:
-            fig.legend(
-                legend_handles,
-                legend_labels,
-                loc="upper center",
-                ncol=min(4, len(legend_labels)),
-                fontsize=10,
-            )
-
-        fig.tight_layout(rect=(0, 0, 1, 0.97))
-        fig_file = f"{WORKSPACE_DIRECTORY}/figure/t2p-mwu-cdf/t2p-mwu-cdf--{tool}.pdf"
+        fig.tight_layout()
+        fig_file = experiment_directory / "figure" / f"t2p-correlation-cdf--{tool}.pdf"
         os.makedirs(os.path.dirname(fig_file), exist_ok=True)
         fig.savefig(fig_file, bbox_inches="tight")
         plt.close(fig)

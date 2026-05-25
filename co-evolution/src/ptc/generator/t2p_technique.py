@@ -1,22 +1,23 @@
 import os
 import argparse
 import gc
+from math import log
 import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
 
 import pandas as pd
-from pytctracer.techniques.combined import Combined
 from pytctracer.techniques.last_call_before_assert import LastCallBeforeAssert
 from pytctracer.techniques.levenshtein_distance import *
 from pytctracer.techniques.longest_common_subsequence import *
 from pytctracer.techniques.naming_conventions import *
 from pytctracer.techniques.tarantula import Tarantula
+from pytctracer.techniques.technique import DISCOUNT_FACTOR
 from pytctracer.techniques.tfidf import TFIDF
 
 import mhc.util as util
-from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
+from mhc.command_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
 from ptc.link_strategy import STRATEGY_KEYS
 
 # ---------------------------
@@ -31,8 +32,6 @@ lcsBoth = LongestCommonSubsequenceBoth()
 lcba = LastCallBeforeAssert()
 tarantula = Tarantula()
 tfidf = TFIDF()
-combined = Combined()
-
 def llm_strategy_directory_names() -> list[str]:
     return [
         STRATEGY_KEYS[strategy]
@@ -47,6 +46,7 @@ def build_parser():
         include_tools=False,
         include_strategies=False,
         include_experiment=True,
+        include_replace=True,
         projects_help="Comma-separated project names to process.",
     )
     parser.add_argument(
@@ -58,13 +58,9 @@ def build_parser():
     )
     parser.add_argument(
         "--skip-existing",
-        action="store_true",
-        help="Skip projects whose t2p-tech output CSV already exists.",
-    )
-    parser.add_argument(
-        "--replace",
-        action="store_true",
-        help="Regenerate outputs even when t2p-tech output CSVs already exist.",
+        dest="replace",
+        action="store_false",
+        help="Deprecated alias for --no-replace. Skip projects whose t2p-tech output CSV already exists.",
     )
     return parser
 
@@ -75,7 +71,7 @@ def apply_llm_techniques(
     llm_directory_names: list[str],
     llm_prediction_root: Path,
 ) -> pd.DataFrame:
-    enriched_df = t2p_candidate_df.copy()
+    enriched_df = t2p_candidate_df
 
     for directory_name in llm_directory_names:
         technique_name = directory_name if directory_name.startswith("llm_") else f"llm_{directory_name}"
@@ -83,7 +79,7 @@ def apply_llm_techniques(
         prediction_file = llm_prediction_root / directory_name / f"{project}.csv"
 
         if not prediction_file.exists():
-            enriched_df[column_name] = pd.Series([pd.NA] * len(enriched_df), dtype="Int64")
+            enriched_df[column_name] = pd.Series(pd.NA, index=enriched_df.index, dtype="Int64")
             continue
 
         prediction_df = pd.read_csv(prediction_file, keep_default_na=False, na_filter=False)
@@ -97,10 +93,14 @@ def apply_llm_techniques(
         llm_match_df = (
             prediction_df.loc[:, ["from_url", "to_url", "label_pred"]]
             .drop_duplicates(subset=["from_url", "to_url"], keep="last")
-            .rename(columns={"label_pred": column_name})
         )
-        llm_match_df[column_name] = pd.to_numeric(llm_match_df[column_name], errors="coerce").astype("Int64")
-        enriched_df = enriched_df.merge(llm_match_df, on=["from_url", "to_url"], how="left")
+        pair_index = pd.MultiIndex.from_frame(llm_match_df[["from_url", "to_url"]])
+        prediction_map = pd.Series(
+            pd.to_numeric(llm_match_df["label_pred"], errors="coerce").astype("Int64").array,
+            index=pair_index,
+        )
+        candidate_index = pd.MultiIndex.from_frame(enriched_df[["from_url", "to_url"]])
+        enriched_df[column_name] = candidate_index.map(prediction_map).astype("Int64")
 
     return enriched_df
 
@@ -111,12 +111,12 @@ def apply_testlinker_technique(
     testlinker_prediction_root: Path,
     strategy_name: str = "testlinker",
 ) -> pd.DataFrame:
-    enriched_df = t2p_candidate_df.copy()
+    enriched_df = t2p_candidate_df
     column_name = strategy_name if strategy_name.startswith("tech_") else f"tech_{strategy_name}"
     prediction_file = testlinker_prediction_root / f"{project}.csv"
 
     if not prediction_file.exists():
-        enriched_df[column_name] = pd.Series([pd.NA] * len(enriched_df), dtype="Int64")
+        enriched_df[column_name] = pd.Series(pd.NA, index=enriched_df.index, dtype="Int64")
         return enriched_df
 
     prediction_df = pd.read_csv(prediction_file, keep_default_na=False, na_filter=False)
@@ -130,10 +130,15 @@ def apply_testlinker_technique(
     testlinker_match_df = (
         prediction_df.loc[:, ["from_url", "to_url", "label_pred"]]
         .drop_duplicates(subset=["from_url", "to_url"], keep="last")
-        .rename(columns={"label_pred": column_name})
     )
-    testlinker_match_df[column_name] = pd.to_numeric(testlinker_match_df[column_name], errors="coerce").astype("Int64")
-    return enriched_df.merge(testlinker_match_df, on=["from_url", "to_url"], how="left")
+    pair_index = pd.MultiIndex.from_frame(testlinker_match_df[["from_url", "to_url"]])
+    prediction_map = pd.Series(
+        pd.to_numeric(testlinker_match_df["label_pred"], errors="coerce").astype("Int64").array,
+        index=pair_index,
+    )
+    candidate_index = pd.MultiIndex.from_frame(enriched_df[["from_url", "to_url"]])
+    enriched_df[column_name] = candidate_index.map(prediction_map).astype("Int64")
+    return enriched_df
 
 
 # ---------------------------
@@ -153,23 +158,61 @@ TECHNIQUE_COLUMNS = [
 ]
 
 
-def empty_scores_for_tests(test_names_tuple: list[tuple[str, str]]) -> dict[str, dict[str, float]]:
-    return {test_key: {} for test_key, _ in test_names_tuple}
-
-
 def _method_name(value: object) -> str:
     return str(value or "").lower()
 
 
-def _call_depth(row: pd.Series) -> int:
-    if "to_call_depth" not in row or row["to_call_depth"] == "":
+def _call_depth_value(value: object) -> int:
+    if value == "":
         return 1
 
-    depth = pd.to_numeric(row["to_call_depth"], errors="coerce")
+    depth = pd.to_numeric(value, errors="coerce")
     if pd.isna(depth) or depth < 1:
         return 1
 
     return int(depth)
+
+
+def _normalise_scores(scores: dict[str, float]) -> dict[str, float]:
+    max_score = max(scores.values(), default=0)
+    if max_score <= 0:
+        return scores
+
+    return {
+        function_key: score / max_score
+        for function_key, score in scores.items()
+    }
+
+
+def _name_match_score(function_name: str, test_name: str) -> int:
+    return nc._compute_nc_score(function_name, test_name) if function_name else 0
+
+
+def _name_contains_score(function_name: str, test_name: str) -> int:
+    return ncc._compute_nc_score(function_name, test_name) if function_name else 0
+
+
+def _lcs_b_score(function_name: str, test_name: str) -> float:
+    stripped_test_name = lcsBoth._strip_test_name(test_name)
+    if not function_name and not stripped_test_name:
+        return 0
+
+    return lcsBoth._compute_lcs_score(function_name, test_name)
+
+
+def _lcs_u_score(function_name: str, test_name: str) -> float:
+    if not function_name:
+        return 0
+
+    return lcsUnit._compute_lcs_score(function_name, test_name)
+
+
+def _levenshtein_score(function_name: str, test_name: str) -> float:
+    stripped_test_name = ld._strip_test_name(test_name)
+    if not function_name and not stripped_test_name:
+        return 0
+
+    return ld._compute_levenshtein_score(function_name, test_name)
 
 
 def build_traceability_inputs(t2p_candidate_df: pd.DataFrame):
@@ -180,18 +223,21 @@ def build_traceability_inputs(t2p_candidate_df: pd.DataFrame):
     functions_called_by_test_depth = defaultdict(dict)
     functions_called_by_test_before_assert = defaultdict(set)
 
-    for _, row in t2p_candidate_df.iterrows():
-        test_key = row["from_url"]
-        function_key = row["to_url"]
-        test_names[test_key] = _method_name(row["from_name"])
-        function_names[function_key] = _method_name(row["to_name"])
+    has_lcba = "to_lcba" in t2p_candidate_df.columns
+    has_call_depth = "to_call_depth" in t2p_candidate_df.columns
+
+    for row in t2p_candidate_df.itertuples(index=False):
+        test_key = row.from_url
+        function_key = row.to_url
+        test_names[test_key] = _method_name(row.from_name)
+        function_names[function_key] = _method_name(row.to_name)
         functions_called_by_tests[test_key].add(function_key)
         tests_that_call_functions[function_key].add(test_key)
 
-        if "to_lcba" in row and pd.to_numeric(row["to_lcba"], errors="coerce") > 0:
+        if has_lcba and pd.to_numeric(row.to_lcba, errors="coerce") > 0:
             functions_called_by_test_before_assert[test_key].add(function_key)
 
-        depth = _call_depth(row)
+        depth = _call_depth_value(row.to_call_depth) if has_call_depth else 1
         existing_depth = functions_called_by_test_depth[test_key].get(function_key)
         if existing_depth is None or depth < existing_depth:
             functions_called_by_test_depth[test_key][function_key] = depth
@@ -206,88 +252,101 @@ def build_traceability_inputs(t2p_candidate_df: pd.DataFrame):
         tests_that_call_functions,
         functions_called_by_test_depth,
         functions_called_by_test_before_assert,
+        function_names,
+        test_names,
     )
 
 
 def compute_technique_scores(t2p_candidate_df: pd.DataFrame) -> dict[str, dict[str, dict[str, float]]]:
     (
-        function_names_tuple,
+        _function_names_tuple,
         test_names_tuple,
         functions_called_by_tests,
         tests_that_call_functions,
         functions_called_by_test_depth,
         functions_called_by_test_before_assert,
+        function_names,
+        test_names,
     ) = build_traceability_inputs(t2p_candidate_df)
 
-    tarantula_scores = (
-        tarantula.run(
-            function_names_tuple=function_names_tuple,
-            test_names_tuple=test_names_tuple,
-            functions_called_by_tests=functions_called_by_tests,
-            tests_that_call_functions=tests_that_call_functions,
-            functions_called_by_test_depth=functions_called_by_test_depth,
-        )
-        if len(test_names_tuple) > 1
-        else empty_scores_for_tests(test_names_tuple)
-    )
-
-    scores = {
-        "tech_nc": nc.run(
-            function_names_tuple=function_names_tuple,
-            test_names_tuple=test_names_tuple,
-            functions_called_by_tests=functions_called_by_tests,
-        ),
-        "tech_ncc": ncc.run(
-            function_names_tuple=function_names_tuple,
-            test_names_tuple=test_names_tuple,
-            functions_called_by_tests=functions_called_by_tests,
-        ),
-        "tech_lcs_b": lcsBoth.run(
-            function_names_tuple=function_names_tuple,
-            test_names_tuple=test_names_tuple,
-            functions_called_by_tests=functions_called_by_tests,
-            functions_called_by_test_depth=functions_called_by_test_depth,
-        ),
-        "tech_lcs_u": lcsUnit.run(
-            function_names_tuple=function_names_tuple,
-            test_names_tuple=test_names_tuple,
-            functions_called_by_tests=functions_called_by_tests,
-            functions_called_by_test_depth=functions_called_by_test_depth,
-        ),
-        "tech_leven": ld.run(
-            function_names_tuple=function_names_tuple,
-            test_names_tuple=test_names_tuple,
-            functions_called_by_tests=functions_called_by_tests,
-            functions_called_by_test_depth=functions_called_by_test_depth,
-        ),
-        "tech_lcba": lcba.run(
-            function_names_tuple=function_names_tuple,
-            test_names_tuple=test_names_tuple,
-            functions_called_by_tests=functions_called_by_tests,
-            functions_called_by_test_before_assert=functions_called_by_test_before_assert,
-        ),
-        "tech_tarantula": tarantula_scores,
-        "tech_tfidf": tfidf.run(
-            function_names_tuple=function_names_tuple,
-            test_names_tuple=test_names_tuple,
-            functions_called_by_tests=functions_called_by_tests,
-            tests_that_call_functions=tests_that_call_functions,
-            functions_called_by_test_depth=functions_called_by_test_depth,
-        ),
+    number_of_tests = len(test_names_tuple)
+    idf_scores = {
+        function_key: tfidf._compute_idf_score(function_key, tests_that_call_functions, number_of_tests)
+        for function_key in tests_that_call_functions
     }
-    scores["tech_combined"] = combined.run(scores)
+
+    scores = {column_name: defaultdict(dict) for column_name in TECHNIQUE_COLUMNS}
+
+    for test_key, test_name in test_names.items():
+        functions_called_by_test = functions_called_by_tests[test_key]
+        depths_by_function = functions_called_by_test_depth[test_key]
+        tf_score = (
+            log(1 + 1 / len(functions_called_by_test))
+            if functions_called_by_test
+            else 0
+        )
+        per_test_scores = {column_name: {} for column_name in TECHNIQUE_COLUMNS if column_name != "tech_combined"}
+
+        for function_key in functions_called_by_test:
+            function_name = function_names[function_key]
+            depth = depths_by_function.get(function_key, 1)
+            depth_discount = DISCOUNT_FACTOR ** (depth - 1)
+
+            per_test_scores["tech_nc"][function_key] = _name_match_score(function_name, test_name)
+            per_test_scores["tech_ncc"][function_key] = _name_contains_score(function_name, test_name)
+            per_test_scores["tech_lcs_b"][function_key] = (
+                _lcs_b_score(function_name, test_name) * depth_discount
+            )
+            per_test_scores["tech_lcs_u"][function_key] = (
+                _lcs_u_score(function_name, test_name) * depth_discount
+            )
+            per_test_scores["tech_leven"][function_key] = (
+                _levenshtein_score(function_name, test_name) * depth_discount
+            )
+            per_test_scores["tech_lcba"][function_key] = lcba._compute_lcba_score(
+                function_key,
+                test_key,
+                functions_called_by_test_before_assert,
+            )
+            per_test_scores["tech_tarantula"][function_key] = (
+                tarantula._compute_tarantula_score(
+                    function_key,
+                    tests_that_call_functions,
+                    number_of_tests,
+                ) * depth_discount
+                if number_of_tests > 1
+                else 0
+            )
+            per_test_scores["tech_tfidf"][function_key] = (
+                tf_score * idf_scores[function_key] * depth_discount
+            )
+
+        for column_name in ("tech_lcs_b", "tech_lcs_u", "tech_leven", "tech_tarantula", "tech_tfidf"):
+            per_test_scores[column_name] = _normalise_scores(per_test_scores[column_name])
+
+        combined_scores = {}
+        for function_key in functions_called_by_test:
+            combined_scores[function_key] = sum(
+                per_test_scores[column_name][function_key]
+                for column_name in per_test_scores
+            ) / len(per_test_scores)
+        per_test_scores["tech_combined"] = _normalise_scores(combined_scores)
+
+        for column_name, function_scores in per_test_scores.items():
+            scores[column_name][test_key].update(function_scores)
 
     return scores
 
 
 def apply_traceability_techniques(t2p_candidate_df: pd.DataFrame) -> pd.DataFrame:
-    scored_df = t2p_candidate_df.copy()
+    scored_df = t2p_candidate_df
     scores = compute_technique_scores(scored_df)
 
     for column_name in TECHNIQUE_COLUMNS:
+        score_by_test = scores[column_name]
         scored_df[column_name] = [
-            scores[column_name].get(row["from_url"], {}).get(row["to_url"], 0)
-            for _, row in scored_df.iterrows()
+            score_by_test.get(test_key, {}).get(function_key, 0)
+            for test_key, function_key in zip(scored_df["from_url"], scored_df["to_url"])
         ]
 
     return scored_df
@@ -311,10 +370,8 @@ def run_project_subprocesses(args, projects: list[str]) -> None:
             command.extend(["--workspace-directory", args.workspace_directory])
         if args.experiment_name:
             command.extend(["--experiment-name", args.experiment_name])
-        if args.skip_existing:
-            command.append("--skip-existing")
-        if args.replace:
-            command.append("--replace")
+        if not args.replace:
+            command.append("--no-replace")
         subprocess.run(command, check=True)
 
 
@@ -327,7 +384,6 @@ def process_project(
     output_dir: Path,
     llm_prediction_dir: Path,
     testlinker_output_dir: Path,
-    skip_existing: bool,
     replace: bool,
 ) -> None:
     t2p_candidate_file = t2p_candidate_dir / f"{project}.csv"
@@ -335,7 +391,7 @@ def process_project(
 
     if not os.path.exists(t2p_candidate_file):
         return
-    if skip_existing and os.path.exists(output_file) and not replace:
+    if os.path.exists(output_file) and not replace:
         print("Skipping existing:", project)
         return
 
@@ -393,11 +449,8 @@ def main(argv: list[str] | None = None) -> None:
     testlinker_output_dir = experiment_directory / "testlinker" / "output" / "codet5"
     os.makedirs(t2p_candidate_dir, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
-    if args.skip_existing and args.replace:
-        raise ValueError("--skip-existing and --replace cannot be used together.")
 
     _, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         projects=args.projects,
     )
     repository_df = pd.read_csv(experiment_directory / "project.csv")
@@ -420,7 +473,6 @@ def main(argv: list[str] | None = None) -> None:
             output_dir=output_dir,
             llm_prediction_dir=llm_prediction_dir,
             testlinker_output_dir=testlinker_output_dir,
-            skip_existing=args.skip_existing,
             replace=args.replace,
         )
 

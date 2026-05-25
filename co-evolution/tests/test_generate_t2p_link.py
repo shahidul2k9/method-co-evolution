@@ -11,7 +11,7 @@ try:
 except ImportError:  # pragma: no cover
     pd = None
 
-from ptc.generator.generate_t2p_link import (
+from ptc.generator.t2p_link import (
     filter_test_case_to_main_code_links,
     _llm_stage_column_name,
     select_one_stage_indices,

@@ -3,7 +3,13 @@ import os.path
 import pandas as pd
 
 import mhc.util as util
-from ptc.experiment_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
+from mhc.command_util import (
+    build_experiment_parser,
+    filter_artifact_dataframe,
+    resolve_experiment_filters,
+    resolve_experiment_paths,
+    select_named_items,
+)
 
 
 def build_parser():
@@ -17,7 +23,7 @@ def build_parser():
 
 def read_fan_count_if_exists(fan_file: str, url_column: str, fan_column: str):
     if os.path.exists(fan_file):
-        raw_fan_df = pd.read_csv(fan_file, na_filter=False, keep_default_na=False)
+        raw_fan_df = pd.read_csv(fan_file, na_filter=False, keep_default_na=False, low_memory=False)
         fan_count_df = (
             raw_fan_df[url_column]
             .value_counts()
@@ -35,7 +41,6 @@ def main(argv: list[str] | None = None) -> None:
         args.experiment_name,
     ).experiment_directory
     _, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         projects=args.projects,
     )
 
@@ -54,17 +59,26 @@ def main(argv: list[str] | None = None) -> None:
             fan_dfs.append(read_fan_count_if_exists(fan_file, url_column, fan_column))
         fan_out_df, fan_in_df = fan_dfs
         if fan_out_df is not None and fan_in_df is not None:
+            print(f"Processing: {repository_name}")
             in_out_df = pd.merge(fan_out_df, fan_in_df, on="url", how="outer")
             in_out_df[["fan_out", "fan_in"]] = in_out_df[["fan_out", "fan_in"]].fillna(0).astype(int)
             method_df = pd.read_csv(
                 util.format_method_list_file(str(experiment_directory), repository_name),
                 keep_default_na=False,
                 na_filter=False,
+                low_memory=False,
             )
             fan_in_count_file = str(experiment_directory / "callgraph-degree" / f"{repository_name}.csv")
             os.makedirs(os.path.dirname(fan_in_count_file), exist_ok=True)
-            pd.merge(method_df, in_out_df, on="url", how="inner").to_csv(
+            pd.merge(method_df, in_out_df, on="url", how="inner").pipe(filter_artifact_dataframe).to_csv(
                 fan_in_count_file, index=False)
+        else:
+            missing = []
+            if fan_out_df is None:
+                missing.append("callgraph")
+            if fan_in_df is None:
+                missing.append("fanin")
+            print(f"Skipping: {repository_name} (missing {', '.join(missing)} file)")
 
 
 if __name__ == "__main__":

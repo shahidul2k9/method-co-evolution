@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from sklearn.metrics import precision_score, recall_score, f1_score, matthews_corrcoef
 from mhc.config import PROJECT_DIRECTORY
 from mhc.util import *
-from ptc.experiment_util import (
+from mhc.command_util import (
     build_experiment_parser,
     list_csv_files,
     resolve_experiment_filters,
@@ -377,7 +377,6 @@ def main(argv: list[str] | None = None) -> None:
         exist_ok=True,
     )
     _, selected_projects, _ = resolve_experiment_filters(
-        use_filters=args.use_filters,
         projects=args.projects,
     )
     rows = []
