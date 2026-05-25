@@ -72,9 +72,13 @@ def main(argv: list[str] | None = None) -> None:
                         for change_column in change_columns
                         for prefixed_column in (f"from_{change_column}", f"to_{change_column}")
                     ]
-                    t2p_change_df = t2p_change_df[
-                        list(t2p_tech_df.columns) + paired_change_columns
-                    ]
+                    t2p_change_df["tool"] = tooName
+                    output_columns = list(t2p_tech_df.columns)
+                    if "project" in output_columns:
+                        output_columns.insert(output_columns.index("project") + 1, "tool")
+                    else:
+                        output_columns = ["tool"] + output_columns
+                    t2p_change_df = t2p_change_df[output_columns + paired_change_columns]
 
                     t2p_change_file = experiment_directory / "t2p-change" / tooName / t2p_strategy / change_file.name
                     os.makedirs(t2p_change_file.parent, exist_ok=True)

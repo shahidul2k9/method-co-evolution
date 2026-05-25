@@ -19,6 +19,7 @@ from mhc.command_util import (
 
 REVIEW_COLUMNS = [
     "project",
+    "tool",
     "from_name",
     "to_name",
     "from_url",
@@ -82,10 +83,12 @@ def _format_percent(count: int, total: int) -> str:
     return f"{(count / total) * 100:.1f}%"
 
 
-def _review_frame(frame: pd.DataFrame, project: str) -> pd.DataFrame:
+def _review_frame(frame: pd.DataFrame, project: str, tool: str = "") -> pd.DataFrame:
     review_df = frame.copy()
     if "project" not in review_df:
         review_df["project"] = project
+    if "tool" not in review_df:
+        review_df["tool"] = tool
     for column in REVIEW_COLUMNS:
         if column not in review_df:
             review_df[column] = ""
@@ -198,7 +201,7 @@ def process_project_file(
     if qualifying_count == 0:
         return
 
-    review_df = _review_frame(matched_df, project)
+    review_df = _review_frame(matched_df, project, tool=tool)
     output_file = output_directory / f"{project}.csv"
     existing_keys = _existing_keys(output_file)
     duplicate_mask = review_df[DUPLICATE_KEY_COLUMNS].apply(

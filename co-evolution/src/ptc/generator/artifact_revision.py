@@ -25,6 +25,15 @@ def iter_tool_history_directories(history_root: Path) -> list[Path]:
     return sorted(path for path in history_root.iterdir() if path.is_dir())
 
 
+def move_tool_after_project(df: pd.DataFrame) -> pd.DataFrame:
+    cols = list(df.columns)
+    if "tool" in cols and "project" in cols:
+        cols.remove("tool")
+        project_idx = cols.index("project")
+        cols.insert(project_idx + 1, "tool")
+    return df[cols]
+
+
 def order_change_columns(df: pd.DataFrame) -> pd.DataFrame:
     metadata_columns = [column for column in df.columns if not column.startswith("ch_")]
     change_columns = select_revision_columns(df.columns, preferred_order=CHANGE_COLUMNS)
@@ -102,7 +111,7 @@ def main() -> None:
                                 )
                                 method_history = {
                                     "url": method_url,
-                                    "tool_name": tool_name,
+                                    "tool": tool_name,
                                     "method_file": base_file
                                 }
                                 method_history.update(change_history)
@@ -123,7 +132,7 @@ def main() -> None:
                         on="url",
                         how="inner",
                     )
-                    order_change_columns(filter_artifact_dataframe(repository_change_history_df)).to_csv(
+                    order_change_columns(move_tool_after_project(filter_artifact_dataframe(repository_change_history_df))).to_csv(
                         repository_change_history_file,
                         index=False,
                     )
