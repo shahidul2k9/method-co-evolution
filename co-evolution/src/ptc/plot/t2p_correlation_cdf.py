@@ -214,7 +214,7 @@ def main(argv: list[str] | None = None) -> None:
             p_ax.axvspan(0, 0.05, color="tomato", alpha=0.08)
             p_ax.axvline(0.05, color="tomato", linestyle="--", linewidth=2)
             p_ax.text(
-                0.05,
+                0.0,
                 0.98,
                 "p=0.05",
                 transform=p_ax.get_xaxis_transform(),
@@ -234,7 +234,7 @@ def main(argv: list[str] | None = None) -> None:
                 size_ax.legend(fontsize=10)
 
         fig.tight_layout()
-        fig_file = experiment_directory / "figure" / f"t2p-mwu-cdf--{tool}.pdf"
+        fig_file = experiment_directory / "figure" / f"t2p-correlation-cdf--{tool}.pdf"
         os.makedirs(os.path.dirname(fig_file), exist_ok=True)
         fig.savefig(fig_file, bbox_inches="tight")
         plt.close(fig)

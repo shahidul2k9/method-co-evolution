@@ -78,12 +78,12 @@ def draw_row_info_axis(ax, project: str, project_df: pd.DataFrame) -> None:
     total = stats["total"]
     ax.axis("off")
     ax.text(
-        0.5,
+        0.0,
         0.92,
         project,
         transform=ax.transAxes,
         va="top",
-        ha="center",
+        ha="left",
         fontsize=16,
         fontweight="bold",
     )

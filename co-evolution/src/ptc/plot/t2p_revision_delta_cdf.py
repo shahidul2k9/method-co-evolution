@@ -69,7 +69,7 @@ def draw_row_info_axis(ax, project: str, project_df: pd.DataFrame) -> None:
     stats = build_project_stats(project_df)
     total = stats["total"]
     ax.axis("off")
-    ax.text(0.5, 0.92, project, transform=ax.transAxes, va="top", ha="center", fontsize=16, fontweight="bold")
+    ax.text(0, 0.92, project, transform=ax.transAxes, va="top", ha="left", fontsize=16, fontweight="bold")
     ax.text(
         0.0,
         0.82,
