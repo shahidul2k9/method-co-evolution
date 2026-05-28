@@ -882,6 +882,8 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn('class="sample-tags-input"', body)
         self.assertIn('class="pinned-tags-field"', body)
         self.assertIn(".pinned-tags-field {\n  position: fixed;", body)
+        self.assertIn('input.closest(".pinned-tags-field") || spaceBelow < menuHeight', body)
+        self.assertIn("rect.top - Math.min(menuHeight, availableHeight) - gap", body)
         self.assertNotIn('class="timeline-tag-picker"', body)
         self.assertNotIn('class="timeline-tag-select"', body)
         self.assertNotIn("timeline-tag-add", body)

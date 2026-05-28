@@ -3145,10 +3145,25 @@ function showSampleTagSuggestions(input) {
     sampleTagMenu.appendChild(button);
   }
   const rect = input.getBoundingClientRect();
+  const viewportPadding = 12;
+  const gap = 4;
+  const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
+  const spaceAbove = rect.top - viewportPadding;
   sampleTagMenu.style.left = `${window.scrollX + rect.left}px`;
-  sampleTagMenu.style.top = `${window.scrollY + rect.bottom + 4}px`;
   sampleTagMenu.style.width = `${rect.width}px`;
+  sampleTagMenu.style.maxHeight = `${Math.max(80, Math.min(220, Math.max(spaceAbove, spaceBelow)))}px`;
   sampleTagMenu.style.display = "block";
+  const menuHeight = sampleTagMenu.getBoundingClientRect().height;
+  const shouldOpenAbove = input.closest(".pinned-tags-field") || spaceBelow < menuHeight;
+  if (shouldOpenAbove) {
+    const availableHeight = Math.max(80, Math.min(220, spaceAbove));
+    sampleTagMenu.style.maxHeight = `${availableHeight}px`;
+    sampleTagMenu.style.top = `${window.scrollY + rect.top - Math.min(menuHeight, availableHeight) - gap}px`;
+  } else {
+    const availableHeight = Math.max(80, Math.min(220, spaceBelow));
+    sampleTagMenu.style.maxHeight = `${availableHeight}px`;
+    sampleTagMenu.style.top = `${window.scrollY + rect.bottom + gap}px`;
+  }
 }
 
 function replaceTagInValue(value, oldTag, newTag) {
