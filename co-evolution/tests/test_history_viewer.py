@@ -458,46 +458,6 @@ class TestHistoryViewer(unittest.TestCase):
             sibling_rows = list(csv.DictReader(handle))
         self.assertEqual("#sibling #renamed", sibling_rows[0]["tags"])
 
-    def test_add_existing_sample_tag_updates_current_row_only(self) -> None:
-        csv_path = self.write_sample_review_fixture("sample-review-add-tag")
-        rows = self.repository.read_sample_rows(csv_path)
-
-        result = self.repository.add_existing_sample_tag(
-            csv_path,
-            from_url=rows[0].values["from_url"],
-            to_url=rows[0].values["to_url"],
-            tag="beta",
-        )
-
-        self.assertTrue(result["added"])
-        self.assertEqual("#beta", result["tag"])
-        self.assertEqual("#old #keep #beta", result["tags"])
-        with csv_path.open("r", encoding="utf-8", newline="") as handle:
-            updated_rows = list(csv.DictReader(handle))
-        self.assertEqual("#old #keep #beta", updated_rows[0]["tags"])
-        self.assertEqual("old,beta", updated_rows[1]["tags"])
-        self.assertEqual("", updated_rows[0]["notes"])
-
-        duplicate = self.repository.add_existing_sample_tag(
-            csv_path,
-            from_url=rows[0].values["from_url"],
-            to_url=rows[0].values["to_url"],
-            tag="#beta",
-        )
-        self.assertFalse(duplicate["added"])
-        self.assertEqual("#old #keep #beta", duplicate["tags"])
-
-    def test_add_existing_sample_tag_rejects_invalid_or_unknown_tag(self) -> None:
-        csv_path = self.write_sample_review_fixture("sample-review-add-invalid-tag")
-        row = self.repository.read_sample_rows(csv_path)[0]
-
-        with self.assertRaises(ValueError):
-            self.repository.add_existing_sample_tag(csv_path, from_url=row.values["from_url"], to_url=row.values["to_url"], tag="")
-        with self.assertRaises(ValueError):
-            self.repository.add_existing_sample_tag(csv_path, from_url=row.values["from_url"], to_url=row.values["to_url"], tag="old beta")
-        with self.assertRaises(ValueError):
-            self.repository.add_existing_sample_tag(csv_path, from_url=row.values["from_url"], to_url=row.values["to_url"], tag="unknown")
-
     def test_sample_tag_rename_rejects_blank_or_multi_token_tags(self) -> None:
         csv_path = self.write_sample_review_fixture("sample-review-invalid-rename")
 
@@ -794,33 +754,6 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertEqual("#api-renamed #api", updated_rows[0]["tags"])
         self.assertEqual("1", updated_rows[0]["label"])
 
-    def test_sample_tag_add_api_returns_updated_tags_and_added_state(self) -> None:
-        csv_path = self.write_sample_review_fixture("sample-review-add-api")
-        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
-        rows = self.repository.read_sample_rows(csv_path)
-        payload = urlencode(
-            {
-                "sample_csv": str(csv_path),
-                "from_url": rows[0].values["from_url"],
-                "to_url": rows[0].values["to_url"],
-                "tag": "beta",
-            }
-        ).encode("utf-8")
-
-        body = self.call_app(app, path="/api/sample-tags/add", method="POST", body=payload)
-        response = json.loads(body)
-
-        self.assertTrue(response["ok"])
-        self.assertTrue(response["added"])
-        self.assertEqual("#beta", response["tag"])
-        self.assertEqual("#old #keep #beta", response["tags"])
-
-        duplicate_body = self.call_app(app, path="/api/sample-tags/add", method="POST", body=payload)
-        duplicate_response = json.loads(duplicate_body)
-        self.assertTrue(duplicate_response["ok"])
-        self.assertFalse(duplicate_response["added"])
-        self.assertEqual("#old #keep #beta", duplicate_response["tags"])
-
     def test_ground_truth_batch_update_api_returns_progress(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-batch-api")
         app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
@@ -947,10 +880,12 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn('name="label" value="1"', body)
         self.assertIn('id="sample-tag-options"', body)
         self.assertIn('class="sample-tags-input"', body)
-        self.assertIn('class="timeline-tag-picker"', body)
-        self.assertIn('class="timeline-tag-select"', body)
-        self.assertIn("Add Existing Tag", body)
-        self.assertIn("Add Tag", body)
+        self.assertIn('class="pinned-tags-field"', body)
+        self.assertIn(".pinned-tags-field {\n  position: fixed;", body)
+        self.assertNotIn('class="timeline-tag-picker"', body)
+        self.assertNotIn('class="timeline-tag-select"', body)
+        self.assertNotIn("timeline-tag-add", body)
+        self.assertNotIn("Add Existing Tag", body)
         self.assertIn("Rename Tag", body)
         self.assertIn('id="sample-tag-rename-form"', body)
         self.assertIn(f'href="/sample?sample_csv={quote(str(SAMPLE_CSV), safe="")}"', body)
@@ -973,17 +908,6 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertNotIn("<th>Link</th>", body)
         self.assertNotIn("<th>File</th>", body)
         self.assertNotIn("Actual Source", body)
-
-    def test_timeline_tag_picker_renders_disabled_without_existing_tags(self) -> None:
-        app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
-        csv_path = self.write_sample_review_fixture("sample-review-picker-disabled")
-        sample_row = self.repository.read_sample_rows(csv_path)[0]
-
-        body = app._render_timeline_tag_picker(sample_row=sample_row, sample_csv=str(csv_path), tag_values=[])
-
-        self.assertIn("timeline-tag-picker", body)
-        self.assertIn("No existing tags are available", body)
-        self.assertNotIn("timeline-tag-select", body)
 
     def test_revision_route_uses_first_source_option_as_real_default(self) -> None:
         app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))

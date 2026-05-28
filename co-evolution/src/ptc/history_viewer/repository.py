@@ -1059,56 +1059,6 @@ class HistoryRepository:
             "new_tag": new_normalized,
         }
 
-    def add_existing_sample_tag(
-        self,
-        csv_path: str | Path,
-        *,
-        from_url: str,
-        to_url: str,
-        tag: str,
-    ) -> dict[str, str | bool]:
-        path = Path(csv_path).expanduser()
-        normalized_tag = normalize_single_tag(tag)
-        if normalized_tag not in set(self.collect_sample_tags(path)):
-            raise ValueError("Tag must already exist in the sample CSV folder")
-
-        with path.open("r", encoding="utf-8", newline="") as handle:
-            reader = csv.DictReader(handle)
-            fieldnames = list(reader.fieldnames or [])
-            if "label" not in fieldnames:
-                fieldnames.append("label")
-            if "notes" not in fieldnames:
-                fieldnames.append("notes")
-            if "tags" not in fieldnames:
-                fieldnames.append("tags")
-            rows = [{key: value or "" for key, value in row.items()} for row in reader]
-
-        matched = False
-        added = False
-        updated_tags = ""
-        for row in rows:
-            if row.get("from_url", "") != from_url or row.get("to_url", "") != to_url:
-                continue
-            matched = True
-            tags = parse_ground_truth_tags(row.get("tags", ""))
-            if normalized_tag not in tags:
-                tags.append(normalized_tag)
-                added = True
-            row["tags"] = " ".join(tags)
-            updated_tags = row["tags"]
-            break
-
-        if not matched:
-            raise ValueError("Could not locate the requested row in the sample CSV")
-
-        if added:
-            with path.open("w", encoding="utf-8", newline="") as handle:
-                writer = csv.DictWriter(handle, fieldnames=fieldnames)
-                writer.writeheader()
-                writer.writerows(rows)
-
-        return {"tags": updated_tags, "added": added, "tag": normalized_tag}
-
     def build_revision_url(
         self,
         *,
