@@ -674,7 +674,7 @@ th {
 .ground-truth-tag-menu,
 .tag-suggestion-menu {
   position: absolute;
-  z-index: 20;
+  z-index: 140;
   display: none;
   min-width: 180px;
   max-width: min(320px, 90vw);
@@ -1642,6 +1642,8 @@ class HistoryViewerApp:
             values = row.values
             from_name = values.get("from_name", "")
             to_name = values.get("to_name", "")
+            label_value = values.get("label", "").strip()
+            label_html = html.escape(label_value) if label_value else '<span class="muted">Blank</span>'
             sample_value = sample_row_value(values)
             revision_url = values.get("revision_url") or self.repository.build_revision_url(
                 base_url=base_url,
@@ -1657,6 +1659,7 @@ class HistoryViewerApp:
   <td>{html.escape(values.get('project', ''))}</td>
   <td><strong title="{html.escape(from_name)}">{html.escape(truncate_display_text(from_name))}</strong></td>
   <td><strong title="{html.escape(to_name)}">{html.escape(truncate_display_text(to_name))}</strong></td>
+  <td class="number-cell">{label_html}</td>
   <td class="number-cell">{html.escape(sample_value)}</td>
   <td><a href="{html.escape(revision_url)}" target="_blank" rel="noreferrer">Open</a></td>
   <td>{html.escape(values.get('tags', '')) or '<span class="muted">No tags</span>'}</td>
@@ -1732,6 +1735,7 @@ class HistoryViewerApp:
           <th>Project</th>
           <th>From</th>
           <th>To</th>
+          <th class="number-cell">Label</th>
           <th class="number-cell">Sample</th>
           <th>Revision</th>
           <th>Tags</th>
@@ -2259,7 +2263,7 @@ def render_event_card(entry: CommitEntry | None, *, side: str) -> str:
     <div>{' · '.join(link_lines)}</div>
     <div>
       <div class="eyebrow">Diff</div>
-      {render_diff_html(entry.diff, modal_id=f"diff-modal-{side}-{entry.short_hash}", title=entry.path)}
+      {render_diff_html(entry.diff, modal_id=f"diff-modal-{side}-{entry.short_hash}", title=entry.path, commit_message=entry.commit_message)}
     </div>
   </div>
 </details>
@@ -2328,9 +2332,9 @@ def is_sampled_row(values: dict[str, str]) -> bool:
     return sample_row_value(values) == "1"
 
 
-def is_positive_label(values: dict[str, str]) -> bool:
+def is_labelled_row(values: dict[str, str]) -> bool:
     label = values.get("label", "").strip()
-    return label not in {"", "0"}
+    return label != ""
 
 
 def percent(numerator: int, denominator: int) -> float:
@@ -2361,7 +2365,7 @@ def sample_summary(rows: list[SampleRow]) -> tuple[int, int, float]:
 def progress_summary(rows: list[SampleRow], scope: str) -> tuple[int, int, float]:
     scoped_rows = scoped_sample_rows(rows, scope)
     denominator = len(scoped_rows)
-    labelled = sum(1 for row in scoped_rows if is_positive_label(row.values))
+    labelled = sum(1 for row in scoped_rows if is_labelled_row(row.values))
     return labelled, denominator, percent(labelled, denominator)
 
 
@@ -2547,7 +2551,7 @@ def highlight_java_code(text: str) -> str:
     return escaped
 
 
-def render_diff_html(diff_text: str, *, modal_id: str, title: str = "") -> str:
+def render_diff_html(diff_text: str, *, modal_id: str, title: str = "", commit_message: str = "") -> str:
     if not diff_text.strip():
         return "<pre>No diff captured</pre>"
 
@@ -2557,6 +2561,7 @@ def render_diff_html(diff_text: str, *, modal_id: str, title: str = "") -> str:
     word_rows = []
     inline_scroll_id = f"{modal_id}-inline-scroll"
     source_versions_html = render_source_versions_html(rows)
+    display_commit_message = commit_message.strip() or "No commit message"
     for row in rows:
         if row["kind"] == "hunk":
             hunk_row = f'<tr class="diff-hunk"><td class="diff-line-no"></td><td class="diff-code" colspan="2">{html.escape(row["text"])}</td></tr>'
@@ -2668,6 +2673,7 @@ def render_diff_html(diff_text: str, *, modal_id: str, title: str = "") -> str:
     <div class="diff-modal-header">
       <div style="display:grid; gap:4px;">
         <strong>Split Diff View</strong>
+        <span>{html.escape(display_commit_message)}</span>
         <span class="mono muted">{html.escape(title)}</span>
       </div>
       <button type="button" class="secondary diff-modal-close" data-modal-id="{html.escape(modal_id)}">Close</button>
@@ -3147,6 +3153,7 @@ function showSampleTagSuggestions(input) {
   const rect = input.getBoundingClientRect();
   const viewportPadding = 12;
   const gap = 4;
+  const pinnedGap = 14;
   const spaceBelow = window.innerHeight - rect.bottom - viewportPadding;
   const spaceAbove = rect.top - viewportPadding;
   sampleTagMenu.style.left = `${window.scrollX + rect.left}px`;
@@ -3154,11 +3161,13 @@ function showSampleTagSuggestions(input) {
   sampleTagMenu.style.maxHeight = `${Math.max(80, Math.min(220, Math.max(spaceAbove, spaceBelow)))}px`;
   sampleTagMenu.style.display = "block";
   const menuHeight = sampleTagMenu.getBoundingClientRect().height;
-  const shouldOpenAbove = input.closest(".pinned-tags-field") || spaceBelow < menuHeight;
+  const pinnedTagsField = input.closest(".pinned-tags-field");
+  const shouldOpenAbove = pinnedTagsField || spaceBelow < menuHeight;
   if (shouldOpenAbove) {
+    const upwardGap = pinnedTagsField ? pinnedGap : gap;
     const availableHeight = Math.max(80, Math.min(220, spaceAbove));
     sampleTagMenu.style.maxHeight = `${availableHeight}px`;
-    sampleTagMenu.style.top = `${window.scrollY + rect.top - Math.min(menuHeight, availableHeight) - gap}px`;
+    sampleTagMenu.style.top = `${window.scrollY + rect.top - Math.min(menuHeight, availableHeight) - upwardGap}px`;
   } else {
     const availableHeight = Math.max(80, Math.min(220, spaceBelow));
     sampleTagMenu.style.maxHeight = `${availableHeight}px`;

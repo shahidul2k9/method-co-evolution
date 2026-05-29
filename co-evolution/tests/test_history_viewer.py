@@ -21,13 +21,14 @@ from ptc.history_viewer.app import (
     create_app,
     format_commit_datetime,
     parse_unified_diff,
+    progress_summary,
     render_change_count_summary_table,
     render_change_count_trend,
     render_change_chip,
     render_diff_html,
     truncate_display_text,
 )
-from ptc.history_viewer.repository import HistoryRepository, parse_commit_datetime, parse_method_url
+from ptc.history_viewer.repository import HistoryRepository, SampleRow, parse_commit_datetime, parse_method_url
 
 
 WORKSPACE_DIRECTORY = REPOSITORY_ROOT / "workspace" / "experiment" / "main"
@@ -303,7 +304,7 @@ class TestHistoryViewer(unittest.TestCase):
         diff_text = "@@ -1,2 +1,2 @@\n-return 1;\n+return 2;\n // sharedLine\n"
 
         rows = parse_unified_diff(diff_text)
-        html_output = render_diff_html(diff_text, modal_id="diff-modal-test", title="Example.java")
+        html_output = render_diff_html(diff_text, modal_id="diff-modal-test", title="Example.java", commit_message="Fix example output")
 
         self.assertTrue(any(row["kind"] == "change" for row in rows))
         self.assertIn("diff-cell-del", html_output)
@@ -311,6 +312,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("Open split view", html_output)
         self.assertIn('id="diff-modal-test"', html_output)
         self.assertIn("Split Diff View", html_output)
+        self.assertIn("Fix example output", html_output)
         self.assertIn("Word diff", html_output)
         self.assertIn("Word View", html_output)
         self.assertIn("Example.java", html_output)
@@ -324,6 +326,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn('data-scroll-direction="right"', html_output)
         self.assertNotIn("diff-unified-prefix", html_output)
         self.assertNotIn(">±<", html_output)
+        self.assertIn("No commit message", render_diff_html(diff_text, modal_id="diff-modal-blank", title="Example.java"))
 
     def test_parse_commit_datetime_supports_year_month_day_24_hour_input(self) -> None:
         parsed = parse_commit_datetime("20/12/16 23:30 PM")
@@ -882,8 +885,10 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn('class="sample-tags-input"', body)
         self.assertIn('class="pinned-tags-field"', body)
         self.assertIn(".pinned-tags-field {\n  position: fixed;", body)
-        self.assertIn('input.closest(".pinned-tags-field") || spaceBelow < menuHeight', body)
-        self.assertIn("rect.top - Math.min(menuHeight, availableHeight) - gap", body)
+        self.assertIn("z-index: 140;", body)
+        self.assertIn("const pinnedGap = 14;", body)
+        self.assertIn('const pinnedTagsField = input.closest(".pinned-tags-field");', body)
+        self.assertIn("rect.top - Math.min(menuHeight, availableHeight) - upwardGap", body)
         self.assertNotIn('class="timeline-tag-picker"', body)
         self.assertNotIn('class="timeline-tag-select"', body)
         self.assertNotIn("timeline-tag-add", body)
@@ -962,7 +967,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("<th class=\"number-cell\">Sample</th>", body)
         self.assertIn("<th class=\"number-cell\">Progress</th>", body)
         self.assertIn("1 (50.0%)/2", body)
-        self.assertIn("0 (0.0%)/1", body)
+        self.assertIn("1 (100.0%)/1", body)
         self.assertNotIn("<th>Path</th>", body)
 
         all_body = self.call_app(
@@ -991,6 +996,10 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("Showing 1-1 of 1 sampled links (2 total links in this CSV).", body)
         self.assertIn("testAlpha", body)
         self.assertNotIn("testBeta", body)
+        self.assertLess(body.index("<th>To</th>"), body.index("<th class=\"number-cell\">Label</th>"))
+        self.assertLess(body.index("<th class=\"number-cell\">Label</th>"), body.index("<th class=\"number-cell\">Sample</th>"))
+        self.assertIn("<th class=\"number-cell\">Label</th>", body)
+        self.assertIn('<td class="number-cell"><span class="muted">Blank</span></td>', body)
         self.assertIn("<th class=\"number-cell\">Sample</th>", body)
         self.assertIn("<td class=\"number-cell\">1</td>", body)
         self.assertIn(">Open</a>", body)
@@ -1007,6 +1016,24 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("Showing 1-2 of 2 all links (2 total links in this CSV).", all_body)
         self.assertIn("testBeta", all_body)
         self.assertIn("<strong>1 (50.0%)/2</strong>", all_body)
+        self.assertIn('<td class="number-cell">1</td>', all_body)
+
+    def test_progress_summary_counts_zero_as_labelled(self) -> None:
+        rows = [
+            SampleRow(Path("sample.csv"), 0, {"sample": "1", "label": "0"}),
+            SampleRow(Path("sample.csv"), 1, {"sample": "1", "label": ""}),
+            SampleRow(Path("sample.csv"), 2, {"sample": "0", "label": "1"}),
+        ]
+
+        sampled_count, sampled_total, sampled_percent = progress_summary(rows, "sampled")
+        all_count, all_total, all_percent = progress_summary(rows, "all")
+
+        self.assertEqual(1, sampled_count)
+        self.assertEqual(2, sampled_total)
+        self.assertAlmostEqual(50.0, sampled_percent)
+        self.assertEqual(2, all_count)
+        self.assertEqual(3, all_total)
+        self.assertAlmostEqual(66.6666666667, all_percent)
 
     def test_history_json_api_returns_raw_history(self) -> None:
         app = create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY))
