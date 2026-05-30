@@ -701,9 +701,6 @@ def generate_method_code(
                 continue
             if key in cached_keys:
                 continue
-            if _is_method_code_key_completed(cache_file, lock_path, key, retry_errors):
-                cached_keys.add(key)
-                continue
 
             try:
                 pending_rows.append(_method_code_cache_row(method_row, repository_root, key))
@@ -904,9 +901,6 @@ def scan_method(
             if util.stable_shard_for_key(file_without_base, shards) != shard:
                 continue
             if file_without_base in cached_files:
-                continue
-            if _is_method_scan_file_completed(method_cache_file, lock_path, file_without_base, retry_errors):
-                cached_files.add(file_without_base)
                 continue
 
             methods_in_file, scan_error = _scan_methods_in_file(

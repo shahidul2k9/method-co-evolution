@@ -332,6 +332,7 @@ def execute_callgraph_per_file(
     retry_errors: bool = True,
     merge_threshold: int = DEFAULT_SCAN_MERGE_THRESHOLD,
     merge_interval_seconds: int | None = None,
+    max_cache_size: int = 256,
     artifact_config_path: str | None = None,
 ) -> None:
     CallGraphServiceImpl = None
@@ -390,17 +391,25 @@ def execute_callgraph_per_file(
 
         method_mapping_file = util.format_method_mapping_file(workspace_directory, data_directory, repository_name)
         if not method_mapping_file:
-            logging.warning(
+            raise FileNotFoundError(
                 f"No method mapping file found for {repository_name}. "
                 f"Expected one of: {util.format_method_list_file(data_directory, repository_name)} "
                 f"or {os.path.join(workspace_directory, 'method', repository_name + '.csv')}"
             )
+        class_mapping_file = util.format_class_mapping_file(workspace_directory, data_directory, repository_name)
+        if not class_mapping_file:
+            raise FileNotFoundError(
+                f"No class mapping file found for {repository_name}. "
+                f"Expected one of: {util.format_class_list_file(data_directory, repository_name)} "
+                f"or {os.path.join(workspace_directory, 'class', repository_name + '.csv')}"
+            )
 
         scanner = CallGraphServiceImpl.getInstance()
+        scanner.configureCache(max_cache_size)
         if artifact_config_path:
-            scanner.init(url, repository_path, commit_hash, method_mapping_file, artifact_config_path)
+            scanner.init(url, repository_path, commit_hash, method_mapping_file, class_mapping_file, artifact_config_path)
         else:
-            scanner.init(url, repository_path, commit_hash, method_mapping_file)
+            scanner.init(url, repository_path, commit_hash, method_mapping_file, class_mapping_file)
 
         cached_files = _load_cached_callgraph_files(cache_file, retry_errors)
 
@@ -412,9 +421,6 @@ def execute_callgraph_per_file(
             if util.stable_shard_for_key(file_without_base, shards) != shard:
                 continue
             if file_without_base in cached_files:
-                continue
-            if _is_callgraph_file_completed(cache_file, lock_path, file_without_base, retry_errors):
-                cached_files.add(file_without_base)
                 continue
 
             try:
@@ -437,6 +443,7 @@ def execute_callgraph_per_file(
                 last_flush_time = time.monotonic()
 
         _flush_callgraph(cache_file, lock_path, pending_rows, retry_errors)
+        scanner.logCacheStats()
         if shards == 1:
             _finalize_callgraph(
                 cache_file,

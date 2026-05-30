@@ -76,6 +76,18 @@ def format_class_list_file(data_directory: str, repository_name: str) -> str:
     return os.path.join(f"{data_directory}/class", f"{repository_name}.csv")
 
 
+def format_class_mapping_file(workspace_directory: str, data_directory: str, repository_name: str) -> str | None:
+    data_class_file = format_class_list_file(data_directory, repository_name)
+    if os.path.exists(data_class_file):
+        return data_class_file
+
+    cache_class_file = os.path.join(f"{workspace_directory}/class", f"{repository_name}.csv")
+    if os.path.exists(cache_class_file):
+        return cache_class_file
+
+    return None
+
+
 def format_class_cache_file(data_directory: str, repository_name: str) -> str:
     return os.path.join(f"{data_directory}/class-cache", f"{repository_name}.csv")
 

@@ -1,197 +1,223 @@
 # method-history-collector
 
-Python package exposing the `mhc` CLI. Collects method indexes, change histories, call graphs, complexity metrics, and source code snippets for Java repositories.
+Python package exposing the `mhc` CLI. It collects method and class indexes, call graphs, method histories, complexity metrics, method source snippets, and jNose test-smell outputs for Java repositories.
 
-## Install
+Install from the repository root:
 
 ```bash
 pip install -e ./method-history-collector
 ```
 
-## Common flags
+## Paths and Defaults
 
-All subcommands accept:
+`mhc` requires `--workspace-directory` and an experiment name. The experiment name is resolved from `--experiment-name` or `ME_EXPERIMENT_NAME`.
 
+| Path | Default |
+|------|---------|
+| Workspace root | `--workspace-directory` or `ME_WORKSPACE_DIRECTORY` in wrapper scripts |
+| Experiment directory | `WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME` |
+| Repository clones | `WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/repository` |
+| Data outputs | `WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/<dataset>/` |
+| Method histories | `--history-directory`, else `WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/history` |
+| Java JARs | `--jar-directory`, else `WORKSPACE_DIRECTORY/jar` |
+| Artifact config | `--artifact-config-path`, commonly `config/artifact-detection` |
+
+The project index is read from:
+
+```text
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/project.csv
 ```
---workspace-directory       Root cache directory (default: .cache)
---history-directory     Method history JSON/archive root (default: ME_HISTORY_DIRECTORY or <cache>/history)
---repository-directory  Where repositories are cloned
---data-directory        Where output CSVs are written (default: <cache>/data)
---jar-directory         Directory containing the method-parser JAR
-```
 
-### Project selection
+## Common Flags
 
-Provide one of the following selectors. `--project-index` may also be combined with `--project` or `--projects` to index within that explicit project set; this is useful when `scripts/job.sh` derives a project index for sharded array jobs.
+| Flag | Description |
+|------|-------------|
+| `--workspace-directory` | Shared workspace root. Required by `mhc`. |
+| `--experiment-name` | Experiment name. Defaults to `ME_EXPERIMENT_NAME`. |
+| `--repository-directory` | Override clone directory. Defaults to the experiment repository directory. |
+| `--history-directory` | Override method-history JSON/archive directory. |
+| `--jar-directory` | Override JAR directory. Defaults to `WORKSPACE_DIRECTORY/jar`. |
+| `--java-options` | JVM flags passed before `-jar`, for example `"-Xmx4g"`. |
+| `--command-options` | Extra arguments forwarded to the underlying command or JAR. |
+| `--artifact-config-path` | YAML file or directory for artifact role detection. |
+
+### Project Selection
+
+Use exactly one selector unless otherwise stated:
 
 | Flag | Example | Effect |
 |------|---------|--------|
-| `--project` | `checkstyle` | Single project |
-| `--projects` | `checkstyle,commons-io` | Explicit comma-separated list |
-| `--project-index` | `10:20` | Python-style 0-based row slice from `repository.csv` (`10` through `19`) |
-| `--project-index` | `-1` | Last project |
-| `--project-index` | `:` | All projects |
+| `--project` | `checkstyle` | Run one project |
+| `--projects` | `checkstyle,commons-io` | Run an explicit comma-separated list |
+| `--project-index` | `10:20` | Select rows 10 through 19 from `project.csv` |
+| `--project-index` | `-1` | Select the last project |
+| `--project-index` | `:` | Select all projects |
 
-### Error retry behavior
+`--project-index` can be combined with `--project` or `--projects` to index within that explicit project set. This is mainly used by Slurm wrappers that derive the project index from an array task.
 
-`method-scan`, `class-scan`, `method-code`, and `method-callgraph` retry prior `__error_marker__` cache rows by default. Pass `--retry-errors false` to treat those failures as already attempted and skip them on the next run.
+### Sharding and Merging
 
-### Scan cache flushing
-
-`method-scan`, `class-scan`, `method-code`, and `method-callgraph` buffer cache rows and flush them when either `--merge-threshold` pending rows accumulate or `--merge-interval-seconds` elapses. Defaults are `--merge-threshold 10000` and `--merge-interval-seconds 900`. For these scan/code commands, `--merge-threshold 0` or `--merge-threshold -1` disables only threshold-triggered intermediate flushing; final flushing and single-shard output finalization still run. Use `--merge-interval-seconds 0` to disable time-triggered intermediate flushing.
-
-## Commands
-
-### `mhc method-scan`
-
-Extracts all methods and constructors from a repository at its current HEAD and writes `data/method/{project}.csv`. See [method-parser/README.md](../method-parser/README.md) for the column schema.
-
-```bash
-mhc method-scan \
-    --workspace-directory "workspace" \
-    --repository-directory "workspace/repository" \
-    --data-directory "workspace/data" \
-    --jar-directory "workspace/jar" \
-    --java-options "-Xmx2g" \
-    --project "checkstyle"
-```
-
-Pass `--artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection"` to use hierarchical artifact tags such as `#test-code #test-case-method` and `#main-code`.
-
-Use `--replace` to regenerate the CSV even if it already exists.
-
-If `<workspace-directory>/config/logback.xml` exists it is passed to the JVM automatically as `-Dlogback.configurationFile=...`.
-
-Previous `__error_marker__` cache rows are retried by default. Use `--retry-errors false` to treat those prior failures as already attempted and skip them on the next run.
-
-Use `--merge-threshold` and `--merge-interval-seconds` to control intermediate cache flushes. The flush happens as soon as either limit is reached.
-
----
-
-### `mhc artifact-update`
-
-Updates existing `data/method/{project}.csv` and `data/class/{project}.csv` artifact columns without regenerating callgraphs.
-
-```bash
-mhc artifact-update \
-    --workspace-directory "workspace" \
-    --repository-directory "workspace/repository" \
-    --data-directory "workspace/data" \
-    --jar-directory "workspace/jar" \
-    --artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection" \
-    --project "jgit" \
-    --target method,class \
-    --backup
-```
-
-Artifact update always uses the Java artifact detector to parse method declarations and detect `#test-case-method`, `#test-fixture-method`, and `#test-helper-method` roles.
-With `--backup`, the previous CSV is saved beside the original as `bk_<project>.csv`.
-
----
-
-### `mhc method-history`
-
-Traces the change history of each method using a history tool (CodeShovel, HistoryFinder, or CodeTracker) and stores loose JSON files and `.tar.gz` archives under `<history-directory>/{tool}/{project}`. If `--history-directory` is omitted, MHC uses `ME_HISTORY_DIRECTORY`; if that environment variable is unset, it falls back to `<workspace-directory>/history`.
-
-```bash
-mhc method-history \
-    --workspace-directory "workspace" \
-    --history-directory "/scratch/method-history" \
-    --repository-directory "workspace/repository" \
-    --data-directory "workspace/data" \
-    --jar-directory "workspace/jar" \
-    --tool-name "codeShovel" \
-    --java-options "-Xmx2g" \
-    --timeout-seconds 1800 \
-    --merge-threshold 10000 \
-    --project "checkstyle"
-```
-
-#### Sharding
-
-Split work across parallel workers deterministically (hash-based, disjoint):
+`method-history`, `method-scan`, `class-scan`, `method-code`, and `method-callgraph` support deterministic sharding:
 
 ```bash
 mhc method-history ... --project "checkstyle" --shards 20 --shard 7
 ```
 
-#### Merging
+`--shards` is the total shard count and `--shard` is 1-based.
 
-Merge loose `.json` files into the `.tar.gz` archive without generating new history:
+`--merge-threshold` has command-specific behavior:
+
+| Command family | Behavior |
+|----------------|----------|
+| `method-history` | Loose JSON files are merged into `.tar.gz` archives when the threshold is reached. `0` disables intermediate merges; negative values also disable final merge. |
+| Scan/code/callgraph commands | Pending cache rows are flushed when the threshold is reached. `0` or negative disables threshold-triggered intermediate flushes, but final output finalization still runs. |
+
+For `method-scan`, `class-scan`, `method-code`, and `method-callgraph`, `--merge-interval-seconds` also flushes pending rows after the configured interval. Use `0` to disable time-triggered intermediate flushing.
+
+`method-history` supports merge-only cleanup:
 
 ```bash
 mhc method-history ... --project "checkstyle" --merge-only
-# with cleanup:
 mhc method-history ... --project "checkstyle" --merge-only delete-empty delete-tmp delete-lock
 ```
 
-`delete-tmp` and `delete-lock` are safe only when no history worker is running for the same cache.
+Use `delete-tmp` and `delete-lock` only when no worker is running against the same history directory.
 
-Key options:
+### Retry Behavior
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--tool-name` | required | `codeShovel`, `historyFinder`, or `codeTracker` |
-| `--history-directory` | `ME_HISTORY_DIRECTORY` or `<cache>/history` | Root directory for method history JSON files and archives |
-| `--timeout-seconds` | `1800` | Per-method timeout |
-| `--merge-threshold` | `10000` | Loose JSON files before an intermediate merge; `0` disables intermediate merges; negative disables final merge too |
-| `--shards` | `1` | Total shard count |
-| `--shard` | `1` | Which shard to run (1-based) |
-| `--merge-only` | off | Merge without running history tools |
+`method-scan`, `class-scan`, `method-code`, and `method-callgraph` retry previous `__error_marker__` rows by default. Pass:
 
----
+```bash
+--retry-errors false
+```
+
+to treat previous failures as already attempted and skip them.
+
+## Commands
+
+### `mhc method-scan`
+
+Extracts all methods and constructors from the project checkout and writes:
+
+```text
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/method/<project>.csv
+```
+
+```bash
+mhc method-scan \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
+  --artifact-config-path "config/artifact-detection" \
+  --project "checkstyle"
+```
+
+Use `--replace` to regenerate existing output. If `WORKSPACE_DIRECTORY/config/logback.xml` exists, it is passed to the JVM as `-Dlogback.configurationFile=...`.
+
+### `mhc class-scan`
+
+Extracts class-level metadata needed by artifact detection and JavaParser fallback resolution. It writes:
+
+```text
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/class/<project>.csv
+```
+
+```bash
+mhc class-scan \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
+  --artifact-config-path "config/artifact-detection" \
+  --project "checkstyle"
+```
+
+Run this before `method-callgraph` when fallback resolution or TestLinker mapping files are needed.
+
+### `mhc artifact-update`
+
+Updates artifact role columns in existing `method/<project>.csv` and `class/<project>.csv` files without regenerating scans.
+
+```bash
+mhc artifact-update \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --artifact-config-path "config/artifact-detection" \
+  --project "jgit" \
+  --target method,class \
+  --backup
+```
+
+`--target` accepts `method`, `class`, or both. `--backup` saves `bk_<project>.csv` beside the original. `--dry-run` previews changes without writing files.
+
+### `mhc method-history`
+
+Traces method histories using CodeShovel, HistoryFinder, or CodeTracker. Output is stored under:
+
+```text
+HISTORY_DIRECTORY/<tool>/<project>/
+```
+
+where `HISTORY_DIRECTORY` is `--history-directory` or the experiment `history/` directory.
+
+```bash
+mhc method-history \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --tool-name "historyFinder" \
+  --java-options "-Xmx4g" \
+  --timeout-seconds 1800 \
+  --merge-threshold 10000 \
+  --project "checkstyle"
+```
+
+Tool names are `codeShovel`, `historyFinder`, and `codeTracker`.
 
 ### `mhc method-callgraph`
 
-Generates callgraph (fan-out) and fanin call-graph CSVs via the method-parser JAR. See [method-parser/README.md](../method-parser/README.md) for the column schema.
+Generates callgraph and fanin datasets with the `method-parser` JAR. Outputs:
+
+```text
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/callgraph/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/fanin/<project>.csv
+```
 
 ```bash
 mhc method-callgraph \
-    --workspace-directory "workspace" \
-    --repository-directory "workspace/repository" \
-    --data-directory "workspace/data" \
-    --jar-directory "workspace/jar" \
-    --tool-name "methodParser" \
-    --project "checkstyle"
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
+  --tool-name "methodParser" \
+  --project "checkstyle"
 ```
 
-Use `--replace` to regenerate even if the CSV already exists.
-
-Previous `__error_marker__` cache rows are retried by default. Use `--retry-errors false` to skip files that already failed in a prior run.
-
-Use `--merge-threshold` and `--merge-interval-seconds` to control intermediate cache flushes. The flush happens as soon as either limit is reached.
-
----
+Use `--replace` to regenerate existing outputs. For sharded callgraph runs, run the same command with `--merge-only` after all shards complete to finalize shared cache rows into `callgraph/` and `fanin/`.
 
 ### `mhc method-complexity`
 
-Computes cyclomatic complexity for each method.
+Computes cyclomatic complexity for methods.
 
 ```bash
 mhc method-complexity \
-    --workspace-directory "workspace" \
-    --repository-directory "workspace/repository" \
-    --data-directory "workspace/data" \
-    --jar-directory "workspace/jar" \
-    --tool-name "complexityAnalyzer" \
-    --project "checkstyle"
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
+  --tool-name "complexityAnalyzer" \
+  --project "checkstyle"
 ```
-
----
 
 ### `mhc test-smell`
 
-Runs the jNose-based test smell workflow. The `jnose` tool requires the executable `jnose-adapter` jar in `--jar-directory`; see [jnose-adapter/README.md](../jnose-adapter/README.md) for the `jnose-core` dependency and build commands.
+Runs the jNose-based test-smell workflow. It requires the executable `jnose-adapter` JAR in `WORKSPACE_DIRECTORY/jar`; see [../jnose-adapter/README.md](../jnose-adapter/README.md).
 
 ```bash
 mhc test-smell \
-    --workspace-directory "workspace" \
-    --repository-directory "workspace/repository" \
-    --jar-directory "workspace/jar" \
-    --tool-name "jnose" \
-    --stage all \
-    --callgraph-dir callgraph \
-    --project "commons-io"
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
+  --tool-name jnose \
+  --stage all \
+  --callgraph-dir callgraph \
+  --project "commons-io"
 ```
 
 Stages:
@@ -199,38 +225,33 @@ Stages:
 | Stage | Description |
 |-------|-------------|
 | `preprocess` | Generate jNose input from method CSV and the selected callgraph directory |
-| `execute` | Run `jnose-adapter` and write raw jNose by-test-smell output |
+| `execute` | Run `jnose-adapter` and write raw jNose output |
 | `postprocess` | Normalize jNose smells to MHC method-level output |
 | `all` | Run all stages in order |
 
-Output locations:
+Intermediate files live under `.test-smell/jnose/` inside the experiment directory. Final rows are written under `test-smell/jnose/` with columns:
 
 ```text
-<experiment-directory>/.test-smell/jnose/input
-<experiment-directory>/.test-smell/jnose/output
-<experiment-directory>/.test-smell/jnose/postprocess-error
-<experiment-directory>/test-smell/jnose
+project,name,smell,smell_detector,url,smell_begin,smell_end
 ```
-
-Final output columns are `project,name,smell,smell_detector,url,smell_begin,smell_end`. Rows that cannot be mapped to an exact method name are written to `.test-smell/jnose/postprocess-error`.
-
----
 
 ### `mhc method-code`
 
-Reads `data/method/{project}.csv`, checks out the repository at the indexed `hash`, and extracts the source lines for each method. Writes `data/method-code/{project}.csv`.
+Checks out the repository at each method row's indexed `hash`, extracts source lines, and writes:
+
+```text
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/method-code/<project>.csv
+```
 
 ```bash
 mhc method-code \
-    --workspace-directory "workspace" \
-    --repository-directory "workspace/repository" \
-    --data-directory "workspace/data" \
-    --jar-directory "workspace/jar" \
-    --project "checkstyle"
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --project "checkstyle"
 ```
 
-Previous `__error_marker__` cache rows are retried by default. Use `--retry-errors false` to skip methods that already failed in a prior run.
+Output columns are:
 
-Use `--merge-threshold` and `--merge-interval-seconds` to control intermediate cache flushes. The flush happens as soon as either limit is reached.
-
-Output columns: `project`, `name`, `url`, `artifact`, `start_line`, `end_line`, `code`.
+```text
+project,name,url,artifact,start_line,end_line,code
+```

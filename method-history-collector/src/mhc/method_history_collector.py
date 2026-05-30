@@ -194,6 +194,7 @@ class MethodHistoryCollector:
         retry_errors: bool = True,
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_interval_seconds: int | None = None,
+        max_cache_size: int = 256,
         artifact_config_path: str | None = None,
     ):
         self.generate_callgraph_per_file(
@@ -209,6 +210,7 @@ class MethodHistoryCollector:
             retry_errors,
             merge_threshold,
             merge_interval_seconds,
+            max_cache_size,
             artifact_config_path,
         )
 
@@ -226,6 +228,7 @@ class MethodHistoryCollector:
         retry_errors: bool = True,
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_interval_seconds: int | None = None,
+        max_cache_size: int = 256,
         artifact_config_path: str | None = None,
     ):
         try:
@@ -249,6 +252,7 @@ class MethodHistoryCollector:
                 retry_errors,
                 merge_threshold,
                 merge_interval_seconds,
+                max_cache_size,
                 artifact_config_path,
             )
         except Exception as e:

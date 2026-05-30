@@ -1,171 +1,245 @@
 # scripts
 
-Helper scripts for building, distributed execution, and dataset maintenance.
+Helper scripts for building Java artifacts, running collection jobs locally or on Slurm, and maintaining experiment datasets. Unless noted otherwise, run commands from the repository root.
 
----
+The scripts expect the same environment used by the Python packages:
+
+```bash
+ME_PROJECT_DIRECTORY=/path/to/method-co-evolution
+ME_WORKSPACE_DIRECTORY=/path/to/method-co-evolution/workspace
+ME_EXPERIMENT_NAME=main
+GITHUB_API_KEY=ghp_...
+```
+
+Most outputs live under:
+
+```text
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/
+```
+
+Shared Java artifacts live under:
+
+```text
+WORKSPACE_DIRECTORY/jar/
+```
 
 ## `build-method-parser.sh`
 
-Builds the `method-parser` Maven module and copies the resulting fat JAR into the cache.
+Builds the `method-parser` Maven module and copies the parser JAR into `WORKSPACE_DIRECTORY/jar/`.
 
 ```bash
 scripts/build-method-parser.sh
 ```
 
-Reads `ME_WORKSPACE_DIRECTORY` from `.env` (defaults to `eval`). Copies the JAR to `<cache>/jar/`.
+It reads `ME_WORKSPACE_DIRECTORY` from `.env`. Build this JAR before running parser-backed `mhc` commands such as `method-scan`, `class-scan`, `method-callgraph`, or `method-complexity`.
 
----
+## Local Wrapper Scripts
+
+These thin wrappers call `mhc` with project defaults from `.env`:
+
+| Script | MHC command |
+|--------|-------------|
+| `method-scan.sh` | `mhc method-scan` |
+| `class-scan.sh` | `mhc class-scan` |
+| `method-callgraph.sh` | `mhc method-callgraph` |
+| `method-code.sh` | `mhc method-code` |
+| `artifact-update.sh` | `mhc artifact-update` |
+| `test-smell.sh` | `mhc test-smell` |
+| `testlinker.sh` | `ptc-testlinker testlinker` |
+
+Use the underlying CLI directly when you need full control over project selection, sharding, or paths.
 
 ## `job.sh`
 
-Slurm `sbatch` wrapper for all `mhc`, `ptc-llm`, and `ptc-testlinker` commands. Loads the required environment modules (StdEnv, scipy-stack, arrow, cuda, java/21) and activates the project virtualenv automatically.
-
-### Usage
-
-```
-job.sh --command <cmd> [options]
-```
-
-`--command` must be one of: `method-history`, `method-callgraph`, `method-scan`, `class-scan`, `method-code`, `artifact-update`, `method-complexity`, `llm-m2m-link`, `testlinker`.
-
-### Project selection
-
-Use one project selector for normal project-scoped runs:
-
-| Flag | Example |
-|------|---------|
-| `--project` | `"checkstyle"` |
-| `--projects` | `"checkstyle,commons-io"` |
-| `--project-index` | `"10:20"` |
-| `--project-index` | `"-1"` |
-
-In `method-history`, `method-scan`, `class-scan`, `method-code`, or `method-callgraph` shard mode (`--shards > 1`), omit `--project-index`; `job.sh` derives it from the Slurm array task id. `--project` and `--projects` are optional filters and are forwarded to `mhc`.
-
-On clusters where Slurm array indexes must stay within `0-9999`, pass `--job-index-shift N` when the submitted array has been shifted down. `job.sh` adds this offset back before deriving the project index and shard. The `ptc-sbatch` helper emits this option automatically only when the submitted array must be shifted, and truncates oversized project/task ranges to the largest prefix that fits. It prints the project indexes included in the final command, requested project indexes not included, converted task indexes, truncated ranges, and final sbatch command.
-
-When redirecting `ptc-sbatch` output, the command is written as a shell-safe multiline command with `\` continuations, so the generated file can be reviewed with `cat` or submitted with `bash workspace/cmd.txt`.
-
-### Execution modes
-
-**Project-array mode** — one Slurm array task per project:
+Slurm `sbatch` wrapper for `mhc`, `ptc-llm`, and `ptc-testlinker` commands. It loads cluster modules, activates `.venv`, resolves Slurm array task IDs into projects and shards, and forwards normalized arguments to the correct CLI.
 
 ```bash
 sbatch --array=1-2 scripts/job.sh \
-    --command method-scan \
-    --projects "checkstyle,commons-io"
+  --command method-scan \
+  --projects "checkstyle,commons-io" \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME"
 ```
 
-Each array task index maps to the corresponding project in the list.
+Supported commands:
 
-**Shard mode** — one Slurm array task per `(project_index, shard)` pair. Use a zero-based Slurm array where the upper bound is `project_count * shards - 1`:
+```text
+method-history
+method-callgraph
+method-scan
+class-scan
+method-code
+artifact-update
+method-complexity
+llm-m2m-link
+testlinker
+test-smell
+```
+
+### Project Selection
+
+Use one normal project selector:
+
+| Flag | Example |
+|------|---------|
+| `--project` | `checkstyle` |
+| `--projects` | `checkstyle,commons-io` |
+| `--project-index` | `10:20` |
+| `--project-index` | `-1` |
+
+Without `--project` or `--projects`, an array task can derive `--project-index` from `SLURM_ARRAY_TASK_ID`.
+
+### Project-Array Mode
+
+One Slurm array task per project:
+
+```bash
+sbatch --array=1-2 scripts/job.sh \
+  --command method-scan \
+  --projects "checkstyle,commons-io" \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME"
+```
+
+Array index `1` maps to the first project in the list.
+
+### Shard Mode
+
+One Slurm array task per `(project_index, shard)` pair. Use a zero-based array where the upper bound is `project_count * shards - 1`.
 
 ```bash
 sbatch --array=0-99 scripts/job.sh \
-    --command method-history \
-    --tool-name codeShovel \
-    --shards 10
+  --command method-history \
+  --tool-name historyFinder \
+  --shards 10 \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME"
 ```
 
-For callgraph sharding, use `--command method-callgraph --tool-name methodParser --shards N`; after shard jobs finish, run `method-callgraph --merge-only` with the same project selection to write the final `callgraph` and `fanin` CSVs.
-For method-scan sharding, use `--command method-scan --shards N`; after shard jobs finish, run `method-scan --merge-only` with the same project selection to write the final method CSVs.
-For class-scan sharding, use `--command class-scan --shards N`; after shard jobs finish, run `class-scan --merge-only` with the same project selection to write the final class CSVs.
-For method-code sharding, use `--command method-code --shards N`; after shard jobs finish, run `method-code --merge-only` with the same project selection to write the final method-code CSVs.
-
-By default, scan/cache commands retry files or methods that previously produced `__error_marker__` rows. Pass `--retry-errors false` to `method-scan`, `class-scan`, `method-code`, or `method-callgraph` jobs when you want those prior errors to be treated as already attempted and skipped.
-
-For `method-scan`, `class-scan`, `method-code`, and `method-callgraph`, cache rows are flushed when either `--merge-threshold` pending rows accumulate or `--merge-interval-seconds` elapses. `--merge-threshold 0` or `--merge-threshold -1` disables only threshold-triggered intermediate flushing for these commands; final flushing/finalization still runs.
-
-The job index is treated as a flattened project/shard coordinate:
+The flattened task index maps as:
 
 ```text
 project_index = SLURM_ARRAY_TASK_ID / shards
 shard = SLURM_ARRAY_TASK_ID % shards + 1
 ```
 
-When `--job-index-shift N` is present, replace `SLURM_ARRAY_TASK_ID` in that formula with `SLURM_ARRAY_TASK_ID + N`.
+When `--job-index-shift N` is passed, `job.sh` adds `N` before calculating project and shard. This supports clusters where array indexes must stay within a limited range.
 
-For 10 projects and 10 shards per project, use `--array=0-99`:
+After sharded scan/code/callgraph jobs finish, run the same command with `--merge-only` and matching project selection to finalize outputs.
 
-| `SLURM_ARRAY_TASK_ID` | Forwarded project index | Forwarded shard |
-|-----------------------|-------------------------|-----------------|
-| `0` | `0` | `1` |
-| `9` | `0` | `10` |
-| `10` | `1` | `1` |
-| `99` | `9` | `10` |
-
-Optional filters are forwarded. With `--projects "checkstyle,commons-io"`, the derived project index is applied within that list. With `--project "checkstyle"`, only project index `0` is valid, so use an array range such as `--array=0-9` for `--shards 10`.
-
-Do not pass `--project-index` in shard mode; it is computed from the Slurm array task id.
-
-### `llm-m2m-link` example
+### LLM Example
 
 ```bash
 sbatch --array=1-2 scripts/job.sh \
-    --command llm-m2m-link \
-    --api-type huggingface \
-    --model-name-or-path "Qwen/Qwen2.5-0.5B-Instruct" \
-    --short-model-name qwen_0.5b \
-    --batch-size 4 \
-    --input-kind t2p \
-    --projects "checkstyle,commons-io"
+  --command llm-m2m-link \
+  --stage execute \
+  --api-type huggingface \
+  --model-name-or-path "Qwen/Qwen2.5-0.5B-Instruct" \
+  --short-model-name qwen_0.5b \
+  --batch-size 4 \
+  --input-kind t2p \
+  --projects "checkstyle,commons-io" \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME"
 ```
 
-### `testlinker` example
+### TestLinker Example
 
 ```bash
 sbatch --array=1-2 scripts/job.sh \
-    --command testlinker \
-    --stage all \
-    --projects "checkstyle,commons-io" \
-    --top-k 1
+  --command testlinker \
+  --stage all \
+  --projects "checkstyle,commons-io" \
+  --top-k 1 \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME"
 ```
 
-### All options
+### Test-Smell Example
+
+```bash
+sbatch --array=1-2 scripts/job.sh \
+  --command test-smell \
+  --tool-name jnose \
+  --stage all \
+  --callgraph-dir callgraph \
+  --projects "commons-io,checkstyle" \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME"
+```
+
+### Important Options
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--command` | required | Command to run |
-| `--tool-name` | — | Tool name for `method-history`, `method-callgraph`, `method-complexity` |
-| `--java-options` | — | Extra JVM flags (e.g. `"-Xmx4g"`) |
+| `--workspace-directory` | `$PROJECT_DIRECTORY/workspace` | Shared workspace root |
+| `--experiment-name` | `ME_EXPERIMENT_NAME` or `main` | Experiment name |
+| `--history-directory` | unset | Optional method-history root override |
+| `--tool-name` | command-dependent | Tool name for history, parser, complexity, or test-smell commands |
+| `--java-options` | unset | Extra JVM flags |
 | `--timeout-seconds` | `1800` | Per-method history timeout |
-| `--merge-threshold` | `10000` | History JSON merge threshold; for scan/code commands, pending cache rows before an intermediate flush, with `0` or `-1` disabling the threshold trigger |
-| `--merge-interval-seconds` | `900` | Time trigger for intermediate cache flushes in `method-scan`, `class-scan`, `method-code`, and `method-callgraph`; `0` disables the time trigger |
-| `--merge-only` | off | Merge without running history tools |
-| `--retry-errors` | `true` | Retry previous `__error_marker__` rows for `method-scan`, `class-scan`, `method-code`, and `method-callgraph`; set to `false` to skip them |
-| `--artifact-config-path` | — | Artifact detection YAML file or directory, for example `$ME_WORKSPACE_DIRECTORY/config/artifact-detection` |
-| `--stage` | `execute` | LLM or TestLinker stage |
-| `--api-type` | `auto` | LLM provider: `auto`, `huggingface`, `openai-responses` |
-| `--model-name-or-path` | — | HuggingFace model id or path |
-| `--short-model-name` | derived | Short name used in output paths |
-| `--prompt-format` | `auto` | LLM prompt format: `auto`, `json`, `text` |
-| `--batch-size` | `4` | LLM batch size |
-| `--max-new-tokens` | `256` | LLM token generation cap |
-| `--resume` | `none` | Resume mode: `none`, `all`, `error` |
-| `--input-kind` | `t2p` | LLM input direction: `t2p` or `p2t` |
-| `--shards` | `1` | Total shard count per project |
-| `--job-index-shift` | `0` | Offset added to `SLURM_ARRAY_TASK_ID` before project/shard derivation |
+| `--merge-threshold` | `10000` | History merge or scan/cache flush threshold |
+| `--merge-interval-seconds` | `900` | Scan/code/callgraph time-triggered flush interval |
+| `--merge-only` | off | Merge/finalize existing shard output |
+| `--retry-errors` | `true` | Retry previous `__error_marker__` rows |
+| `--artifact-config-path` | unset | Artifact detection YAML file or directory |
+| `--stage` | command-dependent | LLM, TestLinker, or test-smell stage |
+| `--api-type` | `auto` | LLM provider |
+| `--model-name-or-path` | unset | Hugging Face, OpenAI, or local model ID/path |
+| `--short-model-name` | derived | Short output directory name |
+| `--prompt-format` | `auto` | LLM prompt format |
+| `--batch-size` | `4` | LLM grouped case batch size |
+| `--max-new-tokens` | `256` | LLM generation cap |
+| `--resume` | `none` | LLM resume mode |
+| `--input-kind` | `t2p` | LLM input direction |
+| `--shards` | `1` | Total shards per project |
+| `--job-index-shift` | `0` | Offset for shifted Slurm array indexes |
 | `--top-k` | `1` | TestLinker top-k invocations |
-| `--workspace-directory` | `workspace` | Cache root |
-| `--history-directory` | `ME_HISTORY_DIRECTORY` or `$HOME/scratch/$USER/method-co-evolution/.cache` | Method history JSON/archive root |
-| `--data-directory` | `<cache>/data` | Data output root |
+| `--callgraph-dir` | `callgraph` | Experiment subdirectory used by test-smell preprocess |
 
----
+## `ptc-sbatch`
+
+`ptc-sbatch` is installed by the `co-evolution` package. It rewrites large or sparse `sbatch` array commands into valid task ranges, optionally skipping projects whose expected outputs already exist.
+
+Inline command:
+
+```bash
+ptc-sbatch sbatch --array=0-999 scripts/job.sh \
+  --command method-history \
+  --tool-name historyFinder \
+  --shards 10 \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME"
+```
+
+Command file:
+
+```bash
+ptc-sbatch workspace/cmd.txt
+ptc-sbatch workspace/cmd.txt --replace
+```
+
+It prints project indexes included, requested indexes not included, converted task indexes, any truncated ranges, and the final shell-safe `sbatch` command.
 
 ## `update_oracle_method_metadata.py`
 
-Backfills method metadata (`url`, `startLine`, `endLine`, `startCommitHash`) into oracle JSON files by matching against the method CSV index.
+Backfills method metadata into oracle JSON files by matching them against a method CSV index.
 
 ```bash
 python scripts/update_oracle_method_metadata.py \
-    --oracle-dir path/to/oracle \
-    --method-dir workspace/data/method \
-    --log-file update.log
-
-# Dry run — report changes without writing files
-python scripts/update_oracle_method_metadata.py \
-    --oracle-dir path/to/oracle \
-    --method-dir workspace/data/method \
-    --dry-run
+  --oracle-dir path/to/oracle \
+  --method-dir "$ME_WORKSPACE_DIRECTORY/experiment/$ME_EXPERIMENT_NAME/method" \
+  --log-file update.log
 ```
 
-Matching strategy: exact `(file, element_name)` first; falls back to `element_name` only if no exact match. Ambiguous matches (multiple candidates) are skipped and logged. Also renames JSON files to the canonical `{number}-{repo}-{java-file}-{method}.json` format when metadata changes.
+Dry run:
+
+```bash
+python scripts/update_oracle_method_metadata.py \
+  --oracle-dir path/to/oracle \
+  --method-dir "$ME_WORKSPACE_DIRECTORY/experiment/$ME_EXPERIMENT_NAME/method" \
+  --dry-run
+```
+
+Matching uses exact `(file, element_name)` first and falls back to `element_name` only if no exact match exists. Ambiguous matches are skipped and logged. When metadata changes, JSON files are renamed to the canonical `{number}-{repo}-{java-file}-{method}.json` format.

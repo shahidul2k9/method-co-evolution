@@ -1,98 +1,177 @@
 # co-evolution
 
-Python package exposing the `ptc-llm` and `ptc-history-viewer` CLIs. Runs LLM-based test↔production method linking and serves a local browser UI for inspecting method history diffs.
+Python package for linking, reviewing, and evaluating production-test method co-evolution. It exposes:
 
-For the neural TestLinker backend see [src/ptc/testlinker/README.md](src/ptc/testlinker/README.md).
+| CLI | Purpose |
+|-----|---------|
+| `ptc-llm` | LLM-based method-to-method linking |
+| `ptc-history-viewer` | Local FastAPI browser UI for method-history review |
+| `ptc-testlinker` | Neural TestLinker integration |
+| `ptc-sbatch` | Slurm array command expansion and truncation helper |
 
-## Install
+Install from the repository root:
 
 ```bash
-pip install -e ./co-evolution          # base
-pip install -e ./co-evolution[llm]     # adds OpenAI + HuggingFace backends
+pip install -e ./co-evolution
+pip install -e './co-evolution[llm]'        # OpenAI and Hugging Face backends
+pip install -e './co-evolution[testlinker]' # TestLinker/CodeT5 runtime
 ```
 
----
+All commands use the current experiment layout:
+
+```text
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/
+```
+
+Pass `--workspace-directory` explicitly and pass `--experiment-name` or set `ME_EXPERIMENT_NAME`.
 
 ## `ptc-llm llm-m2m-link`
 
-Classifies test↔production method pairs as linked or not using an LLM. Inputs are candidate-pair CSVs produced by the generator scripts (`data/callgraph/` for `t2p`, `data/fanin/` for `p2t`). Rows are grouped by source method URL; each group becomes one prompt.
+Classifies candidate test-production method pairs using an LLM. Inputs are candidate CSVs produced by generator scripts:
+
+```text
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/t2p-candidate-filtered/<project>.csv  # t2p
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/fanin/<project>.csv                   # p2t
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/method-code/<project>.csv
+```
+
+Run with the OpenAI Responses API:
 
 ```bash
-# OpenAI Responses API
 ptc-llm llm-m2m-link \
-    --workspace-directory "workspace" \
-    --project "commons-io" \
-    --input-kind "t2p" \
-    --api-type "openai-responses" \
-    --model-name-or-path "openai/gpt-oss-20b" \
-    --api-key "$OPENAI_API_KEY" \
-    --batch-size 8
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --project "commons-io" \
+  --input-kind t2p \
+  --api-type openai-responses \
+  --model-name-or-path "gpt-4.1-mini" \
+  --api-key "$OPENAI_API_KEY" \
+  --batch-size 8
+```
 
-# Local or self-hosted HuggingFace model
+Run with a local or self-hosted Hugging Face model:
+
+```bash
 ptc-llm llm-m2m-link \
-    --workspace-directory "workspace" \
-    --project "commons-io" \
-    --input-kind "t2p" \
-    --api-type "huggingface" \
-    --model-name-or-path "Qwen/Qwen2.5-0.5B-Instruct" \
-    --batch-size 4 \
-    --dtype "auto"
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --project "commons-io" \
+  --input-kind t2p \
+  --api-type huggingface \
+  --model-name-or-path "Qwen/Qwen2.5-0.5B-Instruct" \
+  --batch-size 4 \
+  --dtype auto
 ```
 
-`--api-type auto` routes GPT-family model IDs to the OpenAI Responses API and everything else to HuggingFace.
+`--api-type auto` routes GPT-family model IDs to the OpenAI Responses API and other model IDs to Hugging Face.
 
-### Output layout
+Outputs are written under:
 
+```text
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/llm/<input-kind>/<model-name>/
+  prediction/<project>.csv
+  request/<project>.csv
+  error/<project>.csv
 ```
-<cache>/data/llm/<input-kind>/<model-name>/prediction/<project>.csv
-<cache>/data/llm/<input-kind>/<model-name>/request/<project>.csv
-<cache>/data/llm/<input-kind>/<model-name>/error/<project>.csv
+
+Use parse mode to project stored LLM responses into link rows without re-running inference:
+
+```bash
+ptc-llm llm-m2m-link \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --stage parse \
+  --project "commons-io" \
+  --input-kind t2p \
+  --model-name-or-path "gpt-4.1-mini"
 ```
 
-`prediction/` is the input dataframe with added columns: `llm_label`, `llm_confidence`, `llm_predicted_candidate_confidences`, `llm_predicted_sigs`, `llm_predicted_urls`, `llm_predicted_candidate_confidence`, `llm_predicted_match`.
-
-### Key options
+Important options:
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--input-kind` | `t2p` | `t2p` (test→production) or `p2t` (production→test) |
+| `--input-kind` | `t2p` | `t2p` for test-to-production or `p2t` for production-to-test |
 | `--api-type` | `auto` | `auto`, `openai-responses`, or `huggingface` |
-| `--model-name-or-path` | required | HuggingFace model id or local path |
-| `--short-model-name` | derived | Override the model folder name in output paths |
-| `--batch-size` | `4` | Number of method groups per batch |
-| `--max-new-tokens` | `256` | Token generation cap per group |
+| `--short-model-name` | derived | Override the model folder name |
 | `--prompt-format` | `auto` | `auto`, `json`, or `text` |
-| `--resume` | `none` | `none`, `all` (resume all), or `error` (retry only failed rows) |
-| `--stage` | `execute` | `execute` (run LLM) or `parse` (re-parse existing responses) |
-
----
+| `--resume` | `none` | `none`, `all`, or `error` |
+| `--stage` | `execute` | `execute` or `parse` |
 
 ## `ptc-history-viewer`
 
-Local FastAPI web UI for comparing test vs. production method evolution side by side.
+Starts a local browser UI for comparing method histories and reviewing sampled rows.
 
 ```bash
-# Start the server
-ptc-history-viewer serve --host 127.0.0.1 --port 8765
-
-# Auto-reload on Python changes (development)
-ptc-history-viewer serve --host 127.0.0.1 --port 8765 --reload
+ptc-history-viewer serve \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --host 127.0.0.1 \
+  --port 8765
 ```
 
-Open `http://127.0.0.1:8765` in a browser.
+Open `http://127.0.0.1:8765`.
 
-### Features
+Development auto-reload:
 
-- Compare two methods by GitHub blob URL + tool (`historyFinder` or `codeShovel`)
-- Compare two cached method-history JSON files directly
-- Browse a sample directory under `data/aggregate`, pick a CSV, and page through rows
-- Write a `revision_url` column back into a sampled CSV for DBeaver integration
-- Save manual review notes from the browser into the CSV `note` column
+```bash
+ptc-history-viewer serve \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --host 127.0.0.1 \
+  --port 8765 \
+  --reload
+```
 
-### Write revision links from the command line
+The viewer can:
+
+- Compare two methods by GitHub blob URL and history tool.
+- Compare two cached history JSON files directly.
+- Browse sampled CSVs under the experiment directory.
+- Write `revision_url` and manual `note` values back into review CSVs.
+
+Write revision links from the command line:
 
 ```bash
 ptc-history-viewer add-revision-links \
-    --csv "workspace/data/aggregate/t2p-extreme-test-historyFinder-ncc.csv" \
-    --base-url "http://127.0.0.1:8765"
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --csv "$ME_WORKSPACE_DIRECTORY/experiment/$ME_EXPERIMENT_NAME/aggregate/sample.csv" \
+  --base-url "http://127.0.0.1:8765"
 ```
+
+## `ptc-testlinker`
+
+Runs the neural TestLinker pipeline. The detailed setup, model layout, tokenizer modes, and stage outputs are documented in [src/ptc/testlinker/README.md](src/ptc/testlinker/README.md).
+
+Typical run:
+
+```bash
+ptc-testlinker testlinker \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --stage all \
+  --project "commons-io" \
+  --top-k 1 \
+  --tokenizer-mode original
+```
+
+Project selection supports `--project`, `--projects`, or `--project-index`.
+
+## `ptc-sbatch`
+
+Expands and normalizes Slurm array commands for `scripts/job.sh`. It reads `project.csv`, skips completed outputs unless `--replace` is passed, handles large array ranges, and prints a shell-safe `sbatch` command.
+
+Examples:
+
+```bash
+ptc-sbatch sbatch --array=0-999 scripts/job.sh \
+  --command method-history \
+  --tool-name historyFinder \
+  --shards 10 \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME"
+
+ptc-sbatch workspace/cmd.txt --replace
+```
+
+The helper writes summaries to stderr and the final command to stdout so it can be reviewed, redirected, or submitted.

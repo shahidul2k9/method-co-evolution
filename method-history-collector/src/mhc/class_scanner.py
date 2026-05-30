@@ -339,9 +339,6 @@ def scan_class(
                 continue
             if file_without_base in cached_files:
                 continue
-            if _is_class_scan_file_completed(cache_file, lock_path, file_without_base, retry_errors):
-                cached_files.add(file_without_base)
-                continue
 
             classes_in_file, scan_error = _scan_classes_in_file(
                 scanner,

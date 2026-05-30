@@ -20,10 +20,13 @@ import com.github.javaparser.ast.nodeTypes.NodeWithParameters;
 import com.github.javaparser.ast.nodeTypes.NodeWithName;
 import com.github.javaparser.ast.nodeTypes.NodeWithRange;
 import com.github.javaparser.ast.nodeTypes.NodeWithSimpleName;
+import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import rnd.method.parser.call.graph.artifact.ArtifactClassification;
 import rnd.method.parser.call.graph.artifact.TestArtifactDetector;
@@ -55,19 +58,39 @@ public class CallGraphServiceImpl implements CallGraphService {
     private CombinedTypeSolver typeSolver;
     private JavaParser parserWithSymbolResolver;
     private MethodMappingIndex methodMappingIndex;
+    private ClassMappingIndex classMappingIndex;
     private String absoluteRepositoryPath;
     private TestArtifactDetector artifactDetector;
+    private long maxCacheSizeMb = 256;
 
     public static CallGraphServiceImpl getInstance() {
         return new CallGraphServiceImpl();
     }
 
-    @Override
-    public synchronized void init(String repositoryUrl, String repositoryPath, String commitHash, String methodMappingFile) {
-        init(repositoryUrl, repositoryPath, commitHash, methodMappingFile, null);
+    public synchronized void configureCache(long maxCacheSizeMb) {
+        this.maxCacheSizeMb = Math.max(0, maxCacheSizeMb);
+        if (classMappingIndex != null) {
+            classMappingIndex.configureCache(this.maxCacheSizeMb);
+        }
     }
 
-    public synchronized void init(String repositoryUrl, String repositoryPath, String commitHash, String methodMappingFile, String artifactConfigPath) {
+    public void logCacheStats() {
+        if (classMappingIndex == null) {
+            return;
+        }
+        log.info("Callgraph class hierarchy cache stats: {}", classMappingIndex.cacheStats());
+    }
+
+    @Override
+    public synchronized void init(String repositoryUrl, String repositoryPath, String commitHash, String methodMappingFile) {
+        init(repositoryUrl, repositoryPath, commitHash, methodMappingFile, null, null);
+    }
+
+    public synchronized void init(String repositoryUrl, String repositoryPath, String commitHash, String methodMappingFile, String classMappingFile) {
+        init(repositoryUrl, repositoryPath, commitHash, methodMappingFile, classMappingFile, null);
+    }
+
+    public synchronized void init(String repositoryUrl, String repositoryPath, String commitHash, String methodMappingFile, String classMappingFile, String artifactConfigPath) {
         if (parserWithSymbolResolver != null) {
             throw new IllegalStateException("CallGraphServiceImpl.init must be called exactly once");
         }
@@ -76,7 +99,8 @@ public class CallGraphServiceImpl implements CallGraphService {
         this.repositoryLocation = repositoryPath;
         this.commitHash = commitHash;
         this.repositoryName = MethodParserUtil.extractRepositoryName(repositoryUrl);
-        this.methodMappingIndex = MethodMappingIndex.load(methodMappingFile);
+        this.classMappingIndex = ClassMappingIndex.load(classMappingFile, maxCacheSizeMb);
+        this.methodMappingIndex = MethodMappingIndex.load(methodMappingFile, classMappingIndex);
         Path repoPath = Paths.get(repositoryPath);
         this.absoluteRepositoryPath = repoPath.toFile().getAbsolutePath();
         JavaParserContext parserContext = JavaParserContext.create(repoPath, true);
@@ -107,11 +131,9 @@ public class CallGraphServiceImpl implements CallGraphService {
             if (classification.isResource()) {
                 return List.of();
             }
-            return cu
-                    .findAll(MethodDeclaration.class)
-                    .stream()
-                    .flatMap(fromMd -> buildCallgraphForMethod(fromMd, file).stream())
-                    .toList();
+            FileCallGraphContext context = new FileCallGraphContext(file);
+            new CallGraphVisitor().visit(cu, context);
+            return context.results();
         } catch (Exception e) {
             return List.of();
         }
@@ -123,48 +145,14 @@ public class CallGraphServiceImpl implements CallGraphService {
         }
     }
 
-    private List<MethodCall> buildCallgraphForMethod(MethodDeclaration fromMd, String fileRelative) {
+    private MethodCall buildCallgraphForMethod(MethodCallTraversalState state, String fileRelative) {
+        MethodDeclaration fromMd = state.fromMd();
         if (fromMd.getSignature().getName().contains("getFirstMillisecond")) {
             log.info(fromMd.getSignature().getName().toString());
         }
 
-        Set<String> lcbaMethodUrlSet = new HashSet<>();
-        List<Method> calledMethods = new ArrayList<>();
-        /* For handling method just before assertion
-           e.g. mutNum.increment
-           https://github.com/apache/commons-lang/blob/425d8085cfcaab5a78bf0632f9ae77b7e9127cf8/src/test/java/org/apache/commons/lang3/mutable/MutableIntTest.java#L146 */
-        Stack<Method> lcbaCandidateMethod = new Stack<>();
-
-        fromMd.walk(Node.TreeTraversal.POSTORDER, node -> {
-            if (node instanceof MethodCallExpr || node instanceof ObjectCreationExpr) {
-                boolean isAssertionMethod = node instanceof MethodCallExpr && AssertionLineFinder.isAssertionCall(((MethodCallExpr) node).getNameAsString());
-                if (isAssertionMethod) {
-                    while (!lcbaCandidateMethod.isEmpty()) {
-                        Method precededMethod = lcbaCandidateMethod.pop();
-                        if (precededMethod.getInvocationLine() < node.getBegin().get().line) {
-                            lcbaMethodUrlSet.add(precededMethod.getUrl());
-                            lcbaCandidateMethod.clear();
-                        }
-                    }
-                    ((MethodCallExpr) node).getArguments().forEach(argNode -> {
-                        if (argNode instanceof MethodCallExpr || argNode instanceof ObjectCreationExpr) {
-                            Method m = getMethodInfo(repositoryUrl, commitHash, argNode, typeSolver, absoluteRepositoryPath, repositoryName, methodMappingIndex);
-                            if (m != null) {
-                                lcbaMethodUrlSet.add(m.getUrl());
-                            }
-                        }
-                    });
-                }
-                Method methodInfo = getMethodInfo(repositoryUrl, commitHash, node, typeSolver, absoluteRepositoryPath, repositoryName, methodMappingIndex);
-                if (methodInfo != null) {
-                    calledMethods.add(methodInfo);
-                    lcbaCandidateMethod.add(methodInfo);
-                }
-            }
-        });
-
-        calledMethods.forEach(method -> {
-            if (lcbaMethodUrlSet.contains(method.getUrl())) {
+        state.calledMethods().forEach(method -> {
+            if (state.lcbaMethodUrlSet().contains(method.getUrl())) {
                 method.setLcba(1);
             }
         });
@@ -223,9 +211,83 @@ public class CallGraphServiceImpl implements CallGraphService {
                         .lcba(0)
                         .invocationLine(null)
                         .build())
-                .fanMethods(calledMethods)
+                .fanMethods(state.calledMethods())
                 .build();
-        return List.of(methodCall);
+        return methodCall;
+    }
+
+    private void collectCallNode(MethodCallTraversalState state, Node node) {
+        boolean isAssertionMethod = node instanceof MethodCallExpr && AssertionLineFinder.isAssertionCall(((MethodCallExpr) node).getNameAsString());
+        if (isAssertionMethod) {
+            while (!state.lcbaCandidateMethod().isEmpty()) {
+                Method precededMethod = state.lcbaCandidateMethod().pop();
+                if (precededMethod.getInvocationLine() < node.getBegin().get().line) {
+                    state.lcbaMethodUrlSet().add(precededMethod.getUrl());
+                    state.lcbaCandidateMethod().clear();
+                }
+            }
+            ((MethodCallExpr) node).getArguments().forEach(argNode -> {
+                if (argNode instanceof MethodCallExpr || argNode instanceof ObjectCreationExpr) {
+                    Method m = getMethodInfo(repositoryUrl, commitHash, argNode, typeSolver, absoluteRepositoryPath, repositoryName, methodMappingIndex);
+                    if (m != null) {
+                        state.lcbaMethodUrlSet().add(m.getUrl());
+                    }
+                }
+            });
+        }
+        Method methodInfo = getMethodInfo(repositoryUrl, commitHash, node, typeSolver, absoluteRepositoryPath, repositoryName, methodMappingIndex);
+        if (methodInfo != null) {
+            state.calledMethods().add(methodInfo);
+            state.lcbaCandidateMethod().add(methodInfo);
+        }
+    }
+
+    private final class CallGraphVisitor extends VoidVisitorAdapter<FileCallGraphContext> {
+        @Override
+        public void visit(MethodDeclaration methodDeclaration, FileCallGraphContext context) {
+            MethodCallTraversalState state = new MethodCallTraversalState(methodDeclaration);
+            context.methodStack().push(state);
+            super.visit(methodDeclaration, context);
+            context.methodStack().pop();
+            context.results().add(buildCallgraphForMethod(state, context.fileRelative()));
+        }
+
+        @Override
+        public void visit(MethodCallExpr methodCallExpr, FileCallGraphContext context) {
+            super.visit(methodCallExpr, context);
+            context.currentMethod().ifPresent(state -> collectCallNode(state, methodCallExpr));
+        }
+
+        @Override
+        public void visit(ObjectCreationExpr objectCreationExpr, FileCallGraphContext context) {
+            super.visit(objectCreationExpr, context);
+            context.currentMethod().ifPresent(state -> collectCallNode(state, objectCreationExpr));
+        }
+    }
+
+    private record FileCallGraphContext(
+            String fileRelative,
+            Deque<MethodCallTraversalState> methodStack,
+            List<MethodCall> results
+    ) {
+        FileCallGraphContext(String fileRelative) {
+            this(fileRelative, new ArrayDeque<>(), new ArrayList<>());
+        }
+
+        Optional<MethodCallTraversalState> currentMethod() {
+            return Optional.ofNullable(methodStack.peek());
+        }
+    }
+
+    private record MethodCallTraversalState(
+            MethodDeclaration fromMd,
+            Set<String> lcbaMethodUrlSet,
+            List<Method> calledMethods,
+            Stack<Method> lcbaCandidateMethod
+    ) {
+        MethodCallTraversalState(MethodDeclaration fromMd) {
+            this(fromMd, new HashSet<>(), new ArrayList<>(), new Stack<>());
+        }
     }
 
     private static Method getMethodInfo(String repositoryUrl, String commitHash, Node callNode, CombinedTypeSolver typeSolver, String absoluteRepositoryPath, String repositoryName, MethodMappingIndex methodMappingIndex) {
@@ -326,7 +388,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                         expression = entry.expression() != null ? entry.expression() : expression;
                         fqn = entry.fqn() != null ? entry.fqn() : heuristic.fqn();
                         fqs = entry.fqs() != null ? entry.fqs() : heuristic.fqs();
-                        fqnSimple = entry.tcTracerFqs() != null ? entry.tcTracerFqs() : heuristic.fqsSimple();
+                        fqnSimple = TestLinkerSignatureUtil.fromDeclaredFqs(entry.fqs() != null ? entry.fqs() : heuristic.fqs());
                         filePath = entry.file();
                         startLine = entry.startLine();
                         endLine = entry.endLine();
@@ -418,7 +480,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                         expression = entry.expression() != null ? entry.expression() : expression;
                         fqn = entry.fqn() != null ? entry.fqn() : heuristic.fqn();
                         fqs = entry.fqs() != null ? entry.fqs() : heuristic.fqs();
-                        fqnSimple = entry.tcTracerFqs() != null ? entry.tcTracerFqs() : heuristic.fqsSimple();
+                        fqnSimple = TestLinkerSignatureUtil.fromDeclaredFqs(entry.fqs() != null ? entry.fqs() : heuristic.fqs());
                         filePath = entry.file();
                         startLine = entry.startLine();
                         endLine = entry.endLine();
@@ -514,7 +576,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                 .orElse("");
         String fqs = fqn + "(" + params + ")";
 
-        return new HeuristicMethodData(methodName, pkg, fqn, fqs, fqs);
+        return new HeuristicMethodData(methodName, pkg, declaringType, fqn, fqs);
     }
 
     private static HeuristicMethodData buildHeuristicConstructorData(ObjectCreationExpr call) {
@@ -535,7 +597,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                 .orElse("");
         String fqs = fqn + "(" + params + ")";
 
-        return new HeuristicMethodData(typeName, pkg, fqn, fqs, fqs);
+        return new HeuristicMethodData(typeName, pkg, declaringType, fqn, fqs);
     }
 
     private static String guessDeclaringType(MethodCallExpr call, CompilationUnit cu, String pkg) {
@@ -664,9 +726,6 @@ public class CallGraphServiceImpl implements CallGraphService {
         if (cleanName.contains("(") || cleanName.contains(")") || cleanName.contains(" ")) {
             return null;
         }
-        if (cleanName.contains(".")) {
-            return cleanName;
-        }
         if (!Character.isUpperCase(cleanName.charAt(0))) {
             return null;
         }
@@ -675,11 +734,21 @@ public class CallGraphServiceImpl implements CallGraphService {
             for (ImportDeclaration imp : cu.getImports()) {
                 if (!imp.isAsterisk() && !imp.isStatic()) {
                     String imported = imp.getNameAsString();
+                    if (cleanName.contains(".")) {
+                        String firstPart = cleanName.substring(0, cleanName.indexOf('.'));
+                        if (imported.endsWith("." + firstPart)) {
+                            return imported + cleanName.substring(cleanName.indexOf('.'));
+                        }
+                    }
                     if (imported.endsWith("." + cleanName)) {
                         return imported;
                     }
                 }
             }
+        }
+
+        if (cleanName.contains(".")) {
+            return cleanName;
         }
 
         return pkg == null || pkg.isBlank() ? cleanName : pkg + "." + cleanName;
@@ -779,12 +848,86 @@ public class CallGraphServiceImpl implements CallGraphService {
         }
     }
 
+    private static String ownerFromMethod(String fqn, String fqs) {
+        String ownerAndName = fqn != null ? fqn : stripParameters(fqs);
+        if (ownerAndName == null || ownerAndName.isBlank()) {
+            return null;
+        }
+        String normalized = eraseGenerics(ownerAndName);
+        int dot = normalized.lastIndexOf('.');
+        return dot > 0 ? normalized.substring(0, dot) : null;
+    }
+
+    private static int parameterCount(String signature) {
+        if (signature == null) {
+            return -1;
+        }
+        int open = signature.lastIndexOf('(');
+        int close = signature.lastIndexOf(')');
+        if (open < 0 || close < open) {
+            return -1;
+        }
+        String params = signature.substring(open + 1, close).trim();
+        if (params.isBlank()) {
+            return 0;
+        }
+        return params.split("\\s*,\\s*").length;
+    }
+
+    private static String normalizeSignature(String signature) {
+        if (signature == null) {
+            return null;
+        }
+        return eraseGenerics(signature).replace("...", "[]").replace('$', '.');
+    }
+
+    private static String normalizeClassName(String name) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        String normalized = eraseGenerics(name)
+                .replace(".class", "")
+                .replace('$', '.')
+                .trim();
+        while (normalized.endsWith("[]")) {
+            normalized = normalized.substring(0, normalized.length() - 2);
+        }
+        if (normalized.endsWith("...")) {
+            normalized = normalized.substring(0, normalized.length() - 3);
+        }
+        if (normalized.contains("(") || normalized.contains(")") || normalized.contains(" ") || normalized.startsWith("<UNKNOWN:")) {
+            return null;
+        }
+        return normalized.isBlank() ? null : normalized;
+    }
+
+    private static String eraseGenerics(String value) {
+        if (value == null || value.indexOf('<') < 0) {
+            return value;
+        }
+        StringBuilder result = new StringBuilder();
+        int depth = 0;
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch == '<') {
+                depth++;
+            } else if (ch == '>') {
+                if (depth > 0) {
+                    depth--;
+                }
+            } else if (depth == 0) {
+                result.append(ch);
+            }
+        }
+        return result.toString();
+    }
+
     private record HeuristicMethodData(
             String methodName,
             String pkg,
+            String declaringType,
             String fqn,
-            String fqs,
-            String fqsSimple
+            String fqs
     ) {
     }
 
@@ -795,141 +938,478 @@ public class CallGraphServiceImpl implements CallGraphService {
             String pkg,
             String fqn,
             String fqs,
-            String tcTracerFqs,
             String file,
             String url,
             Integer startLine,
             Integer endLine,
             String hash,
-            String artifact
+            String artifact,
+            String ownerFqn,
+            int index
     ) {
         int paramCount() {
-            String signature = fqs != null ? fqs : tcTracerFqs;
-            if (signature == null) {
-                return -1;
-            }
+            return parameterCount(fqs);
+        }
+    }
 
-            int open = signature.lastIndexOf('(');
-            int close = signature.lastIndexOf(')');
-            if (open < 0 || close < open) {
-                return -1;
-            }
+    private record ClassMappingEntry(
+            String name,
+            String fqn,
+            String parentFqns,
+            String file,
+            Integer startLine,
+            Integer endLine,
+            String expression,
+            int index
+    ) {
+    }
 
-            String params = signature.substring(open + 1, close).trim();
-            if (params.isBlank()) {
-                return 0;
+    private static final class ClassMappingIndex {
+        private static final ClassMappingIndex EMPTY = new ClassMappingIndex(List.of(), 0);
+        private final Map<String, ClassMappingEntry> byFqn;
+        private final Map<String, String> aliases;
+        private final Map<String, List<String>> parentsByChild;
+        private final Map<String, List<String>> childrenByParent;
+        private Cache<String, List<String>> searchOrderCache;
+        private Cache<String, List<List<String>>> searchLevelsCache;
+
+        private ClassMappingIndex(List<ClassMappingEntry> entries, long maxCacheSizeMb) {
+            Map<String, ClassMappingEntry> fqnMap = new LinkedHashMap<>();
+            Map<String, String> aliasMap = new HashMap<>();
+            for (ClassMappingEntry entry : entries) {
+                String normalized = normalizeClassName(entry.fqn());
+                if (normalized == null) {
+                    continue;
+                }
+                fqnMap.putIfAbsent(normalized, entry);
+                addAlias(aliasMap, entry.fqn(), normalized);
+                addAlias(aliasMap, normalized, normalized);
+                addAlias(aliasMap, normalized.replace('$', '.'), normalized);
             }
-            return params.split("\\s*,\\s*").length;
+            this.byFqn = fqnMap;
+            this.aliases = aliasMap;
+
+            Map<String, List<String>> parentMap = new LinkedHashMap<>();
+            Map<String, List<String>> childMap = new LinkedHashMap<>();
+            for (ClassMappingEntry entry : entries) {
+                String child = normalize(entry.fqn());
+                if (child == null || !fqnMap.containsKey(child)) {
+                    continue;
+                }
+                for (String parentText : splitParentFqns(entry.parentFqns())) {
+                    String parent = normalize(parentText);
+                    if (parent == null || !fqnMap.containsKey(parent)) {
+                        continue;
+                    }
+                    parentMap.computeIfAbsent(child, ignored -> new ArrayList<>()).add(parent);
+                    childMap.computeIfAbsent(parent, ignored -> new ArrayList<>()).add(child);
+                }
+            }
+            this.parentsByChild = parentMap;
+            this.childrenByParent = childMap;
+            configureCache(maxCacheSizeMb);
+        }
+
+        static ClassMappingIndex load(String classMappingFile) {
+            return load(classMappingFile, 256);
+        }
+
+        static ClassMappingIndex load(String classMappingFile, long maxCacheSizeMb) {
+            if (classMappingFile == null || classMappingFile.isBlank()) {
+                throw new IllegalArgumentException("Class mapping file location not specified");
+            }
+            Path path = Paths.get(classMappingFile);
+            if (!Files.exists(path)) {
+                throw new IllegalArgumentException("Class mapping file does not exist: " + classMappingFile);
+            }
+            try {
+                List<ClassMappingEntry> entries = readEntries(path);
+                log.info("Loaded {} class mapping entries from {}", entries.size(), classMappingFile);
+                return new ClassMappingIndex(entries, maxCacheSizeMb);
+            } catch (IOException | RuntimeException e) {
+                throw new IllegalArgumentException("Failed to load class mapping file " + classMappingFile + ": " + e.getMessage(), e);
+            }
+        }
+
+        void configureCache(long maxCacheSizeMb) {
+            if (maxCacheSizeMb <= 0) {
+                this.searchOrderCache = null;
+                this.searchLevelsCache = null;
+                return;
+            }
+            long maxWeight = Math.max(1, maxCacheSizeMb) * 1024L * 1024L;
+            long perCacheWeight = Math.max(1, maxWeight / 2);
+            this.searchOrderCache = Caffeine.newBuilder()
+                    .maximumWeight(perCacheWeight)
+                    .weigher((String ignored, List<String> value) -> weighStringList(value))
+                    .recordStats()
+                    .build();
+            this.searchLevelsCache = Caffeine.newBuilder()
+                    .maximumWeight(perCacheWeight)
+                    .weigher((String ignored, List<List<String>> value) -> weighNestedStringList(value))
+                    .recordStats()
+                    .build();
+        }
+
+        boolean contains(String fqn) {
+            String normalized = normalize(fqn);
+            return normalized != null && byFqn.containsKey(normalized);
+        }
+
+        String normalize(String name) {
+            String normalized = normalizeClassName(name);
+            if (normalized == null) {
+                return null;
+            }
+            String alias = aliases.get(normalized);
+            if (alias != null) {
+                return alias;
+            }
+            alias = aliases.get(normalized.replace('$', '.'));
+            if (alias != null) {
+                return alias;
+            }
+            return byFqn.containsKey(normalized) ? normalized : null;
+        }
+
+        List<String> searchOrder(String ownerFqn) {
+            String start = normalize(ownerFqn);
+            if (start == null || !byFqn.containsKey(start)) {
+                return List.of();
+            }
+            if (searchOrderCache != null) {
+                return searchOrderCache.get(start, this::computeSearchOrder);
+            }
+            return computeSearchOrder(start);
+        }
+
+        private List<String> computeSearchOrder(String start) {
+            LinkedHashSet<String> ordered = new LinkedHashSet<>();
+            ordered.add(start);
+            ordered.addAll(breadthFirst(start, childrenByParent));
+            ordered.addAll(breadthFirst(start, parentsByChild));
+            return List.copyOf(ordered);
+        }
+
+        List<List<String>> searchLevels(String ownerFqn) {
+            String start = normalize(ownerFqn);
+            if (start == null || !byFqn.containsKey(start)) {
+                return List.of();
+            }
+            if (searchLevelsCache != null) {
+                return searchLevelsCache.get(start, this::computeSearchLevels);
+            }
+            return computeSearchLevels(start);
+        }
+
+        private List<List<String>> computeSearchLevels(String start) {
+            List<List<String>> levels = new ArrayList<>();
+            levels.add(List.of(start));
+            levels.addAll(breadthFirstLevels(start, childrenByParent));
+            levels.addAll(breadthFirstLevels(start, parentsByChild));
+            return levels.stream().map(List::copyOf).toList();
+        }
+
+        String cacheStats() {
+            if (searchOrderCache == null && searchLevelsCache == null) {
+                return "disabled";
+            }
+            String orderStats = searchOrderCache == null ? "disabled" : searchOrderCache.stats().toString();
+            String levelsStats = searchLevelsCache == null ? "disabled" : searchLevelsCache.stats().toString();
+            return "searchOrder=" + orderStats + ", searchLevels=" + levelsStats;
+        }
+
+        private static int weighStringList(List<String> value) {
+            return Math.max(1, value.stream().filter(Objects::nonNull).mapToInt(text -> 40 + text.length() * 2).sum());
+        }
+
+        private static int weighNestedStringList(List<List<String>> value) {
+            int total = 40;
+            for (List<String> level : value) {
+                total += 40 + weighStringList(level);
+            }
+            return Math.max(1, total);
+        }
+
+        private static List<String> breadthFirst(String start, Map<String, List<String>> adjacency) {
+            List<String> result = new ArrayList<>();
+            Set<String> seen = new HashSet<>();
+            Deque<String> queue = new ArrayDeque<>();
+            seen.add(start);
+            queue.add(start);
+            while (!queue.isEmpty()) {
+                String current = queue.removeFirst();
+                for (String next : adjacency.getOrDefault(current, List.of())) {
+                    if (seen.add(next)) {
+                        result.add(next);
+                        queue.addLast(next);
+                    }
+                }
+            }
+            return result;
+        }
+
+        private static List<List<String>> breadthFirstLevels(String start, Map<String, List<String>> adjacency) {
+            List<List<String>> levels = new ArrayList<>();
+            Set<String> seen = new HashSet<>();
+            List<String> currentLevel = List.of(start);
+            seen.add(start);
+            while (!currentLevel.isEmpty()) {
+                List<String> nextLevel = new ArrayList<>();
+                for (String current : currentLevel) {
+                    for (String next : adjacency.getOrDefault(current, List.of())) {
+                        if (seen.add(next)) {
+                            nextLevel.add(next);
+                        }
+                    }
+                }
+                if (!nextLevel.isEmpty()) {
+                    levels.add(nextLevel);
+                }
+                currentLevel = nextLevel;
+            }
+            return levels;
+        }
+
+        private static void addAlias(Map<String, String> aliases, String alias, String canonical) {
+            String normalizedAlias = normalizeClassName(alias);
+            if (normalizedAlias != null) {
+                aliases.putIfAbsent(normalizedAlias, canonical);
+            }
+        }
+
+        private static List<String> splitParentFqns(String parentFqns) {
+            if (parentFqns == null || parentFqns.isBlank()) {
+                return List.of();
+            }
+            return Arrays.stream(parentFqns.split("\\|"))
+                    .map(String::trim)
+                    .filter(text -> !text.isBlank())
+                    .toList();
+        }
+
+        private static List<ClassMappingEntry> readEntries(Path path) throws IOException {
+            List<ClassMappingEntry> entries = new ArrayList<>();
+            try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
+                String firstLine = reader.readLine();
+                if (firstLine == null) {
+                    return entries;
+                }
+                char delimiter = firstLine.indexOf('\t') >= 0 ? '\t' : ',';
+                List<String> firstColumns = splitDelimitedLine(firstLine, delimiter);
+                Map<String, Integer> header = toHeader(firstColumns);
+                boolean hasHeader = header.containsKey("fqn") || header.containsKey("parent_fqns");
+                if (!hasHeader) {
+                    ClassMappingEntry firstEntry = fromColumns(firstColumns, Map.of(), false, entries.size());
+                    if (firstEntry != null) {
+                        entries.add(firstEntry);
+                    }
+                }
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.isBlank()) {
+                        continue;
+                    }
+                    ClassMappingEntry entry = fromColumns(splitDelimitedLine(line, delimiter), header, hasHeader, entries.size());
+                    if (entry != null) {
+                        entries.add(entry);
+                    }
+                }
+            }
+            return entries;
+        }
+
+        private static ClassMappingEntry fromColumns(List<String> columns, Map<String, Integer> header, boolean hasHeader, int index) {
+            String name;
+            String fqn;
+            String parentFqns;
+            String file;
+            Integer startLine;
+            Integer endLine;
+            String expression;
+            if (hasHeader) {
+                name = get(columns, header, "name");
+                fqn = get(columns, header, "fqn");
+                parentFqns = get(columns, header, "parent_fqns");
+                file = get(columns, header, "file");
+                startLine = parseInteger(get(columns, header, "start_line"));
+                endLine = parseInteger(get(columns, header, "end_line"));
+                expression = get(columns, header, "expression");
+            } else {
+                if (columns.size() < 13) {
+                    return null;
+                }
+                name = clean(columns.get(1));
+                fqn = clean(columns.get(2));
+                file = clean(columns.get(4));
+                startLine = parseInteger(clean(columns.get(6)));
+                endLine = parseInteger(clean(columns.get(7)));
+                expression = clean(columns.get(8));
+                parentFqns = clean(columns.get(12));
+            }
+            return fqn == null ? null : new ClassMappingEntry(name, fqn, parentFqns, file, startLine, endLine, expression, index);
+        }
+
+        private static Map<String, Integer> toHeader(List<String> columns) {
+            Map<String, Integer> header = new HashMap<>();
+            for (int i = 0; i < columns.size(); i++) {
+                String column = clean(columns.get(i));
+                if (column != null) {
+                    header.put(column.toLowerCase(Locale.ROOT), i);
+                }
+            }
+            return header;
+        }
+
+        private static List<String> splitDelimitedLine(String line, char delimiter) {
+            List<String> columns = new ArrayList<>();
+            StringBuilder current = new StringBuilder();
+            boolean quoted = false;
+            for (int i = 0; i < line.length(); i++) {
+                char ch = line.charAt(i);
+                if (ch == '"') {
+                    if (quoted && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                        current.append('"');
+                        i++;
+                    } else {
+                        quoted = !quoted;
+                    }
+                } else if (ch == delimiter && !quoted) {
+                    columns.add(clean(current.toString()));
+                    current.setLength(0);
+                } else {
+                    current.append(ch);
+                }
+            }
+            columns.add(clean(current.toString()));
+            return columns;
+        }
+
+        private static String get(List<String> columns, Map<String, Integer> header, String name) {
+            Integer index = header.get(name);
+            if (index == null || index >= columns.size()) {
+                return null;
+            }
+            return clean(columns.get(index));
+        }
+
+        private static String clean(String value) {
+            if (value == null) {
+                return null;
+            }
+            String cleaned = value.trim();
+            return cleaned.isEmpty() ? null : cleaned;
+        }
+
+        private static Integer parseInteger(String value) {
+            try {
+                return value == null ? null : Integer.parseInt(value);
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
         }
     }
 
     private static final class MethodMappingIndex {
-        private static final MethodMappingIndex EMPTY = new MethodMappingIndex(List.of());
-        private final Map<String, List<MethodMappingEntry>> byExpressionAndName;
+        private static final MethodMappingIndex EMPTY = new MethodMappingIndex(List.of(), ClassMappingIndex.EMPTY);
+        private final ClassMappingIndex classIndex;
+        private final Map<String, List<MethodMappingEntry>> byOwnerExpressionAndName;
 
-        private MethodMappingIndex(List<MethodMappingEntry> entries) {
+        private MethodMappingIndex(List<MethodMappingEntry> entries, ClassMappingIndex classIndex) {
+            this.classIndex = classIndex;
             Map<String, List<MethodMappingEntry>> grouped = new HashMap<>();
             for (MethodMappingEntry entry : entries) {
-                grouped.computeIfAbsent(key(entry.expression(), entry.name()), ignored -> new ArrayList<>()).add(entry);
+                grouped.computeIfAbsent(key(entry.ownerFqn(), entry.expression(), entry.name()), ignored -> new ArrayList<>()).add(entry);
             }
-            this.byExpressionAndName = grouped;
+            this.byOwnerExpressionAndName = grouped;
         }
 
-        static MethodMappingIndex load(String methodMappingFile) {
+        static MethodMappingIndex load(String methodMappingFile, ClassMappingIndex classIndex) {
             if (methodMappingFile == null || methodMappingFile.isBlank()) {
-                log.error("Method mapping file location not specified");
-                return EMPTY;
+                throw new IllegalArgumentException("Method mapping file location not specified");
             }
 
             Path path = Paths.get(methodMappingFile);
             if (!Files.exists(path)) {
-                log.error("Method mapping file does not exist: {}", methodMappingFile);
-                return EMPTY;
+                throw new IllegalArgumentException("Method mapping file does not exist: " + methodMappingFile);
             }
 
             try {
-                List<MethodMappingEntry> entries = readEntries(path);
-                log.info("Loaded {} method mapping entries from {}", entries.size(), methodMappingFile);
-                return new MethodMappingIndex(entries);
+                List<MethodMappingEntry> entries = readEntries(path, classIndex);
+                log.info("Loaded {} CSV-bounded method mapping entries from {}", entries.size(), methodMappingFile);
+                return new MethodMappingIndex(entries, classIndex);
             } catch (IOException | RuntimeException e) {
-                log.error("Failed to load method mapping file {}: {}", methodMappingFile, e.getMessage());
-                return EMPTY;
+                throw new IllegalArgumentException("Failed to load method mapping file " + methodMappingFile + ": " + e.getMessage(), e);
             }
         }
 
         Optional<MethodMappingEntry> findBestMethod(HeuristicMethodData heuristic, MethodCallExpr call, String absoluteRepositoryPath) {
-            List<MethodMappingEntry> candidates = byExpressionAndName.getOrDefault(key("method", heuristic.methodName()), List.of());
-            if (candidates.isEmpty()) {
-                return Optional.empty();
-            }
-            if (candidates.size() == 1) {
-                return Optional.of(candidates.get(0));
-            }
-
             int argCount = call.getArguments().size();
             String callerFile = call.findCompilationUnit()
                     .flatMap(CompilationUnit::getStorage)
                     .map(storage -> MethodParserUtil.stripFilePrefix(absoluteRepositoryPath, storage.getPath().toString()))
                     .orElse(null);
-
-            return candidates.stream()
-                    .map(candidate -> new ScoredMethodMapping(candidate, score(candidate, heuristic, argCount, callerFile)))
-                    .filter(scored -> scored.score() > 0)
-                    .max(Comparator.comparingInt(ScoredMethodMapping::score))
-                    .map(ScoredMethodMapping::entry);
+            return findBest(heuristic, "method", argCount, callerFile);
         }
 
         Optional<MethodMappingEntry> findBestConstructor(HeuristicMethodData heuristic, ObjectCreationExpr call, String absoluteRepositoryPath) {
-            List<MethodMappingEntry> candidates = byExpressionAndName.getOrDefault(key("constructor", heuristic.methodName()), List.of());
-            if (candidates.isEmpty()) {
-                return Optional.empty();
-            }
-            if (candidates.size() == 1) {
-                return Optional.of(candidates.get(0));
-            }
-
             int argCount = call.getArguments().size();
             String callerFile = call.findCompilationUnit()
                     .flatMap(CompilationUnit::getStorage)
                     .map(storage -> MethodParserUtil.stripFilePrefix(absoluteRepositoryPath, storage.getPath().toString()))
                     .orElse(null);
+            return findBest(heuristic, "constructor", argCount, callerFile);
+        }
 
-            return candidates.stream()
-                    .map(candidate -> new ScoredMethodMapping(candidate, score(candidate, heuristic, argCount, callerFile)))
-                    .filter(scored -> scored.score() > 0)
-                    .max(Comparator.comparingInt(ScoredMethodMapping::score))
-                    .map(ScoredMethodMapping::entry);
+        private Optional<MethodMappingEntry> findBest(HeuristicMethodData heuristic, String expression, int argCount, String callerFile) {
+            List<List<String>> ownerLevels = classIndex.searchLevels(heuristic.declaringType());
+            if (ownerLevels.isEmpty()) {
+                return Optional.empty();
+            }
+
+            for (List<String> ownerLevel : ownerLevels) {
+                List<MethodMappingEntry> candidates = ownerLevel.stream()
+                        .flatMap(owner -> byOwnerExpressionAndName.getOrDefault(key(owner, expression, heuristic.methodName()), List.of()).stream())
+                        .toList();
+                Optional<ScoredMethodMapping> best = candidates.stream()
+                        .map(candidate -> new ScoredMethodMapping(candidate, score(candidate, heuristic, argCount, callerFile)))
+                        .filter(scored -> scored.score() >= 0)
+                        .max(Comparator
+                                .comparingInt(ScoredMethodMapping::score)
+                                .thenComparing(scored -> -scored.entry().index()));
+                if (best.isPresent()) {
+                    return best.map(ScoredMethodMapping::entry);
+                }
+            }
+            return Optional.empty();
         }
 
         private static int score(MethodMappingEntry candidate, HeuristicMethodData heuristic, int argCount, String callerFile) {
             int score = 0;
 
-            if (Objects.equals(candidate.fqs(), heuristic.fqs())) {
-                score += 1000;
-            }
-            if (Objects.equals(candidate.tcTracerFqs(), heuristic.fqsSimple())) {
-                score += 900;
+            if (candidate.paramCount() >= 0 && candidate.paramCount() != argCount) {
+                return -1;
             }
             if (Objects.equals(candidate.fqn(), heuristic.fqn())) {
-                score += 700;
+                score += 300;
             }
-            if (candidate.fqs() != null && candidate.fqs().startsWith(heuristic.fqn() + "(")) {
-                score += 500;
+            if (Objects.equals(normalizeSignature(candidate.fqs()), normalizeSignature(heuristic.fqs()))) {
+                score += 200;
             }
-            if (candidate.tcTracerFqs() != null && candidate.tcTracerFqs().startsWith(heuristic.fqn() + "(")) {
-                score += 450;
-            }
-            if (candidate.paramCount() == argCount) {
+            if (candidate.fqs() != null && stripParameters(candidate.fqs()).equals(heuristic.fqn())) {
                 score += 100;
             }
-            if (callerFile != null && Objects.equals(candidate.file(), callerFile)) {
+            if (candidate.paramCount() == argCount) {
                 score += 50;
+            }
+            if (callerFile != null && Objects.equals(candidate.file(), callerFile)) {
+                score += 25;
             }
 
             return score;
         }
 
-        private static List<MethodMappingEntry> readEntries(Path path) throws IOException {
+        private static List<MethodMappingEntry> readEntries(Path path, ClassMappingIndex classIndex) throws IOException {
             List<MethodMappingEntry> entries = new ArrayList<>();
             try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
                 String firstLine = reader.readLine();
@@ -943,7 +1423,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                 boolean hasHeader = header.containsKey("name") || header.containsKey("expression");
 
                 if (!hasHeader) {
-                    MethodMappingEntry firstEntry = fromColumns(firstColumns, Map.of(), false);
+                    MethodMappingEntry firstEntry = fromColumns(firstColumns, Map.of(), false, classIndex, entries.size());
                     if (firstEntry != null) {
                         entries.add(firstEntry);
                     }
@@ -954,7 +1434,7 @@ public class CallGraphServiceImpl implements CallGraphService {
                     if (line.isBlank()) {
                         continue;
                     }
-                    MethodMappingEntry entry = fromColumns(splitDelimitedLine(line, delimiter), header, hasHeader);
+                    MethodMappingEntry entry = fromColumns(splitDelimitedLine(line, delimiter), header, hasHeader, classIndex, entries.size());
                     if (entry != null) {
                         entries.add(entry);
                     }
@@ -963,14 +1443,13 @@ public class CallGraphServiceImpl implements CallGraphService {
             return entries;
         }
 
-        private static MethodMappingEntry fromColumns(List<String> columns, Map<String, Integer> header, boolean hasHeader) {
+        private static MethodMappingEntry fromColumns(List<String> columns, Map<String, Integer> header, boolean hasHeader, ClassMappingIndex classIndex, int index) {
             String repositoryName;
             String name;
             String expression;
             String pkg;
             String fqn;
             String fqs;
-            String tcTracerFqs;
             String file;
             String url;
             Integer startLine;
@@ -985,7 +1464,6 @@ public class CallGraphServiceImpl implements CallGraphService {
                 pkg = get(columns, header, "pkg");
                 fqn = get(columns, header, "fqn");
                 fqs = get(columns, header, "fqs");
-                tcTracerFqs = get(columns, header, "tctracer_fqs");
                 file = get(columns, header, "file");
                 url = get(columns, header, "url");
                 startLine = parseInteger(get(columns, header, "start_line"));
@@ -1007,7 +1485,6 @@ public class CallGraphServiceImpl implements CallGraphService {
                 pkg = null;
                 fqn = null;
                 fqs = null;
-                tcTracerFqs = null;
                 hash = null;
             }
 
@@ -1015,7 +1492,15 @@ public class CallGraphServiceImpl implements CallGraphService {
                 return null;
             }
 
-            return new MethodMappingEntry(repositoryName, name, expression, pkg, fqn, fqs, tcTracerFqs, file, url, startLine, endLine, hash, artifact);
+            String ownerFqn = classIndex.normalize("constructor".equals(expression) ? fqn : ownerFromMethod(fqn, fqs));
+            if (ownerFqn == null) {
+                ownerFqn = classIndex.normalize(ownerFromMethod(fqn, fqs));
+            }
+            if (ownerFqn == null || !classIndex.contains(ownerFqn)) {
+                return null;
+            }
+
+            return new MethodMappingEntry(repositoryName, name, expression, pkg, fqn, fqs, file, url, startLine, endLine, hash, artifact, ownerFqn, index);
         }
 
         private static Map<String, Integer> toHeader(List<String> columns) {
@@ -1079,8 +1564,8 @@ public class CallGraphServiceImpl implements CallGraphService {
             }
         }
 
-        private static String key(String expression, String name) {
-            return (expression == null ? "" : expression) + ":" + (name == null ? "" : name);
+        private static String key(String owner, String expression, String name) {
+            return (owner == null ? "" : owner) + ":" + (expression == null ? "" : expression) + ":" + (name == null ? "" : name);
         }
     }
 

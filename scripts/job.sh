@@ -24,6 +24,7 @@ Options:
   --timeout-seconds       Optional method-history command timeout in seconds (default: 30*60 = 1800)
   --merge-threshold       History JSON merge threshold; for scan/code commands, pending rows before flushing (default: 10000; history negative disables final merge; scan/code 0/-1 disables threshold trigger)
   --merge-interval-seconds Optional cache flush interval for method-scan, class-scan, method-code, and method-callgraph (default: 900; 0 disables time trigger)
+  --max-cache-size        Generic in-memory cache budget in MB for supported commands (default: 256; 0 disables optional caches)
   --merge-only            Merge existing loose history JSON files without generating new history
   --retry-errors          Whether method-scan, class-scan, method-code, and method-callgraph retry previous __error_marker__ rows (default: true)
   --artifact-config-path  Artifact detection YAML file or directory
@@ -65,6 +66,7 @@ JAVA_OPTIONS=""
 TIMEOUT_SECONDS="1800"
 MERGE_THRESHOLD="10000"
 MERGE_INTERVAL_SECONDS="900"
+MAX_CACHE_SIZE="256"
 MERGE_ONLY="false"
 RETRY_ERRORS="true"
 COMMAND_OPTIONS=""
@@ -118,6 +120,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --merge-interval-seconds=*)
             MERGE_INTERVAL_SECONDS="${1#*=}"
+            shift
+            ;;
+        --max-cache-size)
+            MAX_CACHE_SIZE="$2"
+            shift 2
+            ;;
+        --max-cache-size=*)
+            MAX_CACHE_SIZE="${1#*=}"
             shift
             ;;
         --merge-only)
@@ -468,6 +478,9 @@ else
     fi
     if [[ "$COMMAND_NAME" == "method-scan" || "$COMMAND_NAME" == "class-scan" || "$COMMAND_NAME" == "method-code" || "$COMMAND_NAME" == "method-callgraph" ]]; then
         MHC_ARGS+=(--merge-interval-seconds "$MERGE_INTERVAL_SECONDS")
+    fi
+    if [[ "$COMMAND_NAME" == "method-callgraph" ]]; then
+        MHC_ARGS+=(--max-cache-size "$MAX_CACHE_SIZE")
     fi
     if [[ -n "$TOOL_NAME" ]]; then
         MHC_ARGS+=(--tool-name "$TOOL_NAME")

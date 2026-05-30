@@ -2,6 +2,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import call, patch
 
 import pandas as pd
 
@@ -18,6 +19,7 @@ from mhc.callgraph import (
     CALLGRAPH_FLAG_COLUMN,
     _build_callgraph_error_marker,
     _build_callgraph_scan_marker,
+    execute_callgraph_per_file,
     _finalize_callgraph,
     _fan_in_from_fan_out,
     _load_cached_callgraph_files,
@@ -238,6 +240,99 @@ class CallGraphRunnerTest(unittest.TestCase):
 
         self.assertEqual(CALLGRAPH_ERROR_MARKER, marker[CALLGRAPH_FLAG_COLUMN])
         self.assertEqual(CALLGRAPH_ERROR_MAX_LENGTH, len(marker[CALLGRAPH_ERROR_COLUMN]))
+
+    def test_execute_configures_scanner_cache_before_init_and_logs_stats(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            repository_directory = root / "repository"
+            data_directory = root / "data"
+            workspace_directory = root / "workspace"
+            repository_path = repository_directory / "demo"
+            java_file = repository_path / "src" / "Caller.java"
+            repository_df = pd.DataFrame(
+                [
+                    {
+                        "project": "demo",
+                        "url": "https://example.test/demo",
+                        "updated_hash": "abc123",
+                    }
+                ]
+            )
+
+            with patch("mhc.callgraph.git.clone_and_checkout_commit"), \
+                    patch("mhc.callgraph._collect_java_files", return_value=[str(java_file)]), \
+                    patch("mhc.callgraph.util.format_method_mapping_file", return_value=str(root / "method.csv")), \
+                    patch("mhc.callgraph.util.format_class_mapping_file", return_value=str(root / "class.csv")), \
+                    patch("jpype.JClass") as mock_jclass:
+                scanner = mock_jclass.return_value.getInstance.return_value
+                scanner.findCallgraph.return_value = []
+
+                execute_callgraph_per_file(
+                    repository_df,
+                    str(repository_directory),
+                    str(data_directory),
+                    str(workspace_directory),
+                    max_cache_size=512,
+                    merge_threshold=1,
+                    merge_interval_seconds=0,
+                )
+
+            scanner.configureCache.assert_called_once_with(512)
+            scanner.init.assert_called_once_with(
+                "https://example.test/demo",
+                str(repository_path),
+                "abc123",
+                str(root / "method.csv"),
+                str(root / "class.csv"),
+            )
+            self.assertLess(
+                scanner.mock_calls.index(call.configureCache(512)),
+                scanner.mock_calls.index(call.init(
+                    "https://example.test/demo",
+                    str(repository_path),
+                    "abc123",
+                    str(root / "method.csv"),
+                    str(root / "class.csv"),
+                )),
+            )
+            scanner.logCacheStats.assert_called_once_with()
+
+    def test_execute_merge_only_does_not_load_jpype_scanner(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            repository_directory = root / "repository"
+            data_directory = root / "data"
+            workspace_directory = root / "workspace"
+            repository_path = repository_directory / "demo"
+            cache_file = workspace_directory / ".callgraph" / "demo.csv"
+            cache_file.parent.mkdir(parents=True)
+            pd.DataFrame(
+                [_build_callgraph_scan_marker("src/Caller.java")],
+                columns=CALLGRAPH_CACHE_COLUMNS,
+            ).to_csv(cache_file, index=False)
+            repository_df = pd.DataFrame(
+                [
+                    {
+                        "project": "demo",
+                        "url": "https://example.test/demo",
+                        "updated_hash": "abc123",
+                    }
+                ]
+            )
+
+            with patch("mhc.callgraph.git.clone_and_checkout_commit"), \
+                    patch("mhc.callgraph._collect_java_files", return_value=[str(repository_path / "src" / "Caller.java")]), \
+                    patch.dict(sys.modules, {"jpype": None}):
+                execute_callgraph_per_file(
+                    repository_df,
+                    str(repository_directory),
+                    str(data_directory),
+                    str(workspace_directory),
+                    merge_only=True,
+                )
+
+            self.assertTrue((data_directory / "callgraph" / "demo.csv").exists())
+            self.assertTrue((data_directory / "fanin" / "demo.csv").exists())
 
 
 if __name__ == "__main__":
