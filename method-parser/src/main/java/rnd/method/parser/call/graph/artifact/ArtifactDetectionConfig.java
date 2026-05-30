@@ -44,11 +44,19 @@ public final class ArtifactDetectionConfig {
         public final List<String> generatedTestSourceRoots = new ArrayList<>();
         public final List<String> testModulePatterns = new ArrayList<>();
         public final List<String> docModulePatterns = new ArrayList<>();
+        public final List<String> testMethodAnnotations = new ArrayList<>();
+        public final List<String> fixtureMethodAnnotations = new ArrayList<>();
+        public final List<String> legacyTestCaseSuperclasses = new ArrayList<>();
+        public final List<String> legacyTestMethodNamePrefixes = new ArrayList<>();
+        public final List<String> testClassContextAnnotations = new ArrayList<>();
 
         public static RuleSet defaults() {
             RuleSet rules = new RuleSet();
             rules.mainSourceRoots.addAll(List.of("src/main/java", "src"));
-            rules.unitTestSourceRoots.addAll(List.of("src/test/java", "test", "tests", "tst", "testSrc"));
+            rules.unitTestSourceRoots.addAll(List.of(
+                    "src/test/java", "src/androidTest/java", "src/androidTest", "src/test",
+                    "src/tests/junit", "test", "tests", "tst", "testSrc"
+            ));
             rules.integrationTestSourceRoots.addAll(List.of("src/integrationTest/java", "src/it/java", "integrationTest", "it", "itest", "exttst"));
             rules.mainResourceRoots.addAll(List.of("src/main/resources", "resources"));
             rules.testResourceRoots.addAll(List.of("src/test/resources", "src/integrationTest/resources", "test-resources", "testData", "tst-rsrc"));
@@ -56,6 +64,63 @@ public final class ArtifactDetectionConfig {
             rules.generatedTestSourceRoots.addAll(List.of("target/generated-test-sources", "testGen", "build/generated/sources/test", "build/generated/sources/annotationProcessor/java/test"));
             rules.testModulePatterns.addAll(List.of("*.test", "*.tests", "*-test", "*-tests", "test", "tests", "integrationtest", "integration-test"));
             rules.docModulePatterns.addAll(List.of("documentation", "docs"));
+            rules.testMethodAnnotations.addAll(List.of(
+                    "org.junit.Test",
+                    "org.junit.jupiter.api.Test",
+                    "org.junit.jupiter.params.ParameterizedTest",
+                    "org.junit.jupiter.api.ParameterizedTest",
+                    "org.junit.jupiter.api.RepeatedTest",
+                    "org.junit.jupiter.api.TestFactory",
+                    "org.junit.jupiter.api.TestTemplate",
+                    "org.junit.experimental.theories.Theory",
+                    "org.testng.annotations.Test",
+                    "org.testng.annotations.Factory",
+                    "net.jqwik.api.Property",
+                    "net.jqwik.api.Example"
+            ));
+            rules.fixtureMethodAnnotations.addAll(List.of(
+                    "org.junit.Before",
+                    "org.junit.After",
+                    "org.junit.BeforeClass",
+                    "org.junit.AfterClass",
+                    "org.junit.jupiter.api.BeforeEach",
+                    "org.junit.jupiter.api.AfterEach",
+                    "org.junit.jupiter.api.BeforeAll",
+                    "org.junit.jupiter.api.AfterAll",
+                    "org.testng.annotations.BeforeSuite",
+                    "org.testng.annotations.AfterSuite",
+                    "org.testng.annotations.BeforeTest",
+                    "org.testng.annotations.AfterTest",
+                    "org.testng.annotations.BeforeGroups",
+                    "org.testng.annotations.AfterGroups",
+                    "org.testng.annotations.BeforeClass",
+                    "org.testng.annotations.AfterClass",
+                    "org.testng.annotations.BeforeMethod",
+                    "org.testng.annotations.AfterMethod",
+                    "net.jqwik.api.lifecycle.BeforeContainer",
+                    "net.jqwik.api.lifecycle.AfterContainer",
+                    "net.jqwik.api.lifecycle.BeforeProperty",
+                    "net.jqwik.api.lifecycle.AfterProperty",
+                    "net.jqwik.api.lifecycle.BeforeExample",
+                    "net.jqwik.api.lifecycle.AfterExample",
+                    "net.jqwik.api.lifecycle.BeforeTry",
+                    "net.jqwik.api.lifecycle.AfterTry"
+            ));
+            rules.legacyTestCaseSuperclasses.addAll(List.of(
+                    "junit.framework.TestCase",
+                    "android.test.AndroidTestCase",
+                    "android.test.InstrumentationTestCase"
+            ));
+            rules.legacyTestMethodNamePrefixes.add("test");
+            rules.testClassContextAnnotations.addAll(List.of(
+                    "org.junit.jupiter.api.extension.ExtendWith",
+                    "org.junit.runner.RunWith",
+                    "org.mockito.junit.jupiter.MockitoSettings",
+                    "org.mockito.Mock",
+                    "org.mockito.Spy",
+                    "org.mockito.InjectMocks",
+                    "org.mockito.Captor"
+            ));
             return rules;
         }
 
@@ -75,6 +140,11 @@ public final class ArtifactDetectionConfig {
             addAll(generatedTestSourceRoots, other.generatedTestSourceRoots);
             addAll(testModulePatterns, other.testModulePatterns);
             addAll(docModulePatterns, other.docModulePatterns);
+            addAll(testMethodAnnotations, other.testMethodAnnotations);
+            addAll(fixtureMethodAnnotations, other.fixtureMethodAnnotations);
+            addAll(legacyTestCaseSuperclasses, other.legacyTestCaseSuperclasses);
+            addAll(legacyTestMethodNamePrefixes, other.legacyTestMethodNamePrefixes);
+            addAll(testClassContextAnnotations, other.testClassContextAnnotations);
         }
 
         private void addAll(List<String> target, List<String> source) {

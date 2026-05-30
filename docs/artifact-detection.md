@@ -67,6 +67,10 @@ defaults:
     - src/main/java
   unitTestSourceRoots:
     - src/test/java
+    - src/androidTest/java
+    - src/androidTest
+    - src/test
+    - src/tests/junit
   testResourceRoots:
     - src/test/resources
   testModulePatterns:
@@ -77,6 +81,26 @@ defaults:
   docModulePatterns:
     - documentation
     - docs
+  testMethodAnnotations:
+    - org.junit.Test
+    - org.junit.jupiter.api.Test
+    - org.junit.jupiter.params.ParameterizedTest
+    - net.jqwik.api.Property
+    - net.jqwik.api.Example
+  fixtureMethodAnnotations:
+    - org.junit.Before
+    - org.junit.jupiter.api.BeforeEach
+    - net.jqwik.api.lifecycle.BeforeProperty
+  legacyTestCaseSuperclasses:
+    - junit.framework.TestCase
+  legacyTestMethodNamePrefixes:
+    - test
+  testClassContextAnnotations:
+    - org.junit.jupiter.api.extension.ExtendWith
+    - org.junit.runner.RunWith
+    - org.mockito.junit.jupiter.MockitoSettings
+    - org.mockito.Mock
+    - org.mockito.Spy
 
 projects:
   jgit:
@@ -103,6 +127,39 @@ Detection precedence is:
 4. Package-derived source-root inference
 5. Module/path context patterns
 ```
+
+### Method role rules
+
+Method role detection runs only after the file has been classified as
+`test-code`. The detector resolves annotation fully-qualified names with
+JavaParser when possible; if symbol resolution fails, it falls back to explicit
+imports, wildcard imports, and finally configured simple names.
+
+Framework-specific rules:
+
+| Framework | Test method rule |
+| --- | --- |
+| JUnit 5/Jupiter | Configured Jupiter test annotations are test cases when the method is not `private`. Package-private methods are valid. |
+| JUnit 4 | `org.junit.Test` methods must be `public`, non-static, `void`, and have no parameters. |
+| JUnit 3 | Unannotated name-based tests must be `public void test*()` and the class must directly or indirectly extend a configured legacy test superclass such as `junit.framework.TestCase`. |
+| TestNG | Configured TestNG test annotations are test cases when the method is not `private`. |
+| jqwik | `net.jqwik.api.Property` and `net.jqwik.api.Example` methods are test cases when not `private` and returning `void`, `boolean`, or `Boolean`. |
+| Custom configured annotations | Project/module-configured annotations are accepted as test markers when the method is not `private`. |
+
+Fixture annotations, including JUnit, TestNG, and jqwik lifecycle annotations,
+produce `#test-fixture-method`. Fixture methods are never promoted to
+`#test-case-method`.
+
+Fallbacks are intentionally conservative. If `@Test` cannot be resolved to a
+framework, the detector accepts it only for non-private `void` no-arg methods in
+test code. If JavaParser cannot resolve JUnit 3 hierarchy, name-based detection
+falls back only for `public void test*()` methods in classes named `*Test` or
+`*TestCase`. This avoids marking protected or public helper methods named
+`testSomething` as test cases.
+
+Mockito and JUnit extension annotations are context annotations. They can help
+explain why a class is a test class, but they are not test method annotations and
+do not turn arbitrary methods into `#test-case-method`.
 
 ## Examples
 
@@ -143,6 +200,26 @@ testGen method
 
 testData file
 => #test-resource
+```
+
+Android and Ant-style test roots:
+
+```text
+src/androidTest/java/... @Test method
+=> #test-code #test-case-method
+
+src/tests/junit/... JUnit 3 public void testFoo()
+=> #test-code #test-case-method
+```
+
+jqwik:
+
+```text
+src/test/java/... @Property boolean propertyHolds()
+=> #test-code #test-case-method
+
+src/test/java/... @BeforeProperty void setUp()
+=> #test-code #test-fixture-method
 ```
 
 ## CLI

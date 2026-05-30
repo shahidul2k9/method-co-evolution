@@ -20,5 +20,5 @@ mhc artifact-update \
     --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
     --artifact-config-path "$ME_WORKSPACE_DIRECTORY/config/artifact-detection" \
     --java-options "-Xmx16g -Xss16m -Dlogback.configurationFile=$ME_WORKSPACE_DIRECTORY/config/logback.xml" \
-    --project-index ":" \
+    --project-index "91" \
     --target method

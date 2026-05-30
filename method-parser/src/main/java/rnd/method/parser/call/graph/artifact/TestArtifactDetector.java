@@ -11,6 +11,7 @@ import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.resolution.types.ResolvedReferenceType;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -26,7 +27,6 @@ import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -35,61 +35,6 @@ import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
 public final class TestArtifactDetector {
-    private static final Set<String> TEST_ANNOTATION_FQNS = Set.of(
-            "org.junit.Test",
-            "org.junit.Ignore",
-            "org.junit.jupiter.api.Test",
-            "org.junit.jupiter.api.ParameterizedTest",
-            "org.junit.jupiter.api.RepeatedTest",
-            "org.junit.jupiter.api.TestFactory",
-            "org.junit.jupiter.api.TestTemplate",
-            "org.junit.jupiter.api.TestClassOrder",
-            "org.junit.jupiter.api.TestMethodOrder",
-            "org.junit.jupiter.api.TestInstance",
-            "org.junit.jupiter.api.DisplayName",
-            "org.junit.jupiter.api.DisplayNameGeneration",
-            "org.junit.jupiter.api.ParameterizedClass",
-            "org.junit.jupiter.api.ClassTemplate",
-            "org.junit.jupiter.api.Nested",
-            "org.junit.jupiter.api.Tag",
-            "org.junit.jupiter.api.Disabled",
-            "org.junit.jupiter.api.AutoClose",
-            "org.junit.jupiter.api.Timeout",
-            "org.junit.jupiter.api.TempDir",
-            "org.junit.jupiter.api.ExtendWith",
-            "org.junit.jupiter.api.RegisterExtension",
-            "org.junit.experimental.theories.Theory",
-            "org.testng.annotations.Test",
-            "org.testng.annotations.Factory"
-    );
-
-    private static final Set<String> FIXTURE_ANNOTATION_FQNS = Set.of(
-            "org.junit.Before",
-            "org.junit.After",
-            "org.junit.BeforeClass",
-            "org.junit.AfterClass",
-            "org.junit.jupiter.api.BeforeEach",
-            "org.junit.jupiter.api.AfterEach",
-            "org.junit.jupiter.api.BeforeAll",
-            "org.junit.jupiter.api.AfterAll",
-            "org.testng.annotations.BeforeSuite",
-            "org.testng.annotations.AfterSuite",
-            "org.testng.annotations.BeforeTest",
-            "org.testng.annotations.AfterTest",
-            "org.testng.annotations.BeforeGroups",
-            "org.testng.annotations.AfterGroups",
-            "org.testng.annotations.BeforeClass",
-            "org.testng.annotations.AfterClass",
-            "org.testng.annotations.BeforeMethod",
-            "org.testng.annotations.AfterMethod"
-    );
-
-    private static final Set<String> UNIT_TEST_SUPERCLASS_FQNS = Set.of(
-            "junit.framework.TestCase",
-            "android.test.AndroidTestCase",
-            "android.test.InstrumentationTestCase"
-    );
-
     private final Path repoRoot;
     private final String repositoryName;
     private final ArtifactDetectionConfig config;
@@ -281,60 +226,25 @@ public final class TestArtifactDetector {
         return tags;
     }
 
-    private boolean hasTestAnnotation(MethodDeclaration md, boolean isStrict) {
-        return hasAnyAnnotation(md, TEST_ANNOTATION_FQNS, isStrict);
-    }
-
-    private boolean hasFixtureAnnotation(MethodDeclaration md, boolean isStrict) {
-        return hasAnyAnnotation(md, FIXTURE_ANNOTATION_FQNS, isStrict);
-    }
-
-    private boolean hasAnyAnnotation(MethodDeclaration md, Set<String> fqns, boolean isStrict) {
-        for (AnnotationExpr ann : md.getAnnotations()) {
-            if (isStrict) {
-                try {
-                    if (fqns.contains(ann.resolve().getQualifiedName())) {
-                        return true;
-                    }
-                } catch (Exception e) {
-                    return false;
-                }
-            } else {
-                String name = ann.getNameAsString();
-                for (String fqn : fqns) {
-                    if (fqn.endsWith("." + name)) {
-                        return true;
-                    }
-                }
+    private boolean isTestMethod(MethodDeclaration method, ArtifactClassification classification, boolean isStrict) {
+        ArtifactDetectionConfig.RuleSet rules = config.rulesForModule(repositoryName, classification.moduleName());
+        for (AnnotationExpr annotation : method.getAnnotations()) {
+            AnnotationMatch match = resolveConfiguredAnnotation(method, annotation, rules.testMethodAnnotations, isStrict);
+            if (match.matched() && isValidAnnotatedTestMethod(method, match, classification)) {
+                return true;
             }
         }
-        return false;
-    }
 
-    private boolean isTestMethod(MethodDeclaration method, ArtifactClassification classification, boolean isStrict) {
-        if (hasTestAnnotation(method, isStrict)) {
-            return true;
-        }
-
-        String methodName = method.getNameAsString();
-        Optional<ClassOrInterfaceDeclaration> parent =
-                method.findAncestor(ClassOrInterfaceDeclaration.class);
-
-        boolean classExtendsTestCase = parent.filter(this::classExtendsTest).isPresent();
-        if (classExtendsTestCase
-                && method.isPublic()
-                && method.getType().isVoidType()
-                && method.getParameters().isEmpty()
-                && methodName.startsWith("test")) {
-            return true;
-        }
-
-        return classification.isTestCode() && !method.isPrivate() && looksLikeTestMethodName(methodName);
+        return isLegacyJUnit3TestMethod(method, rules);
     }
 
     private boolean isFixtureMethod(MethodDeclaration method, ArtifactClassification classification, boolean isStrict) {
-        if (hasFixtureAnnotation(method, isStrict)) {
-            return true;
+        ArtifactDetectionConfig.RuleSet rules = config.rulesForModule(repositoryName, classification.moduleName());
+        for (AnnotationExpr annotation : method.getAnnotations()) {
+            AnnotationMatch match = resolveConfiguredAnnotation(method, annotation, rules.fixtureMethodAnnotations, isStrict);
+            if (match.matched()) {
+                return true;
+            }
         }
         if (!classification.isTestCode()) {
             return false;
@@ -345,43 +255,197 @@ public final class TestArtifactDetector {
                 && method.getType().isVoidType();
     }
 
-    private static boolean looksLikeTestMethodName(String methodName) {
-        return methodName.startsWith("test")
-                || methodName.startsWith("should")
-                || methodName.startsWith("when")
-                || methodName.startsWith("given")
-                || methodName.contains("_when_")
-                || methodName.contains("_then_")
-                || methodName.contains("_given_");
+    private AnnotationMatch resolveConfiguredAnnotation(
+            MethodDeclaration method,
+            AnnotationExpr annotation,
+            List<String> configuredAnnotations,
+            boolean isStrict) {
+        String simpleName = annotation.getName().getIdentifier();
+        String fqn = resolveAnnotationFqn(method, annotation, configuredAnnotations, isStrict).orElse(null);
+        if (fqn != null) {
+            return new AnnotationMatch(simpleName, fqn, configuredAnnotations.contains(fqn), true);
+        }
+        boolean simpleNameConfigured = configuredAnnotations.stream()
+                .anyMatch(candidate -> simpleName(candidate).equals(simpleName));
+        return new AnnotationMatch(simpleName, null, simpleNameConfigured, false);
     }
 
-    private boolean classExtendsTest(ClassOrInterfaceDeclaration cls) {
+    private Optional<String> resolveAnnotationFqn(
+            MethodDeclaration method,
+            AnnotationExpr annotation,
+            List<String> configuredAnnotations,
+            boolean isStrict) {
+        try {
+            return Optional.of(annotation.resolve().getQualifiedName());
+        } catch (Exception e) {
+            if (isStrict) {
+                return Optional.empty();
+            }
+        }
+
+        String annotationName = annotation.getNameAsString();
+        if (annotationName.contains(".")) {
+            return Optional.of(annotationName);
+        }
+
+        Optional<CompilationUnit> cuOpt = method.findCompilationUnit();
+        if (cuOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        CompilationUnit cu = cuOpt.get();
+        for (ImportDeclaration imp : cu.getImports()) {
+            String imported = imp.getNameAsString();
+            if (!imp.isAsterisk() && imported.endsWith("." + annotationName)) {
+                return Optional.of(imported);
+            }
+        }
+
+        List<String> wildcardCandidates = new ArrayList<>();
+        for (ImportDeclaration imp : cu.getImports()) {
+            if (!imp.isAsterisk()) {
+                continue;
+            }
+            String prefix = imp.getNameAsString() + ".";
+            for (String configured : configuredAnnotations) {
+                if (configured.startsWith(prefix) && simpleName(configured).equals(annotationName)) {
+                    wildcardCandidates.add(configured);
+                }
+            }
+        }
+        if (wildcardCandidates.size() == 1) {
+            return Optional.of(wildcardCandidates.get(0));
+        }
+        return Optional.empty();
+    }
+
+    private boolean isValidAnnotatedTestMethod(
+            MethodDeclaration method,
+            AnnotationMatch annotation,
+            ArtifactClassification classification) {
+        if (!annotation.matched()) {
+            return false;
+        }
+
+        TestFramework framework = TestFramework.fromAnnotation(annotation);
+        return switch (framework) {
+            case JUNIT5 -> !method.isPrivate();
+            // JUnit 4 deliberately remains strict when its annotation is known.
+            case JUNIT4 -> method.isPublic()
+                    && !method.isStatic()
+                    && method.getType().isVoidType()
+                    && method.getParameters().isEmpty();
+            case JQWIK -> !method.isPrivate() && isJqwikReturnType(method);
+            case TESTNG -> !method.isPrivate();
+            case UNKNOWN -> isUnresolvedTestAnnotationFallback(method, annotation, classification);
+        };
+    }
+
+    private boolean isUnresolvedTestAnnotationFallback(
+            MethodDeclaration method,
+            AnnotationMatch annotation,
+            ArtifactClassification classification) {
+        if (!classification.isTestCode() || annotation.fqn() != null) {
+            return classification.isTestCode() && annotation.fqn() != null && !method.isPrivate();
+        }
+        if (!annotation.simpleName().equals("Test")) {
+            return !method.isPrivate();
+        }
+        // Unresolved @Test is common in fixture snippets; keep fallback narrow so helpers are not promoted.
+        return !method.isPrivate()
+                && method.getType().isVoidType()
+                && method.getParameters().isEmpty();
+    }
+
+    private boolean isJqwikReturnType(MethodDeclaration method) {
+        if (method.getType().isVoidType()) {
+            return true;
+        }
+        String type = method.getType().asString();
+        return type.equals("boolean") || type.equals("Boolean") || type.equals("java.lang.Boolean");
+    }
+
+    private boolean isLegacyJUnit3TestMethod(MethodDeclaration method, ArtifactDetectionConfig.RuleSet rules) {
+        if (!method.isPublic()
+                || method.isStatic()
+                || !method.getType().isVoidType()
+                || !method.getParameters().isEmpty()
+                || !startsWithAny(method.getNameAsString(), rules.legacyTestMethodNamePrefixes)) {
+            return false;
+        }
+
+        Optional<ClassOrInterfaceDeclaration> parent = method.findAncestor(ClassOrInterfaceDeclaration.class);
+        if (parent.isEmpty()) {
+            return false;
+        }
+        LegacyHierarchyResult hierarchy = classExtendsLegacyTestCase(parent.get(), rules);
+        if (hierarchy.extendsLegacyTestCase()) {
+            return true;
+        }
+        // If JavaParser cannot resolve the hierarchy, allow only classic public void test* in *Test classes.
+        return hierarchy.resolutionFailed() && looksLikeLegacyJUnit3Class(parent.get());
+    }
+
+    private boolean startsWithAny(String value, List<String> prefixes) {
+        for (String prefix : prefixes) {
+            if (prefix != null && !prefix.isBlank() && value.startsWith(prefix)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean looksLikeLegacyJUnit3Class(ClassOrInterfaceDeclaration cls) {
+        String className = cls.getNameAsString();
+        return className.endsWith("Test") || className.endsWith("TestCase");
+    }
+
+    private LegacyHierarchyResult classExtendsLegacyTestCase(
+            ClassOrInterfaceDeclaration cls,
+            ArtifactDetectionConfig.RuleSet rules) {
         try {
             if (cls.isInterface()) {
-                return false;
+                return LegacyHierarchyResult.resolved(false);
             }
 
             Optional<CompilationUnit> cuOpt = cls.findCompilationUnit();
             if (cuOpt.isEmpty()) {
-                return false;
+                return LegacyHierarchyResult.failed();
             }
 
             CompilationUnit cu = cuOpt.get();
+            boolean resolutionFailed = false;
 
             for (ClassOrInterfaceType extendedType : cls.getExtendedTypes()) {
-                String fqn = toQualifiedName(extendedType, cu);
-                if (fqn != null && UNIT_TEST_SUPERCLASS_FQNS.contains(fqn)) {
-                    return true;
+                try {
+                    ResolvedReferenceType resolved = extendedType.resolve().asReferenceType();
+                    if (isConfiguredLegacyType(resolved.getQualifiedName(), rules)
+                            || resolved.getAllAncestors().stream()
+                            .anyMatch(ancestor -> isConfiguredLegacyType(ancestor.getQualifiedName(), rules))) {
+                        return LegacyHierarchyResult.resolved(true);
+                    }
+                } catch (Exception ignored) {
+                    resolutionFailed = true;
+                }
+
+                String fqn = toQualifiedName(extendedType, cu, rules);
+                if (fqn != null && isConfiguredLegacyType(fqn, rules)) {
+                    return LegacyHierarchyResult.resolved(true);
                 }
             }
 
-            return false;
+            return resolutionFailed
+                    ? LegacyHierarchyResult.failed()
+                    : LegacyHierarchyResult.resolved(false);
         } catch (Exception e) {
-            return false;
+            return LegacyHierarchyResult.failed();
         }
     }
 
-    private String toQualifiedName(ClassOrInterfaceType type, CompilationUnit cu) {
+    private String toQualifiedName(
+            ClassOrInterfaceType type,
+            CompilationUnit cu,
+            ArtifactDetectionConfig.RuleSet rules) {
         try {
             return type.resolve().asReferenceType().getQualifiedName();
         } catch (Exception ignored) {
@@ -397,7 +461,7 @@ public final class TestArtifactDetector {
             }
             if (imp.isAsterisk()) {
                 String candidate = imported + "." + simple;
-                if (UNIT_TEST_SUPERCLASS_FQNS.contains(candidate)) {
+                if (isConfiguredLegacyType(candidate, rules)) {
                     return candidate;
                 }
             }
@@ -409,16 +473,25 @@ public final class TestArtifactDetector {
 
         if (!packageName.isEmpty()) {
             String samePackage = packageName + "." + simple;
-            if (UNIT_TEST_SUPERCLASS_FQNS.contains(samePackage)) {
+            if (isConfiguredLegacyType(samePackage, rules)) {
                 return samePackage;
             }
         }
 
-        if (UNIT_TEST_SUPERCLASS_FQNS.contains(simple)) {
+        if (isConfiguredLegacyType(simple, rules)) {
             return simple;
         }
 
         return simple;
+    }
+
+    private boolean isConfiguredLegacyType(String fqn, ArtifactDetectionConfig.RuleSet rules) {
+        return rules.legacyTestCaseSuperclasses.contains(fqn);
+    }
+
+    private static String simpleName(String fqn) {
+        int dot = fqn.lastIndexOf('.');
+        return dot >= 0 ? fqn.substring(dot + 1) : fqn;
     }
 
     private ArtifactClassification classification(
@@ -609,7 +682,12 @@ public final class TestArtifactDetector {
                 || rel.equals("test")
                 || rel.equals("tests")
                 || rel.equals("testSrc")
-                || rel.endsWith("/src/test/java")) {
+                || rel.equals("src/test")
+                || rel.equals("src/androidTest")
+                || rel.equals("src/tests/junit")
+                || rel.endsWith("/src/test/java")
+                || rel.endsWith("/src/androidTest/java")
+                || rel.endsWith("/src/tests/junit")) {
             return RootKind.UNIT;
         }
         if (containsPath(module.testResourceRoots(), sourceRoot)
@@ -814,7 +892,16 @@ public final class TestArtifactDetector {
         String normalized = root.replace('\\', '/');
         if (normalized.equals("exttst") || normalized.contains("integration")) {
             module.addIntegrationTestSourceRoot(root);
-        } else if (normalized.equals("tst") || normalized.equals("test") || normalized.equals("tests") || normalized.contains("testSrc")) {
+        } else if (normalized.equals("tst")
+                || normalized.equals("test")
+                || normalized.equals("tests")
+                || normalized.equals("src/test")
+                || normalized.equals("src/androidTest")
+                || normalized.equals("src/tests/junit")
+                || normalized.endsWith("/src/test/java")
+                || normalized.endsWith("/src/androidTest/java")
+                || normalized.endsWith("/src/tests/junit")
+                || normalized.contains("testSrc")) {
             module.addUnitTestSourceRoot(root);
         } else if (normalized.equals("tst-rsrc") || normalized.contains("testData") || normalized.contains("test-resource")) {
             module.addTestResourceRoot(root);
@@ -845,6 +932,47 @@ public final class TestArtifactDetector {
         }
         String value = nodes.item(0).getTextContent();
         return value == null || value.isBlank() ? Optional.empty() : Optional.of(value.trim());
+    }
+
+    private enum TestFramework {
+        JUNIT4,
+        JUNIT5,
+        TESTNG,
+        JQWIK,
+        UNKNOWN;
+
+        private static TestFramework fromAnnotation(AnnotationMatch annotation) {
+            String fqn = annotation.fqn();
+            if (fqn == null) {
+                return UNKNOWN;
+            }
+            if (fqn.startsWith("org.junit.jupiter.")) {
+                return JUNIT5;
+            }
+            if (fqn.startsWith("org.junit.")) {
+                return JUNIT4;
+            }
+            if (fqn.startsWith("org.testng.")) {
+                return TESTNG;
+            }
+            if (fqn.startsWith("net.jqwik.api.")) {
+                return JQWIK;
+            }
+            return UNKNOWN;
+        }
+    }
+
+    private record AnnotationMatch(String simpleName, String fqn, boolean matched, boolean resolved) {
+    }
+
+    private record LegacyHierarchyResult(boolean extendsLegacyTestCase, boolean resolutionFailed) {
+        static LegacyHierarchyResult resolved(boolean extendsLegacyTestCase) {
+            return new LegacyHierarchyResult(extendsLegacyTestCase, false);
+        }
+
+        static LegacyHierarchyResult failed() {
+            return new LegacyHierarchyResult(false, true);
+        }
     }
 
     private enum RootKind {

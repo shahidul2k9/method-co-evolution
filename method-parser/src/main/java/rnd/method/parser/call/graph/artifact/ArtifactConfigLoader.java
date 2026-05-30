@@ -112,7 +112,9 @@ public final class ArtifactConfigLoader {
             case "mainSourceRoots", "unitTestSourceRoots", "integrationTestSourceRoots",
                     "mainResourceRoots", "testResourceRoots", "generatedMainSourceRoots",
                     "generatedTestSourceRoots", "testModulePatterns", "docModulePatterns",
-                    "documentationModulePatterns" -> true;
+                    "documentationModulePatterns", "testMethodAnnotations", "fixtureMethodAnnotations",
+                    "legacyTestCaseSuperclasses", "legacyTestMethodNamePrefixes",
+                    "testClassContextAnnotations" -> true;
             default -> false;
         };
     }
@@ -128,6 +130,11 @@ public final class ArtifactConfigLoader {
             case "generatedTestSourceRoots" -> add(rules.generatedTestSourceRoots, value);
             case "testModulePatterns" -> add(rules.testModulePatterns, value);
             case "docModulePatterns", "documentationModulePatterns" -> add(rules.docModulePatterns, value);
+            case "testMethodAnnotations" -> add(rules.testMethodAnnotations, value);
+            case "fixtureMethodAnnotations" -> add(rules.fixtureMethodAnnotations, value);
+            case "legacyTestCaseSuperclasses" -> add(rules.legacyTestCaseSuperclasses, value);
+            case "legacyTestMethodNamePrefixes" -> add(rules.legacyTestMethodNamePrefixes, value);
+            case "testClassContextAnnotations" -> add(rules.testClassContextAnnotations, value);
             default -> {
             }
         }
