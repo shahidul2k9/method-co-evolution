@@ -75,6 +75,46 @@ class TestCliArgs(unittest.TestCase):
         )
 
     @patch("mhc.main._build_method_history_collector")
+    def test_callgraph_accepts_max_cache_size(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
+
+        mhc_main.main(
+            [
+                "method-callgraph",
+                "--workspace-directory",
+                "workspace",
+                "--repository-directory",
+                "workspace/repository",
+                "--jar-directory",
+                "workspace/jar",
+                "--tool-name",
+                "methodParser",
+                "--project",
+                "checkstyle",
+                "--max-cache-size",
+                "512",
+            ]
+        )
+
+        mock_mhc_instance.generate_callgraph.assert_called_once_with(
+            ["checkstyle"],
+            ["methodParser"],
+            False,
+            None,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
+            True,
+            10000,
+            900,
+            512,
+        )
+
+    @patch("mhc.main._build_method_history_collector")
     def test_scan_method_accepts_replace(self, mock_build_collector):
         mock_mhc_instance = mock_build_collector.return_value
         mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
@@ -145,6 +185,7 @@ class TestCliArgs(unittest.TestCase):
             True,
             10000,
             900,
+            256,
         )
 
     @patch("mhc.main._build_method_history_collector")

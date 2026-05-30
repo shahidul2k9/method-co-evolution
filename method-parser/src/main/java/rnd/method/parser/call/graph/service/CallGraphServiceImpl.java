@@ -20,10 +20,13 @@ import com.github.javaparser.ast.nodeTypes.NodeWithParameters;
 import com.github.javaparser.ast.nodeTypes.NodeWithName;
 import com.github.javaparser.ast.nodeTypes.NodeWithRange;
 import com.github.javaparser.ast.nodeTypes.NodeWithSimpleName;
+import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import com.github.javaparser.resolution.declarations.ResolvedConstructorDeclaration;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.extern.slf4j.Slf4j;
 import rnd.method.parser.call.graph.artifact.ArtifactClassification;
 import rnd.method.parser.call.graph.artifact.TestArtifactDetector;
@@ -58,9 +61,24 @@ public class CallGraphServiceImpl implements CallGraphService {
     private ClassMappingIndex classMappingIndex;
     private String absoluteRepositoryPath;
     private TestArtifactDetector artifactDetector;
+    private long maxCacheSizeMb = 256;
 
     public static CallGraphServiceImpl getInstance() {
         return new CallGraphServiceImpl();
+    }
+
+    public synchronized void configureCache(long maxCacheSizeMb) {
+        this.maxCacheSizeMb = Math.max(0, maxCacheSizeMb);
+        if (classMappingIndex != null) {
+            classMappingIndex.configureCache(this.maxCacheSizeMb);
+        }
+    }
+
+    public void logCacheStats() {
+        if (classMappingIndex == null) {
+            return;
+        }
+        log.info("Callgraph class hierarchy cache stats: {}", classMappingIndex.cacheStats());
     }
 
     @Override
@@ -81,7 +99,7 @@ public class CallGraphServiceImpl implements CallGraphService {
         this.repositoryLocation = repositoryPath;
         this.commitHash = commitHash;
         this.repositoryName = MethodParserUtil.extractRepositoryName(repositoryUrl);
-        this.classMappingIndex = ClassMappingIndex.load(classMappingFile);
+        this.classMappingIndex = ClassMappingIndex.load(classMappingFile, maxCacheSizeMb);
         this.methodMappingIndex = MethodMappingIndex.load(methodMappingFile, classMappingIndex);
         Path repoPath = Paths.get(repositoryPath);
         this.absoluteRepositoryPath = repoPath.toFile().getAbsolutePath();
@@ -113,11 +131,9 @@ public class CallGraphServiceImpl implements CallGraphService {
             if (classification.isResource()) {
                 return List.of();
             }
-            return cu
-                    .findAll(MethodDeclaration.class)
-                    .stream()
-                    .flatMap(fromMd -> buildCallgraphForMethod(fromMd, file).stream())
-                    .toList();
+            FileCallGraphContext context = new FileCallGraphContext(file);
+            new CallGraphVisitor().visit(cu, context);
+            return context.results();
         } catch (Exception e) {
             return List.of();
         }
@@ -129,48 +145,14 @@ public class CallGraphServiceImpl implements CallGraphService {
         }
     }
 
-    private List<MethodCall> buildCallgraphForMethod(MethodDeclaration fromMd, String fileRelative) {
+    private MethodCall buildCallgraphForMethod(MethodCallTraversalState state, String fileRelative) {
+        MethodDeclaration fromMd = state.fromMd();
         if (fromMd.getSignature().getName().contains("getFirstMillisecond")) {
             log.info(fromMd.getSignature().getName().toString());
         }
 
-        Set<String> lcbaMethodUrlSet = new HashSet<>();
-        List<Method> calledMethods = new ArrayList<>();
-        /* For handling method just before assertion
-           e.g. mutNum.increment
-           https://github.com/apache/commons-lang/blob/425d8085cfcaab5a78bf0632f9ae77b7e9127cf8/src/test/java/org/apache/commons/lang3/mutable/MutableIntTest.java#L146 */
-        Stack<Method> lcbaCandidateMethod = new Stack<>();
-
-        fromMd.walk(Node.TreeTraversal.POSTORDER, node -> {
-            if (node instanceof MethodCallExpr || node instanceof ObjectCreationExpr) {
-                boolean isAssertionMethod = node instanceof MethodCallExpr && AssertionLineFinder.isAssertionCall(((MethodCallExpr) node).getNameAsString());
-                if (isAssertionMethod) {
-                    while (!lcbaCandidateMethod.isEmpty()) {
-                        Method precededMethod = lcbaCandidateMethod.pop();
-                        if (precededMethod.getInvocationLine() < node.getBegin().get().line) {
-                            lcbaMethodUrlSet.add(precededMethod.getUrl());
-                            lcbaCandidateMethod.clear();
-                        }
-                    }
-                    ((MethodCallExpr) node).getArguments().forEach(argNode -> {
-                        if (argNode instanceof MethodCallExpr || argNode instanceof ObjectCreationExpr) {
-                            Method m = getMethodInfo(repositoryUrl, commitHash, argNode, typeSolver, absoluteRepositoryPath, repositoryName, methodMappingIndex);
-                            if (m != null) {
-                                lcbaMethodUrlSet.add(m.getUrl());
-                            }
-                        }
-                    });
-                }
-                Method methodInfo = getMethodInfo(repositoryUrl, commitHash, node, typeSolver, absoluteRepositoryPath, repositoryName, methodMappingIndex);
-                if (methodInfo != null) {
-                    calledMethods.add(methodInfo);
-                    lcbaCandidateMethod.add(methodInfo);
-                }
-            }
-        });
-
-        calledMethods.forEach(method -> {
-            if (lcbaMethodUrlSet.contains(method.getUrl())) {
+        state.calledMethods().forEach(method -> {
+            if (state.lcbaMethodUrlSet().contains(method.getUrl())) {
                 method.setLcba(1);
             }
         });
@@ -229,9 +211,83 @@ public class CallGraphServiceImpl implements CallGraphService {
                         .lcba(0)
                         .invocationLine(null)
                         .build())
-                .fanMethods(calledMethods)
+                .fanMethods(state.calledMethods())
                 .build();
-        return List.of(methodCall);
+        return methodCall;
+    }
+
+    private void collectCallNode(MethodCallTraversalState state, Node node) {
+        boolean isAssertionMethod = node instanceof MethodCallExpr && AssertionLineFinder.isAssertionCall(((MethodCallExpr) node).getNameAsString());
+        if (isAssertionMethod) {
+            while (!state.lcbaCandidateMethod().isEmpty()) {
+                Method precededMethod = state.lcbaCandidateMethod().pop();
+                if (precededMethod.getInvocationLine() < node.getBegin().get().line) {
+                    state.lcbaMethodUrlSet().add(precededMethod.getUrl());
+                    state.lcbaCandidateMethod().clear();
+                }
+            }
+            ((MethodCallExpr) node).getArguments().forEach(argNode -> {
+                if (argNode instanceof MethodCallExpr || argNode instanceof ObjectCreationExpr) {
+                    Method m = getMethodInfo(repositoryUrl, commitHash, argNode, typeSolver, absoluteRepositoryPath, repositoryName, methodMappingIndex);
+                    if (m != null) {
+                        state.lcbaMethodUrlSet().add(m.getUrl());
+                    }
+                }
+            });
+        }
+        Method methodInfo = getMethodInfo(repositoryUrl, commitHash, node, typeSolver, absoluteRepositoryPath, repositoryName, methodMappingIndex);
+        if (methodInfo != null) {
+            state.calledMethods().add(methodInfo);
+            state.lcbaCandidateMethod().add(methodInfo);
+        }
+    }
+
+    private final class CallGraphVisitor extends VoidVisitorAdapter<FileCallGraphContext> {
+        @Override
+        public void visit(MethodDeclaration methodDeclaration, FileCallGraphContext context) {
+            MethodCallTraversalState state = new MethodCallTraversalState(methodDeclaration);
+            context.methodStack().push(state);
+            super.visit(methodDeclaration, context);
+            context.methodStack().pop();
+            context.results().add(buildCallgraphForMethod(state, context.fileRelative()));
+        }
+
+        @Override
+        public void visit(MethodCallExpr methodCallExpr, FileCallGraphContext context) {
+            super.visit(methodCallExpr, context);
+            context.currentMethod().ifPresent(state -> collectCallNode(state, methodCallExpr));
+        }
+
+        @Override
+        public void visit(ObjectCreationExpr objectCreationExpr, FileCallGraphContext context) {
+            super.visit(objectCreationExpr, context);
+            context.currentMethod().ifPresent(state -> collectCallNode(state, objectCreationExpr));
+        }
+    }
+
+    private record FileCallGraphContext(
+            String fileRelative,
+            Deque<MethodCallTraversalState> methodStack,
+            List<MethodCall> results
+    ) {
+        FileCallGraphContext(String fileRelative) {
+            this(fileRelative, new ArrayDeque<>(), new ArrayList<>());
+        }
+
+        Optional<MethodCallTraversalState> currentMethod() {
+            return Optional.ofNullable(methodStack.peek());
+        }
+    }
+
+    private record MethodCallTraversalState(
+            MethodDeclaration fromMd,
+            Set<String> lcbaMethodUrlSet,
+            List<Method> calledMethods,
+            Stack<Method> lcbaCandidateMethod
+    ) {
+        MethodCallTraversalState(MethodDeclaration fromMd) {
+            this(fromMd, new HashSet<>(), new ArrayList<>(), new Stack<>());
+        }
     }
 
     private static Method getMethodInfo(String repositoryUrl, String commitHash, Node callNode, CombinedTypeSolver typeSolver, String absoluteRepositoryPath, String repositoryName, MethodMappingIndex methodMappingIndex) {
@@ -909,13 +965,15 @@ public class CallGraphServiceImpl implements CallGraphService {
     }
 
     private static final class ClassMappingIndex {
-        private static final ClassMappingIndex EMPTY = new ClassMappingIndex(List.of());
+        private static final ClassMappingIndex EMPTY = new ClassMappingIndex(List.of(), 0);
         private final Map<String, ClassMappingEntry> byFqn;
         private final Map<String, String> aliases;
         private final Map<String, List<String>> parentsByChild;
         private final Map<String, List<String>> childrenByParent;
+        private Cache<String, List<String>> searchOrderCache;
+        private Cache<String, List<List<String>>> searchLevelsCache;
 
-        private ClassMappingIndex(List<ClassMappingEntry> entries) {
+        private ClassMappingIndex(List<ClassMappingEntry> entries, long maxCacheSizeMb) {
             Map<String, ClassMappingEntry> fqnMap = new LinkedHashMap<>();
             Map<String, String> aliasMap = new HashMap<>();
             for (ClassMappingEntry entry : entries) {
@@ -949,9 +1007,14 @@ public class CallGraphServiceImpl implements CallGraphService {
             }
             this.parentsByChild = parentMap;
             this.childrenByParent = childMap;
+            configureCache(maxCacheSizeMb);
         }
 
         static ClassMappingIndex load(String classMappingFile) {
+            return load(classMappingFile, 256);
+        }
+
+        static ClassMappingIndex load(String classMappingFile, long maxCacheSizeMb) {
             if (classMappingFile == null || classMappingFile.isBlank()) {
                 throw new IllegalArgumentException("Class mapping file location not specified");
             }
@@ -962,10 +1025,30 @@ public class CallGraphServiceImpl implements CallGraphService {
             try {
                 List<ClassMappingEntry> entries = readEntries(path);
                 log.info("Loaded {} class mapping entries from {}", entries.size(), classMappingFile);
-                return new ClassMappingIndex(entries);
+                return new ClassMappingIndex(entries, maxCacheSizeMb);
             } catch (IOException | RuntimeException e) {
                 throw new IllegalArgumentException("Failed to load class mapping file " + classMappingFile + ": " + e.getMessage(), e);
             }
+        }
+
+        void configureCache(long maxCacheSizeMb) {
+            if (maxCacheSizeMb <= 0) {
+                this.searchOrderCache = null;
+                this.searchLevelsCache = null;
+                return;
+            }
+            long maxWeight = Math.max(1, maxCacheSizeMb) * 1024L * 1024L;
+            long perCacheWeight = Math.max(1, maxWeight / 2);
+            this.searchOrderCache = Caffeine.newBuilder()
+                    .maximumWeight(perCacheWeight)
+                    .weigher((String ignored, List<String> value) -> weighStringList(value))
+                    .recordStats()
+                    .build();
+            this.searchLevelsCache = Caffeine.newBuilder()
+                    .maximumWeight(perCacheWeight)
+                    .weigher((String ignored, List<List<String>> value) -> weighNestedStringList(value))
+                    .recordStats()
+                    .build();
         }
 
         boolean contains(String fqn) {
@@ -994,6 +1077,13 @@ public class CallGraphServiceImpl implements CallGraphService {
             if (start == null || !byFqn.containsKey(start)) {
                 return List.of();
             }
+            if (searchOrderCache != null) {
+                return searchOrderCache.get(start, this::computeSearchOrder);
+            }
+            return computeSearchOrder(start);
+        }
+
+        private List<String> computeSearchOrder(String start) {
             LinkedHashSet<String> ordered = new LinkedHashSet<>();
             ordered.add(start);
             ordered.addAll(breadthFirst(start, childrenByParent));
@@ -1006,11 +1096,39 @@ public class CallGraphServiceImpl implements CallGraphService {
             if (start == null || !byFqn.containsKey(start)) {
                 return List.of();
             }
+            if (searchLevelsCache != null) {
+                return searchLevelsCache.get(start, this::computeSearchLevels);
+            }
+            return computeSearchLevels(start);
+        }
+
+        private List<List<String>> computeSearchLevels(String start) {
             List<List<String>> levels = new ArrayList<>();
             levels.add(List.of(start));
             levels.addAll(breadthFirstLevels(start, childrenByParent));
             levels.addAll(breadthFirstLevels(start, parentsByChild));
-            return levels;
+            return levels.stream().map(List::copyOf).toList();
+        }
+
+        String cacheStats() {
+            if (searchOrderCache == null && searchLevelsCache == null) {
+                return "disabled";
+            }
+            String orderStats = searchOrderCache == null ? "disabled" : searchOrderCache.stats().toString();
+            String levelsStats = searchLevelsCache == null ? "disabled" : searchLevelsCache.stats().toString();
+            return "searchOrder=" + orderStats + ", searchLevels=" + levelsStats;
+        }
+
+        private static int weighStringList(List<String> value) {
+            return Math.max(1, value.stream().filter(Objects::nonNull).mapToInt(text -> 40 + text.length() * 2).sum());
+        }
+
+        private static int weighNestedStringList(List<List<String>> value) {
+            int total = 40;
+            for (List<String> level : value) {
+                total += 40 + weighStringList(level);
+            }
+            return Math.max(1, total);
         }
 
         private static List<String> breadthFirst(String start, Map<String, List<String>> adjacency) {

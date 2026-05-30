@@ -1,16 +1,16 @@
 # jnose-adapter
 
-Executable wrapper around [`jnose-core`](https://github.com/arieslab/jnose-core) for the MHC `test-smell` workflow.
+Executable wrapper around [`jnose-core`](https://github.com/arieslab/jnose-core) for the `mhc test-smell` workflow.
 
-`jnose-core` is a library jar and cannot be run directly with `java -jar`. This adapter provides the command-line entry point expected by MHC:
+`jnose-core` is a library JAR and cannot be run directly with `java -jar`. This adapter provides the command-line entry point that MHC expects:
 
 ```bash
 java -jar jnose-adapter-1.0.0.jar --file <input.csv> --output <output.csv>
 ```
 
-## Build Steps
+## Build Order
 
-Run these commands from the project root unless noted otherwise.
+Run all commands from the repository root.
 
 1. Confirm the `jnose-core` checkout exists:
 
@@ -18,7 +18,7 @@ Run these commands from the project root unless noted otherwise.
    ls -d jnose-core
    ```
 
-2. Install `jnose-core` into the local Maven repository if it is not already installed:
+2. Install `jnose-core` into the local Maven repository:
 
    ```bash
    cd jnose-core
@@ -26,7 +26,7 @@ Run these commands from the project root unless noted otherwise.
    cd ..
    ```
 
-3. Build the adapter:
+3. Build the executable adapter:
 
    ```bash
    cd jnose-adapter
@@ -34,23 +34,40 @@ Run these commands from the project root unless noted otherwise.
    cd ..
    ```
 
-4. Copy the executable adapter jar into the workspace jar directory:
+4. Copy the adapter JAR into the shared workspace JAR directory:
 
    ```bash
-   cp jnose-adapter/target/jnose-adapter-1.0.0.jar workspace/jar/jnose-adapter-1.0.0.jar
+   mkdir -p "$ME_WORKSPACE_DIRECTORY/jar"
+   cp jnose-adapter/target/jnose-adapter-1.0.0.jar \
+     "$ME_WORKSPACE_DIRECTORY/jar/jnose-adapter-1.0.0.jar"
    ```
 
-5. Run the MHC test-smell workflow:
+After this step, `mhc test-smell --tool-name jnose` discovers the executable JAR from:
 
-   ```bash
-   mhc test-smell \
-       --workspace-directory "workspace" \
-       --repository-directory "workspace/repository" \
-       --jar-directory "workspace/jar" \
-       --tool-name jnose \
-       --stage all \
-       --callgraph-dir callgraph \
-       --project "commons-io"
-   ```
+```text
+WORKSPACE_DIRECTORY/jar/jnose-adapter-1.0.0.jar
+```
 
-After step 4, `workspace/jar/jnose-adapter-1.0.0.jar` is the executable jar that MHC discovers for `--tool-name jnose`.
+## MHC Usage
+
+Generate method and callgraph data first, then run:
+
+```bash
+mhc test-smell \
+  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
+  --experiment-name "$ME_EXPERIMENT_NAME" \
+  --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
+  --tool-name jnose \
+  --stage all \
+  --callgraph-dir callgraph \
+  --project "commons-io"
+```
+
+The workflow reads experiment data from:
+
+```text
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/method/<project>.csv
+WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/callgraph/<project>.csv
+```
+
+and writes intermediate files under `.test-smell/jnose/` plus final normalized output under `test-smell/jnose/` in the same experiment directory.

@@ -170,6 +170,25 @@ public class CallGraphTest extends TestConfigurationBase {
         Assertions.assertEquals("missing.Outer.Inner.build", singleFallbackTarget(innerFixture).getFqn());
     }
 
+    @org.junit.jupiter.api.Test
+    void classHierarchyCacheCanBeDisabledWithoutChangingFallback(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        FallbackFixture fixture = createFallbackFixture(tempDir, "import missing.Service; class Caller { Service target; void test(){ target.build(); } }",
+                List.of(row("Service", "missing.Service", ""), row("Impl", "missing.Impl", "missing.Service")),
+                List.of(methodRow("build", "method", "missing.Impl.build", "missing.Impl.build()", "src/main/java/missing/Impl.java", 20)));
+
+        Assertions.assertEquals("missing.Impl.build", singleFallbackTarget(fixture, 0).getFqn());
+    }
+
+    @org.junit.jupiter.api.Test
+    void classHierarchyCacheCanBeEnabledWithoutChangingFallback(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+        FallbackFixture fixture = createFallbackFixture(tempDir, "import missing.Service; class Caller { Service target; void test(){ target.build(); target.build(); } }",
+                List.of(row("Service", "missing.Service", ""), row("Impl", "missing.Impl", "missing.Service")),
+                List.of(methodRow("build", "method", "missing.Impl.build", "missing.Impl.build()", "src/main/java/missing/Impl.java", 20)));
+
+        List<Method> targets = fallbackTargets(fixture, 1);
+        Assertions.assertEquals(List.of("missing.Impl.build", "missing.Impl.build"), targets.stream().map(Method::getFqn).toList());
+    }
+
 
     @TestFactory
     public java.util.stream.Stream<DynamicNode> testCallGraph() throws java.io.IOException {
@@ -363,13 +382,22 @@ public class CallGraphTest extends TestConfigurationBase {
     }
 
     private static Method singleFallbackTarget(FallbackFixture fixture) {
-        List<Method> targets = fallbackTargets(fixture);
+        return singleFallbackTarget(fixture, 256);
+    }
+
+    private static Method singleFallbackTarget(FallbackFixture fixture, long maxCacheSizeMb) {
+        List<Method> targets = fallbackTargets(fixture, maxCacheSizeMb);
         Assertions.assertEquals(1, targets.size());
         return targets.getFirst();
     }
 
     private static List<Method> fallbackTargets(FallbackFixture fixture) {
+        return fallbackTargets(fixture, 256);
+    }
+
+    private static List<Method> fallbackTargets(FallbackFixture fixture, long maxCacheSizeMb) {
         CallGraphServiceImpl scanner = CallGraphServiceImpl.getInstance();
+        scanner.configureCache(maxCacheSizeMb);
         scanner.init(
                 "https://example.test/demo",
                 fixture.repo().toString(),

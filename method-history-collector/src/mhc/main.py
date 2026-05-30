@@ -20,6 +20,7 @@ _KNOWN_OPTION_FLAGS = {
     "--timeout-seconds",
     "--merge-threshold",
     "--merge-interval-seconds",
+    "--max-cache-size",
     "--merge-only",
     "--project",
     "--projects",
@@ -196,6 +197,13 @@ def main(argv: list[str] | None = None):
             "For method-scan, class-scan, method-code, and method-callgraph, flush pending cache rows after this many seconds "
             "(default: 900; 0 or negative disables time-triggered intermediate flushes)."
         ),
+    )
+    parser.add_argument(
+        "--max-cache-size",
+        dest="max_cache_size",
+        type=int,
+        default=256,
+        help="Generic in-memory cache budget in MB for supported long-running commands (default: 256; 0 disables optional caches).",
     )
     parser.add_argument(
         "--merge-only",
@@ -383,6 +391,7 @@ def main(argv: list[str] | None = None):
             args.retry_errors,
             args.merge_threshold,
             args.merge_interval_seconds,
+            args.max_cache_size,
         ]
         if args.artifact_config_path:
             call_args.append(args.artifact_config_path)

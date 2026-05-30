@@ -332,6 +332,7 @@ def execute_callgraph_per_file(
     retry_errors: bool = True,
     merge_threshold: int = DEFAULT_SCAN_MERGE_THRESHOLD,
     merge_interval_seconds: int | None = None,
+    max_cache_size: int = 256,
     artifact_config_path: str | None = None,
 ) -> None:
     CallGraphServiceImpl = None
@@ -404,6 +405,7 @@ def execute_callgraph_per_file(
             )
 
         scanner = CallGraphServiceImpl.getInstance()
+        scanner.configureCache(max_cache_size)
         if artifact_config_path:
             scanner.init(url, repository_path, commit_hash, method_mapping_file, class_mapping_file, artifact_config_path)
         else:
@@ -444,6 +446,7 @@ def execute_callgraph_per_file(
                 last_flush_time = time.monotonic()
 
         _flush_callgraph(cache_file, lock_path, pending_rows, retry_errors)
+        scanner.logCacheStats()
         if shards == 1:
             _finalize_callgraph(
                 cache_file,

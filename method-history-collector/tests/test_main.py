@@ -155,6 +155,7 @@ class TestMhcScript(unittest.TestCase):
             True,
             10000,
             900,
+            256,
         )
 
     @patch("mhc.main._build_method_history_collector")
