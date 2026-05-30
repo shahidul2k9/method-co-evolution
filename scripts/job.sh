@@ -15,9 +15,10 @@ Usage:
   job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --batch-size 1 --resume error --projects "commons-io" --input-kind t2p
   job.sh --command llm-m2m-link --stage parse --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --projects "commons-io"
   job.sh --command testlinker --stage all --projects "commons-io" --top-k 1
+  job.sh --command test-smell --tool-name jnose --stage all --callgraph-dir callgraph --projects "commons-io"
 
 Options:
-  --command               Command to run: method-history, method-callgraph, method-scan, class-scan, method-code, artifact-update, method-complexity, llm-m2m-link, testlinker
+  --command               Command to run: method-history, method-callgraph, method-scan, class-scan, method-code, artifact-update, method-complexity, llm-m2m-link, testlinker, test-smell
   --tool-name             Tool name for non-LLM commands
   --java-options          Optional JVM arguments for Java-backed commands, e.g. "-Xmx4g"
   --timeout-seconds       Optional method-history command timeout in seconds (default: 30*60 = 1800)
@@ -27,7 +28,7 @@ Options:
   --retry-errors          Whether method-scan, class-scan, method-code, and method-callgraph retry previous __error_marker__ rows (default: true)
   --artifact-config-path  Artifact detection YAML file or directory
   --command-options       Optional extra arguments forwarded to the selected command
-  --stage                 LLM stage: execute or parse (default: execute)
+  --stage                 LLM stage execute/parse, or test-smell stage preprocess/execute/postprocess/all
   --api-type              LLM provider API type: auto, huggingface, or openai-responses (default: auto)
   --model-name-or-path    Hugging Face model id or local path for llm-m2m-link
   --short-model-name      Short model directory name for llm-m2m-link outputs
@@ -42,6 +43,7 @@ Options:
   --job-index-shift       Offset added to SLURM_ARRAY_TASK_ID before deriving project/shard indexes (default: 0)
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
   --top-k                 TestLinker top-k invocation count (default: 1)
+  --callgraph-dir         Callgraph-like experiment subdirectory for test-smell preprocess (default: callgraph)
   --workspace-directory       Relative or absolute shared workspace directory (default: workspace)
   --experiment-name            Experiment name (default: ME_EXPERIMENT_NAME)
   --history-directory     Relative or absolute method history directory override
@@ -67,6 +69,7 @@ MERGE_ONLY="false"
 RETRY_ERRORS="true"
 COMMAND_OPTIONS=""
 STAGE="execute"
+STAGE_PROVIDED="false"
 API_TYPE="auto"
 MODEL_NAME_OR_PATH=""
 SHORT_MODEL_NAME=""
@@ -81,6 +84,7 @@ SHARDS="1"
 JOB_INDEX_SHIFT="0"
 INPUT_KIND="t2p"
 TOP_K="1"
+CALLGRAPH_DIR="callgraph"
 WORKSPACE_DIRECTORY="$PROJECT_DIRECTORY/workspace"
 EXPERIMENT_NAME="${ME_EXPERIMENT_NAME:-main}"
 HISTORY_DIRECTORY="${ME_HISTORY_DIRECTORY:-}"
@@ -147,6 +151,7 @@ while [[ $# -gt 0 ]]; do
             ;;
         --stage)
             STAGE="$2"
+            STAGE_PROVIDED="true"
             shift 2
             ;;
         --api-type)
@@ -204,6 +209,14 @@ while [[ $# -gt 0 ]]; do
         --top-k)
             TOP_K="$2"
             shift 2
+            ;;
+        --callgraph-dir)
+            CALLGRAPH_DIR="$2"
+            shift 2
+            ;;
+        --callgraph-dir=*)
+            CALLGRAPH_DIR="${1#*=}"
+            shift
             ;;
         --workspace-directory)
             WORKSPACE_DIRECTORY="$2"
@@ -353,6 +366,10 @@ if ! [[ "$TOP_K" =~ ^[0-9]+$ ]] || [[ "$TOP_K" -le 0 ]]; then
     exit 1
 fi
 
+if [[ "$COMMAND_NAME" == "test-smell" && "$STAGE_PROVIDED" == "false" ]]; then
+    STAGE="all"
+fi
+
 cd "$PROJECT_DIRECTORY"
 source "$PROJECT_DIRECTORY/.venv/bin/activate"
 
@@ -454,6 +471,9 @@ else
     fi
     if [[ -n "$TOOL_NAME" ]]; then
         MHC_ARGS+=(--tool-name "$TOOL_NAME")
+    fi
+    if [[ "$COMMAND_NAME" == "test-smell" ]]; then
+        MHC_ARGS+=(--stage "$STAGE" --callgraph-dir "$CALLGRAPH_DIR")
     fi
     if [[ -n "$JAVA_OPTIONS" ]]; then
         MHC_ARGS+=(--java-options="$JAVA_OPTIONS")

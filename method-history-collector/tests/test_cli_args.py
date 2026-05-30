@@ -148,6 +148,38 @@ class TestCliArgs(unittest.TestCase):
         )
 
     @patch("mhc.main._build_method_history_collector")
+    def test_test_smell_accepts_stage_and_callgraph_dir(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame([{"project": "commons-lang"}])
+
+        mhc_main.main(
+            [
+                "test-smell",
+                "--workspace-directory",
+                "workspace",
+                "--repository-directory",
+                "workspace/repository",
+                "--jar-directory",
+                "workspace/jar",
+                "--tool-name",
+                "jnose",
+                "--stage",
+                "preprocess",
+                "--callgraph-dir",
+                "t2p-candidate-filtered",
+                "--project",
+                "commons-lang",
+            ]
+        )
+
+        mock_mhc_instance.run_test_smell.assert_called_once_with(
+            ["commons-lang"],
+            "jnose",
+            "preprocess",
+            "t2p-candidate-filtered",
+        )
+
+    @patch("mhc.main._build_method_history_collector")
     def test_scan_method_accepts_retry_errors_false(self, mock_build_collector):
         mock_mhc_instance = mock_build_collector.return_value
         mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
