@@ -3,6 +3,7 @@ from mhc.callgraph import execute_callgraph_per_file
 from mhc.class_scanner import scan_class as _scan_class
 from mhc.artifact_update import update_artifacts as _update_artifacts
 from mhc.complexity_analyzer import ComplexityAnalyzer
+from mhc.test_smell import run_test_smell as _run_test_smell
 from pathlib import Path
 import os
 import pandas as pd
@@ -17,6 +18,7 @@ class MethodHistoryCollector:
         "codeTracker",
         "methodParser",
         "complexityAnalyzer",
+        "jnose",
     ]
 
     def __init__(
@@ -35,10 +37,16 @@ class MethodHistoryCollector:
         self.jar_file_map = {}
         self.repository_df = pd.read_csv(Path(experiment_directory) / "project.csv")
 
-        for file in list(map(os.fspath, Path(jar_directory).rglob("*.jar"))):
+        for file in sorted(
+            map(os.fspath, Path(jar_directory).rglob("*.jar")),
+            key=_jar_preference_key,
+        ):
             for pattern in self.TOOL_NAMES:
                 if pattern.lower() in file.replace("-", "").lower():
                     self.jar_file_map[pattern] = file
+            normalized_file = file.replace("-", "").lower()
+            if "jnose" in normalized_file:
+                self.jar_file_map["jnose"] = file
 
     def scan_class(
         self,
@@ -318,3 +326,32 @@ class MethodHistoryCollector:
             )
         finally:
             ms.stop_java_jar()
+
+    def run_test_smell(
+        self,
+        repositories: list[str],
+        tool_name: str,
+        stage: str = "all",
+        callgraph_dir: str = "callgraph",
+    ):
+        _run_test_smell(
+            self.repository_df,
+            self.repository_directory,
+            self.data_directory,
+            self.jar_file_map,
+            repositories,
+            tool_name,
+            stage,
+            callgraph_dir,
+        )
+
+
+def _jar_preference_key(file: str) -> tuple[int, str]:
+    normalized = Path(file).name.lower()
+    is_fat_or_executable = (
+        "jnose-adapter" in normalized
+        or "jar-with-dependencies" in normalized
+        or "all" in normalized
+        or "standalone" in normalized
+    )
+    return (1 if is_fat_or_executable else 0, normalized)

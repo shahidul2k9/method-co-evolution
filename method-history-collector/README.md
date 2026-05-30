@@ -179,6 +179,43 @@ mhc method-complexity \
 
 ---
 
+### `mhc test-smell`
+
+Runs the jNose-based test smell workflow. The `jnose` tool requires the executable `jnose-adapter` jar in `--jar-directory`; see [jnose-adapter/README.md](../jnose-adapter/README.md) for the `jnose-core` dependency and build commands.
+
+```bash
+mhc test-smell \
+    --workspace-directory "workspace" \
+    --repository-directory "workspace/repository" \
+    --jar-directory "workspace/jar" \
+    --tool-name "jnose" \
+    --stage all \
+    --callgraph-dir callgraph \
+    --project "commons-io"
+```
+
+Stages:
+
+| Stage | Description |
+|-------|-------------|
+| `preprocess` | Generate jNose input from method CSV and the selected callgraph directory |
+| `execute` | Run `jnose-adapter` and write raw jNose by-test-smell output |
+| `postprocess` | Normalize jNose smells to MHC method-level output |
+| `all` | Run all stages in order |
+
+Output locations:
+
+```text
+<experiment-directory>/.test-smell/jnose/input
+<experiment-directory>/.test-smell/jnose/output
+<experiment-directory>/.test-smell/jnose/postprocess-error
+<experiment-directory>/test-smell/jnose
+```
+
+Final output columns are `project,name,smell,smell_detector,url,smell_begin,smell_end`. Rows that cannot be mapped to an exact method name are written to `.test-smell/jnose/postprocess-error`.
+
+---
+
 ### `mhc method-code`
 
 Reads `data/method/{project}.csv`, checks out the repository at the indexed `hash`, and extracts the source lines for each method. Writes `data/method-code/{project}.csv`.

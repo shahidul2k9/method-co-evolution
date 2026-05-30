@@ -32,6 +32,8 @@ _KNOWN_OPTION_FLAGS = {
     "--target",
     "--dry-run",
     "--backup",
+    "--stage",
+    "--callgraph-dir",
 }
 
 
@@ -278,7 +280,20 @@ def main(argv: list[str] | None = None):
         action="store_true",
         help="Create bk_<project>.csv files before artifact-update writes outputs.",
     )
-
+    parser.add_argument(
+        "--stage",
+        dest="stage",
+        choices=("preprocess", "execute", "postprocess", "all"),
+        default="all",
+        help="Pipeline stage for staged commands such as test-smell.",
+    )
+    parser.add_argument(
+        "--callgraph-dir",
+        dest="callgraph_dir",
+        type=str,
+        default="callgraph",
+        help="Callgraph-like directory under the experiment directory used by test-smell preprocessing.",
+    )
     normalized_argv = _normalize_dash_prefixed_option_values(
         list(sys.argv[1:] if argv is None else argv)
     )
@@ -441,6 +456,16 @@ def main(argv: list[str] | None = None):
             )
             sys.exit(1)
         mhc.run_complexity_analyzer(resolve_selected_projects(), args.tool_name)
+    elif command == "test-smell":
+        if not args.tool_name:
+            print("Error: tool_name is required for test-smell command.")
+            sys.exit(1)
+        mhc.run_test_smell(
+            resolve_selected_projects(),
+            args.tool_name,
+            args.stage,
+            args.callgraph_dir,
+        )
     else:
         print(f"Unknown command: {args.command}")
         sys.exit(1)
