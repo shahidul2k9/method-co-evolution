@@ -247,6 +247,10 @@ def _output_exists(command: str, workspace: str | Path, project: str, tool_name:
         return (base / "history" / tool_name / project).is_dir()
     if canonical == "method-code":
         return (base / "method-code" / f"{project}.csv").exists()
+    if canonical == "class-scan":
+        return (base / "class" / f"{project}.csv").exists()
+    if canonical == "test-smell":
+        return (base / "test-smell"/ tool_name / f"{project}.csv").exists()
     return False
 
 
