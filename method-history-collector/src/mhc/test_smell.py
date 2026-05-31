@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import pandas as pd
@@ -114,22 +115,52 @@ def run_test_smell(
     tool_name: str,
     stage: str = "all",
     callgraph_dir: str = "callgraph",
+    max_workers: int = 1,
 ) -> None:
     if tool_name != TEST_SMELL_TOOL:
         raise ValueError(f"Unsupported test-smell tool: {tool_name}")
     if stage not in {"preprocess", "execute", "postprocess", "all"}:
         raise ValueError("--stage must be one of: preprocess, execute, postprocess, all")
 
-    selected_df = repository_df[repository_df["project"].isin(repositories)]
-    for _, repository in selected_df.iterrows():
-        project = str(repository["project"])
-        if stage in {"preprocess", "all"}:
-            preprocess_project(repository, repository_directory, data_directory, callgraph_dir)
-        if stage in {"execute", "all"}:
-            _ensure_repository_checkout(repository, repository_directory)
-            execute_project(project, data_directory, jar_file_map)
-        if stage in {"postprocess", "all"}:
-            postprocess_project(repository, data_directory)
+    selected = [repository for _, repository in repository_df[repository_df["project"].isin(repositories)].iterrows()]
+    if max_workers == 1:
+        for repository in selected:
+            _run_test_smell_project(repository, repository_directory, data_directory, jar_file_map, stage, callgraph_dir)
+        return
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(
+                _run_test_smell_project,
+                repository,
+                repository_directory,
+                data_directory,
+                jar_file_map,
+                stage,
+                callgraph_dir,
+            )
+            for repository in selected
+        ]
+        for future in as_completed(futures):
+            future.result()
+
+
+def _run_test_smell_project(
+    repository: pd.Series,
+    repository_directory: str,
+    data_directory: str,
+    jar_file_map: dict[str, str],
+    stage: str,
+    callgraph_dir: str,
+) -> None:
+    project = str(repository["project"])
+    if stage in {"preprocess", "all"}:
+        preprocess_project(repository, repository_directory, data_directory, callgraph_dir)
+    if stage in {"execute", "all"}:
+        _ensure_repository_checkout(repository, repository_directory)
+        execute_project(project, data_directory, jar_file_map)
+    if stage in {"postprocess", "all"}:
+        postprocess_project(repository, data_directory)
 
 
 def preprocess_project(

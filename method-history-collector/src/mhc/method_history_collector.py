@@ -62,6 +62,7 @@ class MethodHistoryCollector:
         retry_errors: bool = True,
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_interval_seconds: int | None = None,
+        max_workers: int = 1,
         artifact_config_path: str | None = None,
     ):
         try:
@@ -85,6 +86,7 @@ class MethodHistoryCollector:
                 retry_errors,
                 merge_threshold,
                 merge_interval_seconds,
+                max_workers,
                 artifact_config_path,
             )
         except Exception as e:
@@ -107,6 +109,7 @@ class MethodHistoryCollector:
         retry_errors: bool = True,
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_interval_seconds: int | None = None,
+        max_workers: int = 1,
         artifact_config_path: str | None = None,
     ):
         try:
@@ -130,6 +133,7 @@ class MethodHistoryCollector:
                 retry_errors,
                 merge_threshold,
                 merge_interval_seconds,
+                max_workers,
                 artifact_config_path,
             )
         except Exception as e:
@@ -152,6 +156,7 @@ class MethodHistoryCollector:
         merge_only_delete_empty: bool = False,
         merge_only_delete_tmp: bool = False,
         merge_only_delete_lock: bool = False,
+        max_workers: int = 1,
     ):
         execute_method_history_if_missing(
             self.repository_df[self.repository_df["project"].isin(repositories)],
@@ -170,6 +175,7 @@ class MethodHistoryCollector:
             merge_only_delete_empty,
             merge_only_delete_tmp,
             merge_only_delete_lock,
+            max_workers,
         )
 
     def update_repository_index(self):
@@ -195,6 +201,7 @@ class MethodHistoryCollector:
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_interval_seconds: int | None = None,
         max_cache_size: int = 256,
+        max_workers: int = 1,
         artifact_config_path: str | None = None,
     ):
         self.generate_callgraph_per_file(
@@ -211,6 +218,7 @@ class MethodHistoryCollector:
             merge_threshold,
             merge_interval_seconds,
             max_cache_size,
+            max_workers,
             artifact_config_path,
         )
 
@@ -229,6 +237,7 @@ class MethodHistoryCollector:
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_interval_seconds: int | None = None,
         max_cache_size: int = 256,
+        max_workers: int = 1,
         artifact_config_path: str | None = None,
     ):
         try:
@@ -253,6 +262,7 @@ class MethodHistoryCollector:
                 merge_threshold,
                 merge_interval_seconds,
                 max_cache_size,
+                max_workers,
                 artifact_config_path,
             )
         except Exception as e:
@@ -285,6 +295,7 @@ class MethodHistoryCollector:
         retry_errors: bool = True,
         merge_threshold: int = DEFAULT_MERGE_THRESHOLD,
         merge_interval_seconds: int | None = None,
+        max_workers: int = 1,
     ):
         ms.generate_method_code(
             self.repository_df[self.repository_df["project"].isin(repositories)],
@@ -301,6 +312,7 @@ class MethodHistoryCollector:
             retry_errors,
             merge_threshold,
             merge_interval_seconds,
+            max_workers,
         )
 
     def update_artifacts(
@@ -312,6 +324,7 @@ class MethodHistoryCollector:
         dry_run: bool = False,
         backup: bool = False,
         replace: bool = False,
+        max_workers: int = 1,
     ):
         try:
             ms.start_java_jar(
@@ -327,6 +340,7 @@ class MethodHistoryCollector:
                 dry_run,
                 backup,
                 replace,
+                max_workers,
             )
         finally:
             ms.stop_java_jar()
@@ -337,6 +351,7 @@ class MethodHistoryCollector:
         tool_name: str,
         stage: str = "all",
         callgraph_dir: str = "callgraph",
+        max_workers: int = 1,
     ):
         _run_test_smell(
             self.repository_df,
@@ -347,6 +362,7 @@ class MethodHistoryCollector:
             tool_name,
             stage,
             callgraph_dir,
+            max_workers,
         )
 
 

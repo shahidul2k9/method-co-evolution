@@ -4,6 +4,8 @@ import shlex
 import shutil
 import time
 import logging
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -137,6 +139,7 @@ METHOD_SCAN_ERROR_MARKER = "__error_marker__"
 METHOD_SCAN_FLAG_COLUMN = "_flag"
 METHOD_SCAN_ERROR_COLUMN = "_error"
 METHOD_SCAN_ERROR_MAX_LENGTH = 256
+_METHOD_SCANNER_INIT_LOCK = threading.Lock()
 METHOD_SCAN_CACHE_COLUMNS = METHOD_SCAN_COLUMNS + [
     METHOD_SCAN_FLAG_COLUMN,
     METHOD_SCAN_ERROR_COLUMN,
@@ -509,6 +512,13 @@ def _method_code_error_row(method_row, key: str, error: Exception | str | None =
     return row
 
 
+def _method_code_task(method_row, repository_root: str, key: str) -> dict:
+    try:
+        return _method_code_cache_row(method_row, repository_root, key)
+    except Exception as error:
+        return _method_code_error_row(method_row, key, error)
+
+
 def _flush_method_code_buffers(
     cache_file: str,
     lock_path: str,
@@ -621,6 +631,7 @@ def generate_method_code(
     retry_errors: bool = True,
     merge_threshold: int = DEFAULT_SCAN_MERGE_THRESHOLD,
     merge_interval_seconds: int | None = None,
+    max_workers: int = 1,
 ) -> list[str]:
     output_files = []
     if workspace_directory is None:
@@ -694,28 +705,37 @@ def generate_method_code(
         cached_keys = _load_cached_method_code_keys(cache_file, retry_errors)
         pending_rows: list[dict] = []
         last_flush = time.monotonic()
+        methods_to_process = [
+            (method_row, _method_code_key(method_row))
+            for _, method_row in method_df.iterrows()
+            if util.stable_shard_for_key(_method_code_key(method_row), shards) == shard
+            and _method_code_key(method_row) not in cached_keys
+        ]
 
-        for _, method_row in method_df.iterrows():
-            key = _method_code_key(method_row)
-            if util.stable_shard_for_key(key, shards) != shard:
-                continue
-            if key in cached_keys:
-                continue
-
-            try:
-                pending_rows.append(_method_code_cache_row(method_row, repository_root, key))
-            except Exception as error:
-                pending_rows.append(_method_code_error_row(method_row, key, error))
-
-            if _should_flush_scan_cache(
-                len(pending_rows),
-                last_flush,
-                merge_threshold,
-                merge_interval_seconds,
-            ):
-                _flush_method_code_buffers(cache_file, lock_path, pending_rows, retry_errors)
-                cached_keys = _load_cached_method_code_keys(cache_file, retry_errors)
-                last_flush = time.monotonic()
+        if max_workers == 1:
+            row_iter = (_method_code_task(method_row, repository_root, key) for method_row, key in methods_to_process)
+            for row in row_iter:
+                pending_rows.append(row)
+                if _should_flush_scan_cache(len(pending_rows), last_flush, merge_threshold, merge_interval_seconds):
+                    _flush_method_code_buffers(cache_file, lock_path, pending_rows, retry_errors)
+                    cached_keys = _load_cached_method_code_keys(cache_file, retry_errors)
+                    last_flush = time.monotonic()
+        else:
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(_method_code_task, method_row, repository_root, key): key
+                    for method_row, key in methods_to_process
+                }
+                for future in as_completed(futures):
+                    try:
+                        row = future.result()
+                    except Exception as error:
+                        row = _method_code_error_row({}, futures[future], error)
+                    pending_rows.append(row)
+                    if _should_flush_scan_cache(len(pending_rows), last_flush, merge_threshold, merge_interval_seconds):
+                        _flush_method_code_buffers(cache_file, lock_path, pending_rows, retry_errors)
+                        cached_keys = _load_cached_method_code_keys(cache_file, retry_errors)
+                        last_flush = time.monotonic()
 
         _flush_method_code_buffers(cache_file, lock_path, pending_rows, retry_errors)
 
@@ -819,6 +839,45 @@ def _scan_methods_in_file(
     return methods_in_file, None
 
 
+def _build_method_scanner(MethodScannerImpl, repository_root: str, url: str, commit_hash: str, artifact_config_path: str | None):
+    with _METHOD_SCANNER_INIT_LOCK:
+        scanner = MethodScannerImpl.getInstance()
+        if artifact_config_path:
+            scanner.init(repository_root, url, commit_hash, artifact_config_path)
+        else:
+            scanner.init(repository_root, url, commit_hash)
+        return scanner
+
+
+def _scan_method_file_task(
+    thread_local,
+    MethodScannerImpl,
+    repository_root: str,
+    repository_name: str,
+    url: str,
+    commit_hash: str,
+    artifact_config_path: str | None,
+    file: str,
+    file_without_base: str,
+) -> list[dict]:
+    if not hasattr(thread_local, "scanner"):
+        thread_local.scanner = _build_method_scanner(MethodScannerImpl, repository_root, url, commit_hash, artifact_config_path)
+    methods, error = _scan_methods_in_file(
+        thread_local.scanner,
+        repository_name,
+        url,
+        commit_hash,
+        file,
+        file_without_base,
+    )
+    rows = list(methods)
+    if error is None:
+        rows.append(_build_scan_marker_row(repository_name, file_without_base, commit_hash))
+    else:
+        rows.append(_build_scan_error_row(repository_name, file_without_base, commit_hash, error))
+    return rows
+
+
 def scan_method(
     repository_df: DataFrame,
     repository_directory: str,
@@ -834,6 +893,7 @@ def scan_method(
     retry_errors: bool = True,
     merge_threshold: int = DEFAULT_SCAN_MERGE_THRESHOLD,
     merge_interval_seconds: int | None = None,
+    max_workers: int = 1,
     artifact_config_path: str | None = None,
 ):
     MethodScannerImpl = None
@@ -887,54 +947,68 @@ def scan_method(
 
         os.makedirs(method_workspace_directory, exist_ok=True)
 
-        scanner = MethodScannerImpl.getInstance()
-        if artifact_config_path:
-            scanner.init(dot_file_directory, url, commit_hash, artifact_config_path)
-        else:
-            scanner.init(dot_file_directory, url, commit_hash)
         cached_files = _load_cached_method_scan_files(method_cache_file, retry_errors)
+        files_to_scan = [
+            (file, file[len(dot_file_directory) + 1:])
+            for file in java_files
+            if util.stable_shard_for_key(file[len(dot_file_directory) + 1:], shards) == shard
+            and file[len(dot_file_directory) + 1:] not in cached_files
+        ]
 
+        pending_method_rows: list[dict] = []
         last_flush_time = time.monotonic()
-        pending_method_rows = []
-        for file in java_files:
-            file_without_base = file[len(dot_file_directory) + 1:]
-            if util.stable_shard_for_key(file_without_base, shards) != shard:
-                continue
-            if file_without_base in cached_files:
-                continue
 
-            methods_in_file, scan_error = _scan_methods_in_file(
-                scanner,
-                repository_name,
-                url,
-                commit_hash,
-                file,
-                file_without_base,
-            )
-            pending_method_rows.extend(methods_in_file)
-            if scan_error is None:
-                pending_method_rows.append(
-                    _build_scan_marker_row(repository_name, file_without_base, commit_hash)
-                )
-            else:
-                pending_method_rows.append(
-                    _build_scan_error_row(repository_name, file_without_base, commit_hash, scan_error)
-                )
-
-            if _should_flush_scan_cache(
-                len(pending_method_rows),
-                last_flush_time,
-                merge_threshold,
-                merge_interval_seconds,
-            ):
-                _flush_method_scan_buffers(
-                    method_cache_file,
-                    lock_path,
-                    pending_method_rows,
-                    retry_errors,
-                )
-                cached_files = _load_cached_method_scan_files(method_cache_file, retry_errors)
-                last_flush_time = time.monotonic()
+        if max_workers == 1:
+            scanner = _build_method_scanner(MethodScannerImpl, dot_file_directory, url, commit_hash, artifact_config_path)
+            thread_local = threading.local()
+            thread_local.scanner = scanner
+            for file, file_without_base in files_to_scan:
+                try:
+                    rows = _scan_method_file_task(
+                        thread_local,
+                        MethodScannerImpl,
+                        dot_file_directory,
+                        repository_name,
+                        url,
+                        commit_hash,
+                        artifact_config_path,
+                        file,
+                        file_without_base,
+                    )
+                except Exception as exc:
+                    rows = [_build_scan_error_row(repository_name, file_without_base, commit_hash, exc)]
+                pending_method_rows.extend(rows)
+                if _should_flush_scan_cache(len(pending_method_rows), last_flush_time, merge_threshold, merge_interval_seconds):
+                    _flush_method_scan_buffers(method_cache_file, lock_path, pending_method_rows, retry_errors)
+                    last_flush_time = time.monotonic()
+        else:
+            thread_local = threading.local()
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(
+                        _scan_method_file_task,
+                        thread_local,
+                        MethodScannerImpl,
+                        dot_file_directory,
+                        repository_name,
+                        url,
+                        commit_hash,
+                        artifact_config_path,
+                        file,
+                        file_without_base,
+                    ): file_without_base
+                    for file, file_without_base in files_to_scan
+                }
+                for future in as_completed(futures):
+                    file_without_base = futures[future]
+                    try:
+                        rows = future.result()
+                    except Exception as exc:
+                        rows = [_build_scan_error_row(repository_name, file_without_base, commit_hash, exc)]
+                    pending_method_rows.extend(rows)
+                    if _should_flush_scan_cache(len(pending_method_rows), last_flush_time, merge_threshold, merge_interval_seconds):
+                        _flush_method_scan_buffers(method_cache_file, lock_path, pending_method_rows, retry_errors)
+                        last_flush_time = time.monotonic()
 
         _flush_method_scan_buffers(
             method_cache_file,

@@ -35,6 +35,7 @@ _KNOWN_OPTION_FLAGS = {
     "--backup",
     "--stage",
     "--callgraph-dir",
+    "--max-workers",
 }
 
 
@@ -302,6 +303,13 @@ def main(argv: list[str] | None = None):
         default="callgraph",
         help="Callgraph-like directory under the experiment directory used by test-smell preprocessing.",
     )
+    parser.add_argument(
+        "--max-workers",
+        dest="max_workers",
+        type=int,
+        default=1,
+        help="Maximum number of parallel worker threads for supported commands (default: 1).",
+    )
     normalized_argv = _normalize_dash_prefixed_option_values(
         list(sys.argv[1:] if argv is None else argv)
     )
@@ -332,6 +340,9 @@ def main(argv: list[str] | None = None):
         sys.exit(1)
     if args.shard <= 0 or args.shard > args.shards:
         print("Error: --shard must be between 1 and --shards.")
+        sys.exit(1)
+    if args.max_workers <= 0:
+        print("Error: --max-workers must be positive.")
         sys.exit(1)
     repository_projects = mhc.repository_df["project"].tolist()
 
@@ -370,6 +381,7 @@ def main(argv: list[str] | None = None):
             "delete-empty" in (args.merge_only or []),
             "delete-tmp" in (args.merge_only or []),
             "delete-lock" in (args.merge_only or []),
+            args.max_workers,
         )
     elif command in ("method-callgraph", "call-graph"):
         if not args.tool_name:
@@ -392,6 +404,7 @@ def main(argv: list[str] | None = None):
             args.merge_threshold,
             args.merge_interval_seconds,
             args.max_cache_size,
+            args.max_workers,
         ]
         if args.artifact_config_path:
             call_args.append(args.artifact_config_path)
@@ -410,6 +423,7 @@ def main(argv: list[str] | None = None):
             args.retry_errors,
             args.merge_threshold,
             args.merge_interval_seconds,
+            args.max_workers,
         ]
         if args.artifact_config_path:
             call_args.append(args.artifact_config_path)
@@ -428,6 +442,7 @@ def main(argv: list[str] | None = None):
             args.retry_errors,
             args.merge_threshold,
             args.merge_interval_seconds,
+            args.max_workers,
         ]
         if args.artifact_config_path:
             call_args.append(args.artifact_config_path)
@@ -441,6 +456,7 @@ def main(argv: list[str] | None = None):
             args.dry_run,
             args.backup,
             args.replace,
+            args.max_workers,
         )
     elif command == "method-code":
         mhc.generate_method_code(
@@ -455,6 +471,7 @@ def main(argv: list[str] | None = None):
             args.retry_errors,
             args.merge_threshold,
             args.merge_interval_seconds,
+            args.max_workers,
         )
     elif command == "index":
         mhc.update_repository_index()
@@ -474,6 +491,7 @@ def main(argv: list[str] | None = None):
             args.tool_name,
             args.stage,
             args.callgraph_dir,
+            args.max_workers,
         )
     else:
         print(f"Unknown command: {args.command}")

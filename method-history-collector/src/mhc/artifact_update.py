@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,6 +36,7 @@ def update_artifacts(
     dry_run: bool = False,
     backup: bool = False,
     replace: bool = False,
+    max_workers: int = 1,
 ) -> None:
     unsupported = sorted(set(targets) - {"method", "class"})
     if unsupported:
@@ -45,36 +47,85 @@ def update_artifacts(
     PathClass = JClass("java.nio.file.Path")
     Detector = JClass("rnd.method.parser.call.graph.artifact.TestArtifactDetector")
 
-    for _, repository in repository_df.iterrows():
-        repository_name = repository["project"]
-        url = repository["url"]
-        commit_hash = repository["updated_hash"]
-        repo_root = util.format_git_project_directory(repository_directory, repository_name)
-        clone_and_checkout_commit(url, repo_root, commit_hash)
-
-        config_path = PathClass.of(artifact_config_path) if artifact_config_path else None
-        detector = Detector.load(PathClass.of(repo_root), repository_name, config_path)
-
-        if "method" in targets:
-            _update_csv(
-                util.format_method_list_file(data_directory, repository_name),
-                repo_root,
-                detector,
+    repositories = [repository for _, repository in repository_df.iterrows()]
+    if max_workers == 1:
+        for repository in repositories:
+            _update_repository_artifacts(
+                repository,
+                repository_directory,
+                data_directory,
+                artifact_config_path,
+                targets,
                 dry_run,
                 backup,
                 replace,
-                is_method=True,
+                PathClass,
+                Detector,
             )
-        if "class" in targets:
-            _update_csv(
-                util.format_class_list_file(data_directory, repository_name),
-                repo_root,
-                detector,
+        return
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [
+            executor.submit(
+                _update_repository_artifacts,
+                repository,
+                repository_directory,
+                data_directory,
+                artifact_config_path,
+                targets,
                 dry_run,
                 backup,
                 replace,
-                is_method=False,
+                PathClass,
+                Detector,
             )
+            for repository in repositories
+        ]
+        for future in as_completed(futures):
+            future.result()
+
+
+def _update_repository_artifacts(
+    repository,
+    repository_directory: str,
+    data_directory: str,
+    artifact_config_path: str | None,
+    targets: list[str],
+    dry_run: bool,
+    backup: bool,
+    replace: bool,
+    PathClass,
+    Detector,
+) -> None:
+    repository_name = repository["project"]
+    url = repository["url"]
+    commit_hash = repository["updated_hash"]
+    repo_root = util.format_git_project_directory(repository_directory, repository_name)
+    clone_and_checkout_commit(url, repo_root, commit_hash)
+
+    config_path = PathClass.of(artifact_config_path) if artifact_config_path else None
+    detector = Detector.load(PathClass.of(repo_root), repository_name, config_path)
+
+    if "method" in targets:
+        _update_csv(
+            util.format_method_list_file(data_directory, repository_name),
+            repo_root,
+            detector,
+            dry_run,
+            backup,
+            replace,
+            is_method=True,
+        )
+    if "class" in targets:
+        _update_csv(
+            util.format_class_list_file(data_directory, repository_name),
+            repo_root,
+            detector,
+            dry_run,
+            backup,
+            replace,
+            is_method=False,
+        )
 
 
 def _update_csv(

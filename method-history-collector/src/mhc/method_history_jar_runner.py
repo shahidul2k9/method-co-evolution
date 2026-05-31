@@ -2,6 +2,7 @@ import os
 import shlex
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 import pandas as pd
@@ -32,7 +33,8 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                                       merge_only: bool = False,
                                       merge_only_delete_empty: bool = False,
                                       merge_only_delete_tmp: bool = False,
-                                      merge_only_delete_lock: bool = False) -> None:
+                                      merge_only_delete_lock: bool = False,
+                                      max_workers: int = 1) -> None:
     for tool_name in tool_names:
         for _, repository in repository_df.iterrows():
             repository_name = repository["project"]
@@ -62,6 +64,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                 repo_path = Path(method_history_path)
                 unzip_index = set(str(p.relative_to(repo_path)) for p in repo_path.rglob("*.json"))
 
+                tasks = []
                 for _, method in method_df.iterrows():
                     method_name = method['name']
                     start_line = method['start_line']
@@ -72,16 +75,37 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                             continue
                         method_history_file = os.path.join(method_history_path, method_history_file_suffix)
                         if method_history_file_suffix not in zip_index and method_history_file_suffix not in unzip_index:
-                            execute_cmd_method_history_jar(tool_name, jar_file_map[tool_name],
-                                                           os.path.join(repository_directory, repository_name),
-                                                           url, hash, file, method_name, start_line, method_history_file,
-                                                           command_options, java_options, timeout_seconds)
-                            unzip_index.add(method_history_file_suffix)
-                    if merge_threshold > 0 and len(unzip_index) >= merge_threshold:
-                        merge_folder_into_tar_gz(method_history_path)
-                        zip_index = util.remove_prefix_if_exists(load_zip_index(method_history_tar_gz),
-                                                                 repository_name_prefix)
-                        unzip_index = set(str(p.relative_to(repo_path)) for p in repo_path.rglob("*.json"))
+                            tasks.append((
+                                method_history_file_suffix,
+                                tool_name,
+                                jar_file_map[tool_name],
+                                os.path.join(repository_directory, repository_name),
+                                url,
+                                hash,
+                                file,
+                                method_name,
+                                start_line,
+                                method_history_file,
+                                command_options,
+                                java_options,
+                                timeout_seconds,
+                            ))
+                if max_workers == 1:
+                    for task in tasks:
+                        suffix = task[0]
+                        execute_cmd_method_history_jar(*task[1:])
+                        unzip_index.add(suffix)
+                        if merge_threshold > 0 and len(unzip_index) >= merge_threshold:
+                            merge_folder_into_tar_gz(method_history_path)
+                            zip_index = util.remove_prefix_if_exists(load_zip_index(method_history_tar_gz),
+                                                                     repository_name_prefix)
+                            unzip_index = set(str(p.relative_to(repo_path)) for p in repo_path.rglob("*.json"))
+                else:
+                    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                        futures = {executor.submit(execute_cmd_method_history_jar, *task[1:]): task[0] for task in tasks}
+                        for future in as_completed(futures):
+                            future.result()
+                            unzip_index.add(futures[future])
                 if merge_threshold >= 0:
                     merge_folder_into_tar_gz(method_history_path)
 

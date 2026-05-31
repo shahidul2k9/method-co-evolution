@@ -1,6 +1,8 @@
 import logging
 import os
 import time
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -42,6 +44,7 @@ CLASS_SCAN_ERROR_MARKER = "__error_marker__"
 CLASS_SCAN_FLAG_COLUMN = "_flag"
 CLASS_SCAN_ERROR_COLUMN = "_error"
 CLASS_SCAN_ERROR_MAX_LENGTH = 256
+_CLASS_SCANNER_INIT_LOCK = threading.Lock()
 CLASS_SCAN_CACHE_COLUMNS = CLASS_SCAN_COLUMNS + [
     CLASS_SCAN_FLAG_COLUMN,
     CLASS_SCAN_ERROR_COLUMN,
@@ -206,6 +209,37 @@ def _scan_classes_in_file(
         return rows, str(error)
 
 
+def _build_class_scanner(ClassScannerImpl, repository_root: str, url: str, commit_hash: str, artifact_config_path: str | None):
+    with _CLASS_SCANNER_INIT_LOCK:
+        scanner = ClassScannerImpl.getInstance()
+        if artifact_config_path:
+            scanner.init(repository_root, url, commit_hash, artifact_config_path)
+        else:
+            scanner.init(repository_root, url, commit_hash)
+        return scanner
+
+
+def _scan_class_file_task(
+    thread_local,
+    ClassScannerImpl,
+    repository_root: str,
+    url: str,
+    repository_name: str,
+    commit_hash: str,
+    artifact_config_path: str | None,
+    file_without_base: str,
+) -> list[dict]:
+    if not hasattr(thread_local, "scanner"):
+        thread_local.scanner = _build_class_scanner(ClassScannerImpl, repository_root, url, commit_hash, artifact_config_path)
+    classes, error = _scan_classes_in_file(thread_local.scanner, repository_name, commit_hash, file_without_base)
+    rows = list(classes)
+    if error is None:
+        rows.append(_build_class_scan_marker(repository_name, file_without_base, commit_hash))
+    else:
+        rows.append(_build_class_scan_error_marker(repository_name, file_without_base, commit_hash, error))
+    return rows
+
+
 def _finalize_class_scan_outputs(
     cache_file: str,
     output_file: str,
@@ -272,6 +306,7 @@ def scan_class(
     retry_errors: bool = True,
     merge_threshold: int = DEFAULT_SCAN_MERGE_THRESHOLD,
     merge_interval_seconds: int | None = None,
+    max_workers: int = 1,
     artifact_config_path: str | None = None,
 ) -> None:
     ClassScannerImpl = None
@@ -323,44 +358,66 @@ def scan_class(
 
         os.makedirs(cache_dir, exist_ok=True)
 
-        scanner = ClassScannerImpl.getInstance()
-        if artifact_config_path:
-            scanner.init(repository_root, url, commit_hash, artifact_config_path)
-        else:
-            scanner.init(repository_root, url, commit_hash)
         cached_files = _load_cached_class_scan_files(cache_file, retry_errors)
+        files_to_scan = [
+            file[len(repository_root) + 1:]
+            for file in java_files
+            if util.stable_shard_for_key(file[len(repository_root) + 1:], shards) == shard
+            and file[len(repository_root) + 1:] not in cached_files
+        ]
 
-        last_flush = time.monotonic()
         pending: list[dict] = []
+        last_flush = time.monotonic()
 
-        for file in java_files:
-            file_without_base = file[len(repository_root) + 1:]
-            if util.stable_shard_for_key(file_without_base, shards) != shard:
-                continue
-            if file_without_base in cached_files:
-                continue
-
-            classes_in_file, scan_error = _scan_classes_in_file(
-                scanner,
-                repository_name,
-                commit_hash,
-                file_without_base,
-            )
-            pending.extend(classes_in_file)
-            if scan_error is None:
-                pending.append(_build_class_scan_marker(repository_name, file_without_base, commit_hash))
-            else:
-                pending.append(_build_class_scan_error_marker(repository_name, file_without_base, commit_hash, scan_error))
-
-            if _should_flush_scan_cache(
-                len(pending),
-                last_flush,
-                merge_threshold,
-                merge_interval_seconds,
-            ):
-                _flush_class_scan_buffers(cache_file, lock_path, pending, retry_errors)
-                cached_files = _load_cached_class_scan_files(cache_file, retry_errors)
-                last_flush = time.monotonic()
+        if max_workers == 1:
+            scanner = _build_class_scanner(ClassScannerImpl, repository_root, url, commit_hash, artifact_config_path)
+            thread_local = threading.local()
+            thread_local.scanner = scanner
+            for file_without_base in files_to_scan:
+                try:
+                    rows = _scan_class_file_task(
+                        thread_local,
+                        ClassScannerImpl,
+                        repository_root,
+                        url,
+                        repository_name,
+                        commit_hash,
+                        artifact_config_path,
+                        file_without_base,
+                    )
+                except Exception as exc:
+                    rows = [_build_class_scan_error_marker(repository_name, file_without_base, commit_hash, exc)]
+                pending.extend(rows)
+                if _should_flush_scan_cache(len(pending), last_flush, merge_threshold, merge_interval_seconds):
+                    _flush_class_scan_buffers(cache_file, lock_path, pending, retry_errors)
+                    last_flush = time.monotonic()
+        else:
+            thread_local = threading.local()
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(
+                        _scan_class_file_task,
+                        thread_local,
+                        ClassScannerImpl,
+                        repository_root,
+                        url,
+                        repository_name,
+                        commit_hash,
+                        artifact_config_path,
+                        file_without_base,
+                    ): file_without_base
+                    for file_without_base in files_to_scan
+                }
+                for future in as_completed(futures):
+                    file_without_base = futures[future]
+                    try:
+                        rows = future.result()
+                    except Exception as exc:
+                        rows = [_build_class_scan_error_marker(repository_name, file_without_base, commit_hash, exc)]
+                    pending.extend(rows)
+                    if _should_flush_scan_cache(len(pending), last_flush, merge_threshold, merge_interval_seconds):
+                        _flush_class_scan_buffers(cache_file, lock_path, pending, retry_errors)
+                        last_flush = time.monotonic()
 
         _flush_class_scan_buffers(cache_file, lock_path, pending, retry_errors)
 

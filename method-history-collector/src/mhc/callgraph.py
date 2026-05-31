@@ -1,6 +1,8 @@
 import os
 import time
 import logging
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import nullcontext
 from pathlib import Path
 
@@ -18,6 +20,7 @@ CALLGRAPH_ERROR_MARKER = "__error_marker__"
 CALLGRAPH_FLAG_COLUMN = "_flag"
 CALLGRAPH_ERROR_COLUMN = "_error"
 CALLGRAPH_ERROR_MAX_LENGTH = 256
+_CALLGRAPH_SCANNER_INIT_LOCK = threading.Lock()
 
 CALLGRAPH_COLUMNS = [
     "project",
@@ -317,6 +320,62 @@ def _finalize_callgraph(
     return True
 
 
+def _build_callgraph_scanner(
+    CallGraphServiceImpl,
+    repository_url: str,
+    repository_path: str,
+    commit_hash: str,
+    method_mapping_file: str,
+    class_mapping_file: str,
+    max_cache_size: int,
+    artifact_config_path: str | None,
+):
+    with _CALLGRAPH_SCANNER_INIT_LOCK:
+        scanner = CallGraphServiceImpl.getInstance()
+        scanner.configureCache(max_cache_size)
+        if artifact_config_path:
+            scanner.init(repository_url, repository_path, commit_hash, method_mapping_file, class_mapping_file, artifact_config_path)
+        else:
+            scanner.init(repository_url, repository_path, commit_hash, method_mapping_file, class_mapping_file)
+        return scanner
+
+
+def _scan_callgraph_file_task(
+    thread_local,
+    CallGraphServiceImpl,
+    repository_url: str,
+    repository_path: str,
+    repository_name: str,
+    commit_hash: str,
+    method_mapping_file: str,
+    class_mapping_file: str,
+    max_cache_size: int,
+    artifact_config_path: str | None,
+    file_without_base: str,
+) -> list[dict]:
+    if not hasattr(thread_local, "scanner"):
+        thread_local.scanner = _build_callgraph_scanner(
+            CallGraphServiceImpl,
+            repository_url,
+            repository_path,
+            commit_hash,
+            method_mapping_file,
+            class_mapping_file,
+            max_cache_size,
+            artifact_config_path,
+        )
+    try:
+        method_calls = thread_local.scanner.findCallgraph(file_without_base)
+        rows = []
+        for mc in method_calls:
+            rows.extend(_method_call_to_rows(mc, repository_name, commit_hash))
+        rows.append(_build_callgraph_scan_marker(file_without_base))
+        return rows
+    except Exception as error:
+        logging.warning("Callgraph failed for %s: %s", file_without_base, error)
+        return [_build_callgraph_error_marker(file_without_base, error)]
+
+
 def execute_callgraph_per_file(
     repository_df: DataFrame,
     repository_directory: str,
@@ -333,6 +392,7 @@ def execute_callgraph_per_file(
     merge_threshold: int = DEFAULT_SCAN_MERGE_THRESHOLD,
     merge_interval_seconds: int | None = None,
     max_cache_size: int = 256,
+    max_workers: int = 1,
     artifact_config_path: str | None = None,
 ) -> None:
     CallGraphServiceImpl = None
@@ -404,46 +464,84 @@ def execute_callgraph_per_file(
                 f"or {os.path.join(workspace_directory, 'class', repository_name + '.csv')}"
             )
 
-        scanner = CallGraphServiceImpl.getInstance()
-        scanner.configureCache(max_cache_size)
-        if artifact_config_path:
-            scanner.init(url, repository_path, commit_hash, method_mapping_file, class_mapping_file, artifact_config_path)
-        else:
-            scanner.init(url, repository_path, commit_hash, method_mapping_file, class_mapping_file)
-
         cached_files = _load_cached_callgraph_files(cache_file, retry_errors)
+        files_to_scan = [
+            file[len(repository_path) + 1:]
+            for file in java_files
+            if util.stable_shard_for_key(file[len(repository_path) + 1:], shards) == shard
+            and file[len(repository_path) + 1:] not in cached_files
+        ]
 
-        last_flush_time = time.monotonic()
         pending_rows: list[dict] = []
+        last_flush_time = time.monotonic()
 
-        for file in java_files:
-            file_without_base = file[len(repository_path) + 1:]
-            if util.stable_shard_for_key(file_without_base, shards) != shard:
-                continue
-            if file_without_base in cached_files:
-                continue
-
-            try:
-                method_calls = scanner.findCallgraph(file_without_base)
-                for mc in method_calls:
-                    pending_rows.extend(_method_call_to_rows(mc, repository_name, commit_hash))
-                pending_rows.append(_build_callgraph_scan_marker(file_without_base))
-            except Exception as e:
-                logging.warning(f"Callgraph failed for {file_without_base}: {e}")
-                pending_rows.append(_build_callgraph_error_marker(file_without_base, e))
-
-            if _should_flush_scan_cache(
-                len(pending_rows),
-                last_flush_time,
-                merge_threshold,
-                merge_interval_seconds,
-            ):
-                _flush_callgraph(cache_file, lock_path, pending_rows, retry_errors)
-                cached_files = _load_cached_callgraph_files(cache_file, retry_errors)
-                last_flush_time = time.monotonic()
+        if max_workers == 1:
+            scanner = _build_callgraph_scanner(
+                CallGraphServiceImpl,
+                url,
+                repository_path,
+                commit_hash,
+                method_mapping_file,
+                class_mapping_file,
+                max_cache_size,
+                artifact_config_path,
+            )
+            thread_local = threading.local()
+            thread_local.scanner = scanner
+            for file_without_base in files_to_scan:
+                try:
+                    rows = _scan_callgraph_file_task(
+                        thread_local,
+                        CallGraphServiceImpl,
+                        url,
+                        repository_path,
+                        repository_name,
+                        commit_hash,
+                        method_mapping_file,
+                        class_mapping_file,
+                        max_cache_size,
+                        artifact_config_path,
+                        file_without_base,
+                    )
+                except Exception as exc:
+                    rows = [_build_callgraph_error_marker(file_without_base, exc)]
+                pending_rows.extend(rows)
+                if _should_flush_scan_cache(len(pending_rows), last_flush_time, merge_threshold, merge_interval_seconds):
+                    _flush_callgraph(cache_file, lock_path, pending_rows, retry_errors)
+                    last_flush_time = time.monotonic()
+            scanner.logCacheStats()
+        else:
+            thread_local = threading.local()
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = {
+                    executor.submit(
+                        _scan_callgraph_file_task,
+                        thread_local,
+                        CallGraphServiceImpl,
+                        url,
+                        repository_path,
+                        repository_name,
+                        commit_hash,
+                        method_mapping_file,
+                        class_mapping_file,
+                        max_cache_size,
+                        artifact_config_path,
+                        file_without_base,
+                    ): file_without_base
+                    for file_without_base in files_to_scan
+                }
+                for future in as_completed(futures):
+                    file_without_base = futures[future]
+                    try:
+                        rows = future.result()
+                    except Exception as exc:
+                        rows = [_build_callgraph_error_marker(file_without_base, exc)]
+                    pending_rows.extend(rows)
+                    if _should_flush_scan_cache(len(pending_rows), last_flush_time, merge_threshold, merge_interval_seconds):
+                        _flush_callgraph(cache_file, lock_path, pending_rows, retry_errors)
+                        last_flush_time = time.monotonic()
 
         _flush_callgraph(cache_file, lock_path, pending_rows, retry_errors)
-        scanner.logCacheStats()
         if shards == 1:
             _finalize_callgraph(
                 cache_file,

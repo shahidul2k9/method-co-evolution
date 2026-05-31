@@ -234,6 +234,7 @@ class MethodCodeGenerationTestCase(unittest.TestCase):
             True,
             10000,
             900,
+            1,
         )
 
     @patch("mhc.main.MethodHistoryCollector")

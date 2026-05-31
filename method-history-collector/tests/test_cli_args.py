@@ -72,6 +72,7 @@ class TestCliArgs(unittest.TestCase):
             True,
             10000,
             900,
+            1,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -112,7 +113,115 @@ class TestCliArgs(unittest.TestCase):
             10000,
             900,
             512,
+            1,
         )
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_max_workers_is_threaded_to_supported_commands(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
+
+        common_args = [
+            "--workspace-directory",
+            "workspace",
+            "--repository-directory",
+            "workspace/repository",
+            "--jar-directory",
+            "workspace/jar",
+            "--project",
+            "checkstyle",
+            "--max-workers",
+            "3",
+        ]
+
+        mhc_main.main(["method-scan", *common_args])
+        mock_mhc_instance.scan_method.assert_called_once_with(
+            ["checkstyle"], None, False, 1, 1, False, False, False, False, True, 10000, 900, 3
+        )
+        mock_mhc_instance.scan_method.reset_mock()
+
+        mhc_main.main(["class-scan", *common_args])
+        mock_mhc_instance.scan_class.assert_called_once_with(
+            ["checkstyle"], None, False, 1, 1, False, False, False, False, True, 10000, 900, 3
+        )
+        mock_mhc_instance.scan_class.reset_mock()
+
+        mhc_main.main(["method-callgraph", *common_args, "--tool-name", "methodParser"])
+        mock_mhc_instance.generate_callgraph.assert_called_once_with(
+            ["checkstyle"],
+            ["methodParser"],
+            False,
+            None,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
+            True,
+            10000,
+            900,
+            256,
+            3,
+        )
+        mock_mhc_instance.generate_callgraph.reset_mock()
+
+        mhc_main.main(["method-code", *common_args])
+        mock_mhc_instance.generate_method_code.assert_called_once_with(
+            ["checkstyle"], 1, 1, False, False, False, False, False, True, 10000, 900, 3
+        )
+        mock_mhc_instance.generate_method_code.reset_mock()
+
+        mhc_main.main(["method-history", *common_args, "--tool-name", "codeShovel"])
+        mock_mhc_instance.collect_method_history.assert_called_once_with(
+            ["checkstyle"],
+            ["codeShovel"],
+            None,
+            None,
+            1800,
+            1,
+            1,
+            10000,
+            False,
+            False,
+            False,
+            False,
+            3,
+        )
+        mock_mhc_instance.collect_method_history.reset_mock()
+
+        mhc_main.main(["artifact-update", *common_args])
+        mock_mhc_instance.update_artifacts.assert_called_once_with(
+            ["checkstyle"], None, None, ["method", "class"], False, False, False, 3
+        )
+        mock_mhc_instance.update_artifacts.reset_mock()
+
+        mhc_main.main(["test-smell", *common_args, "--tool-name", "jnose"])
+        mock_mhc_instance.run_test_smell.assert_called_once_with(
+            ["checkstyle"], "jnose", "all", "callgraph", 3
+        )
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_workers_alias_is_rejected(self, mock_build_collector):
+        with self.assertRaises(SystemExit) as cm:
+            mhc_main.main(
+                [
+                    "method-scan",
+                    "--workspace-directory",
+                    "workspace",
+                    "--repository-directory",
+                    "workspace/repository",
+                    "--jar-directory",
+                    "workspace/jar",
+                    "--project",
+                    "checkstyle",
+                    "--workers",
+                    "3",
+                ]
+            )
+
+        self.assertEqual(cm.exception.code, 2)
+        mock_build_collector.assert_not_called()
 
     @patch("mhc.main._build_method_history_collector")
     def test_scan_method_accepts_replace(self, mock_build_collector):
@@ -147,6 +256,7 @@ class TestCliArgs(unittest.TestCase):
             True,
             10000,
             900,
+            1,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -186,6 +296,7 @@ class TestCliArgs(unittest.TestCase):
             10000,
             900,
             256,
+            1,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -218,6 +329,7 @@ class TestCliArgs(unittest.TestCase):
             "jnose",
             "preprocess",
             "t2p-candidate-filtered",
+            1,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -254,6 +366,7 @@ class TestCliArgs(unittest.TestCase):
             False,
             10000,
             900,
+            1,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -292,6 +405,7 @@ class TestCliArgs(unittest.TestCase):
             True,
             -1,
             60,
+            1,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -336,6 +450,7 @@ class TestCliArgs(unittest.TestCase):
             False,
             False,
             False,
+            1,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -380,6 +495,7 @@ class TestCliArgs(unittest.TestCase):
             False,
             False,
             False,
+            1,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -449,6 +565,7 @@ class TestCliArgs(unittest.TestCase):
             False,
             False,
             False,
+            1,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -486,6 +603,7 @@ class TestCliArgs(unittest.TestCase):
             False,
             False,
             False,
+            1,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -526,6 +644,7 @@ class TestCliArgs(unittest.TestCase):
             True,
             True,
             True,
+            1,
         )
 
 
