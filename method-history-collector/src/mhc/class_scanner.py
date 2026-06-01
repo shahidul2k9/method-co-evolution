@@ -44,7 +44,6 @@ CLASS_SCAN_ERROR_MARKER = "__error_marker__"
 CLASS_SCAN_FLAG_COLUMN = "_flag"
 CLASS_SCAN_ERROR_COLUMN = "_error"
 CLASS_SCAN_ERROR_MAX_LENGTH = 256
-_CLASS_SCANNER_INIT_LOCK = threading.Lock()
 CLASS_SCAN_CACHE_COLUMNS = CLASS_SCAN_COLUMNS + [
     CLASS_SCAN_FLAG_COLUMN,
     CLASS_SCAN_ERROR_COLUMN,
@@ -210,10 +209,9 @@ def _scan_classes_in_file(
 
 
 def _build_class_scanner(ClassScannerImpl, repository_root: str, url: str, commit_hash: str, artifact_config_path: str | None):
-    with _CLASS_SCANNER_INIT_LOCK:
-        scanner = ClassScannerImpl.getInstance()
-        scanner.init(repository_root, url, commit_hash, artifact_config_path, False)
-        return scanner
+    scanner = ClassScannerImpl.getInstance()
+    scanner.init(repository_root, url, commit_hash, artifact_config_path, False)
+    return scanner
 
 
 def _scan_class_file_task(

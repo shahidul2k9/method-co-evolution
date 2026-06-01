@@ -139,7 +139,6 @@ METHOD_SCAN_ERROR_MARKER = "__error_marker__"
 METHOD_SCAN_FLAG_COLUMN = "_flag"
 METHOD_SCAN_ERROR_COLUMN = "_error"
 METHOD_SCAN_ERROR_MAX_LENGTH = 256
-_METHOD_SCANNER_INIT_LOCK = threading.Lock()
 METHOD_SCAN_CACHE_COLUMNS = METHOD_SCAN_COLUMNS + [
     METHOD_SCAN_FLAG_COLUMN,
     METHOD_SCAN_ERROR_COLUMN,
@@ -840,10 +839,9 @@ def _scan_methods_in_file(
 
 
 def _build_method_scanner(MethodScannerImpl, repository_root: str, url: str, commit_hash: str, artifact_config_path: str | None):
-    with _METHOD_SCANNER_INIT_LOCK:
-        scanner = MethodScannerImpl.getInstance()
-        scanner.init(repository_root, url, commit_hash, artifact_config_path, False)
-        return scanner
+    scanner = MethodScannerImpl.getInstance()
+    scanner.init(repository_root, url, commit_hash, artifact_config_path, False)
+    return scanner
 
 
 def _scan_method_file_task(

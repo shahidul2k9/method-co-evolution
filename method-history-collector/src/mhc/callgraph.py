@@ -20,7 +20,6 @@ CALLGRAPH_ERROR_MARKER = "__error_marker__"
 CALLGRAPH_FLAG_COLUMN = "_flag"
 CALLGRAPH_ERROR_COLUMN = "_error"
 CALLGRAPH_ERROR_MAX_LENGTH = 256
-_CALLGRAPH_SCANNER_INIT_LOCK = threading.Lock()
 
 CALLGRAPH_COLUMNS = [
     "project",
@@ -330,19 +329,18 @@ def _build_callgraph_scanner(
     max_cache_size: int,
     artifact_config_path: str | None,
 ):
-    with _CALLGRAPH_SCANNER_INIT_LOCK:
-        scanner = CallGraphServiceImpl.getInstance()
-        scanner.init(
-            repository_url,
-            repository_path,
-            commit_hash,
-            method_mapping_file,
-            class_mapping_file,
-            artifact_config_path,
-            False,
-            max_cache_size,
-        )
-        return scanner
+    scanner = CallGraphServiceImpl.getInstance()
+    scanner.init(
+        repository_url,
+        repository_path,
+        commit_hash,
+        method_mapping_file,
+        class_mapping_file,
+        artifact_config_path,
+        False,
+        max_cache_size,
+    )
+    return scanner
 
 
 def _scan_callgraph_file_task(
