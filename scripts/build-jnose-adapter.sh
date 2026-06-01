@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Pass --load-modules to load Java and Maven environment modules before building.
+LOAD_MODULES=false
+for arg in "$@"; do
+  if [[ "${arg}" == "--load-modules" ]]; then
+    LOAD_MODULES=true
+  fi
+done
+
+if [[ "${LOAD_MODULES}" == true ]]; then
+  module load java/21.0.1
+  module load maven
+fi
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ROOT_DIR}/.env"
 
