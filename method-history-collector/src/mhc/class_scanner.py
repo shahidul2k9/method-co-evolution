@@ -14,6 +14,11 @@ from mhc.method_scanner import (
     clone_and_checkout_commit,
     collect_files,
     DEFAULT_SCAN_MERGE_THRESHOLD,
+    SCAN_SLOW_SECONDS,
+    _log_scan_cache_filter,
+    _log_scan_repository_start,
+    _log_slow_operation,
+    _maybe_log_scan_progress,
     _should_flush_scan_cache,
     _write_dataframe_csv,
     _append_dataframe_csv,
@@ -145,7 +150,13 @@ def _flush_class_scan_buffers(
     pending: list[dict],
     retry_errors: bool = True,
 ) -> None:
+    requested_rows = len(pending)
+    started_at = time.monotonic()
     if not pending:
+        logging.info(
+            "class-scan flush skipped rows_requested=0 cache_file=%s",
+            cache_file,
+        )
         return
     rows_copy = list(pending)
     pending.clear()
@@ -158,12 +169,20 @@ def _flush_class_scan_buffers(
             row for row in rows_copy
             if row.get("file") not in completed_files
         ]
+        appended_rows = len(rows_copy)
         _append_dataframe_csv(
             cache_file,
             rows_copy,
             CLASS_SCAN_CACHE_COLUMNS,
             CLASS_SCAN_INTEGER_COLUMNS,
         )
+    logging.info(
+        "class-scan flush rows_requested=%s rows_appended=%s cache_file=%s elapsed_seconds=%.1f",
+        requested_rows,
+        appended_rows,
+        cache_file,
+        time.monotonic() - started_at,
+    )
 
 
 def _is_class_output_current(output_file: str, commit_hash: str) -> bool:
@@ -209,8 +228,23 @@ def _scan_classes_in_file(
 
 
 def _build_class_scanner(ClassScannerImpl, repository_root: str, url: str, commit_hash: str, artifact_config_path: str | None):
+    started_at = time.monotonic()
+    thread_name = threading.current_thread().name
+    logging.info(
+        "class-scan scanner-init start thread=%s repository_root=%s commit=%s",
+        thread_name,
+        repository_root,
+        commit_hash,
+    )
     scanner = ClassScannerImpl.getInstance()
     scanner.init(repository_root, url, commit_hash, artifact_config_path, False)
+    _log_slow_operation(
+        "class-scan scanner-init finish thread=%s repository_root=%s commit=%s",
+        time.monotonic() - started_at,
+        thread_name,
+        repository_root,
+        commit_hash,
+    )
     return scanner
 
 
@@ -226,7 +260,26 @@ def _scan_class_file_task(
 ) -> list[dict]:
     if not hasattr(thread_local, "scanner"):
         thread_local.scanner = _build_class_scanner(ClassScannerImpl, repository_root, url, commit_hash, artifact_config_path)
-    classes, error = _scan_classes_in_file(thread_local.scanner, repository_name, commit_hash, file_without_base)
+    started_at = time.monotonic()
+    try:
+        classes, error = _scan_classes_in_file(thread_local.scanner, repository_name, commit_hash, file_without_base)
+    except Exception:
+        logging.warning(
+            "class-scan file exception project=%s file=%s",
+            repository_name,
+            file_without_base,
+            exc_info=True,
+        )
+        raise
+    elapsed = time.monotonic() - started_at
+    if elapsed >= SCAN_SLOW_SECONDS:
+        logging.warning(
+            "class-scan slow-file project=%s file=%s rows=%s elapsed_seconds=%.1f",
+            repository_name,
+            file_without_base,
+            len(classes),
+            elapsed,
+        )
     rows = list(classes)
     if error is None:
         rows.append(_build_class_scan_marker(repository_name, file_without_base, commit_hash))
@@ -315,6 +368,17 @@ def scan_class(
         repository_name = repository["project"]
         url = repository["url"]
         commit_hash = repository["updated_hash"]
+        repository_started_at = time.monotonic()
+        _log_scan_repository_start(
+            "class-scan",
+            repository_name,
+            commit_hash,
+            shard,
+            shards,
+            max_workers,
+            merge_threshold,
+            merge_interval_seconds,
+        )
         repository_root = util.format_git_project_directory(repository_directory, repository_name)
         output_file = util.format_class_list_file(data_directory, repository_name)
         cache_dir = os.path.join(_workspace_directory, ".class")
@@ -327,16 +391,37 @@ def scan_class(
             for f in (output_file, cache_file, error_output_file):
                 remove_file_if_exists(f)
         elif not merge_only and shards == 1 and not os.path.exists(cache_file) and _is_class_output_current(output_file, commit_hash):
+            logging.info(
+                "class-scan skip-current project=%s output_file=%s",
+                repository_name,
+                output_file,
+            )
             continue
 
+        checkout_started_at = time.monotonic()
+        logging.info("class-scan checkout start project=%s repository_root=%s", repository_name, repository_root)
         clone_and_checkout_commit(url, repository_root, commit_hash)
+        logging.info(
+            "class-scan checkout finish project=%s elapsed_seconds=%.1f",
+            repository_name,
+            time.monotonic() - checkout_started_at,
+        )
+        discovery_started_at = time.monotonic()
         java_files = sorted(collect_files(repository_root, "*.java"))
+        logging.info(
+            "class-scan discovery finish project=%s java_files=%s elapsed_seconds=%.1f",
+            repository_name,
+            len(java_files),
+            time.monotonic() - discovery_started_at,
+        )
         expected_files = {
             file[len(repository_root) + 1:]
             for file in java_files
         }
 
         if merge_only:
+            logging.info("class-scan finalize start project=%s merge_only=true", repository_name)
+            finalize_started_at = time.monotonic()
             merged = _finalize_class_scan_outputs(
                 cache_file,
                 output_file,
@@ -345,6 +430,12 @@ def scan_class(
                 lock_path,
                 True,
                 True,
+            )
+            logging.info(
+                "class-scan finalize finish project=%s merged=%s elapsed_seconds=%.1f",
+                repository_name,
+                merged,
+                time.monotonic() - finalize_started_at,
             )
             if merged and merge_only_delete_empty:
                 remove_empty_directory_tree(cache_dir)
@@ -360,9 +451,29 @@ def scan_class(
             if util.stable_shard_for_key(file[len(repository_root) + 1:], shards) == shard
             and file[len(repository_root) + 1:] not in cached_files
         ]
+        _log_scan_cache_filter(
+            "class-scan",
+            repository_name,
+            len(java_files),
+            len(cached_files),
+            len(files_to_scan),
+        )
 
         pending: list[dict] = []
         last_flush = time.monotonic()
+        scan_started_at = time.monotonic()
+        last_progress_at = scan_started_at
+        last_progress_completed = 0
+        completed_files = 0
+        produced_rows = 0
+        error_count = 0
+        total_files = len(files_to_scan)
+        logging.info(
+            "class-scan executor start project=%s submitted_files=%s max_workers=%s",
+            repository_name,
+            total_files,
+            max_workers,
+        )
 
         if max_workers == 1:
             scanner = _build_class_scanner(ClassScannerImpl, repository_root, url, commit_hash, artifact_config_path)
@@ -381,8 +492,30 @@ def scan_class(
                         file_without_base,
                     )
                 except Exception as exc:
+                    logging.warning(
+                        "class-scan file exception project=%s file=%s",
+                        repository_name,
+                        file_without_base,
+                        exc_info=True,
+                    )
                     rows = [_build_class_scan_error_marker(repository_name, file_without_base, commit_hash, exc)]
+                completed_files += 1
+                produced_rows += len(rows)
+                if any(row.get(CLASS_SCAN_FLAG_COLUMN) == CLASS_SCAN_ERROR_MARKER for row in rows):
+                    error_count += 1
                 pending.extend(rows)
+                last_progress_at, last_progress_completed = _maybe_log_scan_progress(
+                    "class-scan",
+                    repository_name,
+                    completed_files,
+                    total_files,
+                    len(pending),
+                    produced_rows,
+                    error_count,
+                    scan_started_at,
+                    last_progress_at,
+                    last_progress_completed,
+                )
                 if _should_flush_scan_cache(len(pending), last_flush, merge_threshold, merge_interval_seconds):
                     _flush_class_scan_buffers(cache_file, lock_path, pending, retry_errors)
                     last_flush = time.monotonic()
@@ -408,19 +541,70 @@ def scan_class(
                     try:
                         rows = future.result()
                     except Exception as exc:
+                        logging.warning(
+                            "class-scan future exception project=%s file=%s",
+                            repository_name,
+                            file_without_base,
+                            exc_info=True,
+                        )
                         rows = [_build_class_scan_error_marker(repository_name, file_without_base, commit_hash, exc)]
+                    completed_files += 1
+                    produced_rows += len(rows)
+                    if any(row.get(CLASS_SCAN_FLAG_COLUMN) == CLASS_SCAN_ERROR_MARKER for row in rows):
+                        error_count += 1
                     pending.extend(rows)
+                    last_progress_at, last_progress_completed = _maybe_log_scan_progress(
+                        "class-scan",
+                        repository_name,
+                        completed_files,
+                        total_files,
+                        len(pending),
+                        produced_rows,
+                        error_count,
+                        scan_started_at,
+                        last_progress_at,
+                        last_progress_completed,
+                    )
                     if _should_flush_scan_cache(len(pending), last_flush, merge_threshold, merge_interval_seconds):
                         _flush_class_scan_buffers(cache_file, lock_path, pending, retry_errors)
                         last_flush = time.monotonic()
 
+        logging.info(
+            "class-scan final-flush start project=%s pending_rows=%s",
+            repository_name,
+            len(pending),
+        )
         _flush_class_scan_buffers(cache_file, lock_path, pending, retry_errors)
 
         if shards == 1:
-            _finalize_class_scan_outputs(
+            logging.info("class-scan finalize start project=%s", repository_name)
+            finalize_started_at = time.monotonic()
+            merged = _finalize_class_scan_outputs(
                 cache_file,
                 output_file,
                 error_output_file,
                 expected_files,
                 lock_path,
             )
+            logging.info(
+                "class-scan finalize finish project=%s merged=%s elapsed_seconds=%.1f",
+                repository_name,
+                merged,
+                time.monotonic() - finalize_started_at,
+            )
+        else:
+            logging.info(
+                "class-scan finalize skipped project=%s shard=%s/%s",
+                repository_name,
+                shard,
+                shards,
+            )
+        logging.info(
+            "class-scan finish project=%s completed_files=%s/%s produced_rows=%s errors=%s elapsed_seconds=%.1f",
+            repository_name,
+            completed_files,
+            total_files,
+            produced_rows,
+            error_count,
+            time.monotonic() - repository_started_at,
+        )

@@ -11,7 +11,15 @@ from pandas import DataFrame
 
 import mhc.git_repository as git
 import mhc.util as util
-from mhc.method_scanner import DEFAULT_SCAN_MERGE_THRESHOLD, _should_flush_scan_cache
+from mhc.method_scanner import (
+    DEFAULT_SCAN_MERGE_THRESHOLD,
+    SCAN_SLOW_SECONDS,
+    _log_scan_cache_filter,
+    _log_scan_repository_start,
+    _log_slow_operation,
+    _maybe_log_scan_progress,
+    _should_flush_scan_cache,
+)
 from mhc.zip import file_lock, remove_empty_directory_tree, remove_file_if_exists
 
 CALLGRAPH_FLUSH_INTERVAL_SECONDS = 15 * 60
@@ -214,10 +222,17 @@ def _flush_callgraph(
     pending_rows: list[dict],
     retry_errors: bool = True,
 ) -> None:
+    requested_rows = len(pending_rows)
+    started_at = time.monotonic()
     if not pending_rows:
+        logging.info(
+            "method-callgraph flush skipped rows_requested=0 cache_file=%s",
+            cache_file,
+        )
         return
     rows_copy = list(pending_rows)
     pending_rows.clear()
+    appended_rows = 0
     with file_lock(lock_path):
         completed_files = _completed_callgraph_files(
             _read_callgraph_cache(cache_file),
@@ -227,18 +242,25 @@ def _flush_callgraph(
             row for row in rows_copy
             if row.get("from_file") not in completed_files
         ]
-        if not rows_copy:
-            return
+        appended_rows = len(rows_copy)
         file_exists = os.path.exists(cache_file) and os.path.getsize(cache_file) > 0
-        util.normalize_integer_columns(
-            pd.DataFrame(rows_copy, columns=CALLGRAPH_CACHE_COLUMNS),
-            CALLGRAPH_INTEGER_COLUMNS,
-        ).to_csv(
-            cache_file,
-            mode="a" if file_exists else "w",
-            header=not file_exists,
-            index=False,
-        )
+        if rows_copy:
+            util.normalize_integer_columns(
+                pd.DataFrame(rows_copy, columns=CALLGRAPH_CACHE_COLUMNS),
+                CALLGRAPH_INTEGER_COLUMNS,
+            ).to_csv(
+                cache_file,
+                mode="a" if file_exists else "w",
+                header=not file_exists,
+                index=False,
+            )
+    logging.info(
+        "method-callgraph flush rows_requested=%s rows_appended=%s cache_file=%s elapsed_seconds=%.1f",
+        requested_rows,
+        appended_rows,
+        cache_file,
+        time.monotonic() - started_at,
+    )
 
 
 def _fan_in_from_fan_out(fan_out_df: pd.DataFrame) -> pd.DataFrame:
@@ -329,6 +351,17 @@ def _build_callgraph_scanner(
     max_cache_size: int,
     artifact_config_path: str | None,
 ):
+    started_at = time.monotonic()
+    thread_name = threading.current_thread().name
+    logging.info(
+        "method-callgraph scanner-init start thread=%s repository_path=%s commit=%s method_mapping=%s class_mapping=%s max_cache_size=%s",
+        thread_name,
+        repository_path,
+        commit_hash,
+        method_mapping_file,
+        class_mapping_file,
+        max_cache_size,
+    )
     scanner = CallGraphServiceImpl.getInstance()
     scanner.init(
         repository_url,
@@ -339,6 +372,13 @@ def _build_callgraph_scanner(
         artifact_config_path,
         False,
         max_cache_size,
+    )
+    _log_slow_operation(
+        "method-callgraph scanner-init finish thread=%s repository_path=%s commit=%s",
+        time.monotonic() - started_at,
+        thread_name,
+        repository_path,
+        commit_hash,
     )
     return scanner
 
@@ -367,15 +407,31 @@ def _scan_callgraph_file_task(
             max_cache_size,
             artifact_config_path,
         )
+    started_at = time.monotonic()
     try:
         method_calls = thread_local.scanner.findCallgraph(file_without_base)
         rows = []
         for mc in method_calls:
             rows.extend(_method_call_to_rows(mc, repository_name, commit_hash))
         rows.append(_build_callgraph_scan_marker(file_without_base))
+        elapsed = time.monotonic() - started_at
+        if elapsed >= SCAN_SLOW_SECONDS:
+            logging.warning(
+                "method-callgraph slow-file project=%s file=%s rows=%s elapsed_seconds=%.1f",
+                repository_name,
+                file_without_base,
+                len(rows),
+                elapsed,
+            )
         return rows
     except Exception as error:
-        logging.warning("Callgraph failed for %s: %s", file_without_base, error)
+        logging.warning(
+            "method-callgraph file exception project=%s file=%s error=%s",
+            repository_name,
+            file_without_base,
+            error,
+            exc_info=True,
+        )
         return [_build_callgraph_error_marker(file_without_base, error)]
 
 
@@ -409,6 +465,17 @@ def execute_callgraph_per_file(
         repository_name = repository["project"]
         url = repository["url"]
         commit_hash = repository["updated_hash"]
+        repository_started_at = time.monotonic()
+        _log_scan_repository_start(
+            "method-callgraph",
+            repository_name,
+            commit_hash,
+            shard,
+            shards,
+            max_workers,
+            merge_threshold,
+            merge_interval_seconds,
+        )
         repository_path = util.format_git_project_directory(repository_directory, repository_name)
 
         cache_dir = os.path.join(workspace_directory, ".callgraph")
@@ -427,14 +494,30 @@ def execute_callgraph_per_file(
             logging.info(f"Skipping callgraph for {repository_name}; outputs already exist")
             continue
 
+        checkout_started_at = time.monotonic()
+        logging.info("method-callgraph checkout start project=%s repository_path=%s", repository_name, repository_path)
         git.clone_and_checkout_commit(url, repository_path, commit_hash)
+        logging.info(
+            "method-callgraph checkout finish project=%s elapsed_seconds=%.1f",
+            repository_name,
+            time.monotonic() - checkout_started_at,
+        )
+        discovery_started_at = time.monotonic()
         java_files = _collect_java_files(repository_path)
+        logging.info(
+            "method-callgraph discovery finish project=%s java_files=%s elapsed_seconds=%.1f",
+            repository_name,
+            len(java_files),
+            time.monotonic() - discovery_started_at,
+        )
         expected_files = {
             file[len(repository_path) + 1:]
             for file in java_files
         }
 
         if merge_only:
+            logging.info("method-callgraph finalize start project=%s merge_only=true", repository_name)
+            finalize_started_at = time.monotonic()
             merged = _finalize_callgraph(
                 cache_file,
                 callgraph_output_file,
@@ -444,6 +527,12 @@ def execute_callgraph_per_file(
                 lock_path,
                 True,
                 True,
+            )
+            logging.info(
+                "method-callgraph finalize finish project=%s merged=%s elapsed_seconds=%.1f",
+                repository_name,
+                merged,
+                time.monotonic() - finalize_started_at,
             )
             if merged and merge_only_delete_empty:
                 remove_empty_directory_tree(cache_dir)
@@ -474,9 +563,29 @@ def execute_callgraph_per_file(
             if util.stable_shard_for_key(file[len(repository_path) + 1:], shards) == shard
             and file[len(repository_path) + 1:] not in cached_files
         ]
+        _log_scan_cache_filter(
+            "method-callgraph",
+            repository_name,
+            len(java_files),
+            len(cached_files),
+            len(files_to_scan),
+        )
 
         pending_rows: list[dict] = []
         last_flush_time = time.monotonic()
+        scan_started_at = time.monotonic()
+        last_progress_at = scan_started_at
+        last_progress_completed = 0
+        completed_files = 0
+        produced_rows = 0
+        error_count = 0
+        total_files = len(files_to_scan)
+        logging.info(
+            "method-callgraph executor start project=%s submitted_files=%s max_workers=%s",
+            repository_name,
+            total_files,
+            max_workers,
+        )
 
         if max_workers == 1:
             scanner = _build_callgraph_scanner(
@@ -507,8 +616,30 @@ def execute_callgraph_per_file(
                         file_without_base,
                     )
                 except Exception as exc:
+                    logging.warning(
+                        "method-callgraph future exception project=%s file=%s",
+                        repository_name,
+                        file_without_base,
+                        exc_info=True,
+                    )
                     rows = [_build_callgraph_error_marker(file_without_base, exc)]
+                completed_files += 1
+                produced_rows += len(rows)
+                if any(row.get(CALLGRAPH_FLAG_COLUMN) == CALLGRAPH_ERROR_MARKER for row in rows):
+                    error_count += 1
                 pending_rows.extend(rows)
+                last_progress_at, last_progress_completed = _maybe_log_scan_progress(
+                    "method-callgraph",
+                    repository_name,
+                    completed_files,
+                    total_files,
+                    len(pending_rows),
+                    produced_rows,
+                    error_count,
+                    scan_started_at,
+                    last_progress_at,
+                    last_progress_completed,
+                )
                 if _should_flush_scan_cache(len(pending_rows), last_flush_time, merge_threshold, merge_interval_seconds):
                     _flush_callgraph(cache_file, lock_path, pending_rows, retry_errors)
                     last_flush_time = time.monotonic()
@@ -538,15 +669,44 @@ def execute_callgraph_per_file(
                     try:
                         rows = future.result()
                     except Exception as exc:
+                        logging.warning(
+                            "method-callgraph future exception project=%s file=%s",
+                            repository_name,
+                            file_without_base,
+                            exc_info=True,
+                        )
                         rows = [_build_callgraph_error_marker(file_without_base, exc)]
+                    completed_files += 1
+                    produced_rows += len(rows)
+                    if any(row.get(CALLGRAPH_FLAG_COLUMN) == CALLGRAPH_ERROR_MARKER for row in rows):
+                        error_count += 1
                     pending_rows.extend(rows)
+                    last_progress_at, last_progress_completed = _maybe_log_scan_progress(
+                        "method-callgraph",
+                        repository_name,
+                        completed_files,
+                        total_files,
+                        len(pending_rows),
+                        produced_rows,
+                        error_count,
+                        scan_started_at,
+                        last_progress_at,
+                        last_progress_completed,
+                    )
                     if _should_flush_scan_cache(len(pending_rows), last_flush_time, merge_threshold, merge_interval_seconds):
                         _flush_callgraph(cache_file, lock_path, pending_rows, retry_errors)
                         last_flush_time = time.monotonic()
 
+        logging.info(
+            "method-callgraph final-flush start project=%s pending_rows=%s",
+            repository_name,
+            len(pending_rows),
+        )
         _flush_callgraph(cache_file, lock_path, pending_rows, retry_errors)
         if shards == 1:
-            _finalize_callgraph(
+            logging.info("method-callgraph finalize start project=%s", repository_name)
+            finalize_started_at = time.monotonic()
+            merged = _finalize_callgraph(
                 cache_file,
                 callgraph_output_file,
                 fanin_output_file,
@@ -554,3 +714,25 @@ def execute_callgraph_per_file(
                 expected_files,
                 lock_path,
             )
+            logging.info(
+                "method-callgraph finalize finish project=%s merged=%s elapsed_seconds=%.1f",
+                repository_name,
+                merged,
+                time.monotonic() - finalize_started_at,
+            )
+        else:
+            logging.info(
+                "method-callgraph finalize skipped project=%s shard=%s/%s",
+                repository_name,
+                shard,
+                shards,
+            )
+        logging.info(
+            "method-callgraph finish project=%s completed_files=%s/%s produced_rows=%s errors=%s elapsed_seconds=%.1f",
+            repository_name,
+            completed_files,
+            total_files,
+            produced_rows,
+            error_count,
+            time.monotonic() - repository_started_at,
+        )

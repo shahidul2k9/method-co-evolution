@@ -136,6 +136,82 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             self.assertFalse(ms._should_flush_scan_cache(10, now, 0, 0))
             self.assertFalse(ms._should_flush_scan_cache(10, now, -1, -1))
 
+    def test_repository_start_logging_includes_diagnostic_context(self):
+        with self.assertLogs(level="INFO") as logs:
+            ms._log_scan_repository_start(
+                "method-scan",
+                "demo-project",
+                "abc123",
+                1,
+                2,
+                4,
+                10000,
+                900,
+            )
+
+        joined_logs = "\n".join(logs.output)
+        self.assertIn("method-scan start project=demo-project", joined_logs)
+        self.assertIn("shard=1/2", joined_logs)
+        self.assertIn("max_workers=4", joined_logs)
+
+    def test_progress_logging_reports_completed_files_and_pending_rows(self):
+        with self.assertLogs(level="INFO") as logs:
+            last_at, last_completed = ms._maybe_log_scan_progress(
+                "method-scan",
+                "demo-project",
+                completed_files=100,
+                total_files=250,
+                pending_rows=1234,
+                produced_rows=1500,
+                error_count=2,
+                started_at=10.0,
+                last_progress_at=10.0,
+                last_progress_completed=0,
+            )
+
+        self.assertEqual(100, last_completed)
+        self.assertGreaterEqual(last_at, 10.0)
+        joined_logs = "\n".join(logs.output)
+        self.assertIn("completed_files=100/250", joined_logs)
+        self.assertIn("pending_rows=1234", joined_logs)
+        self.assertIn("errors=2", joined_logs)
+
+    def test_flush_method_scan_buffers_logs_requested_and_appended_rows(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            cache_file = root / ".method" / "demo-project.csv"
+            lock_file = root / ".method" / "demo-project.lock"
+            pending = [
+                {
+                    **ms._build_scan_marker_row("demo-project", "src/Alpha.java", "abc123"),
+                    "name": None,
+                }
+            ]
+
+            with self.assertLogs(level="INFO") as logs:
+                ms._flush_method_scan_buffers(str(cache_file), str(lock_file), pending)
+
+            self.assertEqual([], pending)
+            joined_logs = "\n".join(logs.output)
+            self.assertIn("method-scan flush rows_requested=1 rows_appended=1", joined_logs)
+            self.assertIn(str(cache_file), joined_logs)
+
+    def test_build_method_scanner_logs_worker_init_timing(self):
+        FakeMethodScannerImpl.init_calls = []
+        with self.assertLogs(level="INFO") as logs:
+            ms._build_method_scanner(
+                FakeMethodScannerImpl,
+                "/tmp/demo-project",
+                "https://github.com/example/demo-project",
+                "abc123",
+                None,
+            )
+
+        joined_logs = "\n".join(logs.output)
+        self.assertIn("method-scan scanner-init start", joined_logs)
+        self.assertIn("method-scan scanner-init finish", joined_logs)
+        self.assertIn("elapsed_seconds=", joined_logs)
+
     def test_finalize_method_scan_outputs_removes_float_suffix_from_integer_columns(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             root = Path(temp_directory)

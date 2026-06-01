@@ -134,6 +134,9 @@ METHOD_CODE_CACHE_COLUMNS = METHOD_CODE_COLUMNS + [
 ]
 SCAN_METHOD_FLUSH_INTERVAL_SECONDS = 1 * 15 * 60
 DEFAULT_SCAN_MERGE_THRESHOLD = 10_000
+SCAN_PROGRESS_FILE_INTERVAL = 100
+SCAN_PROGRESS_SECONDS_INTERVAL = 60
+SCAN_SLOW_SECONDS = 60
 METHOD_SCAN_MARKER = "__scan_marker__"
 METHOD_SCAN_ERROR_MARKER = "__error_marker__"
 METHOD_SCAN_FLAG_COLUMN = "_flag"
@@ -158,6 +161,91 @@ def _should_flush_scan_cache(
             and time.monotonic() - last_flush_time >= merge_interval_seconds
         )
     )
+
+
+def _log_scan_repository_start(
+    command: str,
+    repository_name: str,
+    commit_hash: str,
+    shard: int,
+    shards: int,
+    max_workers: int,
+    merge_threshold: int,
+    merge_interval_seconds: int,
+) -> None:
+    logging.info(
+        "%s start project=%s commit=%s shard=%s/%s max_workers=%s merge_threshold=%s merge_interval_seconds=%s",
+        command,
+        repository_name,
+        commit_hash,
+        shard,
+        shards,
+        max_workers,
+        merge_threshold,
+        merge_interval_seconds,
+    )
+
+
+def _log_scan_cache_filter(
+    command: str,
+    repository_name: str,
+    total_files: int,
+    cached_files: int,
+    submitted_files: int,
+) -> None:
+    logging.info(
+        "%s cache-filter project=%s total_java_files=%s cached_files=%s submitted_files=%s",
+        command,
+        repository_name,
+        total_files,
+        cached_files,
+        submitted_files,
+    )
+
+
+def _maybe_log_scan_progress(
+    command: str,
+    repository_name: str,
+    completed_files: int,
+    total_files: int,
+    pending_rows: int,
+    produced_rows: int,
+    error_count: int,
+    started_at: float,
+    last_progress_at: float,
+    last_progress_completed: int,
+) -> tuple[float, int]:
+    now = time.monotonic()
+    should_log = (
+        completed_files == total_files
+        or completed_files - last_progress_completed >= SCAN_PROGRESS_FILE_INTERVAL
+        or now - last_progress_at >= SCAN_PROGRESS_SECONDS_INTERVAL
+    )
+    if should_log:
+        logging.info(
+            "%s progress project=%s completed_files=%s/%s pending_rows=%s produced_rows=%s errors=%s elapsed_seconds=%.1f",
+            command,
+            repository_name,
+            completed_files,
+            total_files,
+            pending_rows,
+            produced_rows,
+            error_count,
+            now - started_at,
+        )
+        return now, completed_files
+    return last_progress_at, last_progress_completed
+
+
+def _log_slow_operation(
+    message: str,
+    elapsed_seconds: float,
+    *args,
+) -> None:
+    if elapsed_seconds >= SCAN_SLOW_SECONDS:
+        logging.warning(message + " elapsed_seconds=%.1f", *args, elapsed_seconds)
+    else:
+        logging.info(message + " elapsed_seconds=%.1f", *args, elapsed_seconds)
 
 
 class Method:
@@ -314,7 +402,13 @@ def _flush_method_scan_buffers(
     pending_method_rows: list[dict],
     retry_errors: bool = True,
 ) -> None:
+    requested_rows = len(pending_method_rows)
+    started_at = time.monotonic()
     if not pending_method_rows:
+        logging.info(
+            "method-scan flush skipped rows_requested=0 cache_file=%s",
+            method_cache_file,
+        )
         return
     rows_copy = list(pending_method_rows)
     pending_method_rows.clear()
@@ -327,12 +421,20 @@ def _flush_method_scan_buffers(
             row for row in rows_copy
             if row.get("file") not in completed_files
         ]
+        appended_rows = len(rows_copy)
         _append_dataframe_csv(
             method_cache_file,
             rows_copy,
             METHOD_SCAN_CACHE_COLUMNS,
             METHOD_SCAN_INTEGER_COLUMNS,
         )
+    logging.info(
+        "method-scan flush rows_requested=%s rows_appended=%s cache_file=%s elapsed_seconds=%.1f",
+        requested_rows,
+        appended_rows,
+        method_cache_file,
+        time.monotonic() - started_at,
+    )
 
 
 def _finalize_method_scan_outputs(
@@ -839,8 +941,23 @@ def _scan_methods_in_file(
 
 
 def _build_method_scanner(MethodScannerImpl, repository_root: str, url: str, commit_hash: str, artifact_config_path: str | None):
+    started_at = time.monotonic()
+    thread_name = threading.current_thread().name
+    logging.info(
+        "method-scan scanner-init start thread=%s repository_root=%s commit=%s",
+        thread_name,
+        repository_root,
+        commit_hash,
+    )
     scanner = MethodScannerImpl.getInstance()
     scanner.init(repository_root, url, commit_hash, artifact_config_path, False)
+    _log_slow_operation(
+        "method-scan scanner-init finish thread=%s repository_root=%s commit=%s",
+        time.monotonic() - started_at,
+        thread_name,
+        repository_root,
+        commit_hash,
+    )
     return scanner
 
 
@@ -857,14 +974,33 @@ def _scan_method_file_task(
 ) -> list[dict]:
     if not hasattr(thread_local, "scanner"):
         thread_local.scanner = _build_method_scanner(MethodScannerImpl, repository_root, url, commit_hash, artifact_config_path)
-    methods, error = _scan_methods_in_file(
-        thread_local.scanner,
-        repository_name,
-        url,
-        commit_hash,
-        file,
-        file_without_base,
-    )
+    started_at = time.monotonic()
+    try:
+        methods, error = _scan_methods_in_file(
+            thread_local.scanner,
+            repository_name,
+            url,
+            commit_hash,
+            file,
+            file_without_base,
+        )
+    except Exception:
+        logging.warning(
+            "method-scan file exception project=%s file=%s",
+            repository_name,
+            file_without_base,
+            exc_info=True,
+        )
+        raise
+    elapsed = time.monotonic() - started_at
+    if elapsed >= SCAN_SLOW_SECONDS:
+        logging.warning(
+            "method-scan slow-file project=%s file=%s rows=%s elapsed_seconds=%.1f",
+            repository_name,
+            file_without_base,
+            len(methods),
+            elapsed,
+        )
     rows = list(methods)
     if error is None:
         rows.append(_build_scan_marker_row(repository_name, file_without_base, commit_hash))
@@ -904,6 +1040,17 @@ def scan_method(
         repository_name = repository["project"]
         url = repository['url']
         commit_hash = repository['updated_hash']
+        repository_started_at = time.monotonic()
+        _log_scan_repository_start(
+            "method-scan",
+            repository_name,
+            commit_hash,
+            shard,
+            shards,
+            max_workers,
+            merge_threshold,
+            merge_interval_seconds,
+        )
         dot_file_directory = util.format_git_project_directory(repository_directory, repository_name)
         output_method_file = util.format_method_list_file(f"{data_directory}", repository_name)
         method_workspace_directory = os.path.join(_workspace_directory, ".method")
@@ -916,16 +1063,37 @@ def scan_method(
                 if os.path.exists(existing_file):
                     os.remove(existing_file)
         elif not merge_only and shards == 1 and not os.path.exists(method_cache_file) and _is_method_output_current(output_method_file, commit_hash):
+            logging.info(
+                "method-scan skip-current project=%s output_file=%s",
+                repository_name,
+                output_method_file,
+            )
             continue
 
+        checkout_started_at = time.monotonic()
+        logging.info("method-scan checkout start project=%s repository_root=%s", repository_name, dot_file_directory)
         clone_and_checkout_commit(url, dot_file_directory, commit_hash)
+        logging.info(
+            "method-scan checkout finish project=%s elapsed_seconds=%.1f",
+            repository_name,
+            time.monotonic() - checkout_started_at,
+        )
+        discovery_started_at = time.monotonic()
         java_files = sorted(collect_files(dot_file_directory, "*.java"))
+        logging.info(
+            "method-scan discovery finish project=%s java_files=%s elapsed_seconds=%.1f",
+            repository_name,
+            len(java_files),
+            time.monotonic() - discovery_started_at,
+        )
         expected_files = {
             file[len(dot_file_directory) + 1:]
             for file in java_files
         }
 
         if merge_only:
+            logging.info("method-scan finalize start project=%s merge_only=true", repository_name)
+            finalize_started_at = time.monotonic()
             merged = _finalize_method_scan_outputs(
                 method_cache_file,
                 output_method_file,
@@ -934,6 +1102,12 @@ def scan_method(
                 lock_path,
                 True,
                 True,
+            )
+            logging.info(
+                "method-scan finalize finish project=%s merged=%s elapsed_seconds=%.1f",
+                repository_name,
+                merged,
+                time.monotonic() - finalize_started_at,
             )
             if merged and merge_only_delete_empty:
                 remove_empty_directory_tree(method_workspace_directory)
@@ -949,9 +1123,29 @@ def scan_method(
             if util.stable_shard_for_key(file[len(dot_file_directory) + 1:], shards) == shard
             and file[len(dot_file_directory) + 1:] not in cached_files
         ]
+        _log_scan_cache_filter(
+            "method-scan",
+            repository_name,
+            len(java_files),
+            len(cached_files),
+            len(files_to_scan),
+        )
 
         pending_method_rows: list[dict] = []
         last_flush_time = time.monotonic()
+        scan_started_at = time.monotonic()
+        last_progress_at = scan_started_at
+        last_progress_completed = 0
+        completed_files = 0
+        produced_rows = 0
+        error_count = 0
+        total_files = len(files_to_scan)
+        logging.info(
+            "method-scan executor start project=%s submitted_files=%s max_workers=%s",
+            repository_name,
+            total_files,
+            max_workers,
+        )
 
         if max_workers == 1:
             scanner = _build_method_scanner(MethodScannerImpl, dot_file_directory, url, commit_hash, artifact_config_path)
@@ -971,8 +1165,30 @@ def scan_method(
                         file_without_base,
                     )
                 except Exception as exc:
+                    logging.warning(
+                        "method-scan file exception project=%s file=%s",
+                        repository_name,
+                        file_without_base,
+                        exc_info=True,
+                    )
                     rows = [_build_scan_error_row(repository_name, file_without_base, commit_hash, exc)]
+                completed_files += 1
+                produced_rows += len(rows)
+                if any(row.get(METHOD_SCAN_FLAG_COLUMN) == METHOD_SCAN_ERROR_MARKER for row in rows):
+                    error_count += 1
                 pending_method_rows.extend(rows)
+                last_progress_at, last_progress_completed = _maybe_log_scan_progress(
+                    "method-scan",
+                    repository_name,
+                    completed_files,
+                    total_files,
+                    len(pending_method_rows),
+                    produced_rows,
+                    error_count,
+                    scan_started_at,
+                    last_progress_at,
+                    last_progress_completed,
+                )
                 if _should_flush_scan_cache(len(pending_method_rows), last_flush_time, merge_threshold, merge_interval_seconds):
                     _flush_method_scan_buffers(method_cache_file, lock_path, pending_method_rows, retry_errors)
                     last_flush_time = time.monotonic()
@@ -999,12 +1215,39 @@ def scan_method(
                     try:
                         rows = future.result()
                     except Exception as exc:
+                        logging.warning(
+                            "method-scan future exception project=%s file=%s",
+                            repository_name,
+                            file_without_base,
+                            exc_info=True,
+                        )
                         rows = [_build_scan_error_row(repository_name, file_without_base, commit_hash, exc)]
+                    completed_files += 1
+                    produced_rows += len(rows)
+                    if any(row.get(METHOD_SCAN_FLAG_COLUMN) == METHOD_SCAN_ERROR_MARKER for row in rows):
+                        error_count += 1
                     pending_method_rows.extend(rows)
+                    last_progress_at, last_progress_completed = _maybe_log_scan_progress(
+                        "method-scan",
+                        repository_name,
+                        completed_files,
+                        total_files,
+                        len(pending_method_rows),
+                        produced_rows,
+                        error_count,
+                        scan_started_at,
+                        last_progress_at,
+                        last_progress_completed,
+                    )
                     if _should_flush_scan_cache(len(pending_method_rows), last_flush_time, merge_threshold, merge_interval_seconds):
                         _flush_method_scan_buffers(method_cache_file, lock_path, pending_method_rows, retry_errors)
                         last_flush_time = time.monotonic()
 
+        logging.info(
+            "method-scan final-flush start project=%s pending_rows=%s",
+            repository_name,
+            len(pending_method_rows),
+        )
         _flush_method_scan_buffers(
             method_cache_file,
             lock_path,
@@ -1012,13 +1255,37 @@ def scan_method(
             retry_errors,
         )
         if shards == 1:
-            _finalize_method_scan_outputs(
+            logging.info("method-scan finalize start project=%s", repository_name)
+            finalize_started_at = time.monotonic()
+            merged = _finalize_method_scan_outputs(
                 method_cache_file,
                 output_method_file,
                 error_output_file,
                 expected_files,
                 lock_path,
             )
+            logging.info(
+                "method-scan finalize finish project=%s merged=%s elapsed_seconds=%.1f",
+                repository_name,
+                merged,
+                time.monotonic() - finalize_started_at,
+            )
+        else:
+            logging.info(
+                "method-scan finalize skipped project=%s shard=%s/%s",
+                repository_name,
+                shard,
+                shards,
+            )
+        logging.info(
+            "method-scan finish project=%s completed_files=%s/%s produced_rows=%s errors=%s elapsed_seconds=%.1f",
+            repository_name,
+            completed_files,
+            total_files,
+            produced_rows,
+            error_count,
+            time.monotonic() - repository_started_at,
+        )
 
 
 def start_java_jar(jars: [str], java_options: str | None = None):
