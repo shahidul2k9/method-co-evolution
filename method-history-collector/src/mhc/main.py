@@ -277,6 +277,20 @@ def main(argv: list[str] | None = None):
         ),
     )
     parser.add_argument(
+        "--cache-evict-interval-seconds",
+        dest="cache_evict_interval_seconds",
+        type=int,
+        default=300,
+        help="For method-scan, evict JavaParser caches after this many seconds (default: 0 disables time-based eviction).",
+    )
+    parser.add_argument(
+        "--cache-evict-interval-files",
+        dest="cache_evict_interval_files",
+        type=int,
+        default=1000,
+        help="For method-scan, evict JavaParser caches after this many completed files (default: 0 disables file-count eviction).",
+    )
+    parser.add_argument(
         "--artifact-config-path",
         dest="artifact_config_path",
         type=str,
@@ -355,6 +369,12 @@ def main(argv: list[str] | None = None):
         sys.exit(1)
     if args.max_workers <= 0:
         print("Error: --max-workers must be positive.")
+        sys.exit(1)
+    if args.cache_evict_interval_seconds < 0:
+        print("Error: --cache-evict-interval-seconds must be non-negative.")
+        sys.exit(1)
+    if args.cache_evict_interval_files < 0:
+        print("Error: --cache-evict-interval-files must be non-negative.")
         sys.exit(1)
     repository_projects = mhc.repository_df["project"].tolist()
 
@@ -461,6 +481,8 @@ def main(argv: list[str] | None = None):
         else:
             call_args.append(None)
         call_args.append(args.enable_symbol_solver)
+        call_args.append(args.cache_evict_interval_seconds)
+        call_args.append(args.cache_evict_interval_files)
         mhc.scan_method(*call_args)
     elif command in ("artifact-update", "update-artifacts"):
         mhc.update_artifacts(

@@ -133,5 +133,12 @@ public class MethodGenerationTest extends TestConfigurationBase {
         }
     }
 
+    @Test
+    public void testEvictCacheDoesNotThrow() {
+        MethodScannerImpl methodScanner = MethodScannerImpl.getInstance();
+
+        Assertions.assertDoesNotThrow(methodScanner::evictCache);
+    }
+
 
 }

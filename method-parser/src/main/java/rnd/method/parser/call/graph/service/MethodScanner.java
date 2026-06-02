@@ -16,4 +16,6 @@ public interface MethodScanner {
               boolean checkoutRepository);
 
     List<Method> scanMethod(String file);
+
+    void evictCache();
 }

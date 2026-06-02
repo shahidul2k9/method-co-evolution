@@ -29,6 +29,8 @@ Options:
   --merge-only            Merge existing loose history JSON files without generating new history
   --retry-errors          Whether method-scan, class-scan, method-code, and method-callgraph retry previous __error_marker__ rows (default: true)
   --enable-symbol-solver  Whether supported commands use JavaParser symbol resolution for FQN/FQS (default: true)
+  --cache-evict-interval-seconds Method-scan JavaParser cache eviction interval in seconds (default: 0 disables)
+  --cache-evict-interval-files Method-scan JavaParser cache eviction interval in completed files (default: 0 disables)
   --artifact-config-path  Artifact detection YAML file or directory
   --command-options       Optional extra arguments forwarded to the selected command
   --stage                 LLM stage execute/parse, or test-smell stage preprocess/execute/postprocess/all
@@ -73,6 +75,8 @@ MAX_WORKERS="1"
 MERGE_ONLY="false"
 RETRY_ERRORS="true"
 ENABLE_SYMBOL_SOLVER="true"
+CACHE_EVICT_INTERVAL_SECONDS="0"
+CACHE_EVICT_INTERVAL_FILES="0"
 COMMAND_OPTIONS=""
 STAGE="execute"
 STAGE_PROVIDED="false"
@@ -151,6 +155,22 @@ while [[ $# -gt 0 ]]; do
             ;;
         --max-workers=*)
             MAX_WORKERS="${1#*=}"
+            shift
+            ;;
+        --cache-evict-interval-seconds)
+            CACHE_EVICT_INTERVAL_SECONDS="$2"
+            shift 2
+            ;;
+        --cache-evict-interval-seconds=*)
+            CACHE_EVICT_INTERVAL_SECONDS="${1#*=}"
+            shift
+            ;;
+        --cache-evict-interval-files)
+            CACHE_EVICT_INTERVAL_FILES="$2"
+            shift 2
+            ;;
+        --cache-evict-interval-files=*)
+            CACHE_EVICT_INTERVAL_FILES="${1#*=}"
             shift
             ;;
         --merge-only)
@@ -379,6 +399,18 @@ if ! [[ "$MAX_WORKERS" =~ ^[0-9]+$ ]] || [[ "$MAX_WORKERS" -le 0 ]]; then
     exit 1
 fi
 
+if ! [[ "$CACHE_EVICT_INTERVAL_SECONDS" =~ ^[0-9]+$ ]]; then
+    echo "Error: --cache-evict-interval-seconds must be a non-negative integer."
+    usage
+    exit 1
+fi
+
+if ! [[ "$CACHE_EVICT_INTERVAL_FILES" =~ ^[0-9]+$ ]]; then
+    echo "Error: --cache-evict-interval-files must be a non-negative integer."
+    usage
+    exit 1
+fi
+
 RETRY_ERRORS_NORMALIZED="$(printf '%s' "$RETRY_ERRORS" | tr '[:upper:]' '[:lower:]')"
 case "$RETRY_ERRORS_NORMALIZED" in
     true|false)
@@ -549,6 +581,8 @@ else
     fi
     if [[ "$COMMAND_NAME" == "method-scan" ]]; then
         MHC_ARGS+=(--enable-symbol-solver "$ENABLE_SYMBOL_SOLVER")
+        MHC_ARGS+=(--cache-evict-interval-seconds "$CACHE_EVICT_INTERVAL_SECONDS")
+        MHC_ARGS+=(--cache-evict-interval-files "$CACHE_EVICT_INTERVAL_FILES")
     fi
     if [[ -n "$ARTIFACT_CONFIG_PATH" ]]; then
         MHC_ARGS+=(--artifact-config-path "$ARTIFACT_CONFIG_PATH")

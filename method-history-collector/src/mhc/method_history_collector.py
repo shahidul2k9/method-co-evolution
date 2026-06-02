@@ -113,6 +113,8 @@ class MethodHistoryCollector:
         max_workers: int = 1,
         artifact_config_path: str | None = None,
         enable_symbol_solver: bool = True,
+        cache_evict_interval_seconds: int = 0,
+        cache_evict_interval_files: int = 0,
     ):
         try:
             if not merge_only:
@@ -141,6 +143,8 @@ class MethodHistoryCollector:
                 merge_interval_seconds,
                 max_workers,
                 artifact_config_path,
+                cache_evict_interval_seconds,
+                cache_evict_interval_files,
             )
         except Exception as e:
             raise e
