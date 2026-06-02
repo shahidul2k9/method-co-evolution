@@ -26,6 +26,47 @@ from mhc.callgraph import (
 )
 
 
+class FakeCallGraphServiceImpl:
+    init_calls = []
+    scanned_files = []
+    cache_stats_calls = 0
+
+    @staticmethod
+    def getInstance():
+        return FakeCallGraphServiceImpl()
+
+    def init(
+        self,
+        repository_url,
+        repository_path,
+        commit_hash,
+        method_mapping_file,
+        class_mapping_file,
+        artifact_config_path,
+        checkout_repository,
+        max_cache_size,
+    ):
+        FakeCallGraphServiceImpl.init_calls.append(
+            (
+                repository_url,
+                repository_path,
+                commit_hash,
+                method_mapping_file,
+                class_mapping_file,
+                artifact_config_path,
+                checkout_repository,
+                max_cache_size,
+            )
+        )
+
+    def findCallgraph(self, file_without_base):
+        FakeCallGraphServiceImpl.scanned_files.append(file_without_base)
+        return []
+
+    def logCacheStats(self):
+        FakeCallGraphServiceImpl.cache_stats_calls += 1
+
+
 class CallGraphRunnerTest(unittest.TestCase):
     def test_fan_in_from_fan_out_swaps_callee_and_caller(self):
         fan_out = pd.DataFrame(
@@ -288,6 +329,105 @@ class CallGraphRunnerTest(unittest.TestCase):
                     512,
                 )
                 scanner.logCacheStats.assert_called_once_with()
+
+    def test_execute_callgraph_init_reset_interval_zero_reuses_scanner(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            repository_directory = root / "repository"
+            data_directory = root / "data"
+            workspace_directory = root / "workspace"
+            repository_path = repository_directory / "demo"
+            java_files = [
+                str(repository_path / "src" / "Alpha.java"),
+                str(repository_path / "src" / "Beta.java"),
+            ]
+            repository_df = pd.DataFrame(
+                [
+                    {
+                        "project": "demo",
+                        "url": "https://example.test/demo",
+                        "updated_hash": "abc123",
+                    }
+                ]
+            )
+
+            FakeCallGraphServiceImpl.init_calls = []
+            FakeCallGraphServiceImpl.scanned_files = []
+            FakeCallGraphServiceImpl.cache_stats_calls = 0
+            with patch("mhc.callgraph.git.clone_and_checkout_commit"), \
+                    patch("mhc.callgraph._collect_java_files", return_value=java_files), \
+                    patch("mhc.callgraph.util.format_method_mapping_file", return_value=str(root / "method.csv")), \
+                    patch("mhc.callgraph.util.format_class_mapping_file", return_value=str(root / "class.csv")), \
+                    patch("jpype.JClass", return_value=FakeCallGraphServiceImpl):
+                execute_callgraph_per_file(
+                    repository_df,
+                    str(repository_directory),
+                    str(data_directory),
+                    str(workspace_directory),
+                    max_cache_size=512,
+                    merge_threshold=1,
+                    merge_interval_seconds=0,
+                    init_reset_interval_files=0,
+                )
+
+            self.assertEqual(1, len(FakeCallGraphServiceImpl.init_calls))
+            self.assertEqual(["src/Alpha.java", "src/Beta.java"], FakeCallGraphServiceImpl.scanned_files)
+
+    def test_execute_callgraph_init_reset_interval_rebuilds_scanner(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            repository_directory = root / "repository"
+            data_directory = root / "data"
+            workspace_directory = root / "workspace"
+            repository_path = repository_directory / "demo"
+            method_mapping_file = root / "method.csv"
+            class_mapping_file = root / "class.csv"
+            java_files = [
+                str(repository_path / "src" / "Alpha.java"),
+                str(repository_path / "src" / "Beta.java"),
+            ]
+            repository_df = pd.DataFrame(
+                [
+                    {
+                        "project": "demo",
+                        "url": "https://example.test/demo",
+                        "updated_hash": "abc123",
+                    }
+                ]
+            )
+
+            FakeCallGraphServiceImpl.init_calls = []
+            FakeCallGraphServiceImpl.scanned_files = []
+            FakeCallGraphServiceImpl.cache_stats_calls = 0
+            with patch("mhc.callgraph.git.clone_and_checkout_commit"), \
+                    patch("mhc.callgraph._collect_java_files", return_value=java_files), \
+                    patch("mhc.callgraph.util.format_method_mapping_file", return_value=str(method_mapping_file)), \
+                    patch("mhc.callgraph.util.format_class_mapping_file", return_value=str(class_mapping_file)), \
+                    patch("jpype.JClass", return_value=FakeCallGraphServiceImpl):
+                execute_callgraph_per_file(
+                    repository_df,
+                    str(repository_directory),
+                    str(data_directory),
+                    str(workspace_directory),
+                    max_cache_size=512,
+                    merge_threshold=1,
+                    merge_interval_seconds=0,
+                    init_reset_interval_files=1,
+                )
+
+            expected_init = (
+                "https://example.test/demo",
+                str(repository_path),
+                "abc123",
+                str(method_mapping_file),
+                str(class_mapping_file),
+                None,
+                False,
+                512,
+            )
+            self.assertEqual([expected_init, expected_init], FakeCallGraphServiceImpl.init_calls)
+            self.assertEqual(["src/Alpha.java", "src/Beta.java"], FakeCallGraphServiceImpl.scanned_files)
+            self.assertGreaterEqual(FakeCallGraphServiceImpl.cache_stats_calls, 2)
 
     def test_execute_merge_only_does_not_load_jpype_scanner(self):
         with tempfile.TemporaryDirectory() as temp_directory:

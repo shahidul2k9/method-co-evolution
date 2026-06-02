@@ -1015,9 +1015,30 @@ def _scan_method_file_task(
     artifact_config_path: str | None,
     file: str,
     file_without_base: str,
+    init_reset_interval_files: int = 2000,
 ) -> list[dict]:
+    # Rebuild the scanner every init_reset_interval_files files to drop the
+    # JavaParserTypeSolver's internal ParseResult cache, which grows without
+    # bound and causes GC pressure. init_reset_interval_files=0 disables resets.
+    needs_reset = (
+        init_reset_interval_files > 0
+        and hasattr(thread_local, "scanner_file_count")
+        and thread_local.scanner_file_count >= init_reset_interval_files
+    )
+    if needs_reset:
+        del thread_local.scanner
+        files_since_init = thread_local.scanner_file_count
+        thread_local.scanner_file_count = 0
+        logging.info(
+            "method-scan scanner-init-reset thread=%s reason=interval interval_files=%s files_since_init=%s",
+            threading.current_thread().name,
+            init_reset_interval_files,
+            files_since_init,
+        )
     if not hasattr(thread_local, "scanner"):
         thread_local.scanner = _build_method_scanner(MethodScannerImpl, repository_root, url, commit_hash, artifact_config_path)
+        thread_local.scanner_file_count = 0
+    thread_local.scanner_file_count += 1
     started_at = time.monotonic()
     try:
         methods, error = _scan_methods_in_file(
@@ -1072,6 +1093,7 @@ def scan_method(
     artifact_config_path: str | None = None,
     cache_evict_interval_seconds: int = 0,
     cache_evict_interval_files: int = 0,
+    init_reset_interval_files: int = 2000,
 ):
     MethodScannerImpl = None
     if merge_interval_seconds is None:
@@ -1208,6 +1230,7 @@ def scan_method(
             scanner = _build_method_scanner(MethodScannerImpl, dot_file_directory, url, commit_hash, artifact_config_path)
             thread_local = threading.local()
             thread_local.scanner = scanner
+            thread_local.scanner_file_count = 0
             for file, file_without_base in files_to_scan:
                 try:
                     rows = _scan_method_file_task(
@@ -1220,6 +1243,7 @@ def scan_method(
                         artifact_config_path,
                         file,
                         file_without_base,
+                        init_reset_interval_files,
                     )
                 except Exception as exc:
                     logging.warning(
@@ -1283,6 +1307,7 @@ def scan_method(
                         artifact_config_path,
                         file,
                         file_without_base,
+                        init_reset_interval_files,
                     ): file_without_base
                     for file, file_without_base in files_to_scan
                 }

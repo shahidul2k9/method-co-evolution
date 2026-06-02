@@ -115,6 +115,7 @@ class MethodHistoryCollector:
         enable_symbol_solver: bool = True,
         cache_evict_interval_seconds: int = 0,
         cache_evict_interval_files: int = 0,
+        init_reset_interval_files: int = 2000,
     ):
         try:
             if not merge_only:
@@ -145,6 +146,7 @@ class MethodHistoryCollector:
                 artifact_config_path,
                 cache_evict_interval_seconds,
                 cache_evict_interval_files,
+                init_reset_interval_files,
             )
         except Exception as e:
             raise e
@@ -213,6 +215,7 @@ class MethodHistoryCollector:
         max_cache_size: int = 256,
         max_workers: int = 1,
         artifact_config_path: str | None = None,
+        init_reset_interval_files: int = 2000,
     ):
         self.generate_callgraph_per_file(
             repositories,
@@ -230,6 +233,7 @@ class MethodHistoryCollector:
             max_cache_size,
             max_workers,
             artifact_config_path,
+            init_reset_interval_files,
         )
 
     def generate_callgraph_per_file(
@@ -249,6 +253,7 @@ class MethodHistoryCollector:
         max_cache_size: int = 256,
         max_workers: int = 1,
         artifact_config_path: str | None = None,
+        init_reset_interval_files: int = 2000,
     ):
         try:
             if not merge_only:
@@ -274,6 +279,7 @@ class MethodHistoryCollector:
                 max_cache_size,
                 max_workers,
                 artifact_config_path,
+                init_reset_interval_files,
             )
         except Exception as e:
             raise e
