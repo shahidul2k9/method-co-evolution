@@ -36,6 +36,7 @@ _KNOWN_OPTION_FLAGS = {
     "--stage",
     "--callgraph-dir",
     "--max-workers",
+    "--init-reset-interval-files",
 }
 
 
@@ -277,6 +278,30 @@ def main(argv: list[str] | None = None):
         ),
     )
     parser.add_argument(
+        "--cache-evict-interval-seconds",
+        dest="cache_evict_interval_seconds",
+        type=int,
+        default=0,
+        help="For method-scan, evict JavaParser caches after this many seconds (default: 0 disables time-based eviction).",
+    )
+    parser.add_argument(
+        "--cache-evict-interval-files",
+        dest="cache_evict_interval_files",
+        type=int,
+        default=0,
+        help="For method-scan, evict JavaParser caches after this many completed files (default: 0 disables file-count eviction).",
+    )
+    parser.add_argument(
+        "--init-reset-interval-files",
+        dest="init_reset_interval_files",
+        type=int,
+        default=2000,
+        help=(
+            "For method-scan and method-callgraph, recreate each thread's Java scanner instance after this "
+            "many files to reset JavaParser/type-solver state. 0 disables init resets. Default: 2000."
+        ),
+    )
+    parser.add_argument(
         "--artifact-config-path",
         dest="artifact_config_path",
         type=str,
@@ -356,6 +381,15 @@ def main(argv: list[str] | None = None):
     if args.max_workers <= 0:
         print("Error: --max-workers must be positive.")
         sys.exit(1)
+    if args.cache_evict_interval_seconds < 0:
+        print("Error: --cache-evict-interval-seconds must be non-negative.")
+        sys.exit(1)
+    if args.cache_evict_interval_files < 0:
+        print("Error: --cache-evict-interval-files must be non-negative.")
+        sys.exit(1)
+    if args.init_reset_interval_files < 0:
+        print("Error: --init-reset-interval-files must be non-negative.")
+        sys.exit(1)
     repository_projects = mhc.repository_df["project"].tolist()
 
     def resolve_selected_projects() -> list[str]:
@@ -420,6 +454,9 @@ def main(argv: list[str] | None = None):
         ]
         if args.artifact_config_path:
             call_args.append(args.artifact_config_path)
+        else:
+            call_args.append(None)
+        call_args.append(args.init_reset_interval_files)
         mhc.generate_callgraph(*call_args)
     elif command in ("class-scan", "scan-class"):
         call_args = [
@@ -461,6 +498,9 @@ def main(argv: list[str] | None = None):
         else:
             call_args.append(None)
         call_args.append(args.enable_symbol_solver)
+        call_args.append(args.cache_evict_interval_seconds)
+        call_args.append(args.cache_evict_interval_files)
+        call_args.append(args.init_reset_interval_files)
         mhc.scan_method(*call_args)
     elif command in ("artifact-update", "update-artifacts"):
         mhc.update_artifacts(
@@ -506,6 +546,7 @@ def main(argv: list[str] | None = None):
             args.tool_name,
             args.stage,
             args.callgraph_dir,
+            args.replace,
             args.max_workers,
         )
     else:

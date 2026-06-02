@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -115,6 +116,7 @@ def run_test_smell(
     tool_name: str,
     stage: str = "all",
     callgraph_dir: str = "callgraph",
+    replace: bool = False,
     max_workers: int = 1,
 ) -> None:
     if tool_name != TEST_SMELL_TOOL:
@@ -125,7 +127,15 @@ def run_test_smell(
     selected = [repository for _, repository in repository_df[repository_df["project"].isin(repositories)].iterrows()]
     if max_workers == 1:
         for repository in selected:
-            _run_test_smell_project(repository, repository_directory, data_directory, jar_file_map, stage, callgraph_dir)
+            _run_test_smell_project(
+                repository,
+                repository_directory,
+                data_directory,
+                jar_file_map,
+                stage,
+                callgraph_dir,
+                replace,
+            )
         return
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -138,6 +148,7 @@ def run_test_smell(
                 jar_file_map,
                 stage,
                 callgraph_dir,
+                replace,
             )
             for repository in selected
         ]
@@ -152,10 +163,16 @@ def _run_test_smell_project(
     jar_file_map: dict[str, str],
     stage: str,
     callgraph_dir: str,
+    replace: bool,
 ) -> None:
     project = str(repository["project"])
+    if not replace and _postprocess_file(data_directory, project).exists():
+        logging.info("Skipping test-smell for %s; precomputed output already exists", project)
+        return
+
     if stage in {"preprocess", "all"}:
-        preprocess_project(repository, repository_directory, data_directory, callgraph_dir)
+        if preprocess_project(repository, repository_directory, data_directory, callgraph_dir) is None:
+            return
     if stage in {"execute", "all"}:
         _ensure_repository_checkout(repository, repository_directory)
         execute_project(project, data_directory, jar_file_map)
@@ -168,7 +185,7 @@ def preprocess_project(
     repository_directory: str,
     data_directory: str,
     callgraph_dir: str = "callgraph",
-) -> pd.DataFrame:
+) -> pd.DataFrame | None:
     project = str(repository["project"])
     method_file = Path(data_directory) / "method" / f"{project}.csv"
     callgraph_file = Path(data_directory) / callgraph_dir / f"{project}.csv"
@@ -176,9 +193,11 @@ def preprocess_project(
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     if not method_file.exists():
-        raise FileNotFoundError(f"Method CSV not found: {method_file}")
+        logging.warning("Skipping test-smell for %s; method CSV not found: %s", project, method_file)
+        return None
     if not callgraph_file.exists():
-        raise FileNotFoundError(f"Callgraph CSV not found: {callgraph_file}")
+        logging.warning("Skipping test-smell for %s; callgraph CSV not found: %s", project, callgraph_file)
+        return None
 
     method_df = pd.read_csv(method_file, dtype=str, keep_default_na=False)
     callgraph_df = pd.read_csv(callgraph_file, dtype=str, keep_default_na=False)

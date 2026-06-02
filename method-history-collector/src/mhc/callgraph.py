@@ -383,6 +383,13 @@ def _build_callgraph_scanner(
     return scanner
 
 
+def _log_callgraph_cache_stats(scanner) -> None:
+    try:
+        scanner.logCacheStats()
+    except Exception:
+        logging.debug("method-callgraph cache-stats skipped", exc_info=True)
+
+
 def _scan_callgraph_file_task(
     thread_local,
     CallGraphServiceImpl,
@@ -395,7 +402,25 @@ def _scan_callgraph_file_task(
     max_cache_size: int,
     artifact_config_path: str | None,
     file_without_base: str,
+    init_reset_interval_files: int = 2000,
 ) -> list[dict]:
+    needs_reset = (
+        init_reset_interval_files > 0
+        and hasattr(thread_local, "scanner_file_count")
+        and thread_local.scanner_file_count >= init_reset_interval_files
+    )
+    if needs_reset:
+        files_since_init = thread_local.scanner_file_count
+        if hasattr(thread_local, "scanner"):
+            _log_callgraph_cache_stats(thread_local.scanner)
+            del thread_local.scanner
+        thread_local.scanner_file_count = 0
+        logging.info(
+            "method-callgraph scanner-init-reset thread=%s reason=interval interval_files=%s files_since_init=%s",
+            threading.current_thread().name,
+            init_reset_interval_files,
+            files_since_init,
+        )
     if not hasattr(thread_local, "scanner"):
         thread_local.scanner = _build_callgraph_scanner(
             CallGraphServiceImpl,
@@ -407,6 +432,8 @@ def _scan_callgraph_file_task(
             max_cache_size,
             artifact_config_path,
         )
+        thread_local.scanner_file_count = 0
+    thread_local.scanner_file_count += 1
     started_at = time.monotonic()
     try:
         method_calls = thread_local.scanner.findCallgraph(file_without_base)
@@ -453,6 +480,7 @@ def execute_callgraph_per_file(
     max_cache_size: int = 256,
     max_workers: int = 1,
     artifact_config_path: str | None = None,
+    init_reset_interval_files: int = 2000,
 ) -> None:
     CallGraphServiceImpl = None
     if merge_interval_seconds is None:
@@ -600,6 +628,7 @@ def execute_callgraph_per_file(
             )
             thread_local = threading.local()
             thread_local.scanner = scanner
+            thread_local.scanner_file_count = 0
             for file_without_base in files_to_scan:
                 try:
                     rows = _scan_callgraph_file_task(
@@ -614,6 +643,7 @@ def execute_callgraph_per_file(
                         max_cache_size,
                         artifact_config_path,
                         file_without_base,
+                        init_reset_interval_files,
                     )
                 except Exception as exc:
                     logging.warning(
@@ -643,7 +673,8 @@ def execute_callgraph_per_file(
                 if _should_flush_scan_cache(len(pending_rows), last_flush_time, merge_threshold, merge_interval_seconds):
                     _flush_callgraph(cache_file, lock_path, pending_rows, retry_errors)
                     last_flush_time = time.monotonic()
-            scanner.logCacheStats()
+            if hasattr(thread_local, "scanner"):
+                _log_callgraph_cache_stats(thread_local.scanner)
         else:
             thread_local = threading.local()
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -661,6 +692,7 @@ def execute_callgraph_per_file(
                         max_cache_size,
                         artifact_config_path,
                         file_without_base,
+                        init_reset_interval_files,
                     ): file_without_base
                     for file_without_base in files_to_scan
                 }

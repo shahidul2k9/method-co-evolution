@@ -2,6 +2,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -13,11 +14,13 @@ from mhc.test_smell import (
     SMELL_ACRONYMS,
     _ensure_repository_checkout,
     _execute_command,
+    _postprocess_file,
     _postprocess_error_file,
     _resolve_test_smell_jar,
     _select_candidate,
     postprocess_project,
     preprocess_project,
+    run_test_smell,
 )
 
 
@@ -113,6 +116,44 @@ class TestSmellWorkflowTest(unittest.TestCase):
             ]
         ).to_csv(self.data / "method" / f"{self.project}.csv", index=False)
 
+    def _write_callgraph_csv(self, project: str | None = None):
+        project = project or self.project
+        pd.DataFrame(
+            [
+                {
+                    "project": project,
+                    "from_url": f"https://github.com/acme/{project}/blob/abc123/src/test/java/acme/FooTest.java#L10",
+                    "to_url": f"https://github.com/acme/{project}/blob/abc123/src/test/java/acme/Foo.java#L7",
+                    "from_file": "src/test/java/acme/FooTest.java",
+                    "to_file": "src/test/java/acme/Foo.java",
+                    "from_fqs": "acme.FooTest.testFoo()",
+                    "to_fqs": "acme.Foo.foo()",
+                },
+            ]
+        ).to_csv(self.data / "callgraph" / f"{project}.csv", index=False)
+
+    def _write_minimal_method_csv(self, project: str):
+        pd.DataFrame(
+            [
+                {
+                    "project": project,
+                    "name": "testFoo",
+                    "url": f"https://github.com/acme/{project}/blob/abc123/src/test/java/acme/FooTest.java#L10",
+                    "artifact": "#test-code #test-case-method",
+                    "fqs": "acme.FooTest.testFoo()",
+                    "file": "src/test/java/acme/FooTest.java",
+                },
+                {
+                    "project": project,
+                    "name": "foo",
+                    "url": f"https://github.com/acme/{project}/blob/abc123/src/test/java/acme/Foo.java#L7",
+                    "artifact": "#test-code #test-helper-method",
+                    "fqs": "acme.Foo.foo()",
+                    "file": "src/test/java/acme/Foo.java",
+                },
+            ]
+        ).to_csv(self.data / "method" / f"{project}.csv", index=False)
+
     def test_preprocess_filters_tags_and_prefers_exact_name_match(self):
         self._write_method_csv()
         pd.DataFrame(
@@ -192,6 +233,113 @@ class TestSmellWorkflowTest(unittest.TestCase):
         self.assertEqual("src/main/java/acme/FooService.java", selected["to_file"])
         self.assertEqual(2, selected["candidate_count"])
         self.assertGreater(selected["confidence"], 0)
+
+    def test_preprocess_skips_missing_method_csv(self):
+        with self.assertLogs(level="WARNING") as logs:
+            result = preprocess_project(
+                self._repository(),
+                str(self.repo),
+                str(self.data),
+                "callgraph",
+            )
+
+        self.assertIsNone(result)
+        self.assertIn("method CSV not found", "\n".join(logs.output))
+
+    def test_preprocess_skips_missing_callgraph_csv(self):
+        self._write_method_csv()
+
+        with self.assertLogs(level="WARNING") as logs:
+            result = preprocess_project(
+                self._repository(),
+                str(self.repo),
+                str(self.data),
+                "callgraph",
+            )
+
+        self.assertIsNone(result)
+        self.assertIn("callgraph CSV not found", "\n".join(logs.output))
+
+    def test_run_skips_precomputed_output_without_replace(self):
+        output_file = _postprocess_file(str(self.data), self.project)
+        output_file.parent.mkdir(parents=True)
+        output_file.write_text("project,name,smell,smell_detector,url,smell_begin,smell_end\n")
+        repository_df = pd.DataFrame([self._repository()])
+
+        with (
+            self.assertLogs(level="INFO") as logs,
+            patch("mhc.test_smell.preprocess_project") as mock_preprocess,
+            patch("mhc.test_smell.execute_project") as mock_execute,
+            patch("mhc.test_smell.postprocess_project") as mock_postprocess,
+        ):
+            run_test_smell(
+                repository_df,
+                str(self.repo),
+                str(self.data),
+                {"jnose": "/tmp/jnose.jar"},
+                [self.project],
+                "jnose",
+            )
+
+        self.assertIn("precomputed output already exists", "\n".join(logs.output))
+        mock_preprocess.assert_not_called()
+        mock_execute.assert_not_called()
+        mock_postprocess.assert_not_called()
+
+    def test_run_does_not_skip_precomputed_output_with_replace(self):
+        output_file = _postprocess_file(str(self.data), self.project)
+        output_file.parent.mkdir(parents=True)
+        output_file.write_text("project,name,smell,smell_detector,url,smell_begin,smell_end\n")
+        repository_df = pd.DataFrame([self._repository()])
+
+        with (
+            patch("mhc.test_smell.preprocess_project", return_value=pd.DataFrame()) as mock_preprocess,
+            patch("mhc.test_smell._ensure_repository_checkout") as mock_checkout,
+            patch("mhc.test_smell.execute_project") as mock_execute,
+            patch("mhc.test_smell.postprocess_project") as mock_postprocess,
+        ):
+            run_test_smell(
+                repository_df,
+                str(self.repo),
+                str(self.data),
+                {"jnose": "/tmp/jnose.jar"},
+                [self.project],
+                "jnose",
+                replace=True,
+            )
+
+        mock_preprocess.assert_called_once()
+        mock_checkout.assert_called_once()
+        mock_execute.assert_called_once()
+        mock_postprocess.assert_called_once()
+
+    def test_run_continues_when_one_project_dependency_is_missing(self):
+        valid_project = "valid"
+        self._write_minimal_method_csv(valid_project)
+        self._write_callgraph_csv(valid_project)
+        repository_df = pd.DataFrame(
+            [
+                self._repository().to_dict(),
+                {
+                    "project": valid_project,
+                    "url": f"https://github.com/acme/{valid_project}",
+                    "updated_hash": "abc123",
+                },
+            ]
+        )
+
+        run_test_smell(
+            repository_df,
+            str(self.repo),
+            str(self.data),
+            {"jnose": "/tmp/jnose.jar"},
+            [self.project, valid_project],
+            "jnose",
+            stage="preprocess",
+        )
+
+        self.assertFalse((self.data / ".test-smell" / "jnose" / "input" / f"{self.project}.csv").exists())
+        self.assertTrue((self.data / ".test-smell" / "jnose" / "input" / f"{valid_project}.csv").exists())
 
     def test_postprocess_splits_jnose_methods_and_maps_exact_method_urls(self):
         self._write_method_csv()

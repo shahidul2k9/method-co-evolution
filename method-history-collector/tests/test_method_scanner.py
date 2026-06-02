@@ -87,6 +87,7 @@ class FakeJavaMethod:
 class FakeMethodScannerImpl:
     init_calls = []
     scanned_files = []
+    evict_calls = 0
 
     @staticmethod
     def getInstance():
@@ -101,6 +102,9 @@ class FakeMethodScannerImpl:
         FakeMethodScannerImpl.scanned_files.append(file_without_base)
         _, repository_url, commit_hash, _, _ = FakeMethodScannerImpl.init_calls[-1]
         return [FakeJavaMethod(repository_url, commit_hash, file_without_base)]
+
+    def evictCache(self):
+        FakeMethodScannerImpl.evict_calls += 1
 
 
 class MethodScannerCacheTestCase(unittest.TestCase):
@@ -457,6 +461,151 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             )
             self.assertGreaterEqual(flush_results.call_count, 3)
             self.assertTrue(output_method_file.exists())
+
+    def test_scan_method_cache_eviction_disabled_by_default(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            repository_directory = root / "repositories"
+            data_directory = root
+            workspace_directory = root / "cache"
+            project_directory = repository_directory / "demo-project"
+
+            self._create_java_file(project_directory / "src" / "Alpha.java")
+            self._create_java_file(project_directory / "src" / "Beta.java")
+
+            FakeMethodScannerImpl.init_calls = []
+            FakeMethodScannerImpl.scanned_files = []
+            FakeMethodScannerImpl.evict_calls = 0
+            with patch("jpype.JClass", return_value=FakeMethodScannerImpl), patch.object(
+                ms, "clone_and_checkout_commit"
+            ):
+                ms.scan_method(
+                    self._repository_df(),
+                    str(repository_directory),
+                    str(data_directory),
+                    str(workspace_directory),
+                    merge_threshold=1,
+                    merge_interval_seconds=0,
+                )
+
+            self.assertEqual(0, FakeMethodScannerImpl.evict_calls)
+
+    def test_scan_method_evicts_cache_after_file_interval(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            repository_directory = root / "repositories"
+            data_directory = root
+            workspace_directory = root / "cache"
+            project_directory = repository_directory / "demo-project"
+
+            self._create_java_file(project_directory / "src" / "Alpha.java")
+            self._create_java_file(project_directory / "src" / "Beta.java")
+
+            FakeMethodScannerImpl.init_calls = []
+            FakeMethodScannerImpl.scanned_files = []
+            FakeMethodScannerImpl.evict_calls = 0
+            with patch("jpype.JClass", return_value=FakeMethodScannerImpl), patch.object(
+                ms, "clone_and_checkout_commit"
+            ):
+                ms.scan_method(
+                    self._repository_df(),
+                    str(repository_directory),
+                    str(data_directory),
+                    str(workspace_directory),
+                    cache_evict_interval_files=1,
+                )
+
+            self.assertEqual(2, FakeMethodScannerImpl.evict_calls)
+
+    def test_scan_method_init_reset_interval_zero_reuses_scanner(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            repository_directory = root / "repositories"
+            data_directory = root
+            workspace_directory = root / "cache"
+            project_directory = repository_directory / "demo-project"
+
+            self._create_java_file(project_directory / "src" / "Alpha.java")
+            self._create_java_file(project_directory / "src" / "Beta.java")
+
+            FakeMethodScannerImpl.init_calls = []
+            FakeMethodScannerImpl.scanned_files = []
+            FakeMethodScannerImpl.evict_calls = 0
+            with patch("jpype.JClass", return_value=FakeMethodScannerImpl), patch.object(
+                ms, "clone_and_checkout_commit"
+            ):
+                ms.scan_method(
+                    self._repository_df(),
+                    str(repository_directory),
+                    str(data_directory),
+                    str(workspace_directory),
+                    init_reset_interval_files=0,
+                )
+
+            self.assertEqual(1, len(FakeMethodScannerImpl.init_calls))
+            self.assertEqual(["src/Alpha.java", "src/Beta.java"], FakeMethodScannerImpl.scanned_files)
+
+    def test_scan_method_init_reset_interval_rebuilds_scanner(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            repository_directory = root / "repositories"
+            data_directory = root
+            workspace_directory = root / "cache"
+            project_directory = repository_directory / "demo-project"
+
+            self._create_java_file(project_directory / "src" / "Alpha.java")
+            self._create_java_file(project_directory / "src" / "Beta.java")
+
+            FakeMethodScannerImpl.init_calls = []
+            FakeMethodScannerImpl.scanned_files = []
+            FakeMethodScannerImpl.evict_calls = 0
+            with patch("jpype.JClass", return_value=FakeMethodScannerImpl), patch.object(
+                ms, "clone_and_checkout_commit"
+            ):
+                ms.scan_method(
+                    self._repository_df(),
+                    str(repository_directory),
+                    str(data_directory),
+                    str(workspace_directory),
+                    init_reset_interval_files=1,
+                )
+
+            self.assertEqual(2, len(FakeMethodScannerImpl.init_calls))
+            self.assertEqual(["src/Alpha.java", "src/Beta.java"], FakeMethodScannerImpl.scanned_files)
+
+    def test_cache_evict_reason_uses_time_or_file_threshold(self):
+        self.assertEqual(
+            "files",
+            ms._cache_evict_reason(10, 30, cache_evict_interval_files=10, cache_evict_interval_seconds=0),
+        )
+        self.assertEqual(
+            "seconds",
+            ms._cache_evict_reason(1, 300, cache_evict_interval_files=0, cache_evict_interval_seconds=300),
+        )
+        self.assertEqual(
+            "files+seconds",
+            ms._cache_evict_reason(10, 300, cache_evict_interval_files=10, cache_evict_interval_seconds=300),
+        )
+        self.assertIsNone(
+            ms._cache_evict_reason(9, 299, cache_evict_interval_files=10, cache_evict_interval_seconds=300)
+        )
+
+    def test_evict_method_scanner_cache_swallows_errors(self):
+        class BrokenScanner:
+            def evictCache(self):
+                raise RuntimeError("missing class")
+
+        with self.assertLogs(level="INFO") as logs:
+            success = ms._evict_method_scanner_cache(
+                BrokenScanner(),
+                "demo-project",
+                "files",
+                10,
+                30.0,
+            )
+
+        self.assertFalse(success)
+        self.assertIn("cache-evict finish project=demo-project success=False", "\n".join(logs.output))
 
     def test_scan_method_replace_ignores_existing_output(self):
         with tempfile.TemporaryDirectory() as temp_directory:

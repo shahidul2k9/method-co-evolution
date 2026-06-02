@@ -245,6 +245,18 @@ public class MethodScannerImpl implements MethodScanner {
         return result;
     }
 
+    @Override
+    public void evictCache() {
+        long startedAt = System.nanoTime();
+        try {
+            Class<?> facadeClass = Class.forName("com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade");
+            facadeClass.getMethod("clearInstances").invoke(null);
+            log.debug("MethodScannerImpl evictCache finish elapsed_seconds={}", secondsSince(startedAt));
+        } catch (Throwable ignored) {
+            log.debug("MethodScannerImpl evictCache skipped elapsed_seconds={}", secondsSince(startedAt));
+        }
+    }
+
     private static ResolvedSignature methodSignature(MethodDeclaration method, String tcTracerFqs, String file) {
         String astQualified = AltMethodDeclarationFqn.buildQualifiedParamSignature(method);
         String fqn = stripParameters(astQualified);

@@ -75,6 +75,9 @@ class TestCliArgs(unittest.TestCase):
             1,
             None,
             True,
+            0,
+            0,
+            2000,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -116,6 +119,8 @@ class TestCliArgs(unittest.TestCase):
             900,
             512,
             1,
+            None,
+            2000,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -138,7 +143,7 @@ class TestCliArgs(unittest.TestCase):
 
         mhc_main.main(["method-scan", *common_args])
         mock_mhc_instance.scan_method.assert_called_once_with(
-            ["checkstyle"], None, False, 1, 1, False, False, False, False, True, 10000, 900, 3, None, True
+            ["checkstyle"], None, False, 1, 1, False, False, False, False, True, 10000, 900, 3, None, True, 0, 0, 2000
         )
         mock_mhc_instance.scan_method.reset_mock()
 
@@ -165,6 +170,8 @@ class TestCliArgs(unittest.TestCase):
             900,
             256,
             3,
+            None,
+            2000,
         )
         mock_mhc_instance.generate_callgraph.reset_mock()
 
@@ -200,7 +207,7 @@ class TestCliArgs(unittest.TestCase):
 
         mhc_main.main(["test-smell", *common_args, "--tool-name", "jnose"])
         mock_mhc_instance.run_test_smell.assert_called_once_with(
-            ["checkstyle"], "jnose", "all", "callgraph", 3
+            ["checkstyle"], "jnose", "all", "callgraph", False, 3
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -224,6 +231,115 @@ class TestCliArgs(unittest.TestCase):
 
         self.assertEqual(cm.exception.code, 2)
         mock_build_collector.assert_not_called()
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_scanner_reset_alias_is_rejected(self, mock_build_collector):
+        with self.assertRaises(SystemExit) as cm:
+            mhc_main.main(
+                [
+                    "method-scan",
+                    "--workspace-directory",
+                    "workspace",
+                    "--repository-directory",
+                    "workspace/repository",
+                    "--jar-directory",
+                    "workspace/jar",
+                    "--project",
+                    "checkstyle",
+                    "--scanner-reset-interval",
+                    "500",
+                ]
+            )
+
+        self.assertEqual(cm.exception.code, 2)
+        mock_build_collector.assert_not_called()
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_init_reset_interval_files_is_threaded_to_scan_and_callgraph(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
+
+        common_args = [
+            "--workspace-directory",
+            "workspace",
+            "--repository-directory",
+            "workspace/repository",
+            "--jar-directory",
+            "workspace/jar",
+            "--project",
+            "checkstyle",
+            "--init-reset-interval-files",
+            "500",
+        ]
+
+        mhc_main.main(["method-scan", *common_args])
+        mock_mhc_instance.scan_method.assert_called_once_with(
+            ["checkstyle"],
+            None,
+            False,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
+            True,
+            10000,
+            900,
+            1,
+            None,
+            True,
+            0,
+            0,
+            500,
+        )
+        mock_mhc_instance.scan_method.reset_mock()
+
+        mhc_main.main(["method-callgraph", *common_args, "--tool-name", "methodParser"])
+        mock_mhc_instance.generate_callgraph.assert_called_once_with(
+            ["checkstyle"],
+            ["methodParser"],
+            False,
+            None,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
+            True,
+            10000,
+            900,
+            256,
+            1,
+            None,
+            500,
+        )
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_init_reset_interval_files_must_be_non_negative(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
+
+        with self.assertRaises(SystemExit) as cm:
+            mhc_main.main(
+                [
+                    "method-scan",
+                    "--workspace-directory",
+                    "workspace",
+                    "--repository-directory",
+                    "workspace/repository",
+                    "--jar-directory",
+                    "workspace/jar",
+                    "--project",
+                    "checkstyle",
+                    "--init-reset-interval-files",
+                    "-1",
+                ]
+            )
+
+        self.assertEqual(cm.exception.code, 1)
+        mock_mhc_instance.scan_method.assert_not_called()
 
     @patch("mhc.main._build_method_history_collector")
     def test_scan_method_accepts_replace(self, mock_build_collector):
@@ -261,6 +377,9 @@ class TestCliArgs(unittest.TestCase):
             1,
             None,
             True,
+            0,
+            0,
+            2000,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -301,6 +420,8 @@ class TestCliArgs(unittest.TestCase):
             900,
             256,
             1,
+            None,
+            2000,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -333,6 +454,38 @@ class TestCliArgs(unittest.TestCase):
             "jnose",
             "preprocess",
             "t2p-candidate-filtered",
+            False,
+            1,
+        )
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_test_smell_accepts_replace(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame([{"project": "commons-lang"}])
+
+        mhc_main.main(
+            [
+                "test-smell",
+                "--workspace-directory",
+                "workspace",
+                "--repository-directory",
+                "workspace/repository",
+                "--jar-directory",
+                "workspace/jar",
+                "--tool-name",
+                "jnose",
+                "--replace",
+                "--project",
+                "commons-lang",
+            ]
+        )
+
+        mock_mhc_instance.run_test_smell.assert_called_once_with(
+            ["commons-lang"],
+            "jnose",
+            "all",
+            "callgraph",
+            True,
             1,
         )
 
@@ -373,6 +526,9 @@ class TestCliArgs(unittest.TestCase):
             1,
             None,
             True,
+            0,
+            0,
+            2000,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -414,6 +570,9 @@ class TestCliArgs(unittest.TestCase):
             1,
             None,
             True,
+            0,
+            0,
+            2000,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -453,6 +612,53 @@ class TestCliArgs(unittest.TestCase):
             1,
             None,
             False,
+            0,
+            0,
+            2000,
+        )
+
+    @patch("mhc.main._build_method_history_collector")
+    def test_scan_method_accepts_cache_evict_intervals(self, mock_build_collector):
+        mock_mhc_instance = mock_build_collector.return_value
+        mock_mhc_instance.repository_df = pd.DataFrame([{"project": "checkstyle"}])
+
+        mhc_main.main(
+            [
+                "method-scan",
+                "--workspace-directory",
+                "workspace",
+                "--repository-directory",
+                "workspace/repository",
+                "--jar-directory",
+                "workspace/jar",
+                "--project",
+                "checkstyle",
+                "--cache-evict-interval-seconds",
+                "300",
+                "--cache-evict-interval-files",
+                "10000",
+            ]
+        )
+
+        mock_mhc_instance.scan_method.assert_called_once_with(
+            ["checkstyle"],
+            None,
+            False,
+            1,
+            1,
+            False,
+            False,
+            False,
+            False,
+            True,
+            10000,
+            900,
+            1,
+            None,
+            True,
+            300,
+            10000,
+            2000,
         )
 
     @patch("mhc.main._build_method_history_collector")

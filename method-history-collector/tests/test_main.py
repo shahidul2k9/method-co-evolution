@@ -158,6 +158,8 @@ class TestMhcScript(unittest.TestCase):
             900,
             256,
             1,
+            None,
+            2000,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -244,6 +246,9 @@ class TestMhcScript(unittest.TestCase):
             1,
             None,
             True,
+            0,
+            0,
+            2000,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -285,6 +290,9 @@ class TestMhcScript(unittest.TestCase):
             1,
             None,
             True,
+            0,
+            0,
+            2000,
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -326,6 +334,9 @@ class TestMhcScript(unittest.TestCase):
             1,
             None,
             True,
+            0,
+            0,
+            2000,
         )
 
     @patch("mhc.main._build_method_history_collector")

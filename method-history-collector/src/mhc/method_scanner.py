@@ -396,6 +396,50 @@ def _is_method_scan_file_completed(
         )
 
 
+def _evict_method_scanner_cache(
+    scanner,
+    repository_name: str,
+    reason: str,
+    completed_since_last_evict: int,
+    seconds_since_last_evict: float,
+) -> bool:
+    started_at = time.monotonic()
+    logging.info(
+        "method-scan cache-evict start project=%s reason=%s completed_since_last_evict=%s seconds_since_last_evict=%.1f",
+        repository_name,
+        reason,
+        completed_since_last_evict,
+        seconds_since_last_evict,
+    )
+    try:
+        scanner.evictCache()
+        success = True
+    except Exception as exc:
+        logging.debug("method-scan cache-evict failed project=%s error=%s", repository_name, exc)
+        success = False
+    logging.info(
+        "method-scan cache-evict finish project=%s success=%s elapsed_seconds=%.1f",
+        repository_name,
+        success,
+        time.monotonic() - started_at,
+    )
+    return success
+
+
+def _cache_evict_reason(
+    completed_since_last_evict: int,
+    seconds_since_last_evict: float,
+    cache_evict_interval_files: int,
+    cache_evict_interval_seconds: int,
+) -> str | None:
+    reasons = []
+    if cache_evict_interval_files > 0 and completed_since_last_evict >= cache_evict_interval_files:
+        reasons.append("files")
+    if cache_evict_interval_seconds > 0 and seconds_since_last_evict >= cache_evict_interval_seconds:
+        reasons.append("seconds")
+    return "+".join(reasons) if reasons else None
+
+
 def _flush_method_scan_buffers(
     method_cache_file: str,
     lock_path: str,
@@ -971,9 +1015,30 @@ def _scan_method_file_task(
     artifact_config_path: str | None,
     file: str,
     file_without_base: str,
+    init_reset_interval_files: int = 2000,
 ) -> list[dict]:
+    # Rebuild the scanner every init_reset_interval_files files to drop the
+    # JavaParserTypeSolver's internal ParseResult cache, which grows without
+    # bound and causes GC pressure. init_reset_interval_files=0 disables resets.
+    needs_reset = (
+        init_reset_interval_files > 0
+        and hasattr(thread_local, "scanner_file_count")
+        and thread_local.scanner_file_count >= init_reset_interval_files
+    )
+    if needs_reset:
+        del thread_local.scanner
+        files_since_init = thread_local.scanner_file_count
+        thread_local.scanner_file_count = 0
+        logging.info(
+            "method-scan scanner-init-reset thread=%s reason=interval interval_files=%s files_since_init=%s",
+            threading.current_thread().name,
+            init_reset_interval_files,
+            files_since_init,
+        )
     if not hasattr(thread_local, "scanner"):
         thread_local.scanner = _build_method_scanner(MethodScannerImpl, repository_root, url, commit_hash, artifact_config_path)
+        thread_local.scanner_file_count = 0
+    thread_local.scanner_file_count += 1
     started_at = time.monotonic()
     try:
         methods, error = _scan_methods_in_file(
@@ -1026,6 +1091,9 @@ def scan_method(
     merge_interval_seconds: int | None = None,
     max_workers: int = 1,
     artifact_config_path: str | None = None,
+    cache_evict_interval_seconds: int = 0,
+    cache_evict_interval_files: int = 0,
+    init_reset_interval_files: int = 2000,
 ):
     MethodScannerImpl = None
     if merge_interval_seconds is None:
@@ -1136,10 +1204,21 @@ def scan_method(
         scan_started_at = time.monotonic()
         last_progress_at = scan_started_at
         last_progress_completed = 0
+        last_cache_evict_time = scan_started_at
+        last_cache_evict_completed_files = 0
         completed_files = 0
         produced_rows = 0
         error_count = 0
         total_files = len(files_to_scan)
+        cache_evict_scanner = None
+        if cache_evict_interval_seconds > 0 or cache_evict_interval_files > 0:
+            cache_evict_scanner = MethodScannerImpl.getInstance()
+            logging.info(
+                "method-scan cache-evict configured project=%s interval_seconds=%s interval_files=%s",
+                repository_name,
+                cache_evict_interval_seconds,
+                cache_evict_interval_files,
+            )
         logging.info(
             "method-scan executor start project=%s submitted_files=%s max_workers=%s",
             repository_name,
@@ -1151,6 +1230,7 @@ def scan_method(
             scanner = _build_method_scanner(MethodScannerImpl, dot_file_directory, url, commit_hash, artifact_config_path)
             thread_local = threading.local()
             thread_local.scanner = scanner
+            thread_local.scanner_file_count = 0
             for file, file_without_base in files_to_scan:
                 try:
                     rows = _scan_method_file_task(
@@ -1163,6 +1243,7 @@ def scan_method(
                         artifact_config_path,
                         file,
                         file_without_base,
+                        init_reset_interval_files,
                     )
                 except Exception as exc:
                     logging.warning(
@@ -1177,6 +1258,25 @@ def scan_method(
                 if any(row.get(METHOD_SCAN_FLAG_COLUMN) == METHOD_SCAN_ERROR_MARKER for row in rows):
                     error_count += 1
                 pending_method_rows.extend(rows)
+                if cache_evict_scanner is not None:
+                    seconds_since_last_evict = time.monotonic() - last_cache_evict_time
+                    completed_since_last_evict = completed_files - last_cache_evict_completed_files
+                    reason = _cache_evict_reason(
+                        completed_since_last_evict,
+                        seconds_since_last_evict,
+                        cache_evict_interval_files,
+                        cache_evict_interval_seconds,
+                    )
+                    if reason is not None:
+                        _evict_method_scanner_cache(
+                            cache_evict_scanner,
+                            repository_name,
+                            reason,
+                            completed_since_last_evict,
+                            seconds_since_last_evict,
+                        )
+                        last_cache_evict_time = time.monotonic()
+                        last_cache_evict_completed_files = completed_files
                 last_progress_at, last_progress_completed = _maybe_log_scan_progress(
                     "method-scan",
                     repository_name,
@@ -1207,6 +1307,7 @@ def scan_method(
                         artifact_config_path,
                         file,
                         file_without_base,
+                        init_reset_interval_files,
                     ): file_without_base
                     for file, file_without_base in files_to_scan
                 }
@@ -1227,6 +1328,25 @@ def scan_method(
                     if any(row.get(METHOD_SCAN_FLAG_COLUMN) == METHOD_SCAN_ERROR_MARKER for row in rows):
                         error_count += 1
                     pending_method_rows.extend(rows)
+                    if cache_evict_scanner is not None:
+                        seconds_since_last_evict = time.monotonic() - last_cache_evict_time
+                        completed_since_last_evict = completed_files - last_cache_evict_completed_files
+                        reason = _cache_evict_reason(
+                            completed_since_last_evict,
+                            seconds_since_last_evict,
+                            cache_evict_interval_files,
+                            cache_evict_interval_seconds,
+                        )
+                        if reason is not None:
+                            _evict_method_scanner_cache(
+                                cache_evict_scanner,
+                                repository_name,
+                                reason,
+                                completed_since_last_evict,
+                                seconds_since_last_evict,
+                            )
+                            last_cache_evict_time = time.monotonic()
+                            last_cache_evict_completed_files = completed_files
                     last_progress_at, last_progress_completed = _maybe_log_scan_progress(
                         "method-scan",
                         repository_name,
