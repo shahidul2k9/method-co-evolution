@@ -144,7 +144,7 @@ def aggregate_csv_files(
         output_dir = Path(EXPERIMENT_DIRECTORY) / "aggregate"
 
     dfs = [
-        pd.read_csv(file, keep_default_na=False, na_filter=False)
+        pd.read_csv(file, keep_default_na=False, na_filter=False, low_memory=False)
         for file in Path(input_dir).rglob("*.csv")
     ]
     dfs = [df for df in dfs if not df.empty]
