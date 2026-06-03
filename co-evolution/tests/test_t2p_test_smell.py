@@ -157,6 +157,117 @@ class TestT2PTestSmell(unittest.TestCase):
             output_df = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
             self.assertEqual([REVISION_GROUP_1], output_df["revision_group_ch_diff"].tolist())
 
+    def test_generator_unlinks_stale_output_when_smell_file_missing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            self.write_t2p_change(
+                experiment_dir,
+                "demo",
+                [self.row("demo", "test://A", "prod://A", 2, 3, 20, 1)],
+            )
+            output_dir = output_directory(experiment_dir, "nc", "historyFinder", "jnose")
+            output_dir.mkdir(parents=True, exist_ok=True)
+            stale_output = output_dir / "demo.csv"
+            stale_output.write_text("project,from_url\ndemo,stale://test\n", encoding="utf-8")
+
+            with self.assertWarnsRegex(UserWarning, "deleted stale output"):
+                generator_main(
+                    [
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo-exp",
+                        "--tools",
+                        "historyFinder",
+                        "--strategies",
+                        "nc",
+                        "--projects",
+                        "demo",
+                        "--revision-types",
+                        "ch_diff",
+                        "--smell-detector",
+                        "jnose",
+                    ]
+                )
+
+            self.assertFalse(stale_output.exists())
+
+    def test_generator_unlinks_stale_output_when_revision_columns_missing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            self.write_t2p_change(
+                experiment_dir,
+                "demo",
+                [{"project": "demo", "from_url": "test://A", "to_url": "prod://A"}],
+            )
+            self.write_smells(experiment_dir, "demo", [{"url": "test://A", "smell": "AR"}])
+            output_dir = output_directory(experiment_dir, "nc", "historyFinder", "jnose")
+            output_dir.mkdir(parents=True, exist_ok=True)
+            stale_output = output_dir / "demo.csv"
+            stale_output.write_text("project,from_url\ndemo,stale://test\n", encoding="utf-8")
+
+            with self.assertWarnsRegex(UserWarning, "deleted stale output"):
+                generator_main(
+                    [
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo-exp",
+                        "--tools",
+                        "historyFinder",
+                        "--strategies",
+                        "nc",
+                        "--projects",
+                        "demo",
+                        "--revision-types",
+                        "ch_diff",
+                        "--smell-detector",
+                        "jnose",
+                    ]
+                )
+
+            self.assertFalse(stale_output.exists())
+
+    def test_generator_does_not_unlink_unselected_project_output(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            self.write_t2p_change(
+                experiment_dir,
+                "selected",
+                [self.row("selected", "test://A", "prod://A", 2, 3, 20, 1)],
+            )
+            self.write_t2p_change(
+                experiment_dir,
+                "unselected",
+                [self.row("unselected", "test://B", "prod://B", 2, 3, 20, 1)],
+            )
+            self.write_smells(experiment_dir, "selected", [{"url": "test://A", "smell": "AR"}])
+            output_dir = output_directory(experiment_dir, "nc", "historyFinder", "jnose")
+            output_dir.mkdir(parents=True, exist_ok=True)
+            untouched_output = output_dir / "unselected.csv"
+            untouched_output.write_text("project,from_url\nunselected,stale://test\n", encoding="utf-8")
+
+            generator_main(
+                [
+                    "--workspace-directory",
+                    tmpdir,
+                    "--experiment-name",
+                    "demo-exp",
+                    "--tools",
+                    "historyFinder",
+                    "--strategies",
+                    "nc",
+                    "--projects",
+                    "selected",
+                    "--revision-types",
+                    "ch_diff",
+                    "--smell-detector",
+                    "jnose",
+                ]
+            )
+
+            self.assertTrue(untouched_output.exists())
+
     def test_selected_revision_groups_validates_input(self):
         self.assertEqual([REVISION_GROUP_2, REVISION_GROUP_3], selected_revision_groups("RT,RRT"))
         with self.assertRaises(ValueError):

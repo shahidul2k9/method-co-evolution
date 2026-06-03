@@ -1,3 +1,4 @@
+import csv
 from pathlib import Path
 
 import pandas as pd
@@ -5,6 +6,15 @@ import pandas as pd
 from mhc.util import aggregate_csv_files
 
 __all__ = ["aggregate_csv_files", "aggregate_direct_csv_files"]
+
+
+def _detect_csv_separator(file: Path) -> str:
+    sample = file.read_text(errors="ignore")[:4096]
+    try:
+        return csv.Sniffer().sniff(sample, delimiters=",;").delimiter
+    except csv.Error:
+        first_line = sample.splitlines()[0] if sample else ""
+        return ";" if first_line.count(";") > first_line.count(",") else ","
 
 
 def aggregate_direct_csv_files(
@@ -17,11 +27,22 @@ def aggregate_direct_csv_files(
 
         output_dir = Path(EXPERIMENT_DIRECTORY) / "aggregate"
 
-    dfs = [
-        pd.read_csv(file, keep_default_na=False, na_filter=False, low_memory=False)
-        for file in Path(input_dir).glob("*.csv")
-    ]
-    dfs = [df for df in dfs if not df.empty]
+    dfs = []
+    for file in sorted(Path(input_dir).glob("*.csv")):
+        try:
+            df = pd.read_csv(
+                file,
+                sep=_detect_csv_separator(file),
+                keep_default_na=False,
+                na_filter=False,
+                low_memory=False,
+            )
+        except Exception as exc:
+            print(f"Warning: skipping unreadable CSV file {file}: {exc}")
+            continue
+
+        if not df.empty:
+            dfs.append(df)
 
     if not dfs:
         return

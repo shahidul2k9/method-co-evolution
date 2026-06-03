@@ -161,6 +161,14 @@ def output_directory(experiment_directory: Path, strategy: str, tool: str, smell
     return experiment_directory / OUTPUT_DIRECTORY_NAME / strategy / tool / smell_detector
 
 
+def unlink_stale_output(output_file: Path, reason: str) -> None:
+    if output_file.exists():
+        output_file.unlink()
+        warnings.warn(f"{reason}; deleted stale output: {output_file}")
+    else:
+        warnings.warn(f"{reason}; no stale output found: {output_file}")
+
+
 def process_strategy(
     project_files: list[Path],
     *,
@@ -174,13 +182,24 @@ def process_strategy(
 ) -> None:
     for project_file in project_files:
         project = project_file.stem
+        output_file = output_dir / f"{project}.csv"
         project_df = pd.read_csv(project_file, keep_default_na=False, na_filter=False)
         try:
             smell_df = read_smell_file(experiment_directory, smell_detector, project)
         except FileNotFoundError as exc:
-            warnings.warn(
+            unlink_stale_output(
+                output_file,
                 f"Skipping project={project}, tool={tool}, strategy={strategy}, "
-                f"smell_detector={smell_detector}: {exc}"
+                f"smell_detector={smell_detector}: {exc}",
+            )
+            continue
+
+        missing_base_columns = [column for column in ["from_url", "to_url"] if column not in project_df.columns]
+        if missing_base_columns:
+            unlink_stale_output(
+                output_file,
+                f"Skipping project={project}, tool={tool}, strategy={strategy}: "
+                f"missing required column(s): {', '.join(missing_base_columns)}",
             )
             continue
 
@@ -196,19 +215,34 @@ def process_strategy(
             )
         complete_revision_types = selected_complete_revision_types(project_df, revision_types)
         if not complete_revision_types:
+            unlink_stale_output(
+                output_file,
+                f"Skipping project={project}, tool={tool}, strategy={strategy}: "
+                "no selected revision types have both from/to columns",
+            )
             continue
 
-        output_df = build_project_frame(
-            project_df,
-            smell_df,
-            complete_revision_types,
-            project=project,
-            min_t2p_revision=min_t2p_revision,
-        )
+        try:
+            output_df = build_project_frame(
+                project_df,
+                smell_df,
+                complete_revision_types,
+                project=project,
+                min_t2p_revision=min_t2p_revision,
+            )
+        except ValueError as exc:
+            unlink_stale_output(
+                output_file,
+                f"Skipping project={project}, tool={tool}, strategy={strategy}: {exc}",
+            )
+            continue
         if output_df.empty:
+            unlink_stale_output(
+                output_file,
+                f"Skipping project={project}, tool={tool}, strategy={strategy}: generated frame is empty",
+            )
             continue
 
-        output_file = output_dir / f"{project}.csv"
         os.makedirs(output_file.parent, exist_ok=True)
         output_df.to_csv(output_file, index=False)
         print(
