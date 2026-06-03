@@ -40,12 +40,14 @@ def build_experiment_plot_parser(
     include_tools: bool = True,
     include_projects: bool = True,
     include_strategies: bool = True,
+    include_smell_detector: bool = False,
 ) -> "argparse.ArgumentParser":
     return build_experiment_parser(
         description,
         include_tools=include_tools,
         include_projects=include_projects,
         include_strategies=include_strategies,
+        include_smell_detector=include_smell_detector,
         tools_help="Comma-separated tool names to plot. Defaults to ME_TOOLS.",
         projects_help=(
             "Comma-separated project names to include. Defaults to ME_PROJECTS."

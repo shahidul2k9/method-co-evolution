@@ -4,6 +4,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import yaml
+
 from mhc import config
 from mhc.artifacts import split_tags
 
@@ -137,6 +139,41 @@ def resolve_min_t2p_links(min_t2p_links: str | int | None = None) -> int:
     if min_t2p_links is not None:
         return non_negative_int(min_t2p_links)
     return non_negative_int(_default_env_value("ME_MIN_T2P_LINKS", config.ME_MIN_T2P_LINKS) or "30")
+
+
+def resolve_smell_detector(smell_detector: str | None = None) -> str:
+    return (smell_detector or _default_env_value("ME_SMELL_DETECTOR", "jnose") or "jnose").strip()
+
+
+def test_smell_config_path() -> Path:
+    return Path(config.PROJECT_DIRECTORY) / "config" / "test-smell.yml"
+
+
+def load_test_smell_config(path: str | Path | None = None) -> dict:
+    config_path = Path(path) if path is not None else test_smell_config_path()
+    if not config_path.exists():
+        raise FileNotFoundError(f"Test smell config not found: {config_path}")
+    with config_path.open(encoding="utf-8") as config_file:
+        loaded = yaml.safe_load(config_file) or {}
+    if not isinstance(loaded, dict):
+        raise ValueError(f"Test smell config must be a mapping: {config_path}")
+    return loaded
+
+
+def load_test_smell_acronyms(smell_detector: str = "jnose", path: str | Path | None = None) -> dict[str, str]:
+    loaded = load_test_smell_config(path)
+    detector_config = loaded.get("smell_detectors", {}).get(smell_detector, {})
+    smells = detector_config.get("smells", {})
+    if not isinstance(smells, dict):
+        raise ValueError(f"Test smell config smells must be a mapping for detector={smell_detector!r}.")
+    return {str(full_name): str(acronym) for full_name, acronym in smells.items()}
+
+
+def load_test_smell_names(smell_detector: str = "jnose", path: str | Path | None = None) -> dict[str, str]:
+    names: dict[str, str] = {}
+    for full_name, acronym in load_test_smell_acronyms(smell_detector, path).items():
+        names.setdefault(acronym, full_name)
+    return names
 
 
 def artifact_matches(artifact: str | None, selected_artifacts: str | Sequence[str] | None = None) -> bool:
@@ -306,6 +343,7 @@ def build_experiment_parser(
     include_projects: bool = True,
     include_strategies: bool = True,
     include_revision_types: bool = False,
+    include_smell_detector: bool = False,
     include_workspace: bool = True,
     include_experiment: bool = True,
     include_replace: bool = False,
@@ -353,6 +391,14 @@ def build_experiment_parser(
             type=str,
             default=_default_env_value("ME_REVISION_TYPES", config.ME_REVISION_TYPES),
             help=revision_types_help or "Comma-separated revision types to include. Defaults to ME_REVISION_TYPES.",
+        )
+    if include_smell_detector:
+        parser.add_argument(
+            "--smell-detector",
+            dest="smell_detector",
+            type=str,
+            default=resolve_smell_detector(),
+            help="Test smell detector output to include. Defaults to ME_SMELL_DETECTOR or jnose.",
         )
     if include_experiment:
         parser.add_argument(

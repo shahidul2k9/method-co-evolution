@@ -1,0 +1,73 @@
+smell_detectors:
+  jnose:
+    smells:
+      Abnormal UTF-Use: AUU
+      Anonymous Test: AT
+      Assertion Roulette: AR
+      Assertionless: AL
+      Assertionless Test: ALT
+      Brittle Assertion: BA
+      Comments Only Test: COT
+      Conditional Test Logic: CTL
+      Constructor Initialization: CI
+      Control Logic: ConL
+      Dead Field: DF
+      Default Test: DT
+      Dependent Test: DepT
+      Duplicate Assert: DA
+      Duplicated Code: DC
+      Eager Test: ET
+      Early Returning Test: ERT
+      Empty Method Category: EMC
+      Empty Shared-Fixture: ESF
+      Empty Test: EmT
+      EmptyTest: EmT
+      Empty Test-Method Category: ETMC
+      Exception Handling: EH
+      Exception Catching Throwing: EH
+      For Testers Only: FTO
+      General Fixture: GF
+      Guarded Test: GT
+      Ignored Test: IgT
+      IgnoredTest: IgT
+      Indirect Testing: IT
+      Indented Test: InT
+      Lack of Cohesion of Methods: LCM
+      Lazy Test: LT
+      Likely Ineffective Object-Comparison: LIOC
+      Long Test: LoT
+      Magic Number Test: MNT
+      Max Instance Variables: MIV
+      Mixed Selectors: MS
+      Mystery Guest: MG
+      Obscure In-line Setup: OISS
+      Overcommented Test: OCT
+      Overreferencing: OF
+      Proper Organization: PO
+      Print Statement: RP
+      Redundant Assertion: RA
+      Redundant Print: RP
+      Resource Optimism: RO
+      Returning Assertion: RA
+      Rotten Green Tests: RT
+      Sensitive Equality: SE
+      Sleepy Test: ST
+      Teardown Only Test: TOT
+      Test Code Duplication: TCD
+      Test Maverick: TM
+      Test Pollution: TP
+      Test Redundancy: TR
+      Test Run War: TRW
+      Test-Class Name: TCN
+      Test-Method Category Name: TMC
+      Transcripting Test: TT
+      TTCN-3 Smells: TTCN
+      Unclassified Method Category: UMC
+      Under-the-carpet Assertion: UCA
+      Under-the-carpet failing Assertion: UCFA
+      Unknown Test: UT
+      Unused Inputs: UI
+      Unused Shared-Fixture Variables: USFV
+      Unusual Test Order: UTO
+      Vague Header Setup: VHS
+      Verbose Test: VT

@@ -12,7 +12,8 @@ dependencies = [
     "javalang",
     "python-dotenv",
     "PyGithub",
-    "requests"
+    "requests",
+    "PyYAML"
 ]
 
 [project.scripts]
