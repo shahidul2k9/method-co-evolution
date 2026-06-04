@@ -22,8 +22,10 @@ from ptc.generator.t2p_technique import (
     llm_strategy_directory_names,
     process_project,
     run_project_subprocesses,
+    selected_strategy_mask,
     TECHNIQUE_COLUMNS,
 )
+from ptc.link_strategy import LinkStrategy
 
 
 @unittest.skipIf(pd is None, "pandas is required for generate_t2p_tech tests")
@@ -181,6 +183,77 @@ class TestApplyLlmTechniques(unittest.TestCase):
         self.assertEqual(0, result_df.loc[0, "tech_leven"])
         self.assertIn("tech_combined", result_df.columns)
 
+    def test_traceability_techniques_compute_only_selected_columns(self):
+        candidate_df = pd.DataFrame(
+            [
+                {
+                    "from_url": "test://CalculatorTest.testAdd",
+                    "from_name": "testadd",
+                    "to_url": "prod://Calculator.add",
+                    "to_name": "add",
+                    "to_call_depth": 1,
+                    "to_lcba": 1,
+                }
+            ]
+        )
+
+        with (
+            patch("ptc.generator.t2p_technique._lcs_b_score") as lcs_b_score,
+            patch("ptc.generator.t2p_technique._lcs_u_score") as lcs_u_score,
+            patch("ptc.generator.t2p_technique._levenshtein_score") as levenshtein_score,
+            patch("ptc.generator.t2p_technique.tarantula._compute_tarantula_score") as tarantula_score,
+            patch("ptc.generator.t2p_technique.tfidf._compute_idf_score") as idf_score,
+        ):
+            result_df = apply_traceability_techniques(candidate_df, selected_columns=["tech_nc"])
+
+        self.assertEqual(1, result_df.loc[0, "tech_nc"])
+        self.assertNotIn("tech_ncc", result_df.columns)
+        self.assertNotIn("tech_combined", result_df.columns)
+        lcs_b_score.assert_not_called()
+        lcs_u_score.assert_not_called()
+        levenshtein_score.assert_not_called()
+        tarantula_score.assert_not_called()
+        idf_score.assert_not_called()
+
+    def test_traceability_techniques_combined_matches_full_computation(self):
+        candidate_df = pd.DataFrame(
+            [
+                {
+                    "from_url": "test://CalculatorTest.testAdd",
+                    "from_name": "testadd",
+                    "to_url": "prod://Calculator.add",
+                    "to_name": "add",
+                    "to_call_depth": 1,
+                    "to_lcba": 1,
+                },
+                {
+                    "from_url": "test://CalculatorTest.testAdd",
+                    "from_name": "testadd",
+                    "to_url": "prod://Calculator.format",
+                    "to_name": "format",
+                    "to_call_depth": 2,
+                    "to_lcba": 0,
+                },
+                {
+                    "from_url": "test://CalculatorTest.testFormat",
+                    "from_name": "testformat",
+                    "to_url": "prod://Calculator.format",
+                    "to_name": "format",
+                    "to_call_depth": 1,
+                    "to_lcba": 1,
+                },
+            ]
+        )
+
+        full_df = apply_traceability_techniques(candidate_df.copy())
+        combined_only_df = apply_traceability_techniques(
+            candidate_df.copy(),
+            selected_columns=["tech_combined"],
+        )
+
+        self.assertEqual(full_df["tech_combined"].tolist(), combined_only_df["tech_combined"].tolist())
+        self.assertNotIn("tech_nc", combined_only_df.columns)
+
     def test_existing_prediction_file_maps_rows_to_zero_or_one(self):
         candidate_df = pd.DataFrame(
             [
@@ -322,13 +395,13 @@ class TestApplyLlmTechniques(unittest.TestCase):
     def test_run_project_subprocesses_runs_one_child_per_project(self):
         args = SimpleNamespace(experiment_name=None, replace=False)
 
-        with patch("ptc.generator.generate_t2p_tech.subprocess.run") as run:
+        with patch("ptc.generator.t2p_technique.subprocess.run") as run:
             run_project_subprocesses(args, ["ant", "dubbo"])
 
         self.assertEqual(2, run.call_count)
         first_command = run.call_args_list[0].args[0]
         second_command = run.call_args_list[1].args[0]
-        self.assertIn("ptc.generator.generate_t2p_tech", first_command)
+        self.assertIn("ptc.generator.t2p_technique", first_command)
         self.assertIn("--projects", first_command)
         self.assertIn("ant", first_command)
         self.assertIn("--no-isolate-projects", first_command)
@@ -336,20 +409,54 @@ class TestApplyLlmTechniques(unittest.TestCase):
         self.assertIn("dubbo", second_command)
         self.assertTrue(all(call.kwargs["check"] for call in run.call_args_list))
 
-    def test_run_project_subprocesses_omits_replace_flag_when_replace_enabled(self):
-        args = SimpleNamespace(experiment_name=None, replace=True)
+    def test_run_project_subprocesses_passes_strategies_to_children(self):
+        args = SimpleNamespace(experiment_name=None, replace=False, strategies="nc,ncc")
 
-        with patch("ptc.generator.generate_t2p_tech.subprocess.run") as run:
+        with patch("ptc.generator.t2p_technique.subprocess.run") as run:
             run_project_subprocesses(args, ["ant"])
 
         command = run.call_args.args[0]
-        self.assertNotIn("--replace", command)
+        self.assertIn("--strategies", command)
+        self.assertIn("nc,ncc", command)
+
+    def test_run_project_subprocesses_omits_replace_flag_when_replace_enabled(self):
+        args = SimpleNamespace(experiment_name=None, replace=True)
+
+        with patch("ptc.generator.t2p_technique.subprocess.run") as run:
+            run_project_subprocesses(args, ["ant"])
+
+        command = run.call_args.args[0]
+        self.assertIn("--replace", command)
         self.assertNotIn("--no-replace", command)
 
     def test_build_parser_skip_existing_alias_sets_replace_false(self):
         args = build_parser().parse_args(["--skip-existing"])
 
         self.assertFalse(args.replace)
+
+    def test_build_parser_accepts_comma_separated_strategies(self):
+        args = build_parser().parse_args(["--strategies", "nc,ncc"])
+
+        self.assertEqual("nc,ncc", args.strategies)
+
+    def test_selected_strategy_mask_defaults_to_all(self):
+        self.assertEqual(LinkStrategy.ALL, selected_strategy_mask(None))
+
+    def test_selected_strategy_mask_accepts_multiple_strategies(self):
+        self.assertEqual(
+            LinkStrategy.NC | LinkStrategy.NCC,
+            selected_strategy_mask(["nc", "ncc"]),
+        )
+
+    def test_selected_strategy_mask_expands_composite_strategy(self):
+        self.assertEqual(
+            LinkStrategy.OMC | LinkStrategy.NC,
+            selected_strategy_mask(["omc--nc"]),
+        )
+
+    def test_selected_strategy_mask_rejects_unknown_strategy(self):
+        with self.assertRaisesRegex(ValueError, "Unknown strategy"):
+            selected_strategy_mask(["unknown"])
 
     def test_process_project_skip_existing_does_not_read_candidate_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -360,7 +467,7 @@ class TestApplyLlmTechniques(unittest.TestCase):
             (candidate_dir / "demo.csv").write_text("from_url,to_url\n", encoding="utf-8")
             (output_dir / "demo.csv").write_text("already,done\n", encoding="utf-8")
 
-            with patch("ptc.generator.generate_t2p_tech.pd.read_csv") as read_csv:
+            with patch("ptc.generator.t2p_technique.pd.read_csv") as read_csv:
                 process_project(
                     "demo",
                     "abc123",
@@ -394,12 +501,12 @@ class TestApplyLlmTechniques(unittest.TestCase):
             (output_dir / "demo.csv").write_text("already,done\n", encoding="utf-8")
 
             with (
-                patch("ptc.generator.generate_t2p_tech.pd.read_csv", return_value=candidate_df) as read_csv,
-                patch("ptc.generator.generate_t2p_tech.apply_traceability_techniques", return_value=candidate_df),
-                patch("ptc.generator.generate_t2p_tech.apply_llm_techniques", side_effect=lambda t2p_candidate_df, **_: t2p_candidate_df),
-                patch("ptc.generator.generate_t2p_tech.apply_testlinker_technique", side_effect=lambda t2p_candidate_df, **_: t2p_candidate_df),
+                patch("ptc.generator.t2p_technique.pd.read_csv", return_value=candidate_df) as read_csv,
+                patch("ptc.generator.t2p_technique.apply_traceability_techniques", return_value=candidate_df),
+                patch("ptc.generator.t2p_technique.apply_llm_techniques", side_effect=lambda t2p_candidate_df, **_: t2p_candidate_df),
+                patch("ptc.generator.t2p_technique.apply_testlinker_technique", side_effect=lambda t2p_candidate_df, **_: t2p_candidate_df),
                 patch(
-                    "ptc.generator.generate_t2p_tech.util.convert_float_int_columns_to_nullable_int",
+                    "ptc.generator.t2p_technique.util.convert_float_int_columns_to_nullable_int",
                     side_effect=lambda df: df,
                 ),
             ):
@@ -415,6 +522,54 @@ class TestApplyLlmTechniques(unittest.TestCase):
                 )
 
         read_csv.assert_called_once()
+
+    def test_process_project_sets_unselected_strategy_columns_to_null(self):
+        candidate_df = pd.DataFrame(
+            [
+                {
+                    "from_url": "f1",
+                    "from_name": "testthing",
+                    "to_url": "t1",
+                    "to_name": "thing",
+                    "to_call_depth": 1,
+                    "to_lcba": 1,
+                }
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            candidate_dir = Path(tmpdir) / "candidate"
+            output_dir = Path(tmpdir) / "output"
+            candidate_dir.mkdir()
+            output_dir.mkdir()
+            (candidate_dir / "demo.csv").write_text("from_url,to_url\nf1,t1\n", encoding="utf-8")
+
+            with (
+                patch("ptc.generator.t2p_technique.pd.read_csv", return_value=candidate_df),
+                patch(
+                    "ptc.generator.t2p_technique.util.convert_float_int_columns_to_nullable_int",
+                    side_effect=lambda df: df,
+                ),
+            ):
+                process_project(
+                    "demo",
+                    "abc123",
+                    ["qwen-2d5b"],
+                    t2p_candidate_dir=candidate_dir,
+                    output_dir=output_dir,
+                    llm_prediction_dir=Path(tmpdir) / "llm",
+                    testlinker_output_dir=Path(tmpdir) / "testlinker",
+                    replace=True,
+                    strategy_mask=LinkStrategy.NC,
+                )
+
+            output_df = pd.read_csv(output_dir / "demo.csv")
+
+        self.assertEqual(1.0, output_df.loc[0, "tech_nc"])
+        self.assertTrue(pd.isna(output_df.loc[0, "tech_ncc"]))
+        self.assertTrue(pd.isna(output_df.loc[0, "tech_lc"]))
+        self.assertTrue(pd.isna(output_df.loc[0, "tech_llm_qwen-2d5b"]))
+        self.assertTrue(pd.isna(output_df.loc[0, "tech_testlinker"]))
 
 
 if __name__ == "__main__":

@@ -21,6 +21,7 @@ if pd is not None:
         filter_expanded_candidate_files,
         filter_expanded_candidate_files_by_ground_truth,
     )
+    from ptc.generator.run_stats import GenerationStats
 
 
 @unittest.skipIf(pd is None, "pandas is required for filter candidate tests")
@@ -74,12 +75,21 @@ class TestFilterT2PCandidates(unittest.TestCase):
                 ]
             ).to_csv(expanded_dir / "demo.csv", index=False)
 
+            stats = GenerationStats("test")
             with redirect_stdout(StringIO()):
-                filter_expanded_candidate_files(expanded_dir, filtered_dir, selected_projects=None)
+                filter_expanded_candidate_files(
+                    expanded_dir,
+                    filtered_dir,
+                    selected_projects=None,
+                    replace=False,
+                    stats=stats,
+                )
 
             output_df = pd.read_csv(filtered_dir / "demo.csv", keep_default_na=False, na_filter=False)
             self.assertEqual(["from_url", "to_url"], output_df.columns.tolist())
             self.assertEqual([{"from_url": "test://one", "to_url": "prod://a"}], output_df.to_dict("records"))
+            self.assertEqual(1, stats.recreated)
+            self.assertEqual(1, stats.rows_written)
 
     def test_filter_expanded_candidate_files_by_ground_truth_filters_matching_project(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -98,17 +108,22 @@ class TestFilterT2PCandidates(unittest.TestCase):
             ).to_csv(expanded_dir / "demo.csv", index=False)
             pd.DataFrame([{"from_url": "test://one"}]).to_csv(ground_truth_dir / "demo.csv", index=False)
 
+            stats = GenerationStats("test")
             with redirect_stdout(StringIO()):
                 filter_expanded_candidate_files_by_ground_truth(
                     expanded_dir,
                     filtered_dir,
                     ground_truth_dir,
                     selected_projects=None,
+                    replace=False,
+                    stats=stats,
                 )
 
             output_df = pd.read_csv(filtered_dir / "demo.csv", keep_default_na=False, na_filter=False)
             self.assertEqual(["from_url", "to_url"], output_df.columns.tolist())
             self.assertEqual([{"from_url": "test://one", "to_url": "prod://a"}], output_df.to_dict("records"))
+            self.assertEqual(1, stats.recreated)
+            self.assertEqual(1, stats.rows_written)
 
     def test_filter_expanded_candidate_files_by_ground_truth_deletes_stale_output_when_missing_ground_truth(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -129,15 +144,20 @@ class TestFilterT2PCandidates(unittest.TestCase):
                 index=False,
             )
 
+            stats = GenerationStats("test")
             with redirect_stdout(StringIO()):
                 filter_expanded_candidate_files_by_ground_truth(
                     expanded_dir,
                     filtered_dir,
                     ground_truth_dir,
                     selected_projects=None,
+                    replace=False,
+                    stats=stats,
                 )
 
             self.assertFalse(stale_output.exists())
+            self.assertEqual(1, stats.deleted_stale)
+            self.assertEqual(1, stats.skipped_missing_input)
 
     def test_filter_expanded_candidate_files_by_ground_truth_does_not_create_output_when_missing_ground_truth(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -153,15 +173,51 @@ class TestFilterT2PCandidates(unittest.TestCase):
                 index=False,
             )
 
+            stats = GenerationStats("test")
             with redirect_stdout(StringIO()):
                 filter_expanded_candidate_files_by_ground_truth(
                     expanded_dir,
                     filtered_dir,
                     ground_truth_dir,
                     selected_projects=None,
+                    replace=False,
+                    stats=stats,
                 )
 
             self.assertFalse((filtered_dir / "demo.csv").exists())
+            self.assertEqual(1, stats.missing_stale)
+            self.assertEqual(1, stats.skipped_missing_input)
+
+    def test_filter_expanded_candidate_files_skips_existing_without_replace(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            expanded_dir = root / "t2p-candidate-expanded"
+            filtered_dir = root / "t2p-candidate-filtered"
+            expanded_dir.mkdir()
+            filtered_dir.mkdir()
+            pd.DataFrame([{"from_url": "test://new", "to_url": "prod://new"}]).to_csv(
+                expanded_dir / "demo.csv",
+                index=False,
+            )
+            pd.DataFrame([{"from_url": "test://old", "to_url": "prod://old"}]).to_csv(
+                filtered_dir / "demo.csv",
+                index=False,
+            )
+
+            stats = GenerationStats("test")
+            with redirect_stdout(StringIO()) as stdout:
+                filter_expanded_candidate_files(
+                    expanded_dir,
+                    filtered_dir,
+                    selected_projects=None,
+                    replace=False,
+                    stats=stats,
+                )
+
+            output_df = pd.read_csv(filtered_dir / "demo.csv", keep_default_na=False, na_filter=False)
+            self.assertEqual("test://old", output_df["from_url"].iloc[0])
+            self.assertIn("Skipping existing: demo", stdout.getvalue())
+            self.assertEqual(1, stats.skipped_existing)
 
 
 if __name__ == "__main__":

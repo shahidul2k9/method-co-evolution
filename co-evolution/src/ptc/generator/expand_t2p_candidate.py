@@ -5,6 +5,7 @@ import pandas as pd
 
 from mhc.artifacts import is_test_case_method, is_test_code, is_main_code
 from mhc.command_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
+from ptc.generator.run_stats import GenerationStats, should_generate, unlink_stale_output
 
 
 MAX_EXPANSION_DEPTH = 5
@@ -15,6 +16,7 @@ def build_parser():
         "Expand test-to-production candidate links through test helper calls.",
         include_tools=False,
         include_strategies=False,
+        include_replace=True,
         projects_help="Comma-separated project names to process.",
     )
 
@@ -109,6 +111,7 @@ def expand_candidate_df(
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    stats = GenerationStats("expand_t2p_candidate")
     experiment_directory = resolve_experiment_paths(
         getattr(args, "workspace_directory", None),
         args.experiment_name,
@@ -128,23 +131,31 @@ def main(argv: list[str] | None = None) -> None:
         project = repo["project"]
         fanout_file = fanout_dir / f"{project}.csv"
         method_file = method_dir / f"{project}.csv"
+        expanded_file = expanded_t2p_candidate_dir / f"{project}.csv"
 
-        if os.path.exists(fanout_file) and os.path.exists(method_file):
-            print(f"Processing: {project}")
-            fan_out_df = pd.read_csv(fanout_file, na_filter=False, keep_default_na=False, low_memory=False)
-            method_df = pd.read_csv(method_file, na_filter=False, keep_default_na=False, low_memory=False)
-            expanded_df = expand_candidate_df(fan_out_df, method_df)
-            expanded_file = expanded_t2p_candidate_dir / f"{project}.csv"
-            expanded_df.to_csv(expanded_file, index=False)
-        else:
-            missing = []
-            if not os.path.exists(fanout_file):
-                missing.append("callgraph")
-            if not os.path.exists(method_file):
-                missing.append("method")
-            print(f"Skipping: {project} (missing {', '.join(missing)} file)")
+        missing = []
+        if not os.path.exists(fanout_file):
+            missing.append("callgraph")
+        if not os.path.exists(method_file):
+            missing.append("method")
+        if missing:
+            unlink_stale_output(
+                expanded_file,
+                reason=f"Skipping: {project} (missing {', '.join(missing)} file)",
+                stats=stats,
+            )
+            continue
+        if not should_generate(expanded_file, replace=args.replace, label=project, stats=stats):
+            continue
 
-    print("Finished.")
+        print(f"Processing: {project}")
+        fan_out_df = pd.read_csv(fanout_file, na_filter=False, keep_default_na=False, low_memory=False)
+        method_df = pd.read_csv(method_file, na_filter=False, keep_default_na=False, low_memory=False)
+        expanded_df = expand_candidate_df(fan_out_df, method_df)
+        expanded_df.to_csv(expanded_file, index=False)
+        stats.record_write(len(expanded_df))
+
+    stats.print_summary()
 
 
 if __name__ == "__main__":

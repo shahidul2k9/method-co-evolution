@@ -5,8 +5,15 @@ import pandas as pd
 from mhc.artifacts import is_test_case_method, is_main_code
 from pytctracer.config.constants.technique_threshold import TechniqueThreshold
 
-from mhc.command_util import build_experiment_parser, list_csv_files, resolve_experiment_filters, resolve_experiment_paths
+from mhc.command_util import (
+    build_experiment_parser,
+    list_csv_files,
+    resolve_experiment_filters,
+    resolve_experiment_paths,
+    select_named_items,
+)
 from ptc.link_strategy import *
+from ptc.generator.run_stats import GenerationStats, should_generate, unlink_stale_output
 
 LINK_STRATEGY_PRIORITY: list[LinkStrategy] = [
     LinkStrategy.OMC,
@@ -70,8 +77,9 @@ def build_parser():
     return build_experiment_parser(
         "Generate test-to-production links from method-to-method technique scores.",
         include_tools=False,
-        include_strategies=False,
+        include_replace=True,
         projects_help="Comma-separated project names to process.",
+        strategies_help="Comma-separated link strategy names to process.",
     )
 
 
@@ -256,6 +264,19 @@ def strategy_output_key(mask: LinkStrategy) -> str:
     return "--".join(parts) if parts else "none"
 
 
+def select_link_strategies(selected_strategies: list[str] | None) -> list[LinkStrategy]:
+    strategy_by_key = {
+        strategy_output_key(link_strategy): link_strategy
+        for link_strategy in METHOD_LINK_STRATEGIES
+    }
+    selected_keys = select_named_items(
+        list(strategy_by_key),
+        selected_strategies,
+        item_label="strategy",
+    )
+    return [strategy_by_key[key] for key in selected_keys]
+
+
 def filter_test_case_to_main_code_links(t2p_link_df: pd.DataFrame) -> pd.DataFrame:
     return t2p_link_df[
         t2p_link_df["from_artifact"].map(is_test_case_method)
@@ -265,18 +286,46 @@ def filter_test_case_to_main_code_links(t2p_link_df: pd.DataFrame) -> pd.DataFra
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    stats = GenerationStats("t2p_link")
     experiment_directory = resolve_experiment_paths(
         getattr(args, "workspace_directory", None),
         args.experiment_name,
     ).experiment_directory
-    _, selected_projects, _ = resolve_experiment_filters(
+    _, selected_projects, selected_strategies = resolve_experiment_filters(
         projects=args.projects,
+        strategies=args.strategies,
     )
+    link_strategies = select_link_strategies(selected_strategies)
     for t2p_tech_file in list_csv_files(experiment_directory / "t2p-tech", selected_projects, strict=False):
+        repository_name = t2p_tech_file.stem
+        pending_strategies = []
+        for link_strategy in link_strategies:
+            output_file = experiment_directory / "t2p-link" / strategy_output_key(link_strategy) / f"{repository_name}.csv"
+            if should_generate(
+                output_file,
+                replace=args.replace,
+                label=f"{repository_name} [{strategy_output_key(link_strategy)}]",
+                stats=stats,
+            ):
+                pending_strategies.append((link_strategy, output_file))
+        if not pending_strategies:
+            continue
+
+        method_file = experiment_directory / "method" / f"{repository_name}.csv"
+        if not method_file.exists():
+            for _, output_file in pending_strategies:
+                unlink_stale_output(
+                    output_file,
+                    reason=f"Skipping: {repository_name} (missing method file)",
+                    stats=stats,
+                )
+            continue
+
+        print("Processing:", repository_name)
         t2p_tech_df = pd.read_csv(t2p_tech_file, keep_default_na=False, na_filter=False)
         assert len(t2p_tech_df["project"].unique()) == 1, "Each file must be for the same repository_name"
         repository_name = t2p_tech_df["project"].iloc[0]
-        method_df = pd.read_csv(experiment_directory / "method" / f"{repository_name}.csv", keep_default_na=False, na_filter=False, low_memory=True)
+        method_df = pd.read_csv(method_file, keep_default_na=False, na_filter=False, low_memory=False)
         method_df = method_df[["url", "artifact"]]
 
         t2p_link_df = (t2p_tech_df.merge(method_df.add_prefix("from_"), on="from_url", how="inner")
@@ -293,14 +342,16 @@ def main(argv: list[str] | None = None) -> None:
         # )
         # t2p_link_df = t2p_link_df[~(is_constructor & groups_with_methods)]
 
-        for link_strategy in METHOD_LINK_STRATEGIES:
+        for link_strategy, t2p_file in pending_strategies:
             keep_mask = select_links_cascade(t2p_link_df, link_strategy)
             unique_t2p_link_df = t2p_link_df.loc[keep_mask].copy()
             unique_t2p_link_df = unique_t2p_link_df.drop_duplicates(subset=["from_url", "to_url"])
             print(repository_name, strategy_output_key(link_strategy), len(unique_t2p_link_df))
-            t2p_file = experiment_directory / "t2p-link" / strategy_output_key(link_strategy) / f"{repository_name}.csv"
             os.makedirs(t2p_file.parent, exist_ok=True)
             unique_t2p_link_df.to_csv(t2p_file, index=False)
+            stats.record_write(len(unique_t2p_link_df))
+
+    stats.print_summary()
 
 
 if __name__ == "__main__":

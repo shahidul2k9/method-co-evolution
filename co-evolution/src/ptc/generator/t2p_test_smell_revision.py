@@ -19,6 +19,7 @@ from mhc.command_util import (
     select_revision_columns,
 )
 from ptc.constants import MethodChangeType
+from ptc.generator.run_stats import GenerationStats, should_generate, unlink_stale_output
 
 CHANGE_COLUMNS = [
     "ch_all",
@@ -45,6 +46,7 @@ def build_parser():
         "Generate linked test smell rows with test-production revision groups.",
         include_revision_types=True,
         include_smell_detector=True,
+        include_replace=True,
         projects_help="Comma-separated project names to process. Defaults to ME_PROJECTS.",
         strategies_help="Comma-separated strategy names to process. Defaults to ME_STRATEGIES.",
         revision_types_help="Comma-separated revision types to include. Defaults to ME_REVISION_TYPES.",
@@ -161,14 +163,6 @@ def output_directory(experiment_directory: Path, strategy: str, tool: str, smell
     return experiment_directory / OUTPUT_DIRECTORY_NAME / strategy / tool / smell_detector
 
 
-def unlink_stale_output(output_file: Path, reason: str) -> None:
-    if output_file.exists():
-        output_file.unlink()
-        warnings.warn(f"{reason}; deleted stale output: {output_file}")
-    else:
-        warnings.warn(f"{reason}; no stale output found: {output_file}")
-
-
 def process_strategy(
     project_files: list[Path],
     *,
@@ -179,27 +173,34 @@ def process_strategy(
     smell_detector: str,
     revision_types: list[str],
     min_t2p_revision: int,
+    replace: bool,
+    stats: GenerationStats,
 ) -> None:
     for project_file in project_files:
         project = project_file.stem
         output_file = output_dir / f"{project}.csv"
-        project_df = pd.read_csv(project_file, keep_default_na=False, na_filter=False)
-        try:
-            smell_df = read_smell_file(experiment_directory, smell_detector, project)
-        except FileNotFoundError as exc:
+        smell_file = experiment_directory / "test-smell" / smell_detector / f"{project}.csv"
+        if not smell_file.exists():
             unlink_stale_output(
                 output_file,
-                f"Skipping project={project}, tool={tool}, strategy={strategy}, "
-                f"smell_detector={smell_detector}: {exc}",
+                reason=(
+                    f"Skipping project={project}, tool={tool}, strategy={strategy}, "
+                    f"smell_detector={smell_detector}: Test smell CSV not found: {smell_file}"
+                ),
+                stats=stats,
             )
             continue
+        project_df = pd.read_csv(project_file, keep_default_na=False, na_filter=False)
 
         missing_base_columns = [column for column in ["from_url", "to_url"] if column not in project_df.columns]
         if missing_base_columns:
             unlink_stale_output(
                 output_file,
-                f"Skipping project={project}, tool={tool}, strategy={strategy}: "
-                f"missing required column(s): {', '.join(missing_base_columns)}",
+                reason=(
+                    f"Skipping project={project}, tool={tool}, strategy={strategy}: "
+                    f"missing required column(s): {', '.join(missing_base_columns)}"
+                ),
+                stats=stats,
             )
             continue
 
@@ -217,10 +218,24 @@ def process_strategy(
         if not complete_revision_types:
             unlink_stale_output(
                 output_file,
-                f"Skipping project={project}, tool={tool}, strategy={strategy}: "
-                "no selected revision types have both from/to columns",
+                reason=(
+                    f"Skipping project={project}, tool={tool}, strategy={strategy}: "
+                    "no selected revision types have both from/to columns"
+                ),
+                stats=stats,
             )
             continue
+
+        if not should_generate(
+            output_file,
+            replace=replace,
+            label=f"{project} [{tool}/{strategy}/{smell_detector}]",
+            stats=stats,
+        ):
+            continue
+
+        print(f"Processing: {project} [{tool}/{strategy}/{smell_detector}]")
+        smell_df = read_smell_file(experiment_directory, smell_detector, project)
 
         try:
             output_df = build_project_frame(
@@ -233,18 +248,22 @@ def process_strategy(
         except ValueError as exc:
             unlink_stale_output(
                 output_file,
-                f"Skipping project={project}, tool={tool}, strategy={strategy}: {exc}",
+                reason=f"Skipping project={project}, tool={tool}, strategy={strategy}: {exc}",
+                stats=stats,
             )
             continue
         if output_df.empty:
             unlink_stale_output(
                 output_file,
-                f"Skipping project={project}, tool={tool}, strategy={strategy}: generated frame is empty",
+                reason=f"Skipping project={project}, tool={tool}, strategy={strategy}: generated frame is empty",
+                stats=stats,
             )
+            stats.record_empty_output()
             continue
 
         os.makedirs(output_file.parent, exist_ok=True)
         output_df.to_csv(output_file, index=False)
+        stats.record_write(len(output_df))
         print(
             f"project={project}, tool={tool}, strategy={strategy}, smell_detector={smell_detector}: "
             f"rows={len(output_df)}, revisions={','.join(complete_revision_types)}"
@@ -253,6 +272,7 @@ def process_strategy(
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    stats = GenerationStats("t2p_test_smell_revision")
     experiment_directory = resolve_experiment_paths(
         getattr(args, "workspace_directory", None),
         args.experiment_name,
@@ -277,6 +297,7 @@ def main(argv: list[str] | None = None) -> None:
     t2p_change_dir = experiment_directory / "t2p-change"
     if not t2p_change_dir.exists():
         warnings.warn(f"Directory not found, skipping: {t2p_change_dir}")
+        stats.print_summary()
         return
 
     tools = select_named_items(util.sorted_directory_names(t2p_change_dir), selected_tools, item_label="tool")
@@ -302,7 +323,10 @@ def main(argv: list[str] | None = None) -> None:
                 smell_detector=smell_detector,
                 revision_types=selected_revision_types,
                 min_t2p_revision=args.min_t2p_revision,
+                replace=args.replace,
+                stats=stats,
             )
+    stats.print_summary()
 
 
 if __name__ == "__main__":

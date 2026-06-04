@@ -26,6 +26,7 @@ from ptc.generator.t2p_test_smell_revision import (
     REVISION_GROUP_ORDER,
     output_directory,
 )
+from ptc.generator.run_stats import GenerationStats, should_generate, unlink_stale_output
 
 ALL_SMELLS = "all"
 OUTPUT_FILE_NAME = "t2p-test-smell-prevalence.csv"
@@ -47,6 +48,7 @@ def build_parser():
         "Aggregate test-smell prevalence by linked revision group.",
         include_revision_types=True,
         include_smell_detector=True,
+        include_replace=True,
         projects_help="Comma-separated project names to include. Defaults to ME_PROJECTS.",
         strategies_help="Comma-separated strategy names to include. Defaults to ME_STRATEGIES.",
         revision_types_help="Comma-separated revision types to include. Defaults to ME_REVISION_TYPES.",
@@ -95,6 +97,7 @@ def load_generated_frames(
     csv_files = list_csv_files(input_dir, selected_projects, strict=False)
     frames = []
     for csv_file in csv_files:
+        print(f"Processing: {csv_file.stem} [{tool}/{strategy}/{smell_detector}]")
         frame = pd.read_csv(csv_file, keep_default_na=False, na_filter=False)
         if len(frame) < min_t2p_links:
             warnings.warn(
@@ -165,10 +168,12 @@ def prevalence_rows(
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    stats = GenerationStats("t2p_test_smell_prevalence")
     experiment_directory = resolve_experiment_paths(
         getattr(args, "workspace_directory", None),
         args.experiment_name,
     ).experiment_directory
+    output_file = experiment_directory / "aggregate" / OUTPUT_FILE_NAME
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
         tools=args.tools,
         projects=args.projects,
@@ -184,7 +189,15 @@ def main(argv: list[str] | None = None) -> None:
 
     generated_dir = experiment_directory / OUTPUT_DIRECTORY_NAME
     if not generated_dir.exists():
-        warnings.warn(f"Directory not found, skipping: {generated_dir}")
+        unlink_stale_output(
+            output_file,
+            reason=f"Directory not found, skipping: {generated_dir}",
+            stats=stats,
+        )
+        stats.print_summary()
+        return
+    if not should_generate(output_file, replace=args.replace, label=OUTPUT_FILE_NAME, stats=stats):
+        stats.print_summary()
         return
 
     rows = []
@@ -222,7 +235,6 @@ def main(argv: list[str] | None = None) -> None:
                     )
                 )
 
-    output_file = experiment_directory / "aggregate" / OUTPUT_FILE_NAME
     os.makedirs(output_file.parent, exist_ok=True)
     output_df = pd.DataFrame(rows, columns=PREVALENCE_COLUMNS)
     if not output_df.empty:
@@ -230,7 +242,11 @@ def main(argv: list[str] | None = None) -> None:
             ["strategy", "tool", "smell_detector", "change", "revision_group", "smell"]
         ).reset_index(drop=True)
     output_df.to_csv(output_file, index=False)
+    if output_df.empty:
+        stats.record_empty_output()
+    stats.record_write(len(output_df))
     print(f"Wrote {output_file}")
+    stats.print_summary()
 
 
 if __name__ == "__main__":

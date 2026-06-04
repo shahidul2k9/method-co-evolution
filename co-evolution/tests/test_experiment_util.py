@@ -23,7 +23,7 @@ from mhc.command_util import (
 
 
 class TestExperimentParser(unittest.TestCase):
-    def test_replace_option_defaults_to_true_when_included(self):
+    def test_replace_option_defaults_to_false_when_included(self):
         parser = build_experiment_parser(
             "demo",
             include_replace=True,
@@ -31,7 +31,7 @@ class TestExperimentParser(unittest.TestCase):
 
         args = parser.parse_args([])
 
-        self.assertTrue(args.replace)
+        self.assertFalse(args.replace)
 
     def test_replace_option_parses_true(self):
         parser = build_experiment_parser(
@@ -60,13 +60,21 @@ class TestExperimentParser(unittest.TestCase):
 
         self.assertFalse(hasattr(args, "replace"))
 
-    def test_replace_default_can_come_from_env(self):
+    def test_replace_default_false_can_come_from_env(self):
         with mock.patch.dict("os.environ", {"ME_REPLACE": "false"}):
             parser = build_experiment_parser("demo", include_replace=True)
 
         args = parser.parse_args([])
 
         self.assertFalse(args.replace)
+
+    def test_replace_default_true_can_come_from_env(self):
+        with mock.patch.dict("os.environ", {"ME_REPLACE": "true"}):
+            parser = build_experiment_parser("demo", include_replace=True)
+
+        args = parser.parse_args([])
+
+        self.assertTrue(args.replace)
 
     def test_filters_resolve_from_new_env_defaults(self):
         with mock.patch.dict(
