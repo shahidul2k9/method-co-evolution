@@ -34,6 +34,49 @@ def filter_candidate_df_by_ground_truth(candidate_df: pd.DataFrame, ground_truth
     return candidate_df[candidate_df["from_url"].isin(ground_truth_from_urls)].copy()
 
 
+def is_empty_file(csv_file: Path) -> bool:
+    return csv_file.exists() and csv_file.stat().st_size == 0
+
+
+def read_csv_or_unlink_stale(
+    csv_file: Path,
+    output_file: Path,
+    *,
+    input_label: str,
+    required_columns: set[str],
+    stats: GenerationStats,
+    low_memory: bool = True,
+) -> pd.DataFrame | None:
+    try:
+        df = pd.read_csv(
+            csv_file,
+            keep_default_na=False,
+            na_filter=False,
+            low_memory=low_memory,
+        )
+    except pd.errors.EmptyDataError:
+        stats.record_empty_output()
+        unlink_stale_output(
+            output_file,
+            reason=f"Skipping {csv_file.stem}; empty {input_label} CSV: {csv_file}",
+            stats=stats,
+        )
+        return None
+
+    missing_columns = required_columns.difference(df.columns)
+    if missing_columns:
+        unlink_stale_output(
+            output_file,
+            reason=(
+                f"Skipping {csv_file.stem}; {input_label} CSV missing required column(s): "
+                f"{', '.join(sorted(missing_columns))}"
+            ),
+            stats=stats,
+        )
+        return None
+    return df
+
+
 def print_ground_truth_filter_summary(rows: list[dict[str, object]], filtered_t2p_candidate_dir: Path) -> None:
     if not rows:
         return
@@ -75,11 +118,28 @@ def filter_expanded_candidate_files(
 ) -> None:
     for candidate_file in list_csv_files(expanded_t2p_candidate_dir, selected_projects, strict=False):
         output_file = filtered_t2p_candidate_dir / candidate_file.name
+        if is_empty_file(candidate_file):
+            stats.record_empty_output()
+            unlink_stale_output(
+                output_file,
+                reason=f"Skipping {candidate_file.stem}; empty candidate CSV: {candidate_file}",
+                stats=stats,
+            )
+            continue
         if not should_generate(output_file, replace=replace, label=candidate_file.stem, stats=stats):
             continue
 
         print("Processing:", candidate_file.stem)
-        candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False)
+        candidate_df = read_csv_or_unlink_stale(
+            candidate_file,
+            output_file,
+            input_label="candidate",
+            required_columns={"from_url", "to_url"},
+            stats=stats,
+            low_memory=True,
+        )
+        if candidate_df is None:
+            continue
         filtered_df = filter_candidate_df(candidate_df)
         filtered_df.to_csv(output_file, index=False)
         stats.record_write(len(filtered_df))
@@ -106,13 +166,47 @@ def filter_expanded_candidate_files_by_ground_truth(
                 stats=stats,
             )
             continue
+        if is_empty_file(candidate_file):
+            stats.record_empty_output()
+            unlink_stale_output(
+                output_file,
+                reason=f"Skipping {candidate_file.stem}; empty candidate CSV: {candidate_file}",
+                stats=stats,
+            )
+            continue
+        if is_empty_file(ground_truth_file):
+            stats.record_empty_output()
+            unlink_stale_output(
+                output_file,
+                reason=f"Skipping {candidate_file.stem}; empty ground-truth CSV: {ground_truth_file}",
+                stats=stats,
+            )
+            continue
         if not should_generate(output_file, replace=replace, label=candidate_file.stem, stats=stats):
             continue
 
         print("Processing:", candidate_file.stem)
-        candidate_df = pd.read_csv(candidate_file, keep_default_na=False, na_filter=False, low_memory=False)
+        candidate_df = read_csv_or_unlink_stale(
+            candidate_file,
+            output_file,
+            input_label="candidate",
+            required_columns={"from_url", "to_url"},
+            stats=stats,
+            low_memory=False,
+        )
+        if candidate_df is None:
+            continue
         candidate_df = filter_candidate_df(candidate_df)
-        ground_truth_df = pd.read_csv(ground_truth_file, keep_default_na=False, na_filter=False)
+        ground_truth_df = read_csv_or_unlink_stale(
+            ground_truth_file,
+            output_file,
+            input_label="ground-truth",
+            required_columns={"from_url"},
+            stats=stats,
+            low_memory=True,
+        )
+        if ground_truth_df is None:
+            continue
         filtered_df = filter_candidate_df_by_ground_truth(candidate_df, ground_truth_df)
         filtered_df.to_csv(output_file, index=False)
         stats.record_write(len(filtered_df))

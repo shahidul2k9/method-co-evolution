@@ -219,6 +219,69 @@ class TestFilterT2PCandidates(unittest.TestCase):
             self.assertIn("Skipping existing: demo", stdout.getvalue())
             self.assertEqual(1, stats.skipped_existing)
 
+    def test_filter_expanded_candidate_files_deletes_stale_output_for_empty_candidate_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            expanded_dir = root / "t2p-candidate-expanded"
+            filtered_dir = root / "t2p-candidate-filtered"
+            expanded_dir.mkdir()
+            filtered_dir.mkdir()
+            (expanded_dir / "demo.csv").write_text("", encoding="utf-8")
+            stale_output = filtered_dir / "demo.csv"
+            pd.DataFrame([{"from_url": "test://old", "to_url": "prod://old"}]).to_csv(
+                stale_output,
+                index=False,
+            )
+
+            stats = GenerationStats("test")
+            with redirect_stdout(StringIO()):
+                filter_expanded_candidate_files(
+                    expanded_dir,
+                    filtered_dir,
+                    selected_projects=None,
+                    replace=False,
+                    stats=stats,
+                )
+
+            self.assertFalse(stale_output.exists())
+            self.assertEqual(1, stats.empty_output)
+            self.assertEqual(1, stats.deleted_stale)
+
+    def test_filter_expanded_candidate_files_by_ground_truth_skips_empty_ground_truth_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            expanded_dir = root / "t2p-candidate-expanded"
+            filtered_dir = root / "t2p-candidate-filtered"
+            ground_truth_dir = root / "t2p-ground-truth"
+            expanded_dir.mkdir()
+            filtered_dir.mkdir()
+            ground_truth_dir.mkdir()
+            pd.DataFrame([{"from_url": "test://one", "to_url": "prod://a"}]).to_csv(
+                expanded_dir / "demo.csv",
+                index=False,
+            )
+            (ground_truth_dir / "demo.csv").write_text("", encoding="utf-8")
+            stale_output = filtered_dir / "demo.csv"
+            pd.DataFrame([{"from_url": "test://old", "to_url": "prod://old"}]).to_csv(
+                stale_output,
+                index=False,
+            )
+
+            stats = GenerationStats("test")
+            with redirect_stdout(StringIO()):
+                filter_expanded_candidate_files_by_ground_truth(
+                    expanded_dir,
+                    filtered_dir,
+                    ground_truth_dir,
+                    selected_projects=None,
+                    replace=False,
+                    stats=stats,
+                )
+
+            self.assertFalse(stale_output.exists())
+            self.assertEqual(1, stats.empty_output)
+            self.assertEqual(1, stats.deleted_stale)
+
 
 if __name__ == "__main__":
     unittest.main()
