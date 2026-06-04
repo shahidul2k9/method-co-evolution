@@ -45,6 +45,7 @@ public class ClassScannerImpl implements ClassScanner {
 
     @Override
     public synchronized void init(
+            String projectName,
             String repoRoot,
             String repoUrl,
             String commitHash,
@@ -58,11 +59,12 @@ public class ClassScannerImpl implements ClassScanner {
             MethodParserUtil.prepareRepositoryForCommit(repoUrl, repoRoot, commitHash);
         }
 
+        String canonicalProjectName = requireProjectName(projectName);
         JavaParserContext parserContext = JavaParserContext.create(Path.of(repoRoot), commitHash);
         this.repoRoot = repoRoot;
         this.repoUrl = repoUrl;
         this.commitHash = commitHash;
-        this.repositoryName = MethodParserUtil.extractRepositoryName(repoUrl);
+        this.repositoryName = canonicalProjectName;
         this.parserWithSymbolResolver = parserContext.parser();
         this.artifactDetector = TestArtifactDetector.load(
                 Path.of(repoRoot),
@@ -70,6 +72,13 @@ public class ClassScannerImpl implements ClassScanner {
                 artifactConfigPath == null || artifactConfigPath.isBlank() ? null : Path.of(artifactConfigPath),
                 parserContext.parser()
         );
+    }
+
+    private static String requireProjectName(String projectName) {
+        if (projectName == null || projectName.isBlank()) {
+            throw new IllegalArgumentException("Project name is required");
+        }
+        return projectName.trim();
     }
 
     @Override

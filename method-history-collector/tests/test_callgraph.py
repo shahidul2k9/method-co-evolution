@@ -37,6 +37,7 @@ class FakeCallGraphServiceImpl:
 
     def init(
         self,
+        project_name,
         repository_url,
         repository_path,
         commit_hash,
@@ -48,6 +49,7 @@ class FakeCallGraphServiceImpl:
     ):
         FakeCallGraphServiceImpl.init_calls.append(
             (
+                project_name,
                 repository_url,
                 repository_path,
                 commit_hash,
@@ -288,13 +290,13 @@ class CallGraphRunnerTest(unittest.TestCase):
             repository_directory = root / "repository"
             data_directory = root / "data"
             workspace_directory = root / "workspace"
-            repository_path = repository_directory / "demo"
+            repository_path = repository_directory / "apache-hadoop-copy"
             java_file = repository_path / "src" / "Caller.java"
             repository_df = pd.DataFrame(
                 [
                     {
-                        "project": "demo",
-                        "url": "https://example.test/demo",
+                        "project": "apache-hadoop-copy",
+                        "url": "https://github.com/apache/hadoop",
                         "updated_hash": "abc123",
                     }
                 ]
@@ -319,7 +321,8 @@ class CallGraphRunnerTest(unittest.TestCase):
                 )
 
                 scanner.init.assert_called_once_with(
-                    "https://example.test/demo",
+                    "apache-hadoop-copy",
+                    "https://github.com/apache/hadoop",
                     str(repository_path),
                     "abc123",
                     str(root / "method.csv"),
@@ -416,6 +419,7 @@ class CallGraphRunnerTest(unittest.TestCase):
                 )
 
             expected_init = (
+                "demo",
                 "https://example.test/demo",
                 str(repository_path),
                 "abc123",

@@ -227,7 +227,14 @@ def _scan_classes_in_file(
         return rows, str(error)
 
 
-def _build_class_scanner(ClassScannerImpl, repository_root: str, url: str, commit_hash: str, artifact_config_path: str | None):
+def _build_class_scanner(
+    ClassScannerImpl,
+    repository_name: str,
+    repository_root: str,
+    url: str,
+    commit_hash: str,
+    artifact_config_path: str | None,
+):
     started_at = time.monotonic()
     thread_name = threading.current_thread().name
     logging.info(
@@ -237,7 +244,7 @@ def _build_class_scanner(ClassScannerImpl, repository_root: str, url: str, commi
         commit_hash,
     )
     scanner = ClassScannerImpl.getInstance()
-    scanner.init(repository_root, url, commit_hash, artifact_config_path, False)
+    scanner.init(repository_name, repository_root, url, commit_hash, artifact_config_path, False)
     _log_slow_operation(
         "class-scan scanner-init finish thread=%s repository_root=%s commit=%s",
         time.monotonic() - started_at,
@@ -259,7 +266,14 @@ def _scan_class_file_task(
     file_without_base: str,
 ) -> list[dict]:
     if not hasattr(thread_local, "scanner"):
-        thread_local.scanner = _build_class_scanner(ClassScannerImpl, repository_root, url, commit_hash, artifact_config_path)
+        thread_local.scanner = _build_class_scanner(
+            ClassScannerImpl,
+            repository_name,
+            repository_root,
+            url,
+            commit_hash,
+            artifact_config_path,
+        )
     started_at = time.monotonic()
     try:
         classes, error = _scan_classes_in_file(thread_local.scanner, repository_name, commit_hash, file_without_base)
@@ -365,7 +379,7 @@ def scan_class(
         ClassScannerImpl = JClass("rnd.method.parser.call.graph.service.ClassScannerImpl")
 
     for _, repository in repository_df.iterrows():
-        repository_name = repository["project"]
+        repository_name = util.require_project_name(repository)
         url = repository["url"]
         commit_hash = repository["updated_hash"]
         repository_started_at = time.monotonic()
@@ -476,7 +490,14 @@ def scan_class(
         )
 
         if max_workers == 1:
-            scanner = _build_class_scanner(ClassScannerImpl, repository_root, url, commit_hash, artifact_config_path)
+            scanner = _build_class_scanner(
+                ClassScannerImpl,
+                repository_name,
+                repository_root,
+                url,
+                commit_hash,
+                artifact_config_path,
+            )
             thread_local = threading.local()
             thread_local.scanner = scanner
             for file_without_base in files_to_scan:

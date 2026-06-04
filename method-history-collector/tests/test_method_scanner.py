@@ -93,14 +93,14 @@ class FakeMethodScannerImpl:
     def getInstance():
         return FakeMethodScannerImpl()
 
-    def init(self, repository_directory, repository_url, commit_hash, artifact_config_path, checkout_repository):
+    def init(self, project_name, repository_directory, repository_url, commit_hash, artifact_config_path, checkout_repository):
         FakeMethodScannerImpl.init_calls.append(
-            (repository_directory, repository_url, commit_hash, artifact_config_path, checkout_repository)
+            (project_name, repository_directory, repository_url, commit_hash, artifact_config_path, checkout_repository)
         )
 
     def scanMethod(self, file_without_base):
         FakeMethodScannerImpl.scanned_files.append(file_without_base)
-        _, repository_url, commit_hash, _, _ = FakeMethodScannerImpl.init_calls[-1]
+        _, _, repository_url, commit_hash, _, _ = FakeMethodScannerImpl.init_calls[-1]
         return [FakeJavaMethod(repository_url, commit_hash, file_without_base)]
 
     def evictCache(self):
@@ -205,6 +205,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
         with self.assertLogs(level="INFO") as logs:
             ms._build_method_scanner(
                 FakeMethodScannerImpl,
+                "demo-project",
                 "/tmp/demo-project",
                 "https://github.com/example/demo-project",
                 "abc123",
@@ -402,6 +403,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                 FakeMethodScannerImpl.init_calls,
                 [
                     (
+                        "demo-project",
                         str(project_directory),
                         "https://github.com/example/demo-project",
                         "abc123",
@@ -416,6 +418,45 @@ class MethodScannerCacheTestCase(unittest.TestCase):
             resumed_df = pd.read_csv(output_method_file)
             self.assertEqual(sorted(resumed_df["file"].tolist()), ["src/Alpha.java", "src/Beta.java"])
             self.assertNotIn(ms.METHOD_SCAN_FLAG_COLUMN, resumed_df.columns)
+
+    def test_scan_method_uses_project_name_for_checkout_and_java_identity(self):
+        with tempfile.TemporaryDirectory() as temp_directory:
+            root = Path(temp_directory)
+            repository_directory = root / "repositories"
+            data_directory = root
+            workspace_directory = root / "cache"
+            project_directory = repository_directory / "apache-hadoop-copy"
+
+            self._create_java_file(project_directory / "src" / "Alpha.java")
+
+            repository_df = pd.DataFrame(
+                [
+                    {
+                        "project": "apache-hadoop-copy",
+                        "url": "https://github.com/apache/hadoop",
+                        "updated_hash": "abc123",
+                    }
+                ]
+            )
+
+            FakeMethodScannerImpl.init_calls = []
+            FakeMethodScannerImpl.scanned_files = []
+            with patch("jpype.JClass", return_value=FakeMethodScannerImpl), patch.object(
+                ms, "clone_and_checkout_commit"
+            ) as mock_checkout:
+                ms.scan_method(
+                    repository_df,
+                    str(repository_directory),
+                    str(data_directory),
+                    str(workspace_directory),
+                )
+
+            mock_checkout.assert_called_once_with(
+                "https://github.com/apache/hadoop",
+                str(project_directory),
+                "abc123",
+            )
+            self.assertEqual("apache-hadoop-copy", FakeMethodScannerImpl.init_calls[0][0])
 
     def test_scan_method_appends_cache_before_completion(self):
         with tempfile.TemporaryDirectory() as temp_directory:
@@ -451,6 +492,7 @@ class MethodScannerCacheTestCase(unittest.TestCase):
                 FakeMethodScannerImpl.init_calls,
                 [
                     (
+                        "demo-project",
                         str(project_directory),
                         "https://github.com/example/demo-project",
                         "abc123",

@@ -200,6 +200,7 @@ public class CallGraphTest extends TestConfigurationBase {
         CallGraphServiceImpl scanner = CallGraphServiceImpl.getInstance();
         assertDoesNotThrow(scanner::logCacheStats);
         scanner.init(
+                "demo-project",
                 "https://example.test/demo",
                 fixture.repo().toString(),
                 fixture.commitHash(),
@@ -220,6 +221,26 @@ public class CallGraphTest extends TestConfigurationBase {
     }
 
     @org.junit.jupiter.api.Test
+    void callGraphScannerRequiresProjectName(@org.junit.jupiter.api.io.TempDir Path tempDir) {
+        CallGraphServiceImpl scanner = CallGraphServiceImpl.getInstance();
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> scanner.init(
+                        "",
+                        "https://github.com/apache/hadoop",
+                        tempDir.toString(),
+                        "abc123",
+                        tempDir.resolve("method.csv").toString(),
+                        tempDir.resolve("class.csv").toString(),
+                        null,
+                        false,
+                        256
+                )
+        );
+    }
+
+    @org.junit.jupiter.api.Test
     void localClassMethodCallsDoNotLeakIntoEnclosingMethod(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
         FallbackFixture fixture = createFallbackFixture(tempDir,
                 "class Caller { void outer(){ class Inner { void inner(){ helper(); } } } void helper(){} }",
@@ -227,6 +248,7 @@ public class CallGraphTest extends TestConfigurationBase {
                 List.of(methodRow("helper", "method", "demo.Caller.helper", "demo.Caller.helper()", "src/test/java/demo/Caller.java", 1)));
         CallGraphServiceImpl scanner = CallGraphServiceImpl.getInstance();
         scanner.init(
+                "demo-project",
                 "https://example.test/demo",
                 fixture.repo().toString(),
                 fixture.commitHash(),
@@ -314,6 +336,7 @@ public class CallGraphTest extends TestConfigurationBase {
                                 );
                                 CallGraphServiceImpl scanner = CallGraphServiceImpl.getInstance();
                                 scanner.init(
+                                        projectConfig.name,
                                         TestConfigurationBase.resolvePlaceholders(projectConfig.repositoryUrl),
                                         repositoryPath.toString(),
                                         projectConfig.commitHash,
@@ -463,6 +486,7 @@ public class CallGraphTest extends TestConfigurationBase {
     private static List<Method> fallbackTargets(FallbackFixture fixture, long maxCacheSizeMb) {
         CallGraphServiceImpl scanner = CallGraphServiceImpl.getInstance();
         scanner.init(
+                "demo-project",
                 "https://example.test/demo",
                 fixture.repo().toString(),
                 fixture.commitHash(),

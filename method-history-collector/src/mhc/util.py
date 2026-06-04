@@ -60,6 +60,17 @@ def format_git_project_directory(repository_directory: str, repository_name: str
     return os.path.join(f"{repository_directory}", repository_name)
 
 
+def require_project_name(repository) -> str:
+    try:
+        project_name = repository["project"]
+    except (KeyError, TypeError):
+        raise ValueError("Missing required project column")
+
+    if pd.isna(project_name) or str(project_name).strip() == "":
+        raise ValueError("Project name is required")
+    return str(project_name).strip()
+
+
 def format_method_list_file(data_directory: str, repository_name: str) -> str:
     return os.path.join(f"{data_directory}/method", f"{repository_name}.csv")
 

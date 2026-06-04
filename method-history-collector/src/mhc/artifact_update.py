@@ -97,7 +97,7 @@ def _update_repository_artifacts(
     PathClass,
     Detector,
 ) -> None:
-    repository_name = repository["project"]
+    repository_name = util.require_project_name(repository)
     url = repository["url"]
     commit_hash = repository["updated_hash"]
     repo_root = util.format_git_project_directory(repository_directory, repository_name)

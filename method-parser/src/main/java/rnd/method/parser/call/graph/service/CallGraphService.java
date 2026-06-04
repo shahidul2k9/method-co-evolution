@@ -6,6 +6,7 @@ import java.util.List;
 
 public interface CallGraphService {
     void init(
+            String projectName,
             String repositoryUrl,
             String repositoryPath,
             String commitHash,
