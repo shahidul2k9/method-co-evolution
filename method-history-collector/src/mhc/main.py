@@ -34,7 +34,7 @@ _KNOWN_OPTION_FLAGS = {
     "--dry-run",
     "--backup",
     "--stage",
-    "--callgraph-dir",
+    "--strategies",
     "--max-workers",
     "--init-reset-interval-files",
 }
@@ -334,11 +334,10 @@ def main(argv: list[str] | None = None):
         help="Pipeline stage for staged commands such as test-smell.",
     )
     parser.add_argument(
-        "--callgraph-dir",
-        dest="callgraph_dir",
+        "--strategies",
+        dest="strategies",
         type=str,
-        default="callgraph",
-        help="Callgraph-like directory under the experiment directory used by test-smell preprocessing.",
+        help="Comma-separated t2p-link strategy names for strategy-aware test-smell preprocessing.",
     )
     parser.add_argument(
         "--max-workers",
@@ -545,9 +544,9 @@ def main(argv: list[str] | None = None):
             resolve_selected_projects(),
             args.tool_name,
             args.stage,
-            args.callgraph_dir,
             args.replace,
             args.max_workers,
+            args.strategies,
         )
     else:
         print(f"Unknown command: {args.command}")

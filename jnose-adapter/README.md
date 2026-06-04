@@ -59,7 +59,6 @@ mhc test-smell \
   --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
   --tool-name jnose \
   --stage all \
-  --callgraph-dir callgraph \
   --project "commons-io"
 ```
 
@@ -70,4 +69,4 @@ WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/method/<project>.csv
 WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/callgraph/<project>.csv
 ```
 
-and writes intermediate files under `.test-smell/jnose/` plus final normalized output under `test-smell/jnose/` in the same experiment directory.
+and writes callgraph workflow intermediates under `.test-smell/jnose/callgraph/` plus final normalized output under `test-smell/jnose/callgraph/output/`. Strategy-aware runs with `--strategies` use `jnose/<strategy>` instead.

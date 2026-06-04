@@ -366,9 +366,9 @@ class MethodHistoryCollector:
         repositories: list[str],
         tool_name: str,
         stage: str = "all",
-        callgraph_dir: str = "callgraph",
         replace: bool = False,
         max_workers: int = 1,
+        strategies: str | list[str] | None = None,
     ):
         _run_test_smell(
             self.repository_df,
@@ -378,9 +378,9 @@ class MethodHistoryCollector:
             repositories,
             tool_name,
             stage,
-            callgraph_dir,
             replace,
             max_workers,
+            strategies,
         )
 
 

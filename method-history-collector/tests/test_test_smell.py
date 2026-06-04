@@ -1,8 +1,11 @@
+import io
+import json
 import sys
+import tarfile
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 
@@ -12,14 +15,19 @@ if str(SRC_DIRECTORY) not in sys.path:
 
 from mhc.test_smell import (
     SMELL_ACRONYMS,
+    _bridge_file,
     _ensure_repository_checkout,
     _execute_command,
+    _download_adapter_input_file,
+    _input_file,
     _postprocess_file,
     _postprocess_error_file,
     _resolve_test_smell_jar,
     _select_candidate,
     postprocess_project,
+    postprocess_strategy_project,
     preprocess_project,
+    preprocess_strategy_project,
     run_test_smell,
 )
 
@@ -154,6 +162,34 @@ class TestSmellWorkflowTest(unittest.TestCase):
             ]
         ).to_csv(self.data / "method" / f"{project}.csv", index=False)
 
+    def _write_history_archive(self, histories: list[dict], project: str | None = None):
+        project = project or self.project
+        archive = self.data / "method-history-gz" / "historyFinder" / f"{project}.tar.gz"
+        archive.parent.mkdir(parents=True)
+        with tarfile.open(archive, "w:gz") as tar:
+            for index, history in enumerate(histories):
+                payload = json.dumps(history).encode("utf-8")
+                info = tarfile.TarInfo(f"history-{index}.json")
+                info.size = len(payload)
+                tar.addfile(info, io.BytesIO(payload))
+
+    def _history(self, file_path: str, method_name: str, details: dict[str, dict]) -> dict:
+        return {
+            "sourceFilePath": file_path,
+            "functionName": method_name,
+            "changeHistory": list(details),
+            "changeHistoryDetails": details,
+        }
+
+    def _detail(self, commit: str, file_path: str, method_name: str, change_type: str = "Yintroduced") -> dict:
+        return {
+            "commitName": commit,
+            "type": change_type,
+            "newFileUrl": f"https://github.com/acme/sample/blob/{commit}/{file_path}#L10",
+            "extendedDetails": {"newMethodName": method_name, "newPath": file_path},
+            "path": file_path,
+        }
+
     def test_preprocess_filters_tags_and_prefers_exact_name_match(self):
         self._write_method_csv()
         pd.DataFrame(
@@ -192,23 +228,16 @@ class TestSmellWorkflowTest(unittest.TestCase):
             self._repository(),
             str(self.repo),
             str(self.data),
-            "callgraph",
         )
 
         self.assertEqual(1, len(result))
         row = result.iloc[0]
-        self.assertEqual(
-            str(self.repo / self.project / "src/test/java/acme/Foo.java"),
-            row["pathToProductionFile"],
-        )
+        self.assertEqual("", row["pathToProductionFile"])
         self.assertEqual(
             "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L1",
             row["from_url"],
         )
-        self.assertEqual(
-            "https://github.com/acme/sample/blob/abc123/src/test/java/acme/Foo.java#L1",
-            row["to_url"],
-        )
+        self.assertEqual("", row["to_url"])
         self.assertEqual(2, int(row["candidateCount"]))
         self.assertEqual(1.0, float(row["confidence"]))
 
@@ -240,7 +269,6 @@ class TestSmellWorkflowTest(unittest.TestCase):
                 self._repository(),
                 str(self.repo),
                 str(self.data),
-                "callgraph",
             )
 
         self.assertIsNone(result)
@@ -254,7 +282,6 @@ class TestSmellWorkflowTest(unittest.TestCase):
                 self._repository(),
                 str(self.repo),
                 str(self.data),
-                "callgraph",
             )
 
         self.assertIsNone(result)
@@ -338,12 +365,12 @@ class TestSmellWorkflowTest(unittest.TestCase):
             stage="preprocess",
         )
 
-        self.assertFalse((self.data / ".test-smell" / "jnose" / "input" / f"{self.project}.csv").exists())
-        self.assertTrue((self.data / ".test-smell" / "jnose" / "input" / f"{valid_project}.csv").exists())
+        self.assertFalse(_input_file(str(self.data), self.project).exists())
+        self.assertTrue(_input_file(str(self.data), valid_project).exists())
 
     def test_postprocess_splits_jnose_methods_and_maps_exact_method_urls(self):
         self._write_method_csv()
-        raw_dir = self.data / ".test-smell" / "jnose" / "output"
+        raw_dir = self.data / ".test-smell" / "jnose" / "callgraph" / "jnose-adapter-output"
         raw_dir.mkdir(parents=True)
         pd.DataFrame(
             [
@@ -375,6 +402,187 @@ class TestSmellWorkflowTest(unittest.TestCase):
         errors = pd.read_csv(_postprocess_error_file(str(self.data), self.project), dtype=str)
         self.assertEqual(["missingMethod"], errors["testSmellMethod"].tolist())
         self.assertIn("No exact method match", errors["reason"].iloc[0])
+
+    def test_strategy_preprocess_builds_bridge_and_adapter_input(self):
+        strategy = "nc"
+        (self.data / "t2p-link" / strategy).mkdir(parents=True)
+        pd.DataFrame(
+            [
+                {
+                    "project": self.project,
+                    "from_url": "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L10",
+                    "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Foo.java#L20",
+                    "from_name": "testFoo",
+                    "to_name": "foo",
+                },
+                {
+                    "project": self.project,
+                    "from_url": "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L10",
+                    "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Foo.java#L20",
+                    "from_name": "testFoo",
+                    "to_name": "foo",
+                },
+            ]
+        ).to_csv(self.data / "t2p-link" / strategy / f"{self.project}.csv", index=False)
+        intro_commit = "intro123"
+        self._write_history_archive(
+            [
+                self._history(
+                    "src/test/java/acme/FooTest.java",
+                    "testFoo",
+                    {
+                        "later456": self._detail("later456", "src/test/java/acme/FooTest.java", "testFoo", "Ybodychange"),
+                        intro_commit: self._detail(intro_commit, "src/test/java/acme/FooTest.java", "testFooOld"),
+                    },
+                ),
+                self._history(
+                    "src/main/java/acme/Foo.java",
+                    "foo",
+                    {intro_commit: self._detail(intro_commit, "src/main/java/acme/Foo.java", "fooOld")},
+                ),
+            ]
+        )
+
+        with patch("mhc.test_smell.urlopen") as mock_urlopen:
+            response = MagicMock()
+            response.read.return_value = b"class Source {}"
+            mock_urlopen.return_value.__enter__.return_value = response
+            result = preprocess_strategy_project(self._repository(), str(self.data), strategy)
+
+        self.assertEqual(1, len(result))
+        row = result.iloc[0]
+        self.assertIn(f"adapter-input-file/{self.project}/{intro_commit}/src/test/java/acme/FooTest.java", row["pathToTestFile"])
+        self.assertIn(f"adapter-input-file/{self.project}/{intro_commit}/src/main/java/acme/Foo.java", row["pathToProductionFile"])
+
+        bridge = pd.read_csv(_bridge_file(str(self.data), self.project, strategy), dtype=str)
+        self.assertEqual(1, len(bridge))
+        self.assertEqual(["testFooOld"], bridge["from_old_name"].tolist())
+        self.assertEqual(["fooOld"], bridge["to_old_name"].tolist())
+
+    def test_strategy_preprocess_falls_back_to_last_entry_and_clears_ambiguous_production_file(self):
+        strategy = "nc"
+        (self.data / "t2p-link" / strategy).mkdir(parents=True)
+        pd.DataFrame(
+            [
+                {
+                    "project": self.project,
+                    "from_url": "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L10",
+                    "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Foo.java#L20",
+                    "from_name": "testFoo",
+                    "to_name": "foo",
+                },
+                {
+                    "project": self.project,
+                    "from_url": "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L10",
+                    "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Bar.java#L30",
+                    "from_name": "testFoo",
+                    "to_name": "bar",
+                },
+            ]
+        ).to_csv(self.data / "t2p-link" / strategy / f"{self.project}.csv", index=False)
+        fallback_commit = "fallback123"
+        self._write_history_archive(
+            [
+                self._history(
+                    "src/test/java/acme/FooTest.java",
+                    "testFoo",
+                    {
+                        "first456": self._detail("first456", "src/test/java/acme/FooTest.java", "testFooOld", "Ybodychange"),
+                        fallback_commit: self._detail(fallback_commit, "src/test/java/acme/FooTest.java", "testFooOld", "Yrename"),
+                    },
+                ),
+                self._history(
+                    "src/main/java/acme/Foo.java",
+                    "foo",
+                    {fallback_commit: self._detail(fallback_commit, "src/main/java/acme/Foo.java", "fooOld")},
+                ),
+                self._history(
+                    "src/main/java/acme/Bar.java",
+                    "bar",
+                    {fallback_commit: self._detail(fallback_commit, "src/main/java/acme/Bar.java", "barOld")},
+                ),
+            ]
+        )
+
+        with patch("mhc.test_smell.urlopen") as mock_urlopen:
+            response = MagicMock()
+            response.read.return_value = b"class Source {}"
+            mock_urlopen.return_value.__enter__.return_value = response
+            result = preprocess_strategy_project(self._repository(), str(self.data), strategy)
+
+        self.assertEqual(1, len(result))
+        self.assertEqual("", result.iloc[0]["pathToProductionFile"])
+        self.assertIn(fallback_commit, result.iloc[0]["pathToTestFile"])
+
+    def test_strategy_postprocess_maps_old_method_to_current_method_and_warns_on_multiple_matches(self):
+        strategy = "nc"
+        raw_dir = self.data / ".test-smell" / "jnose" / strategy / "jnose-adapter-output"
+        raw_dir.mkdir(parents=True)
+        pd.DataFrame(
+            [
+                {
+                    "projectName": self.project,
+                    "name": "FooTest",
+                    "pathFile": "/tmp/FooTest.java",
+                    "productionFile": "",
+                    "junitVersion": "JUnit4",
+                    "loc": "20",
+                    "qtdMethods": "1",
+                    "testSmellName": "Lazy Test",
+                    "testSmellMethod": "testFooOld, missingOld",
+                    "testSmellLineBegin": "10",
+                    "testSmellLineEnd": "10",
+                }
+            ]
+        ).to_csv(raw_dir / f"{self.project}.csv", sep=";", index=False)
+        bridge_file = _bridge_file(str(self.data), self.project, strategy)
+        bridge_file.parent.mkdir(parents=True)
+        pd.DataFrame(
+            [
+                {
+                    "project": self.project,
+                    "from_url": "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L10",
+                    "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Foo.java#L20",
+                    "from_old_url": "https://github.com/acme/sample/blob/intro/src/test/java/acme/FooTest.java#L10",
+                    "to_old_url": "",
+                    "from_name": "testFoo",
+                    "to_name": "foo",
+                    "from_old_name": "testFooOld",
+                    "to_old_name": "",
+                },
+                {
+                    "project": self.project,
+                    "from_url": "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L10",
+                    "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Bar.java#L30",
+                    "from_old_url": "https://github.com/acme/sample/blob/intro/src/test/java/acme/FooTest.java#L10",
+                    "to_old_url": "",
+                    "from_name": "testFoo",
+                    "to_name": "bar",
+                    "from_old_name": "testFooOld",
+                    "to_old_name": "",
+                },
+            ],
+            columns=[
+                "project",
+                "from_url",
+                "to_url",
+                "from_old_url",
+                "to_old_url",
+                "from_name",
+                "to_name",
+                "from_old_name",
+                "to_old_name",
+            ],
+        ).to_csv(bridge_file, index=False)
+
+        with self.assertLogs(level="WARNING") as logs:
+            result = postprocess_strategy_project(self._repository(), str(self.data), strategy)
+
+        self.assertIn("Multiple t2p-link bridge rows matched", "\n".join(logs.output))
+        self.assertEqual(["LT", "LT"], result["smell"].tolist())
+        self.assertEqual(["testFoo", "testFoo"], result["name"].tolist())
+        errors = pd.read_csv(_postprocess_error_file(str(self.data), self.project, strategy), dtype=str)
+        self.assertEqual(["missingOld"], errors["testSmellMethod"].tolist())
 
 
 class TestSmellHelpersTest(unittest.TestCase):

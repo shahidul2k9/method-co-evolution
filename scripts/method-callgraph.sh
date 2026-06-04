@@ -22,4 +22,5 @@ mhc method-callgraph \
     --java-options "-Xmx4g -Dlogback.configurationFile=$ME_WORKSPACE_DIRECTORY/config/logback.xml" \
     --tool-name methodParser \
     --max-workers "4" \
-    --project-index ":"
+    --project-index ":" \
+    "$@"

@@ -207,7 +207,7 @@ class TestCliArgs(unittest.TestCase):
 
         mhc_main.main(["test-smell", *common_args, "--tool-name", "jnose"])
         mock_mhc_instance.run_test_smell.assert_called_once_with(
-            ["checkstyle"], "jnose", "all", "callgraph", False, 3
+            ["checkstyle"], "jnose", "all", False, 3, None
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -425,7 +425,7 @@ class TestCliArgs(unittest.TestCase):
         )
 
     @patch("mhc.main._build_method_history_collector")
-    def test_test_smell_accepts_stage_and_callgraph_dir(self, mock_build_collector):
+    def test_test_smell_accepts_stage_and_strategies(self, mock_build_collector):
         mock_mhc_instance = mock_build_collector.return_value
         mock_mhc_instance.repository_df = pd.DataFrame([{"project": "commons-lang"}])
 
@@ -442,8 +442,8 @@ class TestCliArgs(unittest.TestCase):
                 "jnose",
                 "--stage",
                 "preprocess",
-                "--callgraph-dir",
-                "t2p-candidate-filtered",
+                "--strategies",
+                "nc,ncc",
                 "--project",
                 "commons-lang",
             ]
@@ -453,9 +453,9 @@ class TestCliArgs(unittest.TestCase):
             ["commons-lang"],
             "jnose",
             "preprocess",
-            "t2p-candidate-filtered",
             False,
             1,
+            "nc,ncc",
         )
 
     @patch("mhc.main._build_method_history_collector")
@@ -484,9 +484,9 @@ class TestCliArgs(unittest.TestCase):
             ["commons-lang"],
             "jnose",
             "all",
-            "callgraph",
             True,
             1,
+            None,
         )
 
     @patch("mhc.main._build_method_history_collector")

@@ -14,7 +14,6 @@ fi
 : "${ME_WORKSPACE_DIRECTORY:?ME_WORKSPACE_DIRECTORY must be set in .env}"
 ME_EXPERIMENT_NAME="${ME_EXPERIMENT_NAME:-main}"
 ME_TEST_SMELL_STAGE="${ME_TEST_SMELL_STAGE:-all}"
-ME_TEST_SMELL_CALLGRAPH_DIR="${ME_TEST_SMELL_CALLGRAPH_DIR:-callgraph}"
 ME_TEST_SMELL_PROJECT_INDEX="${ME_TEST_SMELL_PROJECT_INDEX:-:}"
 MHC_BIN="${MHC_BIN:-$SCRIPT_DIR/../.venv/bin/mhc}"
 
@@ -24,5 +23,5 @@ MHC_BIN="${MHC_BIN:-$SCRIPT_DIR/../.venv/bin/mhc}"
     --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
     --tool-name jnose \
     --stage "$ME_TEST_SMELL_STAGE" \
-    --callgraph-dir "$ME_TEST_SMELL_CALLGRAPH_DIR" \
-    --project-index "$ME_TEST_SMELL_PROJECT_INDEX"
+    --project-index "$ME_TEST_SMELL_PROJECT_INDEX" \
+    "$@"

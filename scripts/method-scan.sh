@@ -26,4 +26,5 @@ mhc method-scan \
     --merge-threshold 1000 \
     --shards 1 \
     --shard 1 \
-    --merge-interval-seconds 0
+    --merge-interval-seconds 0 \
+    "$@"

@@ -216,20 +216,29 @@ mhc test-smell \
   --jar-directory "$ME_WORKSPACE_DIRECTORY/jar" \
   --tool-name jnose \
   --stage all \
-  --callgraph-dir callgraph \
   --project "commons-io"
+```
+
+To analyze only links from one or more t2p strategies at the linked method's introduction commit, add:
+
+```bash
+  --strategies nc,ncc
 ```
 
 Stages:
 
 | Stage | Description |
 |-------|-------------|
-| `preprocess` | Generate jNose input from method CSV and the selected callgraph directory |
+| `preprocess` | Generate jNose input from `method/` + `callgraph/`, or from `t2p-link/<strategy>/` when `--strategies` is set |
 | `execute` | Run `jnose-adapter` and write raw jNose output |
 | `postprocess` | Normalize jNose smells to MHC method-level output |
 | `all` | Run all stages in order |
 
-Intermediate files live under `.test-smell/jnose/` inside the experiment directory. Final rows are written under `test-smell/jnose/` with columns:
+Callgraph intermediate files live under `.test-smell/jnose/callgraph/`; final rows are written under `test-smell/jnose/callgraph/output/`.
+
+Strategy intermediate files live under `.test-smell/jnose/<strategy>/`; downloaded adapter input files are under `adapter-input-file/`, bridge rows under `test-smell/jnose/<strategy>/t2p-link-bridge/`, and final rows under `test-smell/jnose/<strategy>/output/`.
+
+Final rows use columns:
 
 ```text
 project,name,smell,smell_detector,url,smell_begin,smell_end

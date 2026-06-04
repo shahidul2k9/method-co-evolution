@@ -22,4 +22,5 @@ mhc artifact-update \
     --java-options "-Xmx16g -Xss16m -Dlogback.configurationFile=$ME_WORKSPACE_DIRECTORY/config/logback.xml" \
     --project-index ":" \
     --max-workers "4" \
-    --target method
+    --target method \
+    "$@"
