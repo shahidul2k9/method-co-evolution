@@ -12,9 +12,12 @@ except ImportError:  # pragma: no cover
     pd = None
 
 from ptc.generator.t2p_link import (
+    build_parser,
     filter_test_case_to_main_code_links,
+    METHOD_LINK_STRATEGIES,
     _llm_stage_column_name,
     select_one_stage_indices,
+    select_link_strategies,
     strategy_output_key,
 )
 from ptc.link_strategy import LinkStrategy, strategies_from_keys
@@ -99,6 +102,33 @@ class TestGenerateT2PLink(unittest.TestCase):
         self.assertEqual(LinkStrategy.COMBINED, strategies_from_keys(["combined"]))
         self.assertEqual(LinkStrategy.TESTLINKERV2, strategies_from_keys(["testlinkerv2"]))
         self.assertEqual("tarantula--combined", strategy_output_key(LinkStrategy.TARANTULA | LinkStrategy.COMBINED))
+
+    def test_build_parser_accepts_comma_separated_strategies(self):
+        args = build_parser().parse_args(["--strategies", "nc,ncc"])
+
+        self.assertEqual("nc,ncc", args.strategies)
+
+    def test_select_link_strategies_without_filter_returns_all(self):
+        self.assertEqual(METHOD_LINK_STRATEGIES, select_link_strategies(None))
+
+    def test_select_link_strategies_accepts_single_strategy(self):
+        self.assertEqual([LinkStrategy.NC], select_link_strategies(["nc"]))
+
+    def test_select_link_strategies_accepts_multiple_strategies_in_configured_order(self):
+        self.assertEqual(
+            [LinkStrategy.NC, LinkStrategy.NCC],
+            select_link_strategies(["nc", "ncc"]),
+        )
+
+    def test_select_link_strategies_accepts_composite_strategy(self):
+        self.assertEqual(
+            [LinkStrategy.OMC | LinkStrategy.NC],
+            select_link_strategies(["omc--nc"]),
+        )
+
+    def test_select_link_strategies_rejects_unknown_strategy(self):
+        with self.assertRaisesRegex(ValueError, "Unknown strategy"):
+            select_link_strategies(["unknown"])
 
     def test_llm_stage_uses_hyphenated_column_name(self):
         frame = pd.DataFrame(

@@ -13,6 +13,7 @@ from mhc.command_util import (
     select_revision_columns,
     select_named_items,
 )
+from ptc.generator.run_stats import GenerationStats, should_generate, unlink_stale_output
 
 CHANGE_COLUMNS = [
     "ch_all",
@@ -24,6 +25,7 @@ CHANGE_COLUMNS = [
 def build_parser():
     return build_experiment_parser(
         "Merge test-to-production links with method change data.",
+        include_replace=True,
         projects_help="Comma-separated project names to process.",
         strategies_help="Comma-separated strategy names to process.",
     )
@@ -31,6 +33,7 @@ def build_parser():
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    stats = GenerationStats("t2p_revision")
     experiment_directory = resolve_experiment_paths(
         getattr(args, "workspace_directory", None),
         args.experiment_name,
@@ -47,11 +50,9 @@ def main(argv: list[str] | None = None) -> None:
     ]
     for tooName in select_named_items(tool_dirs, selected_tools, item_label="tool"):
         for change_file in list_csv_files(experiment_directory / "method-history" / tooName, selected_projects, strict=False):
-            change_df = pd.read_csv(change_file, keep_default_na=False, na_filter=False, low_memory=False)
-            change_columns = [column for column in selected_change_columns if column in change_df.columns]
-            change_df = change_df[["url", *change_columns]]
-
             repository_name = change_file.stem
+            change_df = None
+            change_columns = []
             t2p_strategy_dirs = [
                 name for name in os.listdir(experiment_directory / "t2p-link")
                 if os.path.isdir(experiment_directory / "t2p-link" / name)
@@ -62,29 +63,47 @@ def main(argv: list[str] | None = None) -> None:
                 item_label="strategy",
             ):
                 t2p_file = experiment_directory / "t2p-link" / t2p_strategy / change_file.name
-                if os.path.exists(t2p_file):
-                    t2p_tech_df = pd.read_csv(t2p_file, keep_default_na=False, na_filter=False)
+                t2p_change_file = experiment_directory / "t2p-change" / tooName / t2p_strategy / change_file.name
+                label = f"{repository_name} [{tooName}/{t2p_strategy}]"
+                if not os.path.exists(t2p_file):
+                    unlink_stale_output(
+                        t2p_change_file,
+                        reason=f"Skipping: {label} (missing t2p-link file)",
+                        stats=stats,
+                    )
+                    continue
+                if not should_generate(t2p_change_file, replace=args.replace, label=label, stats=stats):
+                    continue
 
-                    t2p_change_df = (t2p_tech_df.merge(change_df.add_prefix("from_"), on="from_url", how="inner")
-                                     .merge(change_df.add_prefix("to_"), on="to_url", how="inner"))
-                    paired_change_columns = [
-                        prefixed_column
-                        for change_column in change_columns
-                        for prefixed_column in (f"from_{change_column}", f"to_{change_column}")
-                    ]
-                    t2p_change_df["tool"] = tooName
-                    output_columns = list(t2p_tech_df.columns)
-                    if "project" in output_columns:
-                        output_columns.insert(output_columns.index("project") + 1, "tool")
-                    else:
-                        output_columns = ["tool"] + output_columns
-                    t2p_change_df = t2p_change_df[output_columns + paired_change_columns]
+                if change_df is None:
+                    change_df = pd.read_csv(change_file, keep_default_na=False, na_filter=False, low_memory=False)
+                    change_columns = [column for column in selected_change_columns if column in change_df.columns]
+                    change_df = change_df[["url", *change_columns]]
 
-                    t2p_change_file = experiment_directory / "t2p-change" / tooName / t2p_strategy / change_file.name
-                    os.makedirs(t2p_change_file.parent, exist_ok=True)
-                    t2p_change_df.to_csv(t2p_change_file, index=False)
+                print("Processing:", label)
+                t2p_tech_df = pd.read_csv(t2p_file, keep_default_na=False, na_filter=False)
+
+                t2p_change_df = (t2p_tech_df.merge(change_df.add_prefix("from_"), on="from_url", how="inner")
+                                 .merge(change_df.add_prefix("to_"), on="to_url", how="inner"))
+                paired_change_columns = [
+                    prefixed_column
+                    for change_column in change_columns
+                    for prefixed_column in (f"from_{change_column}", f"to_{change_column}")
+                ]
+                t2p_change_df["tool"] = tooName
+                output_columns = list(t2p_tech_df.columns)
+                if "project" in output_columns:
+                    output_columns.insert(output_columns.index("project") + 1, "tool")
                 else:
-                    warnings.warn(f"{t2p_file} does not exist")
+                    output_columns = ["tool"] + output_columns
+                t2p_change_df = t2p_change_df[output_columns + paired_change_columns]
+
+                os.makedirs(t2p_change_file.parent, exist_ok=True)
+                t2p_change_df.to_csv(t2p_change_file, index=False)
+                if t2p_change_df.empty:
+                    stats.record_empty_output()
+                stats.record_write(len(t2p_change_df))
+    stats.print_summary()
 
 
 if __name__ == "__main__":

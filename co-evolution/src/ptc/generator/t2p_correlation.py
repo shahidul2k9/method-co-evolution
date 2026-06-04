@@ -20,6 +20,7 @@ from mhc.command_util import (
     select_named_items,
 )
 from ptc.plot_util import man_utest
+from ptc.generator.run_stats import GenerationStats, should_generate, unlink_stale_output
 
 STAT_COLUMNS = [
     "project",
@@ -44,6 +45,7 @@ code_shovel_unsupported_change_set = {
 def build_parser():
     parser = build_experiment_parser(
         "Aggregate Mann-Whitney U statistics for linked test/production changes.",
+        include_replace=True,
         projects_help="Comma-separated project names to process.",
     )
     parser.add_argument(
@@ -93,11 +95,12 @@ def build_stat_row(project: str, tool: str, strategy: str, change: str, pair_df:
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    stats = GenerationStats("t2p_correlation")
     experiment_directory = resolve_experiment_paths(
         getattr(args, "workspace_directory", None),
         args.experiment_name,
     ).experiment_directory
-    stats_rows = []
+    stats_output_file = experiment_directory / "aggregate" / "t2p-correlation.csv"
 
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
         tools=args.tools,
@@ -107,8 +110,17 @@ def main(argv: list[str] | None = None) -> None:
     min_t2p_links = args.min_t2p_links
     t2p_change_dir = experiment_directory / "t2p-change"
     if not t2p_change_dir.exists():
-        warnings.warn(f"Directory not found, skipping: {t2p_change_dir}")
+        unlink_stale_output(
+            stats_output_file,
+            reason=f"Directory not found, skipping: {t2p_change_dir}",
+            stats=stats,
+        )
+        stats.print_summary()
         return
+    if not should_generate(stats_output_file, replace=args.replace, label="t2p-correlation", stats=stats):
+        stats.print_summary()
+        return
+    stats_rows = []
     tools = select_named_items(
         util.sorted_directory_names(t2p_change_dir),
         selected_tools,
@@ -154,6 +166,7 @@ def main(argv: list[str] | None = None) -> None:
             projects.append(ALL_REPOSITORY)
 
             for project in projects:
+                print(f"Processing: {project} [{tool}/{strategy}]")
                 project_df = df if project == ALL_REPOSITORY else df[df["project"] == project]
                 project_size = len(project_df)
                 if project_size < min_t2p_links:
@@ -173,11 +186,14 @@ def main(argv: list[str] | None = None) -> None:
                     if stat_row is not None:
                         stats_rows.append(stat_row)
     print(experiment_directory)
-    stats_output_file = experiment_directory / "aggregate" / "t2p-correlation.csv"
     os.makedirs(stats_output_file.parent, exist_ok=True)
     stats_df = pd.DataFrame(stats_rows, columns=STAT_COLUMNS)
     stats_df = stats_df.sort_values(["project", "tool", "strategy", "change"]).reset_index(drop=True)
     stats_df.to_csv(stats_output_file, index=False)
+    if stats_df.empty:
+        stats.record_empty_output()
+    stats.record_write(len(stats_df))
+    stats.print_summary()
 
 
 if __name__ == "__main__":

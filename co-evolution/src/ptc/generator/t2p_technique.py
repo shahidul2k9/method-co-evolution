@@ -19,6 +19,7 @@ from pytctracer.techniques.tfidf import TFIDF
 import mhc.util as util
 from mhc.command_util import build_experiment_parser, resolve_experiment_filters, resolve_experiment_paths, select_named_items
 from ptc.link_strategy import STRATEGY_KEYS
+from ptc.generator.run_stats import GenerationStats, should_generate, unlink_stale_output
 
 # ---------------------------
 # Techniques
@@ -61,6 +62,13 @@ def build_parser():
         dest="replace",
         action="store_false",
         help="Deprecated alias for --no-replace. Skip projects whose t2p-tech output CSV already exists.",
+    )
+    parser.add_argument(
+        "--summary",
+        dest="summary",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help=argparse.SUPPRESS,
     )
     return parser
 
@@ -370,8 +378,11 @@ def run_project_subprocesses(args, projects: list[str]) -> None:
             command.extend(["--workspace-directory", args.workspace_directory])
         if args.experiment_name:
             command.extend(["--experiment-name", args.experiment_name])
-        if not args.replace:
+        if args.replace:
+            command.append("--replace")
+        else:
             command.append("--no-replace")
+        command.append("--no-summary")
         subprocess.run(command, check=True)
 
 
@@ -385,14 +396,20 @@ def process_project(
     llm_prediction_dir: Path,
     testlinker_output_dir: Path,
     replace: bool,
+    stats: GenerationStats | None = None,
 ) -> None:
+    stats = stats or GenerationStats("t2p_technique")
     t2p_candidate_file = t2p_candidate_dir / f"{project}.csv"
     output_file = output_dir / f"{project}.csv"
 
     if not os.path.exists(t2p_candidate_file):
+        unlink_stale_output(
+            output_file,
+            reason=f"Skipping: {project} (missing t2p-candidate-filtered file)",
+            stats=stats,
+        )
         return
-    if os.path.exists(output_file) and not replace:
-        print("Skipping existing:", project)
+    if not should_generate(output_file, replace=replace, label=project, stats=stats):
         return
 
     print("Processing:", project, flush=True)
@@ -432,6 +449,7 @@ def process_project(
     expanded_df = util.convert_float_int_columns_to_nullable_int(t2p_candidate_df)
 
     expanded_df.to_csv(output_file, index=False)
+    stats.record_write(len(expanded_df))
     del t2p_candidate_df
     del expanded_df
     gc.collect()
@@ -439,6 +457,7 @@ def process_project(
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    stats = GenerationStats("t2p_technique")
     experiment_directory = resolve_experiment_paths(
         getattr(args, "workspace_directory", None),
         args.experiment_name,
@@ -459,7 +478,21 @@ def main(argv: list[str] | None = None) -> None:
     llm_directory_names = llm_strategy_directory_names()
 
     if args.isolate_projects and len(projects) > 1:
+        for project in projects:
+            t2p_candidate_file = t2p_candidate_dir / f"{project}.csv"
+            output_file = output_dir / f"{project}.csv"
+            if not t2p_candidate_file.exists():
+                stats.skipped_missing_input += 1
+                if output_file.exists():
+                    stats.deleted_stale += 1
+                else:
+                    stats.missing_stale += 1
+            elif output_file.exists() and not args.replace:
+                stats.skipped_existing += 1
+            else:
+                stats.recreated += 1
         run_project_subprocesses(args, projects)
+        stats.print_summary()
         return
 
     for _, repo in repository_df.iterrows():
@@ -474,7 +507,10 @@ def main(argv: list[str] | None = None) -> None:
             llm_prediction_dir=llm_prediction_dir,
             testlinker_output_dir=testlinker_output_dir,
             replace=args.replace,
+            stats=stats,
         )
+    if args.summary:
+        stats.print_summary()
 
 
 if __name__ == "__main__":

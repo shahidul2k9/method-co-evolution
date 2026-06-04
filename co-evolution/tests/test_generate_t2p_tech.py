@@ -322,13 +322,13 @@ class TestApplyLlmTechniques(unittest.TestCase):
     def test_run_project_subprocesses_runs_one_child_per_project(self):
         args = SimpleNamespace(experiment_name=None, replace=False)
 
-        with patch("ptc.generator.generate_t2p_tech.subprocess.run") as run:
+        with patch("ptc.generator.t2p_technique.subprocess.run") as run:
             run_project_subprocesses(args, ["ant", "dubbo"])
 
         self.assertEqual(2, run.call_count)
         first_command = run.call_args_list[0].args[0]
         second_command = run.call_args_list[1].args[0]
-        self.assertIn("ptc.generator.generate_t2p_tech", first_command)
+        self.assertIn("ptc.generator.t2p_technique", first_command)
         self.assertIn("--projects", first_command)
         self.assertIn("ant", first_command)
         self.assertIn("--no-isolate-projects", first_command)
@@ -339,11 +339,11 @@ class TestApplyLlmTechniques(unittest.TestCase):
     def test_run_project_subprocesses_omits_replace_flag_when_replace_enabled(self):
         args = SimpleNamespace(experiment_name=None, replace=True)
 
-        with patch("ptc.generator.generate_t2p_tech.subprocess.run") as run:
+        with patch("ptc.generator.t2p_technique.subprocess.run") as run:
             run_project_subprocesses(args, ["ant"])
 
         command = run.call_args.args[0]
-        self.assertNotIn("--replace", command)
+        self.assertIn("--replace", command)
         self.assertNotIn("--no-replace", command)
 
     def test_build_parser_skip_existing_alias_sets_replace_false(self):
@@ -360,7 +360,7 @@ class TestApplyLlmTechniques(unittest.TestCase):
             (candidate_dir / "demo.csv").write_text("from_url,to_url\n", encoding="utf-8")
             (output_dir / "demo.csv").write_text("already,done\n", encoding="utf-8")
 
-            with patch("ptc.generator.generate_t2p_tech.pd.read_csv") as read_csv:
+            with patch("ptc.generator.t2p_technique.pd.read_csv") as read_csv:
                 process_project(
                     "demo",
                     "abc123",
@@ -394,12 +394,12 @@ class TestApplyLlmTechniques(unittest.TestCase):
             (output_dir / "demo.csv").write_text("already,done\n", encoding="utf-8")
 
             with (
-                patch("ptc.generator.generate_t2p_tech.pd.read_csv", return_value=candidate_df) as read_csv,
-                patch("ptc.generator.generate_t2p_tech.apply_traceability_techniques", return_value=candidate_df),
-                patch("ptc.generator.generate_t2p_tech.apply_llm_techniques", side_effect=lambda t2p_candidate_df, **_: t2p_candidate_df),
-                patch("ptc.generator.generate_t2p_tech.apply_testlinker_technique", side_effect=lambda t2p_candidate_df, **_: t2p_candidate_df),
+                patch("ptc.generator.t2p_technique.pd.read_csv", return_value=candidate_df) as read_csv,
+                patch("ptc.generator.t2p_technique.apply_traceability_techniques", return_value=candidate_df),
+                patch("ptc.generator.t2p_technique.apply_llm_techniques", side_effect=lambda t2p_candidate_df, **_: t2p_candidate_df),
+                patch("ptc.generator.t2p_technique.apply_testlinker_technique", side_effect=lambda t2p_candidate_df, **_: t2p_candidate_df),
                 patch(
-                    "ptc.generator.generate_t2p_tech.util.convert_float_int_columns_to_nullable_int",
+                    "ptc.generator.t2p_technique.util.convert_float_int_columns_to_nullable_int",
                     side_effect=lambda df: df,
                 ),
             ):

@@ -347,7 +347,7 @@ def build_experiment_parser(
     include_workspace: bool = True,
     include_experiment: bool = True,
     include_replace: bool = False,
-    replace_default: bool = True,
+    replace_default: bool = False,
     tools_help: str | None = None,
     projects_help: str | None = None,
     strategies_help: str | None = None,
