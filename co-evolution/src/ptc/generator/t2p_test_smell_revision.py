@@ -121,7 +121,7 @@ def build_project_frame(
             for prefixed_column in (f"from_{revision_type}", f"to_{revision_type}")
         ],
         "smells",
-        *[f"revision_group_{revision_type}" for revision_type in complete_revision_types],
+        *[f"rg_{revision_type}" for revision_type in complete_revision_types],
     ]
     if not complete_revision_types:
         return pd.DataFrame(columns=output_columns)
@@ -138,7 +138,7 @@ def build_project_frame(
     for revision_type in complete_revision_types:
         from_column = f"from_{revision_type}"
         to_column = f"to_{revision_type}"
-        group_column = f"revision_group_{revision_type}"
+        group_column = f"rg_{revision_type}"
         pair_df = output_df[[from_column, to_column]].apply(pd.to_numeric, errors="coerce")
         valid_mask = pair_df[from_column].notna() & pair_df[to_column].notna()
         output_df[group_column] = ""

@@ -16,24 +16,37 @@ except ImportError:  # pragma: no cover
     pd = None
 
 from mhc.command_util import load_test_smell_acronyms, load_test_smell_names, resolve_smell_detector
-from ptc.generator.t2p_test_smell import (
+from ptc.generator.t2p_test_smell_prevalence_mww import (
+    build_stat_row,
+    main as mww_main,
+    selected_two_revision_groups,
+)
+from ptc.generator.t2p_test_smell_prevalence import (
+    ALL_SMELLS,
+    main as prevalence_main,
+    prevalence_rows,
+)
+from ptc.generator.t2p_test_smell_revision import (
     REVISION_GROUP_1,
     REVISION_GROUP_2,
     REVISION_GROUP_3,
     assign_revision_group,
     build_project_frame,
-    main as generator_main,
+    main as revision_generator_main,
     output_directory,
 )
-from ptc.plot.t2p_test_smell import (
+from ptc.plot.t2p_test_smell_barchart import (
+    display_smell,
+    main as barchart_main,
+    plot_prevalence_axis,
+)
+from ptc.plot.t2p_test_smell_boxplot import (
     ALL_GROUPS,
-    plot_boxplot_axis,
-    plot_composition_axis,
     boxplot_values,
     load_generated_frames,
-    main as plot_main,
+    main as boxplot_main,
+    plot_boxplot_axis,
     selected_revision_groups,
-    smell_composition,
 )
 
 
@@ -101,20 +114,20 @@ class TestT2PTestSmell(unittest.TestCase):
                 "from_ch_all",
                 "to_ch_all",
                 "smells",
-                "revision_group_ch_diff",
-                "revision_group_ch_all",
+                "rg_ch_diff",
+                "rg_ch_all",
             ],
             output_df.columns.tolist(),
         )
         self.assertEqual(["prod://A1", "prod://A2"], output_df[output_df["from_url"] == "test://A"]["to_url"].tolist())
         self.assertEqual(["AR ET", "AR ET"], output_df[output_df["from_url"] == "test://A"]["smells"].tolist())
-        self.assertEqual([REVISION_GROUP_1, REVISION_GROUP_3, REVISION_GROUP_2], output_df["revision_group_ch_diff"].tolist())
+        self.assertEqual([REVISION_GROUP_1, REVISION_GROUP_3, REVISION_GROUP_2], output_df["rg_ch_diff"].tolist())
 
-    def test_generator_rejects_min_t2p_links(self):
+    def test_revision_generator_rejects_min_t2p_links(self):
         with self.assertRaises(SystemExit):
-            generator_main(["--min-t2p-links", "2"])
+            revision_generator_main(["--min-t2p-links", "2"])
 
-    def test_generator_writes_one_row_project_and_skips_missing_smell_file(self):
+    def test_revision_generator_writes_one_row_project_and_skips_missing_smell_file(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             experiment_dir = self.create_experiment(tmpdir)
             self.write_t2p_change(
@@ -132,7 +145,7 @@ class TestT2PTestSmell(unittest.TestCase):
             self.write_smells(experiment_dir, "demo", [{"url": "test://A", "smell": "AR"}])
 
             with self.assertWarnsRegex(UserWarning, "Test smell CSV not found"):
-                generator_main(
+                revision_generator_main(
                     [
                         "--workspace-directory",
                         tmpdir,
@@ -155,9 +168,9 @@ class TestT2PTestSmell(unittest.TestCase):
             self.assertTrue((output_dir / "demo.csv").exists())
             self.assertFalse((output_dir / "missing-smell.csv").exists())
             output_df = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
-            self.assertEqual([REVISION_GROUP_1], output_df["revision_group_ch_diff"].tolist())
+            self.assertEqual([REVISION_GROUP_1], output_df["rg_ch_diff"].tolist())
 
-    def test_generator_unlinks_stale_output_when_smell_file_missing(self):
+    def test_revision_generator_unlinks_stale_output_when_smell_file_missing(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             experiment_dir = self.create_experiment(tmpdir)
             self.write_t2p_change(
@@ -171,7 +184,7 @@ class TestT2PTestSmell(unittest.TestCase):
             stale_output.write_text("project,from_url\ndemo,stale://test\n", encoding="utf-8")
 
             with self.assertWarnsRegex(UserWarning, "deleted stale output"):
-                generator_main(
+                revision_generator_main(
                     [
                         "--workspace-directory",
                         tmpdir,
@@ -192,7 +205,7 @@ class TestT2PTestSmell(unittest.TestCase):
 
             self.assertFalse(stale_output.exists())
 
-    def test_generator_unlinks_stale_output_when_revision_columns_missing(self):
+    def test_revision_generator_unlinks_stale_output_when_revision_columns_missing(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             experiment_dir = self.create_experiment(tmpdir)
             self.write_t2p_change(
@@ -207,7 +220,7 @@ class TestT2PTestSmell(unittest.TestCase):
             stale_output.write_text("project,from_url\ndemo,stale://test\n", encoding="utf-8")
 
             with self.assertWarnsRegex(UserWarning, "deleted stale output"):
-                generator_main(
+                revision_generator_main(
                     [
                         "--workspace-directory",
                         tmpdir,
@@ -228,7 +241,7 @@ class TestT2PTestSmell(unittest.TestCase):
 
             self.assertFalse(stale_output.exists())
 
-    def test_generator_does_not_unlink_unselected_project_output(self):
+    def test_revision_generator_does_not_unlink_unselected_project_output(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             experiment_dir = self.create_experiment(tmpdir)
             self.write_t2p_change(
@@ -247,7 +260,7 @@ class TestT2PTestSmell(unittest.TestCase):
             untouched_output = output_dir / "unselected.csv"
             untouched_output.write_text("project,from_url\nunselected,stale://test\n", encoding="utf-8")
 
-            generator_main(
+            revision_generator_main(
                 [
                     "--workspace-directory",
                     tmpdir,
@@ -273,33 +286,97 @@ class TestT2PTestSmell(unittest.TestCase):
         with self.assertRaises(ValueError):
             selected_revision_groups("RT,unknown")
 
-    def test_smell_composition_uses_revision_group_denominator(self):
+    def test_prevalence_rows_use_group_denominator_and_include_all(self):
         frame = pd.DataFrame(
             [
-                {"smells": "AR ET", "revision_group_ch_diff": REVISION_GROUP_2},
-                {"smells": "AR", "revision_group_ch_diff": REVISION_GROUP_2},
-                {"smells": "", "revision_group_ch_diff": REVISION_GROUP_2},
-                {"smells": "VT", "revision_group_ch_diff": REVISION_GROUP_3},
+                {"smells": "AR ET", "rg_ch_diff": REVISION_GROUP_2},
+                {"smells": "AR", "rg_ch_diff": REVISION_GROUP_2},
+                {"smells": "", "rg_ch_diff": REVISION_GROUP_2},
+                {"smells": "VT", "rg_ch_diff": REVISION_GROUP_3},
             ]
         )
 
-        composition = smell_composition(
+        rows = prevalence_rows(
             frame,
-            "ch_diff",
-            [REVISION_GROUP_2, REVISION_GROUP_3],
-            {"AR": "Assertion Roulette", "ET": "Eager Test", "VT": "Verbose Test"},
+            strategy="nc",
+            tool="historyFinder",
+            smell_detector="jnose",
+            revision_type="ch_diff",
+            revision_groups=[REVISION_GROUP_2, REVISION_GROUP_3],
         )
+        prevalence = pd.DataFrame(rows)
+        rt_all = prevalence[
+            (prevalence["revision_group"] == REVISION_GROUP_2)
+            & (prevalence["smell"] == ALL_SMELLS)
+        ].iloc[0]
+        rt_ar = prevalence[
+            (prevalence["revision_group"] == REVISION_GROUP_2)
+            & (prevalence["smell"] == "AR")
+        ].iloc[0]
 
-        rt_all = composition[
-            (composition["group"] == REVISION_GROUP_2)
-            & (composition["smell_name"] == "All smells")
-        ].iloc[0]
-        rt_ar = composition[
-            (composition["group"] == REVISION_GROUP_2)
-            & (composition["smell_name"] == "Assertion Roulette")
-        ].iloc[0]
+        self.assertEqual(3, rt_all["smell_total"])
+        self.assertEqual(2, rt_all["smell_n"])
         self.assertAlmostEqual(66.666, rt_all["percent"], places=2)
+        self.assertEqual(3, rt_ar["smell_total"])
+        self.assertEqual(2, rt_ar["smell_n"])
         self.assertAlmostEqual(66.666, rt_ar["percent"], places=2)
+
+    def test_prevalence_main_applies_min_t2p_links_and_writes_aggregate_csv(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            output_dir = output_directory(experiment_dir, "nc", "historyFinder", "jnose")
+            output_dir.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                [
+                    self.generated_row("large", "test://A", "prod://A", 10, 1, "AR", REVISION_GROUP_3),
+                    self.generated_row("large", "test://B", "prod://B", 5, 1, "", REVISION_GROUP_2),
+                ]
+            ).to_csv(output_dir / "large.csv", index=False)
+            pd.DataFrame(
+                [self.generated_row("small", "test://small", "prod://small", 5, 1, "ET", REVISION_GROUP_2)]
+            ).to_csv(output_dir / "small.csv", index=False)
+
+            with self.assertWarnsRegex(UserWarning, "below min_t2p_links=2"):
+                prevalence_main(
+                    [
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo-exp",
+                        "--tools",
+                        "historyFinder",
+                        "--strategies",
+                        "nc",
+                        "--revision-types",
+                        "ch_diff",
+                        "--min-t2p-links",
+                        "2",
+                        "--smell-detector",
+                        "jnose",
+                    ]
+                )
+
+            output_df = pd.read_csv(
+                experiment_dir / "aggregate" / "t2p-test-smell-prevalence.csv",
+                keep_default_na=False,
+                na_filter=False,
+            )
+            self.assertIn(ALL_SMELLS, output_df["smell"].tolist())
+            self.assertNotIn("ET", output_df["smell"].tolist())
+            self.assertEqual(
+                [
+                    "strategy",
+                    "tool",
+                    "smell_detector",
+                    "change",
+                    "revision_group",
+                    "smell",
+                    "percent",
+                    "smell_total",
+                    "smell_n",
+                ],
+                output_df.columns.tolist(),
+            )
 
     def test_load_generated_frames_applies_min_t2p_links(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -328,31 +405,73 @@ class TestT2PTestSmell(unittest.TestCase):
 
             self.assertEqual(["large"], sorted(frame["project"].unique()))
 
-    def test_plot_composition_axis_prints_nonzero_percent_labels(self):
-        composition = pd.DataFrame(
+    def test_barchart_maps_smell_names_and_prints_nonzero_percent_labels(self):
+        prevalence = pd.DataFrame(
             [
-                {"group": REVISION_GROUP_2, "smell_name": "All smells", "percent": 50.0},
-                {"group": REVISION_GROUP_2, "smell_name": "Assertion Roulette", "percent": 0.0},
+                {"revision_group": REVISION_GROUP_2, "smell": ALL_SMELLS, "percent": 50.0, "smell_n": 1},
+                {"revision_group": REVISION_GROUP_2, "smell": "AR", "percent": 0.0, "smell_n": 0},
             ]
         )
         import matplotlib.pyplot as plt
 
         fig, ax = plt.subplots()
         try:
-            plot_composition_axis(ax, composition, [REVISION_GROUP_2])
+            plot_prevalence_axis(ax, prevalence, [REVISION_GROUP_2], {"AR": "Assertion Roulette"})
             labels = [text.get_text() for text in ax.texts]
+            x_labels = [label.get_text() for label in ax.get_xticklabels()]
         finally:
             plt.close(fig)
 
+        self.assertEqual("All", display_smell(ALL_SMELLS, {"AR": "Assertion Roulette"}))
+        self.assertIn("Assertion Roulette", x_labels)
         self.assertIn("50.0%", labels)
         self.assertNotIn("0.0%", labels)
+
+    def test_barchart_main_reads_prevalence_csv_and_writes_figure(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            aggregate_dir = experiment_dir / "aggregate"
+            aggregate_dir.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                [
+                    self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_2, ALL_SMELLS, 50, 2, 1),
+                    self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_2, "AR", 50, 2, 1),
+                ]
+            ).to_csv(aggregate_dir / "t2p-test-smell-prevalence.csv", index=False)
+
+            barchart_main(
+                [
+                    "--workspace-directory",
+                    tmpdir,
+                    "--experiment-name",
+                    "demo-exp",
+                    "--tools",
+                    "historyFinder",
+                    "--strategies",
+                    "nc",
+                    "--revision-types",
+                    "ch_diff",
+                    "--revision-groups",
+                    "RT",
+                    "--smell-detector",
+                    "jnose",
+                ]
+            )
+
+            self.assertTrue(
+                (
+                    experiment_dir
+                    / "figure"
+                    / "t2p-test-smell-barchart--historyFinder--nc--jnose--ch_diff.pdf"
+                ).exists()
+            )
 
     def test_plot_boxplot_axis_uses_smell_labels_once_and_group_legend(self):
         frame = pd.DataFrame(
             [
-                {"smells": "AR", "from_ch_diff": 10, "revision_group_ch_diff": REVISION_GROUP_3},
-                {"smells": "AR", "from_ch_diff": 5, "revision_group_ch_diff": REVISION_GROUP_2},
-                {"smells": "VT", "from_ch_diff": 4, "revision_group_ch_diff": REVISION_GROUP_2},
+                {"smells": "AR", "from_ch_diff": 10, "rg_ch_diff": REVISION_GROUP_3},
+                {"smells": "AR", "from_ch_diff": 5, "rg_ch_diff": REVISION_GROUP_2},
+                {"smells": "VT", "from_ch_diff": 4, "rg_ch_diff": REVISION_GROUP_2},
             ]
         )
         rows = boxplot_values(
@@ -376,44 +495,20 @@ class TestT2PTestSmell(unittest.TestCase):
         self.assertIn("Revision-Prone Test (RT)", legend_labels)
         self.assertIn("Recurrent Revision-Prone Test (RRT)", legend_labels)
 
-    def test_plot_reads_generated_csv_and_filters_revision_groups(self):
+    def test_boxplot_reads_generated_csv_and_filters_revision_groups(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             experiment_dir = self.create_experiment(tmpdir)
             output_dir = output_directory(experiment_dir, "nc", "historyFinder", "jnose")
             output_dir.mkdir(parents=True, exist_ok=True)
             pd.DataFrame(
                 [
-                    {
-                        "project": "demo",
-                        "from_url": "test://A",
-                        "to_url": "prod://A",
-                        "from_ch_diff": 10,
-                        "to_ch_diff": 1,
-                        "smells": "AR",
-                        "revision_group_ch_diff": REVISION_GROUP_3,
-                    },
-                    {
-                        "project": "demo",
-                        "from_url": "test://B",
-                        "to_url": "prod://B",
-                        "from_ch_diff": 5,
-                        "to_ch_diff": 1,
-                        "smells": "VT",
-                        "revision_group_ch_diff": REVISION_GROUP_2,
-                    },
-                    {
-                        "project": "demo",
-                        "from_url": "test://C",
-                        "to_url": "prod://C",
-                        "from_ch_diff": 1,
-                        "to_ch_diff": 5,
-                        "smells": "ET",
-                        "revision_group_ch_diff": REVISION_GROUP_1,
-                    },
+                    self.generated_row("demo", "test://A", "prod://A", 10, 1, "AR", REVISION_GROUP_3),
+                    self.generated_row("demo", "test://B", "prod://B", 5, 1, "VT", REVISION_GROUP_2),
+                    self.generated_row("demo", "test://C", "prod://C", 1, 5, "ET", REVISION_GROUP_1),
                 ]
             ).to_csv(output_dir / "demo.csv", index=False)
 
-            plot_main(
+            boxplot_main(
                 [
                     "--workspace-directory",
                     tmpdir,
@@ -440,9 +535,79 @@ class TestT2PTestSmell(unittest.TestCase):
                 (
                     experiment_dir
                     / "figure"
-                    / "t2p-test-smell--historyFinder--nc--jnose--ch_diff.pdf"
+                    / "t2p-test-smell-boxplot--historyFinder--nc--jnose--ch_diff.pdf"
                 ).exists()
             )
+
+    def test_mww_requires_two_revision_groups_and_preserves_order(self):
+        self.assertEqual([REVISION_GROUP_3, REVISION_GROUP_1], selected_two_revision_groups("RRT,RP"))
+        with self.assertRaises(ValueError):
+            selected_two_revision_groups("RT")
+
+    def test_mww_build_stat_row_excludes_all_and_uses_smell_n(self):
+        prevalence = pd.DataFrame(
+            [
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_3, ALL_SMELLS, 100, 4, 4),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_3, "AR", 75, 4, 3),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_3, "ET", 25, 4, 1),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_1, ALL_SMELLS, 25, 4, 1),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_1, "AR", 25, 4, 1),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_1, "ET", 0, 4, 0),
+            ]
+        )
+
+        stat_row = build_stat_row(
+            prevalence,
+            group1=REVISION_GROUP_3,
+            group2=REVISION_GROUP_1,
+            strategy="nc",
+            tool="historyFinder",
+            smell_detector="jnose",
+            change="ch_diff",
+        )
+
+        self.assertEqual("RRT,RP", stat_row["groups"])
+        self.assertEqual(4, stat_row["size"])
+        self.assertEqual(2, stat_row["g1_size"])
+        self.assertEqual(2, stat_row["g2_size"])
+
+    def test_mww_main_writes_ordered_groups(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            aggregate_dir = experiment_dir / "aggregate"
+            aggregate_dir.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                [
+                    self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_3, "AR", 75, 4, 3),
+                    self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_3, "ET", 25, 4, 1),
+                    self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_1, "AR", 25, 4, 1),
+                    self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_1, "ET", 0, 4, 0),
+                    self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_1, ALL_SMELLS, 25, 4, 1),
+                ]
+            ).to_csv(aggregate_dir / "t2p-test-smell-prevalence.csv", index=False)
+
+            mww_main(
+                [
+                    "--workspace-directory",
+                    tmpdir,
+                    "--experiment-name",
+                    "demo-exp",
+                    "--tools",
+                    "historyFinder",
+                    "--strategies",
+                    "nc",
+                    "--revision-types",
+                    "ch_diff",
+                    "--revision-groups",
+                    "RRT,RP",
+                    "--smell-detector",
+                    "jnose",
+                ]
+            )
+
+            output_df = pd.read_csv(aggregate_dir / "test-smell-prevalence-mww.csv", keep_default_na=False)
+            self.assertEqual(["RRT,RP"], output_df["groups"].tolist())
+            self.assertEqual(["g1_size", "g2_size"], [column for column in output_df.columns if column in ["g1_size", "g2_size"]])
 
     def create_experiment(self, workspace_dir: str) -> Path:
         experiment_dir = Path(workspace_dir) / "experiment" / "demo-exp"
@@ -477,6 +642,50 @@ class TestT2PTestSmell(unittest.TestCase):
             "to_ch_diff": to_ch_diff,
             "from_ch_all": from_ch_all,
             "to_ch_all": to_ch_all,
+        }
+
+    def generated_row(
+        self,
+        project: str,
+        from_url: str,
+        to_url: str,
+        from_ch_diff: int,
+        to_ch_diff: int,
+        smells: str,
+        revision_group: str,
+    ) -> dict:
+        return {
+            "project": project,
+            "from_url": from_url,
+            "to_url": to_url,
+            "from_ch_diff": from_ch_diff,
+            "to_ch_diff": to_ch_diff,
+            "smells": smells,
+            "rg_ch_diff": revision_group,
+        }
+
+    def prevalence_row(
+        self,
+        strategy: str,
+        tool: str,
+        smell_detector: str,
+        change: str,
+        revision_group: str,
+        smell: str,
+        percent: float,
+        smell_total: int,
+        smell_n: int,
+    ) -> dict:
+        return {
+            "strategy": strategy,
+            "tool": tool,
+            "smell_detector": smell_detector,
+            "change": change,
+            "revision_group": revision_group,
+            "smell": smell,
+            "percent": percent,
+            "smell_total": smell_total,
+            "smell_n": smell_n,
         }
 
 

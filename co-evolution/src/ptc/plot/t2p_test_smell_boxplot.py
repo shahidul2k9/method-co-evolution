@@ -25,7 +25,7 @@ from mhc.command_util import (
     select_named_items,
     select_revision_columns,
 )
-from ptc.generator.t2p_test_smell import (
+from ptc.generator.t2p_test_smell_revision import (
     CHANGE_COLUMNS,
     OUTPUT_DIRECTORY_NAME,
     REVISION_GROUP_LABELS,
@@ -35,7 +35,6 @@ from ptc.generator.t2p_test_smell import (
 from ptc.plot_util import build_experiment_plot_parser
 
 ALL_GROUPS = "All groups"
-ALL_SMELLS = "All smells"
 GROUP_STYLE_COLORS = {
     ALL_GROUPS: "white",
     "RP": "tab:orange",
@@ -126,53 +125,13 @@ def smell_type_order(frame: pd.DataFrame, smell_names: dict[str, str]) -> list[s
     return sorted(counts, key=lambda smell: (-counts[smell], display_smell(smell, smell_names)))
 
 
-def smell_composition(
-    frame: pd.DataFrame,
-    revision_type: str,
-    revision_groups: list[str],
-    smell_names: dict[str, str],
-) -> pd.DataFrame:
-    group_column = f"revision_group_{revision_type}"
-    smell_types = smell_type_order(frame, smell_names)
-    rows = []
-    for group in revision_groups:
-        group_df = frame[frame[group_column] == group]
-        total_rows = len(group_df)
-        smell_occurrences = [
-            smell
-            for value in group_df.get("smells", pd.Series(dtype=str))
-            for smell in split_smells(value)
-        ]
-        occurrence_total = len(smell_occurrences)
-        smelly_rows = int(group_df["smells"].astype(bool).sum()) if "smells" in group_df else 0
-        rows.append(
-            {
-                "group": group,
-                "smell": ALL_SMELLS,
-                "smell_name": ALL_SMELLS,
-                "percent": (smelly_rows / total_rows * 100) if total_rows else 0.0,
-            }
-        )
-        for smell in smell_types:
-            count = smell_occurrences.count(smell)
-            rows.append(
-                {
-                    "group": group,
-                    "smell": smell,
-                    "smell_name": display_smell(smell, smell_names),
-                    "percent": (count / occurrence_total * 100) if occurrence_total else 0.0,
-                }
-            )
-    return pd.DataFrame(rows, columns=["group", "smell", "smell_name", "percent"])
-
-
 def boxplot_values(
     frame: pd.DataFrame,
     revision_type: str,
     revision_groups: list[str],
     smell_names: dict[str, str],
 ) -> list[dict]:
-    group_column = f"revision_group_{revision_type}"
+    group_column = f"rg_{revision_type}"
     from_column = f"from_{revision_type}"
     smell_types = smell_type_order(frame, smell_names)
     rows = []
@@ -198,56 +157,6 @@ def boxplot_values(
                 }
             )
     return rows
-
-
-def plot_composition_axis(
-    ax,
-    composition_df: pd.DataFrame,
-    revision_groups: list[str],
-) -> None:
-    if composition_df.empty:
-        ax.text(0.5, 0.5, "No smell data", ha="center", va="center", transform=ax.transAxes)
-        ax.axis("off")
-        return
-
-    smell_names = list(dict.fromkeys(composition_df["smell_name"].tolist()))
-    x = list(range(len(smell_names)))
-    width = 0.8 / max(1, len(revision_groups))
-    offsets = [
-        (index - (len(revision_groups) - 1) / 2) * width
-        for index in range(len(revision_groups))
-    ]
-    for index, group in enumerate(revision_groups):
-        group_df = composition_df[composition_df["group"] == group].set_index("smell_name")
-        values = [group_df["percent"].get(smell_name, 0.0) for smell_name in smell_names]
-        positions = [value + offsets[index] for value in x]
-        bars = ax.bar(
-            positions,
-            values,
-            width=width,
-            label=REVISION_GROUP_LABELS.get(group, group),
-            color=GROUP_STYLE_COLORS.get(group, None),
-            edgecolor="black",
-        )
-        for bar, percent in zip(bars, values):
-            if percent <= 0:
-                continue
-            ax.text(
-                bar.get_x() + bar.get_width() / 2,
-                bar.get_height(),
-                f"{percent:.1f}%",
-                ha="center",
-                va="bottom",
-                fontsize=8,
-                rotation=90,
-            )
-
-    ax.set_title("Smell composition by revision group")
-    ax.set_ylabel("Percent")
-    ax.set_xticks(x)
-    ax.set_xticklabels(smell_names, rotation=45, ha="right")
-    ax.legend(frameon=False, fontsize=9)
-    ax.grid(True, axis="y", alpha=0.25)
 
 
 def _group_keys(revision_groups: list[str]) -> list[str]:
@@ -326,7 +235,7 @@ def plot_revision_type(
     smell_names: dict[str, str],
     output_file: Path,
 ) -> None:
-    group_column = f"revision_group_{revision_type}"
+    group_column = f"rg_{revision_type}"
     if group_column not in frame.columns or f"from_{revision_type}" not in frame.columns:
         warnings.warn(f"Skipping revision type {revision_type}: missing generated columns.")
         return
@@ -336,11 +245,9 @@ def plot_revision_type(
         warnings.warn(f"Skipping revision type {revision_type}: no rows for selected revision groups.")
         return
 
-    composition_df = smell_composition(plot_df, revision_type, revision_groups, smell_names)
     box_rows = boxplot_values(plot_df, revision_type, revision_groups, smell_names)
-    fig, axes = plt.subplots(2, 1, figsize=(max(12, len(smell_type_order(plot_df, smell_names)) * 1.25), 10))
-    plot_composition_axis(axes[0], composition_df, revision_groups)
-    plot_boxplot_axis(axes[1], box_rows, revision_groups)
+    fig, ax = plt.subplots(figsize=(max(12, len(smell_type_order(plot_df, smell_names)) * 1.25), 6))
+    plot_boxplot_axis(ax, box_rows, revision_groups)
     fig.suptitle(f"Test smells with {revision_type} revision groups", fontsize=14)
     fig.tight_layout()
     os.makedirs(output_file.parent, exist_ok=True)
@@ -402,7 +309,7 @@ def main(argv: list[str] | None = None) -> None:
                 output_file = (
                     experiment_directory
                     / "figure"
-                    / f"t2p-test-smell--{tool}--{strategy}--{smell_detector}--{revision_type}.pdf"
+                    / f"t2p-test-smell-boxplot--{tool}--{strategy}--{smell_detector}--{revision_type}.pdf"
                 )
                 plot_revision_type(frame, revision_type, revision_groups, smell_names, output_file)
                 if output_file.exists():
