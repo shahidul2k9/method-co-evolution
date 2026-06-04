@@ -16,9 +16,10 @@ except ImportError:  # pragma: no cover
     pd = None
 
 from mhc.command_util import load_test_smell_acronyms, load_test_smell_names, resolve_smell_detector
-from ptc.generator.t2p_test_smell_prevalence_mww import (
+from ptc.generator.t2p_test_smell_prevalence_wilcoxon_srt import (
     build_stat_row,
-    main as mww_main,
+    main as wilcoxon_main,
+    paired_smell_values,
     selected_two_revision_groups,
 )
 from ptc.generator.t2p_test_smell_prevalence import (
@@ -539,12 +540,29 @@ class TestT2PTestSmell(unittest.TestCase):
                 ).exists()
             )
 
-    def test_mww_requires_two_revision_groups_and_preserves_order(self):
+    def test_wilcoxon_requires_two_revision_groups_and_preserves_order(self):
         self.assertEqual([REVISION_GROUP_3, REVISION_GROUP_1], selected_two_revision_groups("RRT,RP"))
         with self.assertRaises(ValueError):
             selected_two_revision_groups("RT")
 
-    def test_mww_build_stat_row_excludes_all_and_uses_smell_n(self):
+    def test_wilcoxon_pairs_by_smell_and_drops_missing_smells(self):
+        prevalence = pd.DataFrame(
+            [
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_3, "AR", 75, 4, 3),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_3, "ET", 25, 4, 1),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_3, "VT", 25, 4, 1),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_1, "AR", 25, 4, 1),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_1, "ET", 0, 4, 0),
+            ]
+        )
+
+        paired_df = paired_smell_values(prevalence, REVISION_GROUP_3, REVISION_GROUP_1)
+
+        self.assertEqual(["AR", "ET"], paired_df["smell"].tolist())
+        self.assertEqual([3, 1], paired_df["g1_smell_n"].tolist())
+        self.assertEqual([1, 0], paired_df["g2_smell_n"].tolist())
+
+    def test_wilcoxon_build_stat_row_excludes_all_and_uses_smell_n(self):
         prevalence = pd.DataFrame(
             [
                 self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_3, ALL_SMELLS, 100, 4, 4),
@@ -567,11 +585,37 @@ class TestT2PTestSmell(unittest.TestCase):
         )
 
         self.assertEqual("RRT,RP", stat_row["groups"])
-        self.assertEqual(4, stat_row["size"])
+        self.assertEqual(2, stat_row["size"])
         self.assertEqual(2, stat_row["g1_size"])
         self.assertEqual(2, stat_row["g2_size"])
+        self.assertIn("w_stat", stat_row)
+        self.assertIn("w_p", stat_row)
 
-    def test_mww_main_writes_ordered_groups(self):
+    def test_wilcoxon_all_zero_difference_fallback(self):
+        prevalence = pd.DataFrame(
+            [
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_3, "AR", 25, 4, 1),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_3, "ET", 0, 4, 0),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_1, "AR", 25, 4, 1),
+                self.prevalence_row("nc", "historyFinder", "jnose", "ch_diff", REVISION_GROUP_1, "ET", 0, 4, 0),
+            ]
+        )
+
+        stat_row = build_stat_row(
+            prevalence,
+            group1=REVISION_GROUP_3,
+            group2=REVISION_GROUP_1,
+            strategy="nc",
+            tool="historyFinder",
+            smell_detector="jnose",
+            change="ch_diff",
+        )
+
+        self.assertEqual(0.0, stat_row["w_stat"])
+        self.assertEqual(1.0, stat_row["w_p"])
+        self.assertEqual("=", stat_row["d_sign"])
+
+    def test_wilcoxon_main_writes_ordered_groups_and_renamed_columns(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             experiment_dir = self.create_experiment(tmpdir)
             aggregate_dir = experiment_dir / "aggregate"
@@ -586,7 +630,7 @@ class TestT2PTestSmell(unittest.TestCase):
                 ]
             ).to_csv(aggregate_dir / "t2p-test-smell-prevalence.csv", index=False)
 
-            mww_main(
+            wilcoxon_main(
                 [
                     "--workspace-directory",
                     tmpdir,
@@ -605,9 +649,34 @@ class TestT2PTestSmell(unittest.TestCase):
                 ]
             )
 
-            output_df = pd.read_csv(aggregate_dir / "test-smell-prevalence-mww.csv", keep_default_na=False)
+            output_df = pd.read_csv(
+                aggregate_dir / "t2p-test-smell-prevalence-wilcoxon-srt.csv",
+                keep_default_na=False,
+            )
             self.assertEqual(["RRT,RP"], output_df["groups"].tolist())
-            self.assertEqual(["g1_size", "g2_size"], [column for column in output_df.columns if column in ["g1_size", "g2_size"]])
+            self.assertEqual(
+                [
+                    "groups",
+                    "strategy",
+                    "tool",
+                    "smell_detector",
+                    "change",
+                    "size",
+                    "g1_size",
+                    "g2_size",
+                    "w_stat",
+                    "w_p",
+                    "d_value",
+                    "d_sign",
+                    "effect_size",
+                    "N",
+                    "S",
+                    "M",
+                    "L",
+                ],
+                output_df.columns.tolist(),
+            )
+            self.assertNotIn("mww_p", output_df.columns)
 
     def create_experiment(self, workspace_dir: str) -> Path:
         experiment_dir = Path(workspace_dir) / "experiment" / "demo-exp"

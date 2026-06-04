@@ -3,7 +3,9 @@ from __future__ import annotations
 import os
 import warnings
 
+import cliffs_delta
 import pandas as pd
+from scipy.stats import wilcoxon
 
 from mhc.command_util import (
     build_experiment_parser,
@@ -17,9 +19,8 @@ from mhc.command_util import (
 from ptc.generator.artifact_revision_mww import SIZE_MARKER_COLUMNS
 from ptc.generator.t2p_test_smell_prevalence import ALL_SMELLS, OUTPUT_FILE_NAME
 from ptc.generator.t2p_test_smell_revision import CHANGE_COLUMNS, REVISION_GROUP_ORDER
-from ptc.plot_util import man_utest
 
-OUTPUT_FILE = "test-smell-prevalence-mww.csv"
+OUTPUT_FILE = "t2p-test-smell-prevalence-wilcoxon-srt.csv"
 STAT_COLUMNS = [
     "groups",
     "strategy",
@@ -29,9 +30,8 @@ STAT_COLUMNS = [
     "size",
     "g1_size",
     "g2_size",
-    "mww_u1",
-    "mww_u2",
-    "mww_p",
+    "w_stat",
+    "w_p",
     "d_value",
     "d_sign",
     "effect_size",
@@ -44,7 +44,7 @@ STAT_COLUMNS = [
 
 def build_parser():
     parser = build_experiment_parser(
-        "Compare test-smell prevalence distributions between two revision groups.",
+        "Compare paired test-smell prevalence distributions between two revision groups.",
         include_revision_types=True,
         include_smell_detector=True,
         include_projects=False,
@@ -75,6 +75,32 @@ def selected_two_revision_groups(value: str | list[str] | None) -> list[str]:
     return selected
 
 
+def paired_smell_values(pair_df: pd.DataFrame, group1: str, group2: str) -> pd.DataFrame:
+    g1_df = pair_df[pair_df["revision_group"] == group1][["smell", "smell_n"]].copy()
+    g2_df = pair_df[pair_df["revision_group"] == group2][["smell", "smell_n"]].copy()
+    g1_df["g1_smell_n"] = pd.to_numeric(g1_df["smell_n"], errors="coerce")
+    g2_df["g2_smell_n"] = pd.to_numeric(g2_df["smell_n"], errors="coerce")
+    paired_df = g1_df[["smell", "g1_smell_n"]].merge(
+        g2_df[["smell", "g2_smell_n"]],
+        on="smell",
+        how="inner",
+    )
+    return paired_df.dropna(subset=["g1_smell_n", "g2_smell_n"])
+
+
+def wilcoxon_signed_rank(g1_values: pd.Series, g2_values: pd.Series) -> tuple[float, float]:
+    diff = g1_values.to_numpy() - g2_values.to_numpy()
+    if (diff != 0).sum() == 0:
+        return 0.0, 1.0
+    stat, p_value = wilcoxon(
+        g1_values,
+        g2_values,
+        alternative="two-sided",
+        zero_method="wilcox",
+    )
+    return float(stat), float(p_value)
+
+
 def build_stat_row(
     prevalence_df: pd.DataFrame,
     *,
@@ -92,22 +118,17 @@ def build_stat_row(
         & (prevalence_df["change"] == change)
         & (prevalence_df["smell"] != ALL_SMELLS)
     ].copy()
-    g1_values = pd.to_numeric(
-        pair_df[pair_df["revision_group"] == group1]["smell_n"],
-        errors="coerce",
-    ).dropna()
-    g2_values = pd.to_numeric(
-        pair_df[pair_df["revision_group"] == group2]["smell_n"],
-        errors="coerce",
-    ).dropna()
-    if g1_values.empty or g2_values.empty:
+    paired_df = paired_smell_values(pair_df, group1, group2)
+    if paired_df.empty:
         return None
 
-    mww_u1, mww_p, d_value, mww_size = man_utest(g1_values, g2_values)
-    mww_u2 = len(g1_values) * len(g2_values) - mww_u1
+    g1_values = paired_df["g1_smell_n"]
+    g2_values = paired_df["g2_smell_n"]
+    w_stat, w_p = wilcoxon_signed_rank(g1_values, g2_values)
+    d_value, effect_size = cliffs_delta.cliffs_delta(g1_values, g2_values)
     d_sign = "+" if d_value > 0 else ("-" if d_value < 0 else "=")
     marker_values = {column: "" for column in SIZE_MARKER_COLUMNS.values()}
-    marker_column = SIZE_MARKER_COLUMNS.get(mww_size)
+    marker_column = SIZE_MARKER_COLUMNS.get(effect_size)
     if marker_column is not None:
         marker_values[marker_column] = "x"
 
@@ -117,15 +138,14 @@ def build_stat_row(
         "tool": tool,
         "smell_detector": smell_detector,
         "change": change,
-        "size": len(pair_df),
-        "g1_size": len(g1_values),
-        "g2_size": len(g2_values),
-        "mww_u1": round(mww_u1, 2),
-        "mww_u2": round(mww_u2, 2),
-        "mww_p": round(mww_p, 2),
+        "size": len(paired_df),
+        "g1_size": len(paired_df),
+        "g2_size": len(paired_df),
+        "w_stat": round(w_stat, 2),
+        "w_p": round(w_p, 2),
         "d_value": round(d_value, 2),
         "d_sign": d_sign,
-        "effect_size": mww_size,
+        "effect_size": effect_size,
         **marker_values,
     }
 
