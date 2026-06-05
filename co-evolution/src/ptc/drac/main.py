@@ -19,8 +19,8 @@ _SLURM_ARRAY_MAX_INDEX = 9999
 
 _ARRAY_RE = re.compile(r"--array=(\S+)")
 _JOB_INDEX_SHIFT_RE = re.compile(r"--job-index-shift(?:\s+\S+|=\S+)")
-_SPACED_RE = re.compile(r"--(?P<key>shards|command|workspace-directory|experiment-name|tool-name|job-index-shift)\s+(\S+)")
-_EQUALS_RE = re.compile(r"--(?P<key>shards|command|workspace-directory|experiment-name|tool-name|job-index-shift)=(\S+)")
+_SPACED_RE = re.compile(r"--(?P<key>shards|command|workspace-directory|experiment-name|tool-name|job-index-shift|strategies)\s+(\S+)")
+_EQUALS_RE = re.compile(r"--(?P<key>shards|command|workspace-directory|experiment-name|tool-name|job-index-shift|strategies)=(\S+)")
 
 
 @dataclass
@@ -236,7 +236,17 @@ def _resolve_runtime_workspace(workspace: str | Path | None, experiment: str | N
     return str(resolve_experiment_directory(str(workspace), resolve_experiment_name(experiment)))
 
 
-def _output_exists(command: str, workspace: str | Path, project: str, tool_name: str) -> bool:
+def _parse_csv_values(value: str | None) -> list[str]:
+    return [part.strip() for part in str(value or "").split(",") if part.strip()]
+
+
+def _output_exists(
+    command: str,
+    workspace: str | Path,
+    project: str,
+    tool_name: str,
+    strategies: str | list[str] | None = None,
+) -> bool:
     canonical = _COMMAND_ALIASES.get(command, command)
     base = Path(workspace)
     if canonical == "method-scan":
@@ -250,7 +260,13 @@ def _output_exists(command: str, workspace: str | Path, project: str, tool_name:
     if canonical == "class-scan":
         return (base / "class" / f"{project}.csv").exists()
     if canonical == "test-smell":
-        return (base / "test-smell"/ tool_name / f"{project}.csv").exists()
+        selected_strategies = strategies if isinstance(strategies, list) else _parse_csv_values(strategies)
+        if selected_strategies:
+            return all(
+                (base / "test-smell" / tool_name / strategy / f"{project}.csv").exists()
+                for strategy in selected_strategies
+            )
+        return (base / "test-smell" / tool_name / "callgraph" / f"{project}.csv").exists()
     return False
 
 
@@ -295,6 +311,7 @@ def process_with_details(
         experiment_name_override or _parse_arg(text, "experiment-name"),
     )
     tool_name = _parse_arg(text, "tool-name") or ""
+    strategies = _parse_csv_values(_parse_arg(text, "strategies"))
 
     index_ranges = _parse_index_ranges(array_match.group(1))
     requested_indices = _expand_indices(index_ranges)
@@ -305,7 +322,7 @@ def process_with_details(
     if not replace and workspace is not None and repo_df is not None:
         indices = [
             idx for idx in repository_indices
-            if not _output_exists(command, workspace, str(repo_df.iloc[idx]["project"]), tool_name)
+            if not _output_exists(command, workspace, str(repo_df.iloc[idx]["project"]), tool_name, strategies)
         ]
         completed_excluded_indices = _subtract_indices(repository_indices, indices)
     else:

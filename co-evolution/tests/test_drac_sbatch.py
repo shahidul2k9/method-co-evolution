@@ -187,6 +187,20 @@ class TestOutputExists(unittest.TestCase):
     def test_method_code_missing(self):
         self.assertFalse(_output_exists("method-code", self.workspace, "ant", ""))
 
+    def test_test_smell_callgraph_exists_without_strategies(self):
+        self._make_file("test-smell", "jnose", "callgraph", "checkstyle.csv")
+        self.assertTrue(_output_exists("test-smell", self.workspace, "checkstyle", "jnose"))
+
+    def test_test_smell_strategy_exists_with_strategies(self):
+        self._make_file("test-smell", "jnose", "nc", "checkstyle.csv")
+        self.assertTrue(_output_exists("test-smell", self.workspace, "checkstyle", "jnose", "nc"))
+
+    def test_test_smell_multiple_strategies_require_all_outputs(self):
+        self._make_file("test-smell", "jnose", "nc", "checkstyle.csv")
+        self.assertFalse(_output_exists("test-smell", self.workspace, "checkstyle", "jnose", "nc,ncc"))
+        self._make_file("test-smell", "jnose", "ncc", "checkstyle.csv")
+        self.assertTrue(_output_exists("test-smell", self.workspace, "checkstyle", "jnose", "nc,ncc"))
+
 
 class TestProcess(unittest.TestCase):
     def setUp(self):
@@ -237,6 +251,38 @@ class TestProcess(unittest.TestCase):
         path.touch()
         result = process(self._input(), self.repo_df, replace=False, workspace_override=self.workspace)
         self.assertIn("--array=4400-4599,7200-7399,9400-9599", result)
+
+    def test_strategy_test_smell_existing_output_skips_index(self):
+        text = SAMPLE_INPUT.format(workspace=self.workspace).replace(
+            "--command call-graph",
+            "--command test-smell",
+        ).replace(
+            "--tool-name methodParser",
+            "--tool-name jnose --strategies nc",
+        )
+        path = self.runtime_workspace / "test-smell" / "jnose" / "nc" / "project-29.csv"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+
+        result = process(text, self.repo_df, replace=False, workspace_override=self.workspace)
+
+        self.assertIn("--array=4400-4599,7200-7399,9400-9599", result)
+
+    def test_strategy_test_smell_keeps_index_when_one_strategy_output_missing(self):
+        text = SAMPLE_INPUT.format(workspace=self.workspace).replace(
+            "--command call-graph",
+            "--command test-smell",
+        ).replace(
+            "--tool-name methodParser",
+            "--tool-name jnose --strategies nc,ncc",
+        )
+        path = self.runtime_workspace / "test-smell" / "jnose" / "nc" / "project-29.csv"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+
+        result = process(text, self.repo_df, replace=False, workspace_override=self.workspace)
+
+        self.assertIn("--array=4400-4599,5800-5999,7200-7399,9400-9599", result)
 
     def test_replace_overrides_existing_file(self):
         path = self.runtime_workspace / "callgraph" / "project-29.csv"

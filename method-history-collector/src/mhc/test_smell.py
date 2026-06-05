@@ -1099,7 +1099,7 @@ def _postprocess_error_file(data_directory: str, project: str, variant: str = CA
 
 
 def _postprocess_file(data_directory: str, project: str, variant: str = CALLGRAPH_VARIANT) -> Path:
-    return Path(data_directory) / "test-smell" / TEST_SMELL_TOOL / variant / "output" / f"{project}.csv"
+    return Path(data_directory) / "test-smell" / TEST_SMELL_TOOL / variant / f"{project}.csv"
 
 
 def _bridge_file(data_directory: str, project: str, strategy: str) -> Path:

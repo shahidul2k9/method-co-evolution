@@ -915,6 +915,16 @@ class TestSmellHelpersTest(unittest.TestCase):
             ),
         )
 
+    def test_postprocess_file_uses_flat_strategy_output_path(self):
+        self.assertEqual(
+            Path("/data/test-smell/jnose/nc/demo.csv"),
+            _postprocess_file("/data", "demo", "nc"),
+        )
+        self.assertEqual(
+            Path("/data/test-smell/jnose/callgraph/demo.csv"),
+            _postprocess_file("/data", "demo"),
+        )
+
     def test_materialize_adapter_input_file_reads_local_git_blob_before_urlopen(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
