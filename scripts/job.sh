@@ -15,7 +15,7 @@ Usage:
   job.sh --command llm-m2m-link --api-type huggingface --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --batch-size 1 --resume error --projects "commons-io" --input-kind t2p
   job.sh --command llm-m2m-link --stage parse --model-name-or-path openai/gpt-oss-20b --short-model-name gpt_oss_20b --projects "commons-io"
   job.sh --command testlinker --stage all --projects "commons-io" --top-k 1
-  job.sh --command test-smell --tool-name jnose --stage all --callgraph-dir callgraph --projects "commons-io"
+  job.sh --command test-smell --tool-name jnose --stage all --strategies nc --projects "commons-io"
 
 Options:
   --command               Command to run: method-history, method-callgraph, method-scan, class-scan, method-code, artifact-update, method-complexity, llm-m2m-link, testlinker, test-smell
@@ -49,7 +49,7 @@ Options:
   --job-index-shift       Offset added to SLURM_ARRAY_TASK_ID before deriving project/shard indexes (default: 0)
   --input-kind            LLM input kind: t2p or p2t (default: t2p)
   --top-k                 TestLinker top-k invocation count (default: 1)
-  --callgraph-dir         Callgraph-like experiment subdirectory for test-smell preprocess (default: callgraph)
+  --strategies            Comma-separated t2p-link strategies for test-smell
   --workspace-directory       Relative or absolute shared workspace directory (default: workspace)
   --experiment-name            Experiment name (default: ME_EXPERIMENT_NAME)
   --history-directory     Relative or absolute method history directory override
@@ -96,7 +96,7 @@ SHARDS="1"
 JOB_INDEX_SHIFT="0"
 INPUT_KIND="t2p"
 TOP_K="1"
-CALLGRAPH_DIR="callgraph"
+STRATEGIES=""
 WORKSPACE_DIRECTORY="$PROJECT_DIRECTORY/workspace"
 EXPERIMENT_NAME="${ME_EXPERIMENT_NAME:-main}"
 HISTORY_DIRECTORY="${ME_HISTORY_DIRECTORY:-}"
@@ -286,12 +286,12 @@ while [[ $# -gt 0 ]]; do
             TOP_K="$2"
             shift 2
             ;;
-        --callgraph-dir)
-            CALLGRAPH_DIR="$2"
+        --strategies)
+            STRATEGIES="$2"
             shift 2
             ;;
-        --callgraph-dir=*)
-            CALLGRAPH_DIR="${1#*=}"
+        --strategies=*)
+            STRATEGIES="${1#*=}"
             shift
             ;;
         --workspace-directory)
@@ -578,7 +578,10 @@ else
         MHC_ARGS+=(--tool-name "$TOOL_NAME")
     fi
     if [[ "$COMMAND_NAME" == "test-smell" ]]; then
-        MHC_ARGS+=(--stage "$STAGE" --callgraph-dir "$CALLGRAPH_DIR")
+        MHC_ARGS+=(--stage "$STAGE")
+        if [[ -n "$STRATEGIES" ]]; then
+            MHC_ARGS+=(--strategies "$STRATEGIES")
+        fi
     fi
     if [[ -n "$JAVA_OPTIONS" ]]; then
         MHC_ARGS+=(--java-options="$JAVA_OPTIONS")

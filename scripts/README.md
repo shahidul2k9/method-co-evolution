@@ -162,11 +162,13 @@ sbatch --array=1-2 scripts/job.sh \
   --command test-smell \
   --tool-name jnose \
   --stage all \
-  --callgraph-dir callgraph \
+  --strategies nc,ncc \
   --projects "commons-io,checkstyle" \
   --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
   --experiment-name "$ME_EXPERIMENT_NAME"
 ```
+
+Omit `--strategies` to run the callgraph-based jNose workflow.
 
 ### Important Options
 
@@ -196,7 +198,7 @@ sbatch --array=1-2 scripts/job.sh \
 | `--shards` | `1` | Total shards per project |
 | `--job-index-shift` | `0` | Offset for shifted Slurm array indexes |
 | `--top-k` | `1` | TestLinker top-k invocations |
-| `--callgraph-dir` | `callgraph` | Experiment subdirectory used by test-smell preprocess |
+| `--strategies` | unset | Comma-separated t2p-link strategies for test-smell |
 
 ## `ptc-sbatch`
 
