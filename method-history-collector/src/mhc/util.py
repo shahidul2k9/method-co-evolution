@@ -9,7 +9,28 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-PROJECT_INDEX_HELP = "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :"
+PROJECT_INDEX_HELP = (
+    "project-index must use Python-style indexes or slices like 10, -1, 10:20, :10, 10:, or :, "
+    "or comma-separated indexes like 0,2,4"
+)
+
+
+def _parse_project_index_token(project_index: str, projects: Sequence[str]) -> list[str]:
+    if ":" not in project_index:
+        try:
+            return [projects[int(project_index)]]
+        except (ValueError, IndexError) as exc:
+            raise ValueError(PROJECT_INDEX_HELP) from exc
+
+    if project_index.count(":") > 2:
+        raise ValueError(PROJECT_INDEX_HELP)
+
+    parts = project_index.split(":")
+    try:
+        parsed_parts = [int(part) if part else None for part in parts]
+    except ValueError as exc:
+        raise ValueError(PROJECT_INDEX_HELP) from exc
+    return list(projects[slice(*parsed_parts)])
 
 
 def parse_project_index(project_index: str | None, known_projects: Sequence[str]) -> list[str]:
@@ -17,22 +38,22 @@ def parse_project_index(project_index: str | None, known_projects: Sequence[str]
         return []
 
     projects = list(known_projects)
-    if ":" not in project_index:
-        try:
-            return [projects[int(project_index)]]
-        except (ValueError, IndexError):
+    value = project_index.strip()
+    if value == ":":
+        return projects
+    if "," not in value:
+        return _parse_project_index_token(value, projects)
+
+    selected_projects: list[str] = []
+    selected_project_set: set[str] = set()
+    for token in (part.strip() for part in value.split(",")):
+        if not token:
             raise ValueError(PROJECT_INDEX_HELP)
-
-    if project_index.count(":") != 1:
-        raise ValueError(PROJECT_INDEX_HELP)
-
-    start_text, end_text = project_index.split(":", maxsplit=1)
-    try:
-        start_index = int(start_text) if start_text else None
-        end_index = int(end_text) if end_text else None
-    except ValueError:
-        raise ValueError(PROJECT_INDEX_HELP)
-    return projects[start_index:end_index]
+        for project in _parse_project_index_token(token, projects):
+            if project not in selected_project_set:
+                selected_projects.append(project)
+                selected_project_set.add(project)
+    return selected_projects
 
 
 def format_git_project_directory(repository_directory: str, repository_name: str) -> str:

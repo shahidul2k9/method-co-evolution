@@ -222,6 +222,26 @@ def _project_index_value() -> str | None:
     return _default_env_value("ME_PROJECT_INDEX", config.ME_PROJECT_INDEX)
 
 
+PROJECT_INDEX_ERROR = (
+    "ME_PROJECT_INDEX must be ':' or Python slice syntax such as '0:10', '10:20', '::2', "
+    "a single integer, or comma-separated integer indexes such as '0,2,4'."
+)
+
+
+def _parse_project_index_token(value: str, size: int) -> set[int]:
+    if ":" in value:
+        parts = value.split(":")
+        if len(parts) > 3:
+            raise ValueError
+        parsed_parts = [int(part) if part else None for part in parts]
+        return set(range(size)[slice(*parsed_parts)])
+
+    index = int(value)
+    if index < 0:
+        index += size
+    return {index} if 0 <= index < size else set()
+
+
 def _parse_project_index(project_index: str | None, size: int) -> set[int] | None:
     if project_index is None:
         return None
@@ -231,22 +251,17 @@ def _parse_project_index(project_index: str | None, size: int) -> set[int] | Non
         return None
 
     try:
-        if ":" in value:
-            parts = value.split(":")
-            if len(parts) > 3:
-                raise ValueError
-            parsed_parts = [int(part) if part else None for part in parts]
-            selected_range = range(size)[slice(*parsed_parts)]
-            return set(selected_range)
+        if "," in value:
+            selected_indices: set[int] = set()
+            for token in (part.strip() for part in value.split(",")):
+                if not token:
+                    raise ValueError
+                selected_indices.update(_parse_project_index_token(token, size))
+            return selected_indices
 
-        index = int(value)
-        if index < 0:
-            index += size
-        return {index} if 0 <= index < size else set()
+        return _parse_project_index_token(value, size)
     except ValueError as exc:
-        raise ValueError(
-            "ME_PROJECT_INDEX must be ':' or Python slice syntax such as '0:10', '10:20', '::2', or a single integer."
-        ) from exc
+        raise ValueError(PROJECT_INDEX_ERROR) from exc
 
 
 def select_project_items(

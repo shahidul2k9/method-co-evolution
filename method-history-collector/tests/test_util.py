@@ -22,6 +22,14 @@ class UtilCase(unittest.TestCase):
         self.assertLessEqual(shard, 20)
         self.assertEqual(shard, util.stable_shard_for_key("src/Foo--bar--10.json", 20))
 
+    def test_parse_project_index_accepts_comma_separated_indexes(self):
+        projects = ["ant", "checkstyle", "commons-io", "gson"]
+
+        self.assertEqual(
+            ["ant", "commons-io", "gson"],
+            util.parse_project_index("0,2,-1", projects),
+        )
+
     def test_java_options_with_logback_config_uses_cache_config_when_present(self):
         with tempfile.TemporaryDirectory() as temp_directory:
             workspace_directory = Path(temp_directory)

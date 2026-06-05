@@ -29,6 +29,14 @@ class TestGroundTruthSample(unittest.TestCase):
         self.assertEqual(["gson"], select_project_items(projects, project_index="-1"))
         self.assertEqual(projects, select_project_items(projects, project_index=None))
 
+    def test_project_index_accepts_comma_separated_indexes(self):
+        projects = ["commons-io", "commons-lang", "gson", "junit4"]
+
+        self.assertEqual(
+            ["commons-io", "gson", "junit4"],
+            select_project_items(projects, project_index="0,2,-1"),
+        )
+
     def test_parse_update_columns_accepts_comma_separated_values(self):
         self.assertEqual(
             ["from_artifact", "to_artifact", "to_name", "to_fqs", "candidate"],
