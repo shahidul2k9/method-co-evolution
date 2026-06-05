@@ -200,6 +200,23 @@ class TestSmellWorkflowTest(unittest.TestCase):
             "diff": diff,
         }
 
+    def _write_strategy_input_row(self, strategy: str, old_url: str, old_path: Path):
+        input_file = _input_file(str(self.data), self.project, strategy)
+        input_file.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(
+            [
+                {
+                    "appName": self.project,
+                    "pathToTestFile": str(old_path),
+                    "pathToProductionFile": "",
+                    "from_url": old_url,
+                    "to_url": "",
+                    "candidateCount": "0",
+                    "confidence": "1.000000",
+                }
+            ]
+        ).to_csv(input_file, index=False)
+
     def test_preprocess_filters_tags_and_prefers_exact_name_match(self):
         self._write_method_csv()
         pd.DataFrame(
@@ -526,8 +543,8 @@ class TestSmellWorkflowTest(unittest.TestCase):
 
         self.assertEqual(1, len(result))
         row = result.iloc[0]
-        self.assertIn(f"adapter-input-file/{self.project}/{intro_commit}/src/test/java/acme/FooTest.java", row["pathToTestFile"])
-        self.assertIn(f"adapter-input-file/{self.project}/{intro_commit}/src/main/java/acme/Foo.java", row["pathToProductionFile"])
+        self.assertIn(f"jnose-adapter-input-file/{self.project}/{intro_commit}/src/test/java/acme/FooTest.java", row["pathToTestFile"])
+        self.assertIn(f"jnose-adapter-input-file/{self.project}/{intro_commit}/src/main/java/acme/Foo.java", row["pathToProductionFile"])
 
         bridge = pd.read_csv(_bridge_file(str(self.data), self.project, strategy), dtype=str)
         self.assertEqual(1, len(bridge))
@@ -600,10 +617,15 @@ class TestSmellWorkflowTest(unittest.TestCase):
     def test_strategy_postprocess_maps_old_method_to_current_method_once_for_duplicate_production_links(self):
         strategy = "nc"
         old_path = _adapter_input_file_path(
-            str(self.data),
+            str(self.repo),
             strategy,
             self.project,
             "https://github.com/acme/sample/blob/intro/src/test/java/acme/FooTest.java#L10",
+        )
+        self._write_strategy_input_row(
+            strategy,
+            "https://github.com/acme/sample/blob/intro/src/test/java/acme/FooTest.java#L10",
+            old_path,
         )
         raw_dir = self.data / ".test-smell" / "jnose" / strategy / "jnose-adapter-output"
         raw_dir.mkdir(parents=True)
@@ -687,6 +709,8 @@ class TestSmellWorkflowTest(unittest.TestCase):
     def test_strategy_postprocess_resolves_multiple_matches_by_old_line_range(self):
         strategy = "nc"
         old_url = "https://github.com/acme/sample/blob/intro/src/test/java/acme/FooTest.java#L10"
+        old_path = _adapter_input_file_path(str(self.repo), strategy, self.project, old_url)
+        self._write_strategy_input_row(strategy, old_url, old_path)
         raw_dir = self.data / ".test-smell" / "jnose" / strategy / "jnose-adapter-output"
         raw_dir.mkdir(parents=True)
         pd.DataFrame(
@@ -694,7 +718,7 @@ class TestSmellWorkflowTest(unittest.TestCase):
                 {
                     "projectName": self.project,
                     "name": "FooTest",
-                    "pathFile": str(_adapter_input_file_path(str(self.data), strategy, self.project, old_url)),
+                    "pathFile": str(old_path),
                     "productionFile": "",
                     "junitVersion": "JUnit4",
                     "loc": "20",
@@ -766,6 +790,8 @@ class TestSmellWorkflowTest(unittest.TestCase):
     def test_strategy_postprocess_matches_old_file_before_method_name(self):
         strategy = "nc"
         bar_old_url = "https://github.com/acme/sample/blob/barintro/src/test/java/acme/BarTest.java#L15"
+        bar_old_path = _adapter_input_file_path(str(self.repo), strategy, self.project, bar_old_url)
+        self._write_strategy_input_row(strategy, bar_old_url, bar_old_path)
         raw_dir = self.data / ".test-smell" / "jnose" / strategy / "jnose-adapter-output"
         raw_dir.mkdir(parents=True)
         pd.DataFrame(
@@ -773,7 +799,7 @@ class TestSmellWorkflowTest(unittest.TestCase):
                 {
                     "projectName": self.project,
                     "name": "BarTest",
-                    "pathFile": str(_adapter_input_file_path(str(self.data), strategy, self.project, bar_old_url)),
+                    "pathFile": str(bar_old_path),
                     "productionFile": "",
                     "junitVersion": "JUnit4",
                     "loc": "20",
@@ -957,7 +983,7 @@ class TestSmellHelpersTest(unittest.TestCase):
             data_dir = root / "experiment"
             project = "sample"
             file_url = "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L10"
-            output_file = _adapter_input_file_path(str(data_dir), "nc", project, file_url)
+            output_file = _adapter_input_file_path(str(repository_dir), "nc", project, file_url)
             output_file.parent.mkdir(parents=True)
             output_file.write_bytes(b"already here")
 

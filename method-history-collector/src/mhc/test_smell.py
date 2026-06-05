@@ -510,13 +510,10 @@ def postprocess_strategy_project(repository: pd.Series, data_directory: str, str
     )
     rows = []
     error_rows = []
+    input_paths = _strategy_input_paths_by_url(data_directory, project, strategy)
     bridge_candidates = bridge_df.copy()
     bridge_candidates["_from_old_path"] = bridge_candidates["from_old_url"].map(
-        lambda value: _normalized_path(
-            _adapter_input_file_path(data_directory, strategy, project, str(value))
-        )
-        if str(value)
-        else ""
+        lambda value: _normalized_path(input_paths.get(str(value), "")) if str(value) else ""
     )
     known_old_paths = set(bridge_candidates["_from_old_path"])
     for _, raw_row in raw_df.iterrows():
@@ -971,7 +968,7 @@ def _materialize_adapter_input_file(
     project: str,
     file_url: str,
 ) -> Path:
-    output_file = _adapter_input_file_path(data_directory, strategy, project, file_url)
+    output_file = _adapter_input_file_path(repository_directory, strategy, project, file_url)
     output_file.parent.mkdir(parents=True, exist_ok=True)
     if output_file.exists():
         return output_file
@@ -992,7 +989,7 @@ def _materialize_adapter_input_file(
 
 
 def _download_adapter_input_file(data_directory: str, strategy: str, project: str, file_url: str) -> Path:
-    return _materialize_adapter_input_file("", data_directory, strategy, project, file_url)
+    return _materialize_adapter_input_file(data_directory, data_directory, strategy, project, file_url)
 
 
 def _read_git_blob(repository_directory: str, project: str, file_url: str) -> bytes:
@@ -1008,10 +1005,24 @@ def _read_git_blob(repository_directory: str, project: str, file_url: str) -> by
     return blob.data_stream.read()
 
 
-def _adapter_input_file_path(data_directory: str, strategy: str, project: str, file_url: str) -> Path:
+def _strategy_input_paths_by_url(data_directory: str, project: str, strategy: str) -> dict[str, str]:
+    input_file = _input_file(data_directory, project, strategy)
+    if not input_file.exists():
+        return {}
+    input_df = pd.read_csv(input_file, dtype=str, keep_default_na=False)
+    if not {"from_url", "pathToTestFile"}.issubset(input_df.columns):
+        return {}
+    return {
+        str(row["from_url"]): str(row["pathToTestFile"])
+        for _, row in input_df.iterrows()
+        if str(row.get("from_url", "")) and str(row.get("pathToTestFile", ""))
+    }
+
+
+def _adapter_input_file_path(repository_directory: str, strategy: str, project: str, file_url: str) -> Path:
     commit = _commit_from_git_url(file_url) or "unknown"
     relative_file = _file_path_from_git_url(file_url) or "unknown.java"
-    return Path(data_directory) / ".test-smell" / TEST_SMELL_TOOL / strategy / "adapter-input-file" / project / commit / relative_file
+    return Path(repository_directory).parent / "jnose-adapter-input-file" / project / commit / relative_file
 
 
 def _raw_url(file_url: str) -> str:
