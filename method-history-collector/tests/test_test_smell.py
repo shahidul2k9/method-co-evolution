@@ -18,6 +18,7 @@ from mhc.test_smell import (
     _bridge_file,
     _ensure_repository_checkout,
     _execute_command,
+    _adapter_input_file_path,
     _download_adapter_input_file,
     _input_file,
     _postprocess_file,
@@ -516,6 +517,12 @@ class TestSmellWorkflowTest(unittest.TestCase):
 
     def test_strategy_postprocess_maps_old_method_to_current_method_and_warns_on_multiple_matches(self):
         strategy = "nc"
+        old_path = _adapter_input_file_path(
+            str(self.data),
+            strategy,
+            self.project,
+            "https://github.com/acme/sample/blob/intro/src/test/java/acme/FooTest.java#L10",
+        )
         raw_dir = self.data / ".test-smell" / "jnose" / strategy / "jnose-adapter-output"
         raw_dir.mkdir(parents=True)
         pd.DataFrame(
@@ -523,7 +530,7 @@ class TestSmellWorkflowTest(unittest.TestCase):
                 {
                     "projectName": self.project,
                     "name": "FooTest",
-                    "pathFile": "/tmp/FooTest.java",
+                    "pathFile": str(old_path),
                     "productionFile": "",
                     "junitVersion": "JUnit4",
                     "loc": "20",
@@ -583,6 +590,79 @@ class TestSmellWorkflowTest(unittest.TestCase):
         self.assertEqual(["testFoo", "testFoo"], result["name"].tolist())
         errors = pd.read_csv(_postprocess_error_file(str(self.data), self.project, strategy), dtype=str)
         self.assertEqual(["missingOld"], errors["testSmellMethod"].tolist())
+        self.assertIn("in ", errors["reason"].iloc[0])
+
+    def test_strategy_postprocess_matches_old_file_before_method_name(self):
+        strategy = "nc"
+        bar_old_url = "https://github.com/acme/sample/blob/barintro/src/test/java/acme/BarTest.java#L15"
+        raw_dir = self.data / ".test-smell" / "jnose" / strategy / "jnose-adapter-output"
+        raw_dir.mkdir(parents=True)
+        pd.DataFrame(
+            [
+                {
+                    "projectName": self.project,
+                    "name": "BarTest",
+                    "pathFile": str(_adapter_input_file_path(str(self.data), strategy, self.project, bar_old_url)),
+                    "productionFile": "",
+                    "junitVersion": "JUnit4",
+                    "loc": "20",
+                    "qtdMethods": "1",
+                    "testSmellName": "Lazy Test",
+                    "testSmellMethod": "testSameOld",
+                    "testSmellLineBegin": "15",
+                    "testSmellLineEnd": "15",
+                }
+            ]
+        ).to_csv(raw_dir / f"{self.project}.csv", sep=";", index=False)
+        bridge_file = _bridge_file(str(self.data), self.project, strategy)
+        bridge_file.parent.mkdir(parents=True)
+        pd.DataFrame(
+            [
+                {
+                    "project": self.project,
+                    "from_url": "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L10",
+                    "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Foo.java#L20",
+                    "from_old_url": "https://github.com/acme/sample/blob/foointro/src/test/java/acme/FooTest.java#L10",
+                    "to_old_url": "",
+                    "from_name": "testFoo",
+                    "to_name": "foo",
+                    "from_old_name": "testSameOld",
+                    "to_old_name": "",
+                },
+                {
+                    "project": self.project,
+                    "from_url": "https://github.com/acme/sample/blob/abc123/src/test/java/acme/BarTest.java#L15",
+                    "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Bar.java#L30",
+                    "from_old_url": bar_old_url,
+                    "to_old_url": "",
+                    "from_name": "testBar",
+                    "to_name": "bar",
+                    "from_old_name": "testSameOld",
+                    "to_old_name": "",
+                },
+            ],
+            columns=[
+                "project",
+                "from_url",
+                "to_url",
+                "from_old_url",
+                "to_old_url",
+                "from_name",
+                "to_name",
+                "from_old_name",
+                "to_old_name",
+            ],
+        ).to_csv(bridge_file, index=False)
+
+        result = postprocess_strategy_project(self._repository(), str(self.data), strategy)
+
+        self.assertEqual(["testBar"], result["name"].tolist())
+        self.assertEqual(
+            ["https://github.com/acme/sample/blob/abc123/src/test/java/acme/BarTest.java#L15"],
+            result["url"].tolist(),
+        )
+        errors = pd.read_csv(_postprocess_error_file(str(self.data), self.project, strategy), dtype=str)
+        self.assertTrue(errors.empty)
 
 
 class TestSmellHelpersTest(unittest.TestCase):

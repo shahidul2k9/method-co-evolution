@@ -467,18 +467,33 @@ def postprocess_strategy_project(repository: pd.Series, data_directory: str, str
     )
     rows = []
     error_rows = []
+    bridge_candidates = bridge_df.copy()
+    bridge_candidates["_from_old_path"] = bridge_candidates["from_old_url"].map(
+        lambda value: _normalized_path(
+            _adapter_input_file_path(data_directory, strategy, project, str(value))
+        )
+        if str(value)
+        else ""
+    )
+    known_old_paths = set(bridge_candidates["_from_old_path"])
     for _, raw_row in raw_df.iterrows():
         raw_project = raw_row.get("projectName") or project
+        path_file = raw_row.get("pathFile", "")
+        old_path = _normalize_strategy_jnose_path(path_file, known_old_paths)
         smell_name = raw_row.get("testSmellName", "")
         acronym = SMELL_ACRONYMS.get(smell_name, smell_name)
         smell_begin = raw_row.get("testSmellLineBegin", "")
         smell_end = raw_row.get("testSmellLineEnd", "")
         for method_name in _split_smell_methods(raw_row.get("testSmellMethod", "")):
-            matches = bridge_df[bridge_df["from_old_name"] == method_name].drop_duplicates(["from_url", "to_url"])
+            matches = bridge_candidates[
+                (bridge_candidates["_from_old_path"] == old_path)
+                & (bridge_candidates["from_old_name"] == method_name)
+            ].drop_duplicates(["from_url", "to_url"])
             if len(matches) > 1:
                 logging.warning(
-                    "Multiple t2p-link bridge rows matched old test method %s for %s/%s; emitting all distinct links",
+                    "Multiple t2p-link bridge rows matched old test method %s in %s for %s/%s; emitting all distinct links",
                     method_name,
+                    old_path,
                     strategy,
                     project,
                 )
@@ -487,12 +502,12 @@ def postprocess_strategy_project(repository: pd.Series, data_directory: str, str
                     {
                         "project": raw_project,
                         "name": raw_row.get("name", ""),
-                        "pathFile": raw_row.get("pathFile", ""),
+                        "pathFile": path_file,
                         "testSmellName": smell_name,
                         "testSmellMethod": method_name,
                         "testSmellLineBegin": smell_begin,
                         "testSmellLineEnd": smell_end,
-                        "reason": f"No bridge match for old method {method_name}",
+                        "reason": f"No bridge match for old method {method_name} in {old_path}",
                     }
                 )
                 continue
@@ -635,6 +650,21 @@ def _normalize_jnose_path(path: str, known_files) -> str:
     return normalized
 
 
+def _normalize_strategy_jnose_path(path: str, known_files) -> str:
+    normalized = _normalized_path(path)
+    known = {_normalized_path(file) for file in known_files if str(file)}
+    if normalized in known:
+        return normalized
+    for file in sorted(known, key=len, reverse=True):
+        if normalized.endswith(file) or file.endswith(normalized):
+            return file
+    return normalized
+
+
+def _normalized_path(path: str | Path) -> str:
+    return os.fspath(path).replace("\\", "/")
+
+
 def _file_url(repository: pd.Series, relative_file: str) -> str:
     repository_url = str(repository.get("url", "") or "").rstrip("/")
     commit_hash = str(repository.get("updated_hash", "") or repository.get("hash", "") or "")
@@ -766,15 +796,19 @@ def _detail_new_method_name(detail: dict) -> str:
 
 
 def _download_adapter_input_file(data_directory: str, strategy: str, project: str, file_url: str) -> Path:
-    commit = _commit_from_git_url(file_url) or "unknown"
-    relative_file = _file_path_from_git_url(file_url) or "unknown.java"
-    output_file = Path(data_directory) / ".test-smell" / TEST_SMELL_TOOL / strategy / "adapter-input-file" / project / commit / relative_file
+    output_file = _adapter_input_file_path(data_directory, strategy, project, file_url)
     output_file.parent.mkdir(parents=True, exist_ok=True)
     if output_file.exists():
         return output_file
     with urlopen(_raw_url(file_url), timeout=60) as response:
         output_file.write_bytes(response.read())
     return output_file
+
+
+def _adapter_input_file_path(data_directory: str, strategy: str, project: str, file_url: str) -> Path:
+    commit = _commit_from_git_url(file_url) or "unknown"
+    relative_file = _file_path_from_git_url(file_url) or "unknown.java"
+    return Path(data_directory) / ".test-smell" / TEST_SMELL_TOOL / strategy / "adapter-input-file" / project / commit / relative_file
 
 
 def _raw_url(file_url: str) -> str:
