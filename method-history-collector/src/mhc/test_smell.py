@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import subprocess
 import tarfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -49,6 +50,20 @@ BRIDGE_COLUMNS = [
     "to_name",
     "from_old_name",
     "to_old_name",
+    "from_start",
+    "from_end",
+    "from_old_start",
+    "from_old_end",
+]
+BRIDGE_FROM_METHOD_COLUMNS = [
+    "from_url",
+    "from_old_url",
+    "from_name",
+    "from_old_name",
+    "from_start",
+    "from_end",
+    "from_old_start",
+    "from_old_end",
 ]
 
 SMELL_ACRONYMS = load_test_smell_acronyms(TEST_SMELL_TOOL)
@@ -312,21 +327,22 @@ def postprocess_project(repository: pd.Series, data_directory: str) -> pd.DataFr
         acronym = SMELL_ACRONYMS.get(smell_name, smell_name)
         smell_begin = raw_row.get("testSmellLineBegin", "")
         smell_end = raw_row.get("testSmellLineEnd", "")
-        for method_name in _split_smell_methods(raw_row.get("testSmellMethod", "")):
-            url = method_candidates.get(relative_file, {}).get(method_name, "")
-            if url:
-                rows.append(
-                    {
-                        "project": raw_project,
-                        "name": method_name,
-                        "smell": acronym,
-                        "smell_detector": TEST_SMELL_TOOL,
-                        "url": url,
-                        "smell_begin": smell_begin,
-                        "smell_end": smell_end,
-                    }
+        method_names = _split_smell_methods(raw_row.get("testSmellMethod", ""))
+        for method_index, method_name in enumerate(method_names):
+            candidates = method_candidates.get(relative_file, {}).get(method_name, [])
+            matches = _resolve_candidates_by_range(
+                candidates,
+                _smell_line_range_for_index(smell_begin, smell_end, method_index),
+                "start_line",
+                "end_line",
+            )
+            if len(matches) > 1:
+                logging.warning(
+                    "Multiple method rows matched test smell method %s in %s; emitting all distinct URLs",
+                    method_name,
+                    relative_file,
                 )
-            else:
+            if not matches:
                 error_rows.append(
                     {
                         "project": raw_project,
@@ -336,7 +352,20 @@ def postprocess_project(repository: pd.Series, data_directory: str) -> pd.DataFr
                         "testSmellMethod": method_name,
                         "testSmellLineBegin": smell_begin,
                         "testSmellLineEnd": smell_end,
-                        "reason": f"No exact method match for {method_name} in {relative_file}",
+                        "reason": f"No exact method match for {method_name} in {relative_file} at {smell_begin}-{smell_end}",
+                    }
+                )
+                continue
+            for match in matches:
+                rows.append(
+                    {
+                        "project": raw_project,
+                        "name": method_name,
+                        "smell": acronym,
+                        "smell_detector": TEST_SMELL_TOOL,
+                        "url": match["url"],
+                        "smell_begin": smell_begin,
+                        "smell_end": smell_end,
                     }
                 )
 
@@ -381,6 +410,8 @@ def preprocess_strategy_project(
         intro_commit = str(from_detail.get("commitName", "") or "")
         from_old_url = str(from_detail.get("newFileUrl", "") or "")
         from_old_name = _detail_new_method_name(from_detail) or str(link_row.get("from_name", ""))
+        from_old_start = _line_from_git_url(from_old_url)
+        from_old_end = _old_end_from_detail(from_old_start, from_detail)
 
         to_old_url = ""
         to_old_name = ""
@@ -402,17 +433,22 @@ def preprocess_strategy_project(
                 "to_name": str(link_row.get("to_name", "")),
                 "from_old_name": from_old_name,
                 "to_old_name": to_old_name,
+                "from_start": str(link_row.get("from_start", "")),
+                "from_end": str(link_row.get("from_end", "")),
+                "from_old_start": from_old_start,
+                "from_old_end": from_old_end,
             }
         )
 
-    bridge_df = pd.DataFrame(bridge_rows, columns=BRIDGE_COLUMNS)
+    full_bridge_df = pd.DataFrame(bridge_rows, columns=BRIDGE_COLUMNS)
+    bridge_df = _deduplicate_bridge_by_from_method(full_bridge_df)
     bridge_df.to_csv(bridge_file, index=False)
-    if bridge_df.empty:
+    if full_bridge_df.empty:
         pd.DataFrame(columns=PREPROCESS_COLUMNS).to_csv(input_file, index=False)
         return bridge_df
 
     input_rows = []
-    for from_old_url, group in bridge_df.groupby("from_old_url", sort=False):
+    for from_old_url, group in full_bridge_df.groupby("from_old_url", sort=False):
         if not from_old_url:
             continue
         test_file = _download_adapter_input_file(data_directory, strategy, project, from_old_url)
@@ -484,14 +520,19 @@ def postprocess_strategy_project(repository: pd.Series, data_directory: str, str
         acronym = SMELL_ACRONYMS.get(smell_name, smell_name)
         smell_begin = raw_row.get("testSmellLineBegin", "")
         smell_end = raw_row.get("testSmellLineEnd", "")
-        for method_name in _split_smell_methods(raw_row.get("testSmellMethod", "")):
+        method_names = _split_smell_methods(raw_row.get("testSmellMethod", ""))
+        for method_index, method_name in enumerate(method_names):
             matches = bridge_candidates[
                 (bridge_candidates["_from_old_path"] == old_path)
                 & (bridge_candidates["from_old_name"] == method_name)
-            ].drop_duplicates(["from_url", "to_url"])
+            ].drop_duplicates(BRIDGE_FROM_METHOD_COLUMNS)
+            matches = _resolve_bridge_matches_by_range(
+                matches,
+                _smell_line_range_for_index(smell_begin, smell_end, method_index),
+            )
             if len(matches) > 1:
                 logging.warning(
-                    "Multiple t2p-link bridge rows matched old test method %s in %s for %s/%s; emitting all distinct links",
+                    "Multiple t2p-link bridge rows matched old test method %s in %s for %s/%s; emitting all distinct test methods",
                     method_name,
                     old_path,
                     strategy,
@@ -618,22 +659,111 @@ def _test_files(method_df: pd.DataFrame) -> list[str]:
     return sorted(test_rows["file"].dropna().astype(str).unique())
 
 
-def _method_candidates_by_file(method_file: Path) -> dict[str, dict[str, str]]:
+def _method_candidates_by_file(method_file: Path) -> dict[str, dict[str, list[dict[str, str]]]]:
     if not method_file.exists():
         return {}
     method_df = pd.read_csv(method_file, dtype=str, keep_default_na=False)
     if not {"name", "file", "url"}.issubset(method_df.columns):
         return {}
-    candidates: dict[str, dict[str, str]] = {}
+    candidates: dict[str, dict[str, list[dict[str, str]]]] = {}
     for _, row in method_df.iterrows():
         file_name = str(row["file"]).replace(os.sep, "/")
         method_name = str(row["name"])
-        candidates.setdefault(file_name, {}).setdefault(method_name, str(row["url"]))
+        candidates.setdefault(file_name, {}).setdefault(method_name, []).append(
+            {
+                "url": str(row["url"]),
+                "start_line": str(row.get("start_line", "")),
+                "end_line": str(row.get("end_line", "")),
+            }
+        )
     return candidates
 
 
 def _split_smell_methods(value: str) -> list[str]:
     return [part.strip() for part in str(value or "").split(",") if part.strip()]
+
+
+def _split_smell_lines(value: str) -> list[str]:
+    return [part.strip() for part in str(value or "").split(",")]
+
+
+def _smell_line_range_for_index(begin_value: str, end_value: str, index: int) -> tuple[int, int] | None:
+    begins = _split_smell_lines(begin_value)
+    ends = _split_smell_lines(end_value)
+    begin = _to_int(begins[index] if index < len(begins) else (begins[0] if begins else ""))
+    end = _to_int(ends[index] if index < len(ends) else (ends[0] if ends else ""))
+    if begin is None and end is None:
+        return None
+    if begin is None:
+        begin = end
+    if end is None:
+        end = begin
+    if begin is None or end is None:
+        return None
+    return (min(begin, end), max(begin, end))
+
+
+def _resolve_candidates_by_range(
+    candidates: list[dict[str, str]],
+    smell_range: tuple[int, int] | None,
+    start_column: str,
+    end_column: str,
+) -> list[dict[str, str]]:
+    distinct = _deduplicate_dicts(candidates, ["url"])
+    if len(distinct) <= 1:
+        return distinct
+    ranged = [
+        candidate
+        for candidate in distinct
+        if _range_contains_smell(candidate.get(start_column, ""), candidate.get(end_column, ""), smell_range)
+    ]
+    return ranged or distinct
+
+
+def _resolve_bridge_matches_by_range(matches: pd.DataFrame, smell_range: tuple[int, int] | None) -> pd.DataFrame:
+    if len(matches) <= 1:
+        return matches
+    ranged = matches[
+        matches.apply(
+            lambda row: _range_contains_smell(row.get("from_old_start", ""), row.get("from_old_end", ""), smell_range),
+            axis=1,
+        )
+    ]
+    if not ranged.empty:
+        return ranged.drop_duplicates(BRIDGE_FROM_METHOD_COLUMNS)
+    return matches
+
+
+def _range_contains_smell(start_value: str, end_value: str, smell_range: tuple[int, int] | None) -> bool:
+    if smell_range is None:
+        return False
+    start = _to_int(start_value)
+    end = _to_int(end_value)
+    if start is None or end is None:
+        return False
+    smell_start, smell_end = smell_range
+    return start <= smell_start and smell_end <= end
+
+
+def _deduplicate_dicts(rows: list[dict[str, str]], keys: list[str]) -> list[dict[str, str]]:
+    seen = set()
+    result = []
+    for row in rows:
+        key = tuple(row.get(item, "") for item in keys)
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(row)
+    return result
+
+
+def _to_int(value) -> int | None:
+    try:
+        if value is None or value == "":
+            return None
+        return int(float(str(value)))
+    except (TypeError, ValueError):
+        return None
 
 
 def _normalize_jnose_path(path: str, known_files) -> str:
@@ -690,6 +820,12 @@ def _deduplicate_adapter_input(df: pd.DataFrame) -> pd.DataFrame:
             row["to_url"] = ""
         rows.append(row.to_dict())
     return pd.DataFrame(rows, columns=PREPROCESS_COLUMNS)
+
+
+def _deduplicate_bridge_by_from_method(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return pd.DataFrame(columns=BRIDGE_COLUMNS)
+    return df.drop_duplicates(BRIDGE_FROM_METHOD_COLUMNS).copy()
 
 
 def _load_history_index(data_directory: str, project: str) -> list[dict]:
@@ -795,6 +931,32 @@ def _detail_new_method_name(detail: dict) -> str:
     return ""
 
 
+def _line_from_git_url(file_url: str) -> str:
+    fragment = urlparse(str(file_url or "")).fragment
+    match = re.match(r"L(\d+)", fragment)
+    return match.group(1) if match else ""
+
+
+def _old_end_from_detail(start_line: str, detail: dict) -> str:
+    start = _to_int(start_line)
+    diff_line_count = _new_side_diff_line_count(str(detail.get("diff", "") or ""))
+    if start is None or diff_line_count <= 0:
+        return ""
+    return str(start + diff_line_count - 1)
+
+
+def _new_side_diff_line_count(diff: str) -> int:
+    count = 0
+    for line in str(diff or "").splitlines():
+        if not line:
+            continue
+        if line.startswith("@@") or line.startswith("---") or line.startswith("+++") or line.startswith("\\"):
+            continue
+        if line.startswith("+") or line.startswith(" "):
+            count += 1
+    return count
+
+
 def _download_adapter_input_file(data_directory: str, strategy: str, project: str, file_url: str) -> Path:
     output_file = _adapter_input_file_path(data_directory, strategy, project, file_url)
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -889,4 +1051,4 @@ def _postprocess_file(data_directory: str, project: str, variant: str = CALLGRAP
 
 
 def _bridge_file(data_directory: str, project: str, strategy: str) -> Path:
-    return Path(data_directory) / "test-smell" / TEST_SMELL_TOOL / strategy / "t2p-link-bridge" / f"{project}.csv"
+    return Path(data_directory) / ".test-smell" / TEST_SMELL_TOOL / strategy / "t2p-link-bridge" / f"{project}.csv"

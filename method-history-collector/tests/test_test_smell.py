@@ -182,13 +182,21 @@ class TestSmellWorkflowTest(unittest.TestCase):
             "changeHistoryDetails": details,
         }
 
-    def _detail(self, commit: str, file_path: str, method_name: str, change_type: str = "Yintroduced") -> dict:
+    def _detail(
+        self,
+        commit: str,
+        file_path: str,
+        method_name: str,
+        change_type: str = "Yintroduced",
+        diff: str = "",
+    ) -> dict:
         return {
             "commitName": commit,
             "type": change_type,
             "newFileUrl": f"https://github.com/acme/sample/blob/{commit}/{file_path}#L10",
             "extendedDetails": {"newMethodName": method_name, "newPath": file_path},
             "path": file_path,
+            "diff": diff,
         }
 
     def test_preprocess_filters_tags_and_prefers_exact_name_match(self):
@@ -404,6 +412,62 @@ class TestSmellWorkflowTest(unittest.TestCase):
         self.assertEqual(["missingMethod"], errors["testSmellMethod"].tolist())
         self.assertIn("No exact method match", errors["reason"].iloc[0])
 
+    def test_callgraph_postprocess_resolves_duplicate_method_names_by_line_range(self):
+        self._write_method_csv()
+        method_file = self.data / "method" / f"{self.project}.csv"
+        method_df = pd.read_csv(method_file, dtype=str)
+        method_df = pd.concat(
+            [
+                method_df,
+                pd.DataFrame(
+                    [
+                        {
+                            "project": self.project,
+                            "name": "testFoo",
+                            "url": "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L30",
+                            "artifact": "#test-code #test-case-method",
+                            "start_line": "30",
+                            "end_line": "40",
+                            "expression": "method",
+                            "pkg": "acme",
+                            "fqn": "acme.FooTest.testFoo",
+                            "fqs": "acme.FooTest.testFoo()",
+                            "fqs_alt": "acme.FooTest.testFoo()",
+                            "file": "src/test/java/acme/FooTest.java",
+                            "hash": "abc123",
+                            "parser": "javaparser",
+                        }
+                    ]
+                ),
+            ],
+            ignore_index=True,
+        )
+        method_df.to_csv(method_file, index=False)
+        raw_dir = self.data / ".test-smell" / "jnose" / "callgraph" / "jnose-adapter-output"
+        raw_dir.mkdir(parents=True)
+        pd.DataFrame(
+            [
+                {
+                    "projectName": self.project,
+                    "name": "FooTest",
+                    "pathFile": str(self.repo / self.project / "src/test/java/acme/FooTest.java"),
+                    "productionFile": "",
+                    "junitVersion": "JUnit4",
+                    "loc": "20",
+                    "qtdMethods": "1",
+                    "testSmellName": "Lazy Test",
+                    "testSmellMethod": "testFoo",
+                    "testSmellLineBegin": "32",
+                    "testSmellLineEnd": "32",
+                }
+            ]
+        ).to_csv(raw_dir / f"{self.project}.csv", sep=";", index=False)
+
+        result = postprocess_project(self._repository(), str(self.data))
+
+        self.assertEqual(["testFoo"], result["name"].tolist())
+        self.assertEqual(["https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L30"], result["url"].tolist())
+
     def test_strategy_preprocess_builds_bridge_and_adapter_input(self):
         strategy = "nc"
         (self.data / "t2p-link" / strategy).mkdir(parents=True)
@@ -415,6 +479,8 @@ class TestSmellWorkflowTest(unittest.TestCase):
                     "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Foo.java#L20",
                     "from_name": "testFoo",
                     "to_name": "foo",
+                    "from_start": "10",
+                    "from_end": "20",
                 },
                 {
                     "project": self.project,
@@ -422,6 +488,8 @@ class TestSmellWorkflowTest(unittest.TestCase):
                     "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Foo.java#L20",
                     "from_name": "testFoo",
                     "to_name": "foo",
+                    "from_start": "10",
+                    "from_end": "20",
                 },
             ]
         ).to_csv(self.data / "t2p-link" / strategy / f"{self.project}.csv", index=False)
@@ -433,7 +501,12 @@ class TestSmellWorkflowTest(unittest.TestCase):
                     "testFoo",
                     {
                         "later456": self._detail("later456", "src/test/java/acme/FooTest.java", "testFoo", "Ybodychange"),
-                        intro_commit: self._detail(intro_commit, "src/test/java/acme/FooTest.java", "testFooOld"),
+                        intro_commit: self._detail(
+                            intro_commit,
+                            "src/test/java/acme/FooTest.java",
+                            "testFooOld",
+                            diff="@@ -0,0 +1,3 @@\n+line 1\n+line 2\n+line 3\n",
+                        ),
                     },
                 ),
                 self._history(
@@ -459,6 +532,10 @@ class TestSmellWorkflowTest(unittest.TestCase):
         self.assertEqual(1, len(bridge))
         self.assertEqual(["testFooOld"], bridge["from_old_name"].tolist())
         self.assertEqual(["fooOld"], bridge["to_old_name"].tolist())
+        self.assertEqual(["10"], bridge["from_start"].tolist())
+        self.assertEqual(["20"], bridge["from_end"].tolist())
+        self.assertEqual(["10"], bridge["from_old_start"].tolist())
+        self.assertEqual(["12"], bridge["from_old_end"].tolist())
 
     def test_strategy_preprocess_falls_back_to_last_entry_and_clears_ambiguous_production_file(self):
         strategy = "nc"
@@ -471,6 +548,8 @@ class TestSmellWorkflowTest(unittest.TestCase):
                     "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Foo.java#L20",
                     "from_name": "testFoo",
                     "to_name": "foo",
+                    "from_start": "10",
+                    "from_end": "20",
                 },
                 {
                     "project": self.project,
@@ -478,6 +557,8 @@ class TestSmellWorkflowTest(unittest.TestCase):
                     "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Bar.java#L30",
                     "from_name": "testFoo",
                     "to_name": "bar",
+                    "from_start": "10",
+                    "from_end": "20",
                 },
             ]
         ).to_csv(self.data / "t2p-link" / strategy / f"{self.project}.csv", index=False)
@@ -515,7 +596,7 @@ class TestSmellWorkflowTest(unittest.TestCase):
         self.assertEqual("", result.iloc[0]["pathToProductionFile"])
         self.assertIn(fallback_commit, result.iloc[0]["pathToTestFile"])
 
-    def test_strategy_postprocess_maps_old_method_to_current_method_and_warns_on_multiple_matches(self):
+    def test_strategy_postprocess_maps_old_method_to_current_method_once_for_duplicate_production_links(self):
         strategy = "nc"
         old_path = _adapter_input_file_path(
             str(self.data),
@@ -556,6 +637,10 @@ class TestSmellWorkflowTest(unittest.TestCase):
                     "to_name": "foo",
                     "from_old_name": "testFooOld",
                     "to_old_name": "",
+                    "from_start": "10",
+                    "from_end": "20",
+                    "from_old_start": "",
+                    "from_old_end": "",
                 },
                 {
                     "project": self.project,
@@ -567,6 +652,10 @@ class TestSmellWorkflowTest(unittest.TestCase):
                     "to_name": "bar",
                     "from_old_name": "testFooOld",
                     "to_old_name": "",
+                    "from_start": "10",
+                    "from_end": "20",
+                    "from_old_start": "",
+                    "from_old_end": "",
                 },
             ],
             columns=[
@@ -579,18 +668,99 @@ class TestSmellWorkflowTest(unittest.TestCase):
                 "to_name",
                 "from_old_name",
                 "to_old_name",
+                "from_start",
+                "from_end",
+                "from_old_start",
+                "from_old_end",
             ],
         ).to_csv(bridge_file, index=False)
 
-        with self.assertLogs(level="WARNING") as logs:
-            result = postprocess_strategy_project(self._repository(), str(self.data), strategy)
+        result = postprocess_strategy_project(self._repository(), str(self.data), strategy)
 
-        self.assertIn("Multiple t2p-link bridge rows matched", "\n".join(logs.output))
-        self.assertEqual(["LT", "LT"], result["smell"].tolist())
-        self.assertEqual(["testFoo", "testFoo"], result["name"].tolist())
+        self.assertEqual(["LT"], result["smell"].tolist())
+        self.assertEqual(["testFoo"], result["name"].tolist())
         errors = pd.read_csv(_postprocess_error_file(str(self.data), self.project, strategy), dtype=str)
         self.assertEqual(["missingOld"], errors["testSmellMethod"].tolist())
         self.assertIn("in ", errors["reason"].iloc[0])
+
+    def test_strategy_postprocess_resolves_multiple_matches_by_old_line_range(self):
+        strategy = "nc"
+        old_url = "https://github.com/acme/sample/blob/intro/src/test/java/acme/FooTest.java#L10"
+        raw_dir = self.data / ".test-smell" / "jnose" / strategy / "jnose-adapter-output"
+        raw_dir.mkdir(parents=True)
+        pd.DataFrame(
+            [
+                {
+                    "projectName": self.project,
+                    "name": "FooTest",
+                    "pathFile": str(_adapter_input_file_path(str(self.data), strategy, self.project, old_url)),
+                    "productionFile": "",
+                    "junitVersion": "JUnit4",
+                    "loc": "20",
+                    "qtdMethods": "1",
+                    "testSmellName": "Lazy Test",
+                    "testSmellMethod": "testFooOld",
+                    "testSmellLineBegin": "32",
+                    "testSmellLineEnd": "32",
+                }
+            ]
+        ).to_csv(raw_dir / f"{self.project}.csv", sep=";", index=False)
+        bridge_file = _bridge_file(str(self.data), self.project, strategy)
+        bridge_file.parent.mkdir(parents=True)
+        pd.DataFrame(
+            [
+                {
+                    "project": self.project,
+                    "from_url": "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L10",
+                    "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Foo.java#L20",
+                    "from_old_url": old_url,
+                    "to_old_url": "",
+                    "from_name": "testFoo",
+                    "to_name": "foo",
+                    "from_old_name": "testFooOld",
+                    "to_old_name": "",
+                    "from_start": "10",
+                    "from_end": "20",
+                    "from_old_start": "10",
+                    "from_old_end": "20",
+                },
+                {
+                    "project": self.project,
+                    "from_url": "https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L30",
+                    "to_url": "https://github.com/acme/sample/blob/abc123/src/main/java/acme/Bar.java#L30",
+                    "from_old_url": old_url,
+                    "to_old_url": "",
+                    "from_name": "testFoo",
+                    "to_name": "bar",
+                    "from_old_name": "testFooOld",
+                    "to_old_name": "",
+                    "from_start": "30",
+                    "from_end": "40",
+                    "from_old_start": "30",
+                    "from_old_end": "40",
+                },
+            ],
+            columns=[
+                "project",
+                "from_url",
+                "to_url",
+                "from_old_url",
+                "to_old_url",
+                "from_name",
+                "to_name",
+                "from_old_name",
+                "to_old_name",
+                "from_start",
+                "from_end",
+                "from_old_start",
+                "from_old_end",
+            ],
+        ).to_csv(bridge_file, index=False)
+
+        result = postprocess_strategy_project(self._repository(), str(self.data), strategy)
+
+        self.assertEqual(["testFoo"], result["name"].tolist())
+        self.assertEqual(["https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L30"], result["url"].tolist())
 
     def test_strategy_postprocess_matches_old_file_before_method_name(self):
         strategy = "nc"
@@ -628,6 +798,10 @@ class TestSmellWorkflowTest(unittest.TestCase):
                     "to_name": "foo",
                     "from_old_name": "testSameOld",
                     "to_old_name": "",
+                    "from_start": "10",
+                    "from_end": "20",
+                    "from_old_start": "10",
+                    "from_old_end": "20",
                 },
                 {
                     "project": self.project,
@@ -639,6 +813,10 @@ class TestSmellWorkflowTest(unittest.TestCase):
                     "to_name": "bar",
                     "from_old_name": "testSameOld",
                     "to_old_name": "",
+                    "from_start": "15",
+                    "from_end": "25",
+                    "from_old_start": "15",
+                    "from_old_end": "25",
                 },
             ],
             columns=[
@@ -651,6 +829,10 @@ class TestSmellWorkflowTest(unittest.TestCase):
                 "to_name",
                 "from_old_name",
                 "to_old_name",
+                "from_start",
+                "from_end",
+                "from_old_start",
+                "from_old_end",
             ],
         ).to_csv(bridge_file, index=False)
 
