@@ -290,10 +290,10 @@ class TestT2PTestSmell(unittest.TestCase):
     def test_prevalence_rows_use_group_denominator_and_include_all(self):
         frame = pd.DataFrame(
             [
-                {"smells": "AR ET", "rg_ch_diff": REVISION_GROUP_2},
-                {"smells": "AR", "rg_ch_diff": REVISION_GROUP_2},
-                {"smells": "", "rg_ch_diff": REVISION_GROUP_2},
-                {"smells": "VT", "rg_ch_diff": REVISION_GROUP_3},
+                {"from_url": "test://A", "smells": "AR ET", "rg_ch_diff": REVISION_GROUP_2},
+                {"from_url": "test://A", "smells": "AR", "rg_ch_diff": REVISION_GROUP_2},
+                {"from_url": "test://B", "smells": "", "rg_ch_diff": REVISION_GROUP_2},
+                {"from_url": "test://A", "smells": "VT", "rg_ch_diff": REVISION_GROUP_3},
             ]
         )
 
@@ -316,11 +316,31 @@ class TestT2PTestSmell(unittest.TestCase):
         ].iloc[0]
 
         self.assertEqual(3, rt_all["smell_total"])
+        self.assertEqual(2, rt_all["methods"])
         self.assertEqual(2, rt_all["smell_n"])
         self.assertEqual(66.67, rt_all["percent"])
         self.assertEqual(3, rt_ar["smell_total"])
+        self.assertEqual(2, rt_ar["methods"])
         self.assertEqual(2, rt_ar["smell_n"])
         self.assertEqual(66.67, rt_ar["percent"])
+        self.assertEqual(
+            [1] * len(prevalence[prevalence["revision_group"] == REVISION_GROUP_3]),
+            prevalence[prevalence["revision_group"] == REVISION_GROUP_3]["methods"].tolist(),
+        )
+
+    def test_prevalence_rows_warns_and_skips_missing_from_url(self):
+        frame = pd.DataFrame([{"smells": "AR", "rg_ch_diff": REVISION_GROUP_2}])
+
+        with self.assertWarnsRegex(UserWarning, "missing generated column from_url"):
+            rows = prevalence_rows(
+                frame,
+                strategy="nc",
+                tool="historyFinder",
+                smell_detector="jnose",
+                revision_type="ch_diff",
+            )
+
+        self.assertEqual([], rows)
 
     def test_prevalence_main_applies_min_t2p_links_and_writes_aggregate_csv(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -372,6 +392,7 @@ class TestT2PTestSmell(unittest.TestCase):
                     "smell_detector",
                     "change",
                     "revision_group",
+                    "methods",
                     "smell",
                     "percent",
                     "smell_total",

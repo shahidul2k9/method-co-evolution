@@ -36,6 +36,7 @@ PREVALENCE_COLUMNS = [
     "smell_detector",
     "change",
     "revision_group",
+    "methods",
     "smell",
     "percent",
     "smell_total",
@@ -131,11 +132,15 @@ def prevalence_rows(
     if group_column not in frame.columns:
         warnings.warn(f"Skipping revision type {revision_type}: missing generated column {group_column}.")
         return []
+    if "from_url" not in frame.columns:
+        warnings.warn(f"Skipping revision type {revision_type}: missing generated column from_url.")
+        return []
 
     smell_types = smell_type_order(frame)
     rows = []
     for revision_group in revision_groups:
         group_df = frame[frame[group_column] == revision_group].copy()
+        methods = group_df["from_url"].nunique()
         smell_total = len(group_df)
         smelly_mask = group_df.get("smells", pd.Series(dtype=str)).astype(bool)
         smelly_count = int(smelly_mask.sum())
@@ -146,6 +151,7 @@ def prevalence_rows(
                 "smell_detector": smell_detector,
                 "change": revision_type,
                 "revision_group": revision_group,
+                "methods": methods,
                 "smell": ALL_SMELLS,
                 "percent": percentage(smelly_count, smell_total),
                 "smell_total": smell_total,
@@ -161,6 +167,7 @@ def prevalence_rows(
                     "smell_detector": smell_detector,
                     "change": revision_type,
                     "revision_group": revision_group,
+                    "methods": methods,
                     "smell": smell,
                     "percent": percentage(smell_n, smell_total),
                     "smell_total": smell_total,
