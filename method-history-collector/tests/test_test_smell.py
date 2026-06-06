@@ -395,6 +395,32 @@ class TestSmellWorkflowTest(unittest.TestCase):
         self.assertFalse(_input_file(str(self.data), self.project).exists())
         self.assertTrue(_input_file(str(self.data), valid_project).exists())
 
+    def test_strategy_run_ensures_repository_checkout_before_preprocess(self):
+        repository_df = pd.DataFrame([self._repository()])
+
+        with (
+            patch("mhc.test_smell._ensure_repository_checkout") as mock_checkout,
+            patch("mhc.test_smell.preprocess_strategy_project", return_value=pd.DataFrame()) as mock_preprocess,
+            patch("mhc.test_smell.execute_project") as mock_execute,
+            patch("mhc.test_smell.postprocess_strategy_project") as mock_postprocess,
+        ):
+            run_test_smell(
+                repository_df,
+                str(self.repo),
+                str(self.data),
+                {"jnose": "/tmp/jnose.jar"},
+                [self.project],
+                "jnose",
+                stage="preprocess",
+                strategies="nc",
+            )
+
+        mock_checkout.assert_called_once()
+        mock_preprocess.assert_called_once()
+        self.assertEqual(str(self.repo), mock_checkout.call_args.args[1])
+        mock_execute.assert_not_called()
+        mock_postprocess.assert_not_called()
+
     def test_postprocess_splits_jnose_methods_and_maps_exact_method_urls(self):
         self._write_method_csv()
         raw_dir = self.data / ".test-smell" / "jnose" / "callgraph" / "jnose-adapter-output"

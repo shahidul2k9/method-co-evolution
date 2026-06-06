@@ -189,6 +189,7 @@ def _run_strategy_test_smell_project(
         return
 
     if stage in {"preprocess", "all"}:
+        _ensure_repository_checkout(repository, repository_directory)
         if preprocess_strategy_project(repository, repository_directory, data_directory, strategy) is None:
             return
     if stage in {"execute", "all"}:
