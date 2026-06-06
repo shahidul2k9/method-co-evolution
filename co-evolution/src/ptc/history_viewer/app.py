@@ -1060,22 +1060,22 @@ class HistoryViewerApp:
 
     def _handle_update_ground_truth_label(self, environ: dict[str, Any], start_response: Any) -> Iterable[bytes]:
         payload = _read_payload(environ)
-        updated = self.repository.update_ground_truth_label(
+        updated_rows = self.repository.update_ground_truth_label(
             payload["ground_truth_csv"],
-            row_index=int(payload["row_index"]),
             from_url=payload["from_url"],
             to_url=payload["to_url"],
             label=payload.get("label", ""),
             notes=payload.get("notes", payload.get("note", "")),
             tags=payload.get("tags", ""),
         )
+        updated = updated_rows[0]
         candidates = self.repository.read_ground_truth_candidates(
             payload["ground_truth_csv"],
             from_url=payload["from_url"],
         )
         response = {
             "ok": True,
-            "row_index": updated.row_index,
+            "updated_count": len(updated_rows),
             "label": updated.values.get("label", ""),
             "notes": updated.notes,
             "tags": updated.values.get("tags", ""),
@@ -1971,19 +1971,33 @@ class HistoryViewerApp:
         tag_values = self.repository.collect_ground_truth_tags(ground_truth_csv)
         tag_options = "\n".join(f'<option value="{html.escape(tag)}"></option>' for tag in tag_values)
         tag_json = json.dumps(tag_values).replace("</", "<\\/")
-        rows = []
+        canonical_values: dict[tuple[str, str], dict[str, str]] = {}
         for candidate in candidates:
             values = candidate.values
-            label_value = values.get("label", "").strip()
+            pair = (values.get("from_url", ""), values.get("to_url", ""))
+            canonical_values.setdefault(
+                pair,
+                {
+                    "label": values.get("label", "").strip(),
+                    "tags": values.get("tags", ""),
+                    "notes": candidate.notes,
+                },
+            )
+        rows = []
+        for display_index, candidate in enumerate(candidates):
+            values = candidate.values
+            pair = (values.get("from_url", ""), values.get("to_url", ""))
+            editable_values = canonical_values[pair]
+            label_value = editable_values["label"]
             depth_value = values.get("to_call_depth", "").strip() or "1"
             candidate_value = values.get("candidate", "").strip()
-            notes_name = f"notes-{candidate.row_index}"
-            tags_name = f"tags-{candidate.row_index}"
+            notes_name = f"notes-{display_index}"
+            tags_name = f"tags-{display_index}"
             artifact_value = values.get("to_artifact", "").strip()
             rows.append(
                 f"""
 <tr
-  data-ground-truth-row="{candidate.row_index}"
+  data-ground-truth-candidate="{display_index}"
   data-from-url="{html.escape(values.get('from_url', ''))}"
   data-to-url="{html.escape(values.get('to_url', ''))}"
 >
@@ -2000,12 +2014,12 @@ class HistoryViewerApp:
   <td class="ground-truth-compact-cell"><span class="ground-truth-compact-text" title="{html.escape(candidate_value)}">{html.escape(truncate_display_text(candidate_value, 28))}</span></td>
   <td class="label-cell">
     <div class="label-control">
-      <label><input type="radio" name="label-{candidate.row_index}" value="0" {"checked" if label_value == "0" else ""} /><span>0</span></label>
-      <label><input type="radio" name="label-{candidate.row_index}" value="1" {"checked" if label_value == "1" else ""} /><span>1</span></label>
+      <label><input type="radio" name="label-{display_index}" value="0" {"checked" if label_value == "0" else ""} /><span>0</span></label>
+      <label><input type="radio" name="label-{display_index}" value="1" {"checked" if label_value == "1" else ""} /><span>1</span></label>
     </div>
   </td>
-  <td><div class="ground-truth-tag-wrapper"><input class="compact-tags" name="{html.escape(tags_name)}" list="ground-truth-tag-suggestions" value="{html.escape(values.get('tags', ''))}" /></div></td>
-  <td><textarea class="compact-note" name="{html.escape(notes_name)}">{html.escape(candidate.notes)}</textarea></td>
+  <td><div class="ground-truth-tag-wrapper"><input class="compact-tags" name="{html.escape(tags_name)}" list="ground-truth-tag-suggestions" value="{html.escape(editable_values['tags'])}" /></div></td>
+  <td><textarea class="compact-note" name="{html.escape(notes_name)}">{html.escape(editable_values['notes'])}</textarea></td>
   <td><button type="button" class="danger ground-truth-delete ground-truth-delete-candidate" data-ground-truth-csv="{html.escape(ground_truth_csv)}" data-from-url="{html.escape(values.get('from_url', ''))}" data-to-url="{html.escape(values.get('to_url', ''))}">Delete</button></td>
 </tr>
 """
@@ -3294,8 +3308,23 @@ function groundTruthApplyTag(input, tag) {
   const prefix = input.value.slice(0, token.start);
   const suffix = input.value.slice(token.end);
   input.value = `${prefix}${tag} ${suffix}`.replace(/\\s+/g, " ").trimStart();
+  input.dispatchEvent(new Event("input", { bubbles: true }));
   input.focus();
   groundTruthTagMenu.style.display = "none";
+}
+
+function groundTruthPairKey(row) {
+  return JSON.stringify([row.dataset.fromUrl || "", row.dataset.toUrl || ""]);
+}
+
+function groundTruthRowsForPair(row) {
+  const pairKey = groundTruthPairKey(row);
+  return Array.from(document.querySelectorAll("[data-ground-truth-candidate]"))
+    .filter((candidateRow) => groundTruthPairKey(candidateRow) === pairKey);
+}
+
+function groundTruthRowControl(row, selector) {
+  return row.querySelector(selector);
 }
 
 function groundTruthShowTagSuggestions(input) {
@@ -3329,15 +3358,47 @@ function groundTruthShowTagSuggestions(input) {
 }
 
 for (const input of document.querySelectorAll(".compact-tags")) {
-  input.addEventListener("input", () => groundTruthShowTagSuggestions(input));
+  input.addEventListener("input", () => {
+    const row = input.closest("[data-ground-truth-candidate]");
+    if (row) {
+      for (const duplicateRow of groundTruthRowsForPair(row)) {
+        const duplicateInput = duplicateRow.querySelector(".compact-tags");
+        if (duplicateInput && duplicateInput !== input) duplicateInput.value = input.value;
+      }
+    }
+    groundTruthShowTagSuggestions(input);
+  });
   input.addEventListener("focus", () => groundTruthShowTagSuggestions(input));
   input.addEventListener("blur", () => setTimeout(() => { groundTruthTagMenu.style.display = "none"; }, 120));
 }
 
+for (const input of document.querySelectorAll('[data-ground-truth-candidate] input[type="radio"]')) {
+  input.addEventListener("change", () => {
+    if (!input.checked) return;
+    const row = input.closest("[data-ground-truth-candidate]");
+    if (!row) return;
+    for (const duplicateRow of groundTruthRowsForPair(row)) {
+      const duplicateInput = duplicateRow.querySelector(`input[type="radio"][value="${input.value}"]`);
+      if (duplicateInput) duplicateInput.checked = true;
+    }
+  });
+}
+
+for (const input of document.querySelectorAll(".compact-note")) {
+  input.addEventListener("input", () => {
+    const row = input.closest("[data-ground-truth-candidate]");
+    if (!row) return;
+    for (const duplicateRow of groundTruthRowsForPair(row)) {
+      const duplicateInput = duplicateRow.querySelector(".compact-note");
+      if (duplicateInput && duplicateInput !== input) duplicateInput.value = input.value;
+    }
+  });
+}
+
 for (const button of document.querySelectorAll(".ground-truth-bulk-label")) {
   button.addEventListener("click", () => {
-    for (const row of document.querySelectorAll("[data-ground-truth-row]")) {
-      const input = row.querySelector(`input[name="label-${row.dataset.groundTruthRow}"][value="${button.dataset.labelValue}"]`);
+    for (const row of document.querySelectorAll("[data-ground-truth-candidate]")) {
+      const input = row.querySelector(`input[type="radio"][value="${button.dataset.labelValue}"]`);
       if (input) input.checked = true;
     }
   });
@@ -3345,8 +3406,8 @@ for (const button of document.querySelectorAll(".ground-truth-bulk-label")) {
 
 for (const button of document.querySelectorAll(".ground-truth-reset-labels")) {
   button.addEventListener("click", () => {
-    for (const row of document.querySelectorAll("[data-ground-truth-row]")) {
-      for (const input of row.querySelectorAll(`input[name="label-${row.dataset.groundTruthRow}"]`)) {
+    for (const row of document.querySelectorAll("[data-ground-truth-candidate]")) {
+      for (const input of row.querySelectorAll('input[type="radio"]')) {
         input.checked = false;
       }
     }
@@ -3356,14 +3417,14 @@ for (const button of document.querySelectorAll(".ground-truth-reset-labels")) {
 for (const button of document.querySelectorAll(".ground-truth-update-all")) {
   button.addEventListener("click", async () => {
     const status = document.querySelector(".ground-truth-status");
-    const updates = [];
-    for (const row of document.querySelectorAll("[data-ground-truth-row]")) {
-      const rowIndex = row.dataset.groundTruthRow;
-      const selectedLabel = row.querySelector(`input[name="label-${rowIndex}"]:checked`);
-      const notes = row.querySelector(`textarea[name="notes-${rowIndex}"]`);
-      const tags = row.querySelector(`input[name="tags-${rowIndex}"]`);
-      updates.push({
-        row_index: rowIndex,
+    const updatesByPair = new Map();
+    for (const row of document.querySelectorAll("[data-ground-truth-candidate]")) {
+      const pairKey = groundTruthPairKey(row);
+      if (updatesByPair.has(pairKey)) continue;
+      const selectedLabel = groundTruthRowControl(row, 'input[type="radio"]:checked');
+      const notes = groundTruthRowControl(row, ".compact-note");
+      const tags = groundTruthRowControl(row, ".compact-tags");
+      updatesByPair.set(pairKey, {
         from_url: row.dataset.fromUrl,
         to_url: row.dataset.toUrl,
         label: selectedLabel ? selectedLabel.value : "",
@@ -3371,6 +3432,7 @@ for (const button of document.querySelectorAll(".ground-truth-update-all")) {
         tags: tags ? tags.value : "",
       });
     }
+    const updates = Array.from(updatesByPair.values());
     const payload = new URLSearchParams({
       ground_truth_csv: button.dataset.groundTruthCsv,
       from_url: button.dataset.fromUrl,
@@ -3425,8 +3487,10 @@ for (const button of document.querySelectorAll(".ground-truth-delete-candidate")
       const response = await fetch("/api/ground-truth-delete-candidate", { method: "POST", body: payload });
       const data = await response.json();
       if (!data.ok) throw new Error("delete failed");
-      const row = button.closest("tr");
-      if (row) row.remove();
+      const row = button.closest("[data-ground-truth-candidate]");
+      if (row) {
+        for (const duplicateRow of groundTruthRowsForPair(row)) duplicateRow.remove();
+      }
       const progress = document.getElementById("ground-truth-progress");
       if (progress) progress.textContent = `${data.labelled_count} of ${data.candidate_count} labelled`;
       groundTruthStatus("Deleted");

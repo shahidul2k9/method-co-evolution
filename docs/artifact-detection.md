@@ -71,6 +71,9 @@ defaults:
     - src/androidTest
     - src/test
     - src/tests/junit
+  testModuleSourceRoots:
+    - src
+  allSourceRootsInTestModuleAreTest: false
   testResourceRoots:
     - src/test/resources
   testModulePatterns:
@@ -93,6 +96,8 @@ defaults:
     - net.jqwik.api.lifecycle.BeforeProperty
   legacyTestCaseSuperclasses:
     - junit.framework.TestCase
+  testClassSuperclasses:
+    - example.CustomTestBase
   legacyTestMethodNamePrefixes:
     - test
   testClassContextAnnotations:
@@ -128,6 +133,17 @@ Detection precedence is:
 5. Module/path context patterns
 ```
 
+`testModuleSourceRoots` classifies matching roots as `test-code` only when the
+containing module matches `testModulePatterns`. This supports repositories whose
+dedicated test modules place tests under a conventional main root such as
+`src`, without treating every project module's `src` directory as test code.
+
+Set `allSourceRootsInTestModuleAreTest: true` at default, project, or module
+level to classify all normal source roots in modules matching
+`testModulePatterns` as `test-code`. The setting is opt-in and does not promote
+generated-main roots, resources, or Java files outside recognized source roots.
+More-specific project and module boolean values override broader values.
+
 ### Method role rules
 
 Method role detection runs only after the file has been classified as
@@ -160,6 +176,12 @@ falls back only for `public void test*()` methods in classes named `*Test` or
 Mockito and JUnit extension annotations are context annotations. They can help
 explain why a class is a test class, but they are not test method annotations and
 do not turn arbitrary methods into `#test-case-method`.
+
+Configured `testClassSuperclasses` and `testClassContextAnnotations` promote a
+compilation unit to `test-code`. Its methods are still classified separately:
+only configured test annotations or valid JUnit 3 conventions create
+`test-case-method`; other methods become test helpers. Assertion libraries such
+as Hamcrest do not establish test-class context.
 
 ## Examples
 

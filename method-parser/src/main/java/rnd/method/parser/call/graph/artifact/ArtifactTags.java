@@ -66,6 +66,13 @@ public final class ArtifactTags {
         return EnumSet.copyOf(tags);
     }
 
+    public static Set<ArtifactTag> replace(Set<ArtifactTag> tags, ArtifactTag oldTag, ArtifactTag newTag) {
+        Set<ArtifactTag> replaced = copyOf(tags);
+        replaced.remove(oldTag);
+        replaced.add(newTag);
+        return replaced;
+    }
+
     private static String normalize(String tag) {
         String normalized = tag == null ? "" : tag.trim();
         while (normalized.startsWith("#")) {

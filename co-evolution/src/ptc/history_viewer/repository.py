@@ -646,14 +646,13 @@ class HistoryRepository:
         self,
         csv_path: str | Path,
         *,
-        row_index: int,
         from_url: str,
         to_url: str,
         label: str,
         notes: str = "",
         tags: str = "",
         note: str | None = None,
-    ) -> GroundTruthCandidateRow:
+    ) -> list[GroundTruthCandidateRow]:
         normalized_label = label.strip()
         if normalized_label not in {"", "0", "1"}:
             raise ValueError("Ground-truth label must be 1, 0, or blank")
@@ -670,29 +669,32 @@ class HistoryRepository:
                 fieldnames.append("tags")
             rows = [normalize_ground_truth_row(row) for row in reader]
 
-        if row_index < 0 or row_index >= len(rows):
-            raise ValueError("Ground-truth row index is out of range")
+        updated_rows: list[GroundTruthCandidateRow] = []
+        normalized_notes = notes if note is None else note
+        normalized_tags = normalize_ground_truth_tags(tags)
+        for row_index, row in enumerate(rows):
+            if row.get("from_url", "") != from_url or row.get("to_url", "") != to_url:
+                continue
+            row["label"] = normalized_label
+            row["notes"] = normalized_notes
+            row["tags"] = normalized_tags
+            updated_rows.append(GroundTruthCandidateRow(csv_path=path, row_index=row_index, values=row))
 
-        row = rows[row_index]
-        if row.get("from_url", "") != from_url or row.get("to_url", "") != to_url:
-            raise ValueError("Ground-truth row identity did not match the CSV row")
-
-        row["label"] = normalized_label
-        row["notes"] = notes if note is None else note
-        row["tags"] = normalize_ground_truth_tags(tags)
+        if not updated_rows:
+            raise ValueError("No ground-truth rows matched that candidate")
 
         with path.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(rows)
 
-        return GroundTruthCandidateRow(csv_path=path, row_index=row_index, values=row)
+        return updated_rows
 
     def update_ground_truth_labels(
         self,
         csv_path: str | Path,
         *,
-        updates: list[dict[str, str | int]],
+        updates: list[dict[str, str]],
     ) -> list[GroundTruthCandidateRow]:
         path = Path(csv_path).expanduser()
         with path.open("r", encoding="utf-8", newline="") as handle:
@@ -706,23 +708,36 @@ class HistoryRepository:
                 fieldnames.append("tags")
             rows = [normalize_ground_truth_row(row) for row in reader]
 
-        updated_rows: list[GroundTruthCandidateRow] = []
+        normalized_updates: dict[tuple[str, str], tuple[str, str, str]] = {}
         for update in updates:
-            row_index = int(update["row_index"])
             normalized_label = str(update.get("label", "")).strip()
             if normalized_label not in {"", "0", "1"}:
                 raise ValueError("Ground-truth label must be 1, 0, or blank")
-            if row_index < 0 or row_index >= len(rows):
-                raise ValueError("Ground-truth row index is out of range")
+            pair = (str(update.get("from_url", "")), str(update.get("to_url", "")))
+            normalized_values = (
+                normalized_label,
+                str(update.get("notes", update.get("note", ""))),
+                normalize_ground_truth_tags(str(update.get("tags", ""))),
+            )
+            existing_values = normalized_updates.get(pair)
+            if existing_values is not None and existing_values != normalized_values:
+                raise ValueError("Conflicting updates were provided for the same ground-truth candidate")
+            normalized_updates[pair] = normalized_values
 
-            row = rows[row_index]
-            if row.get("from_url", "") != update.get("from_url", "") or row.get("to_url", "") != update.get("to_url", ""):
-                raise ValueError("Ground-truth row identity did not match the CSV row")
-
-            row["label"] = normalized_label
-            row["notes"] = str(update.get("notes", update.get("note", "")))
-            row["tags"] = normalize_ground_truth_tags(str(update.get("tags", "")))
+        updated_rows: list[GroundTruthCandidateRow] = []
+        matched_pairs: set[tuple[str, str]] = set()
+        for row_index, row in enumerate(rows):
+            pair = (row.get("from_url", ""), row.get("to_url", ""))
+            normalized_values = normalized_updates.get(pair)
+            if normalized_values is None:
+                continue
+            row["label"], row["notes"], row["tags"] = normalized_values
+            matched_pairs.add(pair)
             updated_rows.append(GroundTruthCandidateRow(csv_path=path, row_index=row_index, values=row))
+
+        missing_pairs = set(normalized_updates) - matched_pairs
+        if missing_pairs:
+            raise ValueError("No ground-truth rows matched one or more candidates")
 
         with path.open("w", encoding="utf-8", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames)

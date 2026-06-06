@@ -38,6 +38,7 @@ public final class ArtifactDetectionConfig {
         public final List<String> mainSourceRoots = new ArrayList<>();
         public final List<String> unitTestSourceRoots = new ArrayList<>();
         public final List<String> integrationTestSourceRoots = new ArrayList<>();
+        public final List<String> testModuleSourceRoots = new ArrayList<>();
         public final List<String> mainResourceRoots = new ArrayList<>();
         public final List<String> testResourceRoots = new ArrayList<>();
         public final List<String> generatedMainSourceRoots = new ArrayList<>();
@@ -47,8 +48,10 @@ public final class ArtifactDetectionConfig {
         public final List<String> testMethodAnnotations = new ArrayList<>();
         public final List<String> fixtureMethodAnnotations = new ArrayList<>();
         public final List<String> legacyTestCaseSuperclasses = new ArrayList<>();
+        public final List<String> testClassSuperclasses = new ArrayList<>();
         public final List<String> legacyTestMethodNamePrefixes = new ArrayList<>();
         public final List<String> testClassContextAnnotations = new ArrayList<>();
+        public Boolean allSourceRootsInTestModuleAreTest;
 
         public static RuleSet defaults() {
             RuleSet rules = new RuleSet();
@@ -111,6 +114,7 @@ public final class ArtifactDetectionConfig {
                     "android.test.AndroidTestCase",
                     "android.test.InstrumentationTestCase"
             ));
+            rules.allSourceRootsInTestModuleAreTest = false;
             rules.legacyTestMethodNamePrefixes.add("test");
             rules.testClassContextAnnotations.addAll(List.of(
                     "org.junit.jupiter.api.extension.ExtendWith",
@@ -134,6 +138,7 @@ public final class ArtifactDetectionConfig {
             addAll(mainSourceRoots, other.mainSourceRoots);
             addAll(unitTestSourceRoots, other.unitTestSourceRoots);
             addAll(integrationTestSourceRoots, other.integrationTestSourceRoots);
+            addAll(testModuleSourceRoots, other.testModuleSourceRoots);
             addAll(mainResourceRoots, other.mainResourceRoots);
             addAll(testResourceRoots, other.testResourceRoots);
             addAll(generatedMainSourceRoots, other.generatedMainSourceRoots);
@@ -143,8 +148,12 @@ public final class ArtifactDetectionConfig {
             addAll(testMethodAnnotations, other.testMethodAnnotations);
             addAll(fixtureMethodAnnotations, other.fixtureMethodAnnotations);
             addAll(legacyTestCaseSuperclasses, other.legacyTestCaseSuperclasses);
+            addAll(testClassSuperclasses, other.testClassSuperclasses);
             addAll(legacyTestMethodNamePrefixes, other.legacyTestMethodNamePrefixes);
             addAll(testClassContextAnnotations, other.testClassContextAnnotations);
+            if (other.allSourceRootsInTestModuleAreTest != null) {
+                allSourceRootsInTestModuleAreTest = other.allSourceRootsInTestModuleAreTest;
+            }
         }
 
         private void addAll(List<String> target, List<String> source) {

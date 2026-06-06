@@ -161,6 +161,26 @@ class TestHistoryViewer(unittest.TestCase):
             writer.writerows(rows)
         return csv_path
 
+    def append_duplicate_ground_truth_candidate(self, csv_path: Path) -> None:
+        with csv_path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = list(reader.fieldnames or [])
+            rows = list(reader)
+        if "notes" not in fieldnames:
+            fieldnames.append("notes")
+            for row in rows:
+                row["notes"] = ""
+        duplicate = dict(rows[0])
+        duplicate["candidate"] = "alternate-link"
+        duplicate["label"] = "0"
+        duplicate["tags"] = "#conflicting"
+        duplicate["notes"] = "conflicting duplicate note"
+        rows.insert(1, duplicate)
+        with csv_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+
     def test_ensure_ground_truth_fieldnames_adds_candidate_after_depth(self) -> None:
         fieldnames = ensure_ground_truth_fieldnames(["project", "to_call_depth", "label"])
 
@@ -502,8 +522,9 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertEqual(1, alpha_summary.truth_count)
         self.assertFalse(alpha_summary.is_complete)
 
-    def test_update_ground_truth_label_targets_row_index_and_adds_note_column(self) -> None:
+    def test_update_ground_truth_label_updates_every_matching_url_pair(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-update")
+        self.append_duplicate_ground_truth_candidate(csv_path)
         candidates = self.repository.read_ground_truth_candidates(
             csv_path,
             from_url="https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
@@ -511,22 +532,20 @@ class TestHistoryViewer(unittest.TestCase):
 
         updated = self.repository.update_ground_truth_label(
             csv_path,
-            row_index=candidates[1].row_index,
-            from_url=candidates[1].values["from_url"],
-            to_url=candidates[1].values["to_url"],
+            from_url=candidates[0].values["from_url"],
+            to_url=candidates[0].values["to_url"],
             label="0",
             note="not production ground truth",
         )
 
-        self.assertEqual("0", updated.values["label"])
-        self.assertEqual("not production ground truth", updated.values["notes"])
+        self.assertEqual(2, len(updated))
+        self.assertTrue(all(row.values["label"] == "0" for row in updated))
+        self.assertTrue(all(row.values["notes"] == "not production ground truth" for row in updated))
         with csv_path.open("r", encoding="utf-8", newline="") as handle:
             rows = list(csv.DictReader(handle))
-        self.assertEqual("1", rows[0]["label"])
-        self.assertEqual("0", rows[1]["label"])
-        self.assertEqual("transitive-link", rows[1]["candidate"])
-        self.assertIn("notes", rows[1])
-        self.assertEqual("not production ground truth", rows[1]["notes"])
+        self.assertEqual(["direct-link", "alternate-link"], [rows[0]["candidate"], rows[1]["candidate"]])
+        self.assertEqual(["0", "0"], [rows[0]["label"], rows[1]["label"]])
+        self.assertEqual(["not production ground truth"] * 2, [rows[0]["notes"], rows[1]["notes"]])
 
     def test_ground_truth_routes_render_project_method_and_detail_pages(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-routes")
@@ -594,6 +613,29 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("<td class=\"number-cell\">1</td>", detail_body)
         self.assertIn('value="0"', detail_body)
         self.assertLess(detail_body.index('value="0"'), detail_body.index('value="1"'))
+        self.assertNotIn("row_index: rowIndex", detail_body)
+        self.assertIn("const updatesByPair = new Map();", detail_body)
+
+    def test_ground_truth_detail_renders_duplicate_candidates_with_first_values_canonical(self) -> None:
+        csv_path = self.write_ground_truth_fixture("ground-truth-duplicate-render")
+        self.append_duplicate_ground_truth_candidate(csv_path)
+        detail_body = self.call_app(
+            create_app(workspace_directory=str(WORKSPACE_DIRECTORY), data_directory=str(EXPERIMENT_DIRECTORY)),
+            path="/ground-truth/detail",
+            query=urlencode(
+                {
+                    "ground_truth_csv": str(csv_path),
+                    "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+                }
+            ),
+        )
+
+        self.assertIn("direct-link", detail_body)
+        self.assertIn("alternate-link", detail_body)
+        self.assertEqual(2, detail_body.count('value="1" checked'))
+        self.assertNotIn(">conflicting duplicate note</textarea>", detail_body)
+        self.assertIn("groundTruthRowsForPair", detail_body)
+        self.assertIn("duplicateRow.remove()", detail_body)
 
     def test_ground_truth_delete_apis_remove_method_and_candidate_rows(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-delete-api")
@@ -640,6 +682,34 @@ class TestHistoryViewer(unittest.TestCase):
         with csv_path.open("r", encoding="utf-8", newline="") as handle:
             rows = list(csv.DictReader(handle))
         self.assertEqual(["testBeta"], [row["from_name"] for row in rows])
+
+    def test_ground_truth_batch_update_uses_url_pair_after_earlier_rows_are_deleted(self) -> None:
+        csv_path = self.write_ground_truth_fixture("ground-truth-update-after-delete")
+        self.append_duplicate_ground_truth_candidate(csv_path)
+        deleted_count = self.repository.delete_ground_truth_candidate(
+            csv_path,
+            from_url="https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+            to_url="https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L20",
+        )
+
+        updated = self.repository.update_ground_truth_labels(
+            csv_path,
+            updates=[
+                {
+                    "from_url": "https://github.com/acme/sample/blob/abc/src/test/AlphaTest.java#L10",
+                    "to_url": "https://github.com/acme/sample/blob/abc/src/main/Alpha.java#L30",
+                    "label": "1",
+                    "notes": "updated after delete",
+                    "tags": "stable-pair",
+                }
+            ],
+        )
+
+        self.assertEqual(2, deleted_count)
+        self.assertEqual(1, len(updated))
+        self.assertEqual("transitive-link", updated[0].values["candidate"])
+        self.assertEqual("1", updated[0].values["label"])
+        self.assertEqual("#stable-pair", updated[0].values["tags"])
 
     def test_ground_truth_method_search_and_append_candidate_use_method_csv(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-append-api")
@@ -722,7 +792,6 @@ class TestHistoryViewer(unittest.TestCase):
         payload = urlencode(
             {
                 "ground_truth_csv": str(csv_path),
-                "row_index": str(candidates[1].row_index),
                 "from_url": candidates[1].values["from_url"],
                 "to_url": candidates[1].values["to_url"],
                 "label": "1",
@@ -797,7 +866,6 @@ class TestHistoryViewer(unittest.TestCase):
                 "updates": json.dumps(
                     [
                         {
-                            "row_index": str(candidate.row_index),
                             "from_url": candidate.values["from_url"],
                             "to_url": candidate.values["to_url"],
                             "label": "0",

@@ -84,6 +84,11 @@ public final class ArtifactConfigLoader {
                 String value = stripQuotes(line.substring(2).trim());
                 String listKey = pendingListKey;
                 ruleSet(config, section, project, module).ifPresent(rules -> addRuleValue(rules, listKey, value));
+            } else if (line.contains(":")) {
+                String[] pair = line.split(":", 2);
+                String key = pair[0].trim();
+                String value = stripQuotes(pair[1].trim());
+                ruleSet(config, section, project, module).ifPresent(rules -> setRuleValue(rules, key, value));
             }
         }
     }
@@ -110,10 +115,11 @@ public final class ArtifactConfigLoader {
     private static boolean isRuleKey(String key) {
         return switch (key) {
             case "mainSourceRoots", "unitTestSourceRoots", "integrationTestSourceRoots",
+                    "testModuleSourceRoots",
                     "mainResourceRoots", "testResourceRoots", "generatedMainSourceRoots",
                     "generatedTestSourceRoots", "testModulePatterns", "docModulePatterns",
                     "documentationModulePatterns", "testMethodAnnotations", "fixtureMethodAnnotations",
-                    "legacyTestCaseSuperclasses", "legacyTestMethodNamePrefixes",
+                    "legacyTestCaseSuperclasses", "testClassSuperclasses", "legacyTestMethodNamePrefixes",
                     "testClassContextAnnotations" -> true;
             default -> false;
         };
@@ -124,6 +130,7 @@ public final class ArtifactConfigLoader {
             case "mainSourceRoots" -> add(rules.mainSourceRoots, value);
             case "unitTestSourceRoots" -> add(rules.unitTestSourceRoots, value);
             case "integrationTestSourceRoots" -> add(rules.integrationTestSourceRoots, value);
+            case "testModuleSourceRoots" -> add(rules.testModuleSourceRoots, value);
             case "mainResourceRoots" -> add(rules.mainResourceRoots, value);
             case "testResourceRoots" -> add(rules.testResourceRoots, value);
             case "generatedMainSourceRoots" -> add(rules.generatedMainSourceRoots, value);
@@ -133,10 +140,20 @@ public final class ArtifactConfigLoader {
             case "testMethodAnnotations" -> add(rules.testMethodAnnotations, value);
             case "fixtureMethodAnnotations" -> add(rules.fixtureMethodAnnotations, value);
             case "legacyTestCaseSuperclasses" -> add(rules.legacyTestCaseSuperclasses, value);
+            case "testClassSuperclasses" -> add(rules.testClassSuperclasses, value);
             case "legacyTestMethodNamePrefixes" -> add(rules.legacyTestMethodNamePrefixes, value);
             case "testClassContextAnnotations" -> add(rules.testClassContextAnnotations, value);
             default -> {
             }
+        }
+    }
+
+    private static void setRuleValue(ArtifactDetectionConfig.RuleSet rules, String key, String value) {
+        if ("allSourceRootsInTestModuleAreTest".equals(key)) {
+            if (!"true".equalsIgnoreCase(value) && !"false".equalsIgnoreCase(value)) {
+                throw new IllegalArgumentException("allSourceRootsInTestModuleAreTest must be true or false");
+            }
+            rules.allSourceRootsInTestModuleAreTest = Boolean.parseBoolean(value);
         }
     }
 

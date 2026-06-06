@@ -102,6 +102,295 @@ public class ArtifactDetectionTest {
     }
 
     @Test
+    public void configuredTestModuleSourceRootAppliesOnlyToTestModules() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-test-module-source");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("demo.yml"), """
+                projects:
+                  demo:
+                    testModulePatterns:
+                      - "*-tests"
+                    testModuleSourceRoots:
+                      - src
+                """);
+
+        Path testModule = Files.createDirectories(repo.resolve("feature-tests"));
+        Files.writeString(testModule.resolve("pom.xml"), """
+                <project><artifactId>feature-tests</artifactId></project>
+                """);
+        Path testFile = Files.createDirectories(testModule.resolve("src/demo"))
+                .resolve("FeatureTest.java");
+        Files.writeString(testFile, """
+                package demo;
+                import org.junit.jupiter.api.Test;
+                class FeatureTest {
+                    @Test void featureWorks() {}
+                }
+                """);
+
+        Path mainModule = Files.createDirectories(repo.resolve("feature"));
+        Files.writeString(mainModule.resolve("pom.xml"), """
+                <project><artifactId>feature</artifactId></project>
+                """);
+        Path mainFile = Files.createDirectories(mainModule.resolve("src/demo"))
+                .resolve("Feature.java");
+        Files.writeString(mainFile, "package demo; class Feature {}");
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "demo", configDir);
+
+        Assert.assertEquals("#test-module #test-code", detector.classify(testFile, "demo").encodedArtifact());
+        Assert.assertEquals(
+                "#test-module #test-code #test-case-method",
+                detector.classifyMethodArtifacts(testFile, "demo").get(0).encodedArtifact()
+        );
+        Assert.assertEquals("#main-code", detector.classify(mainFile, "demo").encodedArtifact());
+    }
+
+    @Test
+    public void testModuleMainSourceRootIsNotPromotedByDefault() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-test-module-default");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("demo.yml"), """
+                projects:
+                  demo:
+                    inferSingleSourceRootAsTest: true
+                """);
+        Path module = Files.createDirectories(repo.resolve("feature-tests"));
+        Files.writeString(module.resolve("pom.xml"), "<project><artifactId>feature-tests</artifactId></project>");
+        Path sourceFile = Files.createDirectories(module.resolve("src/demo")).resolve("Feature.java");
+        Files.writeString(sourceFile, "package demo; class Feature {}");
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "demo", configDir);
+
+        Assert.assertEquals("#test-module #main-code", detector.classify(sourceFile, "demo").encodedArtifact());
+    }
+
+    @Test
+    public void projectCanOverrideDefaultAllTestModuleSourceRootsSetting() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-all-test-module-roots-project-override");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("demo.yml"), """
+                defaults:
+                  allSourceRootsInTestModuleAreTest: true
+                projects:
+                  demo:
+                    allSourceRootsInTestModuleAreTest: false
+                """);
+        Path module = Files.createDirectories(repo.resolve("feature-tests"));
+        Files.writeString(module.resolve("pom.xml"), "<project><artifactId>feature-tests</artifactId></project>");
+        Path sourceFile = Files.createDirectories(module.resolve("src/demo")).resolve("Feature.java");
+        Files.writeString(sourceFile, "package demo; class Feature {}");
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "demo", configDir);
+
+        Assert.assertEquals("#test-module #main-code", detector.classify(sourceFile, "demo").encodedArtifact());
+    }
+
+    @Test
+    public void allNormalSourceRootsInTestModuleCanBePromoted() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-all-test-module-roots");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("demo.yml"), """
+                projects:
+                  demo:
+                    allSourceRootsInTestModuleAreTest: true
+                """);
+        Path module = Files.createDirectories(repo.resolve("feature-tests"));
+        Files.writeString(module.resolve("pom.xml"), "<project><artifactId>feature-tests</artifactId></project>");
+        Files.writeString(module.resolve(".classpath"), """
+                <classpath>
+                  <classpathentry kind="src" path="src"/>
+                  <classpathentry kind="src" path="custom"/>
+                </classpath>
+                """);
+        Path firstFile = Files.createDirectories(module.resolve("src/demo")).resolve("Feature.java");
+        Files.writeString(firstFile, "package demo; class Feature {}");
+        Path secondFile = Files.createDirectories(module.resolve("custom/demo")).resolve("Support.java");
+        Files.writeString(secondFile, "package demo; class Support {}");
+        Path mainModule = Files.createDirectories(repo.resolve("feature"));
+        Files.writeString(mainModule.resolve("pom.xml"), "<project><artifactId>feature</artifactId></project>");
+        Path mainFile = Files.createDirectories(mainModule.resolve("src/demo")).resolve("Main.java");
+        Files.writeString(mainFile, "package demo; class Main {}");
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "demo", configDir);
+
+        ArtifactClassification first = detector.classify(firstFile, "demo");
+        ArtifactClassification second = detector.classify(secondFile, "demo");
+        Assert.assertEquals("#test-module #test-code", first.encodedArtifact());
+        Assert.assertEquals("test-module-all-source-roots", first.reason());
+        Assert.assertEquals("#test-module #test-code", second.encodedArtifact());
+        Assert.assertEquals("test-module-all-source-roots", second.reason());
+        Assert.assertEquals("#main-code", detector.classify(mainFile, "demo").encodedArtifact());
+    }
+
+    @Test
+    public void moduleCanOverrideAllTestModuleSourceRootsSetting() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-all-test-module-roots-override");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("demo.yml"), """
+                projects:
+                  demo:
+                    allSourceRootsInTestModuleAreTest: true
+                    modules:
+                      feature-tests:
+                        allSourceRootsInTestModuleAreTest: false
+                """);
+        Path module = Files.createDirectories(repo.resolve("feature-tests"));
+        Files.writeString(module.resolve("pom.xml"), "<project><artifactId>feature-tests</artifactId></project>");
+        Path sourceFile = Files.createDirectories(module.resolve("src/demo")).resolve("Feature.java");
+        Files.writeString(sourceFile, "package demo; class Feature {}");
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "demo", configDir);
+
+        Assert.assertEquals("#test-module #main-code", detector.classify(sourceFile, "demo").encodedArtifact());
+    }
+
+    @Test
+    public void allTestModuleSourceRootsPreservesGeneratedRootsResourcesAndUnknownFiles() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-all-test-module-root-exclusions");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("demo.yml"), """
+                projects:
+                  demo:
+                    allSourceRootsInTestModuleAreTest: true
+                """);
+        Path module = Files.createDirectories(repo.resolve("feature-tests"));
+        Files.writeString(module.resolve("pom.xml"), "<project><artifactId>feature-tests</artifactId></project>");
+        Path generatedMain = Files.createDirectories(module.resolve("target/generated-sources/demo"))
+                .resolve("GeneratedMain.java");
+        Files.writeString(generatedMain, "package demo; class GeneratedMain {}");
+        Path generatedTest = Files.createDirectories(module.resolve("target/generated-test-sources/demo"))
+                .resolve("GeneratedTest.java");
+        Files.writeString(generatedTest, "package demo; class GeneratedTest {}");
+        Path resource = Files.createDirectories(module.resolve("src/test/resources"))
+                .resolve("Fixture.java");
+        Files.writeString(resource, "class Fixture {}");
+        Path unknown = Files.createDirectories(module.resolve("misc/demo")).resolve("Unknown.java");
+        Files.writeString(unknown, "package demo; class Unknown {}");
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "demo", configDir);
+
+        ArtifactClassification generatedMainClassification = detector.classify(generatedMain, "demo");
+        ArtifactClassification generatedTestClassification = detector.classify(generatedTest, "demo");
+        Assert.assertEquals(
+                "#test-module #main-code #main-code-generated",
+                generatedMainClassification.encodedArtifact()
+        );
+        Assert.assertEquals(
+                "#test-module #test-code #test-code-generated",
+                generatedTestClassification.encodedArtifact()
+        );
+        Assert.assertEquals("generated-main-source-root", generatedMainClassification.reason());
+        Assert.assertEquals("generated-test-source-root", generatedTestClassification.reason());
+        Assert.assertEquals("#test-module #test-resource", detector.classify(resource, "").encodedArtifact());
+        Assert.assertEquals("#test-module #main-code", detector.classify(unknown, "demo").encodedArtifact());
+    }
+
+    @Test
+    public void configuredTestClassContextPromotesFileButNotHelperMethods() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-test-class-context");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("demo.yml"), """
+                projects:
+                  demo:
+                    testClassSuperclasses:
+                      - demo.CustomTestBase
+                    testClassContextAnnotations:
+                      - demo.CustomTestContext
+                """);
+        Path source = Files.createDirectories(repo.resolve("src/main/java/demo"));
+        Path superclassTest = source.resolve("SuperclassTest.java");
+        Files.writeString(superclassTest, """
+                package demo;
+                import org.junit.Test;
+                class SuperclassTest extends CustomTestBase {
+                    @Test public void verifiesBehavior() {}
+                    void helper() {}
+                }
+                class CustomTestBase {}
+                """);
+        Path annotationTest = source.resolve("AnnotationTest.java");
+        Files.writeString(annotationTest, """
+                package demo;
+                @CustomTestContext
+                class AnnotationTest {
+                    void annotationHelper() {}
+                }
+                @interface CustomTestContext {}
+                """);
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "demo", configDir);
+        Map<String, ArtifactClassification> methods = methodsByName(detector, superclassTest);
+        Map<String, ArtifactClassification> annotationMethods = methodsByName(detector, annotationTest);
+
+        assertHas(methods, "verifiesBehavior", "test-case-method");
+        assertHas(methods, "helper", "test-helper-method");
+        assertNotHas(methods, "helper", "test-case-method");
+        assertHas(annotationMethods, "annotationHelper", "test-helper-method");
+    }
+
+    @Test
+    public void dbeaverClassContextRecognizesCustomSuperclassAndAnnotation() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-dbeaver-context");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("dbeaver.yml"), """
+                projects:
+                  dbeaver:
+                    testClassSuperclasses:
+                      - org.jkiss.junit.DBeaverUnitTest
+                    testClassContextAnnotations:
+                      - org.jkiss.junit.osgi.annotation.RunnerProxy
+                """);
+        Path source = Files.createDirectories(repo.resolve("src/main/java/org/jkiss/dbeaver/ext/snowflake/model"));
+        Path superclassTest = source.resolve("SnowflakeSQLDialectTest.java");
+        Files.writeString(superclassTest, """
+                package org.jkiss.dbeaver.ext.snowflake.model;
+                import org.jkiss.junit.DBeaverUnitTest;
+                import org.junit.Test;
+                class SnowflakeSQLDialectTest extends DBeaverUnitTest {
+                    @Test public void verifiesDialect() {}
+                    void helper() {}
+                }
+                """);
+        Path annotationTest = source.resolve("ApplicationUnitTest.java");
+        Files.writeString(annotationTest, """
+                package org.jkiss.dbeaver.ext.snowflake.model;
+                import org.jkiss.junit.osgi.annotation.RunnerProxy;
+                @RunnerProxy
+                class ApplicationUnitTest {
+                    void startsApplication() {}
+                }
+                """);
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "dbeaver", configDir);
+        Map<String, ArtifactClassification> methods = methodsByName(detector, superclassTest);
+        Map<String, ArtifactClassification> annotationMethods = methodsByName(detector, annotationTest);
+
+        assertHas(methods, "verifiesDialect", "test-case-method");
+        assertHas(methods, "helper", "test-helper-method");
+        assertHas(annotationMethods, "startsApplication", "test-helper-method");
+    }
+
+    @Test
+    public void hamcrestSuperclassDoesNotEstablishTestClassContext() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-hamcrest-context");
+        Path source = Files.createDirectories(repo.resolve("src/main/java/demo"));
+        Path matcher = source.resolve("CustomMatcher.java");
+        Files.writeString(matcher, """
+                package demo;
+                import org.hamcrest.BaseMatcher;
+                class CustomMatcher extends BaseMatcher<Object> {
+                    public boolean matches(Object value) { return true; }
+                    public void describeTo(org.hamcrest.Description description) {}
+                }
+                """);
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "demo", null);
+
+        Assert.assertEquals("#main-code", detector.classifyMethodArtifacts(matcher, "demo").get(0).encodedArtifact());
+    }
+
+    @Test
     public void newDefaultTestRootsAreClassifiedAsTestCode() throws Exception {
         Path repo = Files.createTempDirectory("artifact-detection-new-roots");
         Path androidFile = Files.createDirectories(repo.resolve("src/androidTest/java/demo"))

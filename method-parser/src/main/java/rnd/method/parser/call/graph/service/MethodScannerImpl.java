@@ -136,7 +136,7 @@ public class MethodScannerImpl implements MethodScanner {
                 .orElse(null);
 
         long classifyStartedAt = System.nanoTime();
-        ArtifactClassification fileClassification = artifactDetector.classify(javaFile.toPath(), packageName);
+        ArtifactClassification fileClassification = artifactDetector.classify(javaFile.toPath(), packageName, cu);
         log.debug(
                 "method-scan artifact-classification finish file={} artifact={} elapsed_seconds={}",
                 file,

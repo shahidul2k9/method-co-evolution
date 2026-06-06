@@ -132,7 +132,7 @@ public class CallGraphServiceImpl implements CallGraphService {
             String packageName = cu.getPackageDeclaration()
                     .map(pd -> pd.getNameAsString())
                     .orElse(null);
-            ArtifactClassification classification = artifactDetector.classify(Paths.get(absoluteFilePath), packageName);
+            ArtifactClassification classification = artifactDetector.classify(Paths.get(absoluteFilePath), packageName, cu);
             if (classification.isResource()) {
                 return List.of();
             }

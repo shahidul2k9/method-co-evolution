@@ -12,6 +12,7 @@ public final class ModuleInfo {
     private final Set<Path> mainSourceRoots = new LinkedHashSet<>();
     private final Set<Path> unitTestSourceRoots = new LinkedHashSet<>();
     private final Set<Path> integrationTestSourceRoots = new LinkedHashSet<>();
+    private final Set<Path> testModuleSourceRoots = new LinkedHashSet<>();
     private final Set<Path> mainResourceRoots = new LinkedHashSet<>();
     private final Set<Path> testResourceRoots = new LinkedHashSet<>();
     private final Set<Path> generatedMainSourceRoots = new LinkedHashSet<>();
@@ -64,6 +65,10 @@ public final class ModuleInfo {
         return integrationTestSourceRoots;
     }
 
+    public Set<Path> testModuleSourceRoots() {
+        return testModuleSourceRoots;
+    }
+
     public Set<Path> mainResourceRoots() {
         return mainResourceRoots;
     }
@@ -90,6 +95,10 @@ public final class ModuleInfo {
 
     public void addIntegrationTestSourceRoot(String root) {
         addRoot(integrationTestSourceRoots, root);
+    }
+
+    public void addTestModuleSourceRoot(String root) {
+        addRoot(testModuleSourceRoots, root);
     }
 
     public void addMainResourceRoot(String root) {

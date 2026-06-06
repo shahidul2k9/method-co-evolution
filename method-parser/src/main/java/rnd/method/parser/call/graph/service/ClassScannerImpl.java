@@ -100,7 +100,7 @@ public class ClassScannerImpl implements ClassScanner {
                 .map(pd -> pd.getNameAsString())
                 .orElse("");
 
-        ArtifactClassification classification = artifactDetector.classify(javaFile.toPath(), packageName);
+        ArtifactClassification classification = artifactDetector.classify(javaFile.toPath(), packageName, cu);
         if (classification.isResource()) {
             return Collections.emptyList();
         }

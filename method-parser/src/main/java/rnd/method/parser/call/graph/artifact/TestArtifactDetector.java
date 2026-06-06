@@ -9,6 +9,7 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.TypeDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.resolution.types.ResolvedReferenceType;
@@ -63,9 +64,16 @@ public final class TestArtifactDetector {
     }
 
     public ArtifactClassification classify(Path javaFile, String packageName) {
+        return classify(javaFile, packageName, null);
+    }
+
+    public ArtifactClassification classify(Path javaFile, String packageName, CompilationUnit cu) {
         Path absoluteFile = javaFile.toAbsolutePath().normalize();
         ModuleInfo module = nearestModule(absoluteFile).orElseGet(() -> syntheticRootModule());
         Path packageSourceRoot = packageSourceRoot(absoluteFile, packageName).orElse(null);
+        ArtifactDetectionConfig.RuleSet rules = config.rulesForModule(repositoryName, module.moduleName());
+        boolean allTestModuleSourceRootsAreTest = module.testModule()
+                && Boolean.TRUE.equals(rules.allSourceRootsInTestModuleAreTest);
 
         EnumSet<ArtifactTag> tags = EnumSet.noneOf(ArtifactTag.class);
         Path matchedRoot = null;
@@ -77,15 +85,18 @@ public final class TestArtifactDetector {
         RootMatch generatedMain = longestMatch(absoluteFile, module.generatedMainSourceRoots());
         RootMatch unit = longestMatch(absoluteFile, module.unitTestSourceRoots());
         RootMatch integration = longestMatch(absoluteFile, module.integrationTestSourceRoots());
+        RootMatch testModuleSource = module.testModule()
+                ? longestMatch(absoluteFile, module.testModuleSourceRoots())
+                : RootMatch.NONE;
         RootMatch main = longestMatch(absoluteFile, module.mainSourceRoots());
 
         RootMatch testResource = longestMatch(absoluteFile, module.testResourceRoots());
         RootMatch mainResource = longestMatch(absoluteFile, module.mainResourceRoots());
-        if (testResource.matched() && !sourceMatchAtLeastAsSpecific(testResource, generatedTest, generatedMain, unit, integration, main)) {
+        if (testResource.matched() && !sourceMatchAtLeastAsSpecific(testResource, generatedTest, generatedMain, unit, integration, testModuleSource, main)) {
             tags.add(ArtifactTag.TEST_RESOURCE);
             return classification(tags, module, testResource.root(), "test-resource-root");
         }
-        if (mainResource.matched() && !sourceMatchAtLeastAsSpecific(mainResource, generatedTest, generatedMain, unit, integration, main)) {
+        if (mainResource.matched() && !sourceMatchAtLeastAsSpecific(mainResource, generatedTest, generatedMain, unit, integration, testModuleSource, main)) {
             tags.add(ArtifactTag.MAIN_RESOURCE);
             return classification(tags, module, mainResource.root(), "main-resource-root");
         }
@@ -102,35 +113,57 @@ public final class TestArtifactDetector {
             reason = "generated-main-source-root";
         }
 
-        if (integration.matched()) {
-            tags.add(ArtifactTag.TEST_CODE);
-            matchedRoot = integration.root();
-            reason = "integration-test-source-root";
-        } else if (unit.matched()) {
-            tags.add(ArtifactTag.TEST_CODE);
-            matchedRoot = unit.root();
-            reason = "unit-test-source-root";
-        } else if (main.matched()) {
-            tags.add(ArtifactTag.MAIN_CODE);
-            matchedRoot = main.root();
-            reason = "main-source-root";
-        } else if (packageSourceRoot != null) {
-            RootKind inferred = inferRootKind(module, packageSourceRoot);
-            switch (inferred) {
-                case INTEGRATION, UNIT -> tags.add(ArtifactTag.TEST_CODE);
-                case TEST_RESOURCE -> tags.add(ArtifactTag.TEST_RESOURCE);
-                case MAIN -> tags.add(ArtifactTag.MAIN_CODE);
-                default -> tags.add(ArtifactTag.MAIN_CODE);
+        if (!generatedTest.matched() && !generatedMain.matched()) {
+            if (integration.matched()) {
+                tags.add(ArtifactTag.TEST_CODE);
+                matchedRoot = integration.root();
+                reason = "integration-test-source-root";
+            } else if (unit.matched()) {
+                tags.add(ArtifactTag.TEST_CODE);
+                matchedRoot = unit.root();
+                reason = "unit-test-source-root";
+            } else if (testModuleSource.matched()) {
+                tags.add(ArtifactTag.TEST_CODE);
+                matchedRoot = testModuleSource.root();
+                reason = "test-module-source-root";
+            } else if (main.matched()) {
+                tags.add(allTestModuleSourceRootsAreTest ? ArtifactTag.TEST_CODE : ArtifactTag.MAIN_CODE);
+                matchedRoot = main.root();
+                reason = allTestModuleSourceRootsAreTest
+                        ? "test-module-all-source-roots"
+                        : "main-source-root";
+            } else if (packageSourceRoot != null) {
+                RootKind inferred = inferRootKind(module, packageSourceRoot);
+                switch (inferred) {
+                    case INTEGRATION, UNIT -> tags.add(ArtifactTag.TEST_CODE);
+                    case TEST_RESOURCE -> tags.add(ArtifactTag.TEST_RESOURCE);
+                    case MAIN -> tags.add(allTestModuleSourceRootsAreTest
+                            ? ArtifactTag.TEST_CODE
+                            : ArtifactTag.MAIN_CODE);
+                    default -> tags.add(ArtifactTag.MAIN_CODE);
+                }
+                matchedRoot = packageSourceRoot;
+                reason = inferred == RootKind.MAIN && allTestModuleSourceRootsAreTest
+                        ? "test-module-all-source-roots"
+                        : "package-derived-source-root";
+            } else {
+                tags.add(ArtifactTag.MAIN_CODE);
+                matchedRoot = module.moduleRoot();
+                reason = module.testModule() ? "test-module-fallback" : "main-fallback";
             }
-            matchedRoot = packageSourceRoot;
-            reason = "package-derived-source-root";
-        } else {
-            tags.add(ArtifactTag.MAIN_CODE);
-            matchedRoot = module.moduleRoot();
-            reason = module.testModule() ? "test-module-fallback" : "main-fallback";
         }
 
-        return classification(tags, module, matchedRoot, reason);
+        ArtifactClassification classification = classification(tags, module, matchedRoot, reason);
+        if (cu != null && !classification.isResource() && !classification.isTestCode()
+                && hasTestClassContext(cu, classification)) {
+            return classification(
+                    ArtifactTags.replace(tags, ArtifactTag.MAIN_CODE, ArtifactTag.TEST_CODE),
+                    module,
+                    matchedRoot,
+                    "test-class-context"
+            );
+        }
+        return classification;
     }
 
     private boolean sourceMatchAtLeastAsSpecific(RootMatch resourceMatch, RootMatch... sourceMatches) {
@@ -194,7 +227,7 @@ public final class TestArtifactDetector {
         String effectivePackage = packageName == null || packageName.isBlank()
                 ? cu.getPackageDeclaration().map(pd -> pd.getNameAsString()).orElse(null)
                 : packageName;
-        ArtifactClassification fileClassification = classify(javaFile, effectivePackage);
+        ArtifactClassification fileClassification = classify(javaFile, effectivePackage, cu);
         if (fileClassification.isResource()) {
             return List.of();
         }
@@ -256,12 +289,12 @@ public final class TestArtifactDetector {
     }
 
     private AnnotationMatch resolveConfiguredAnnotation(
-            MethodDeclaration method,
+            Node node,
             AnnotationExpr annotation,
             List<String> configuredAnnotations,
             boolean isStrict) {
         String simpleName = annotation.getName().getIdentifier();
-        String fqn = resolveAnnotationFqn(method, annotation, configuredAnnotations, isStrict).orElse(null);
+        String fqn = resolveAnnotationFqn(node, annotation, configuredAnnotations, isStrict).orElse(null);
         if (fqn != null) {
             return new AnnotationMatch(simpleName, fqn, configuredAnnotations.contains(fqn), true);
         }
@@ -271,7 +304,7 @@ public final class TestArtifactDetector {
     }
 
     private Optional<String> resolveAnnotationFqn(
-            MethodDeclaration method,
+            Node node,
             AnnotationExpr annotation,
             List<String> configuredAnnotations,
             boolean isStrict) {
@@ -288,7 +321,7 @@ public final class TestArtifactDetector {
             return Optional.of(annotationName);
         }
 
-        Optional<CompilationUnit> cuOpt = method.findCompilationUnit();
+        Optional<CompilationUnit> cuOpt = node.findCompilationUnit();
         if (cuOpt.isEmpty()) {
             return Optional.empty();
         }
@@ -446,6 +479,13 @@ public final class TestArtifactDetector {
             ClassOrInterfaceType type,
             CompilationUnit cu,
             ArtifactDetectionConfig.RuleSet rules) {
+        return toQualifiedName(type, cu, rules.legacyTestCaseSuperclasses);
+    }
+
+    private String toQualifiedName(
+            ClassOrInterfaceType type,
+            CompilationUnit cu,
+            List<String> configuredTypes) {
         try {
             return type.resolve().asReferenceType().getQualifiedName();
         } catch (Exception ignored) {
@@ -461,7 +501,7 @@ public final class TestArtifactDetector {
             }
             if (imp.isAsterisk()) {
                 String candidate = imported + "." + simple;
-                if (isConfiguredLegacyType(candidate, rules)) {
+                if (configuredTypes.contains(candidate)) {
                     return candidate;
                 }
             }
@@ -473,12 +513,12 @@ public final class TestArtifactDetector {
 
         if (!packageName.isEmpty()) {
             String samePackage = packageName + "." + simple;
-            if (isConfiguredLegacyType(samePackage, rules)) {
+            if (configuredTypes.contains(samePackage)) {
                 return samePackage;
             }
         }
 
-        if (isConfiguredLegacyType(simple, rules)) {
+        if (configuredTypes.contains(simple)) {
             return simple;
         }
 
@@ -487,6 +527,47 @@ public final class TestArtifactDetector {
 
     private boolean isConfiguredLegacyType(String fqn, ArtifactDetectionConfig.RuleSet rules) {
         return rules.legacyTestCaseSuperclasses.contains(fqn);
+    }
+
+    private boolean hasTestClassContext(CompilationUnit cu, ArtifactClassification classification) {
+        ArtifactDetectionConfig.RuleSet rules = config.rulesForModule(repositoryName, classification.moduleName());
+        for (TypeDeclaration<?> type : cu.getTypes()) {
+            for (AnnotationExpr annotation : type.getAnnotations()) {
+                if (resolveConfiguredAnnotation(type, annotation, rules.testClassContextAnnotations, false).matched()) {
+                    return true;
+                }
+            }
+            if (type instanceof ClassOrInterfaceDeclaration cls && classExtendsConfiguredType(cls, rules.testClassSuperclasses)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean classExtendsConfiguredType(ClassOrInterfaceDeclaration cls, List<String> configuredTypes) {
+        if (cls.isInterface() || configuredTypes.isEmpty()) {
+            return false;
+        }
+        CompilationUnit cu = cls.findCompilationUnit().orElse(null);
+        if (cu == null) {
+            return false;
+        }
+        for (ClassOrInterfaceType extendedType : cls.getExtendedTypes()) {
+            try {
+                ResolvedReferenceType resolved = extendedType.resolve().asReferenceType();
+                if (configuredTypes.contains(resolved.getQualifiedName())
+                        || resolved.getAllAncestors().stream()
+                        .anyMatch(ancestor -> configuredTypes.contains(ancestor.getQualifiedName()))) {
+                    return true;
+                }
+            } catch (Exception ignored) {
+            }
+            String fqn = toQualifiedName(extendedType, cu, configuredTypes);
+            if (configuredTypes.contains(fqn)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static String simpleName(String fqn) {
@@ -587,6 +668,7 @@ public final class TestArtifactDetector {
         rules.mainSourceRoots.forEach(module::addMainSourceRoot);
         rules.unitTestSourceRoots.forEach(module::addUnitTestSourceRoot);
         rules.integrationTestSourceRoots.forEach(module::addIntegrationTestSourceRoot);
+        rules.testModuleSourceRoots.forEach(module::addTestModuleSourceRoot);
         rules.mainResourceRoots.forEach(module::addMainResourceRoot);
         rules.testResourceRoots.forEach(module::addTestResourceRoot);
         rules.generatedMainSourceRoots.forEach(module::addGeneratedMainSourceRoot);
