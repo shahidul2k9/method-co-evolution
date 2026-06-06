@@ -89,8 +89,22 @@ def smell_summary(smell_df: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["from_url", "smells"])
 
 
-def read_smell_file(experiment_directory: Path, smell_detector: str, project: str) -> pd.DataFrame:
-    smell_file = experiment_directory / "test-smell" / smell_detector / f"{project}.csv"
+def smell_file_path(
+    experiment_directory: Path,
+    smell_detector: str,
+    strategy: str,
+    project: str,
+) -> Path:
+    return experiment_directory / "test-smell" / smell_detector / strategy / f"{project}.csv"
+
+
+def read_smell_file(
+    experiment_directory: Path,
+    smell_detector: str,
+    strategy: str,
+    project: str,
+) -> pd.DataFrame:
+    smell_file = smell_file_path(experiment_directory, smell_detector, strategy, project)
     if not smell_file.exists():
         raise FileNotFoundError(f"Test smell CSV not found: {smell_file}")
     return pd.read_csv(smell_file, keep_default_na=False, na_filter=False)
@@ -179,7 +193,7 @@ def process_strategy(
     for project_file in project_files:
         project = project_file.stem
         output_file = output_dir / f"{project}.csv"
-        smell_file = experiment_directory / "test-smell" / smell_detector / f"{project}.csv"
+        smell_file = smell_file_path(experiment_directory, smell_detector, strategy, project)
         if not smell_file.exists():
             unlink_stale_output(
                 output_file,
@@ -235,7 +249,7 @@ def process_strategy(
             continue
 
         print(f"Processing: {project} [{tool}/{strategy}/{smell_detector}]")
-        smell_df = read_smell_file(experiment_directory, smell_detector, project)
+        smell_df = read_smell_file(experiment_directory, smell_detector, strategy, project)
 
         try:
             output_df = build_project_frame(

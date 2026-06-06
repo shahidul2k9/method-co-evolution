@@ -84,6 +84,10 @@ def selected_revision_groups(value: str | list[str] | None = None) -> list[str]:
     return selected
 
 
+def percentage(count: int, total: int) -> float:
+    return round(count / total * 100, 2) if total else 0.0
+
+
 def load_generated_frames(
     experiment_directory: Path,
     tool: str,
@@ -143,7 +147,7 @@ def prevalence_rows(
                 "change": revision_type,
                 "revision_group": revision_group,
                 "smell": ALL_SMELLS,
-                "percent": (smelly_count / smell_total * 100) if smell_total else 0.0,
+                "percent": percentage(smelly_count, smell_total),
                 "smell_total": smell_total,
                 "smell_n": smelly_count,
             }
@@ -158,7 +162,7 @@ def prevalence_rows(
                     "change": revision_type,
                     "revision_group": revision_group,
                     "smell": smell,
-                    "percent": (smell_n / smell_total * 100) if smell_total else 0.0,
+                    "percent": percentage(smell_n, smell_total),
                     "smell_total": smell_total,
                     "smell_n": smell_n,
                 }

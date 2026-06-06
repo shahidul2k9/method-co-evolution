@@ -317,10 +317,10 @@ class TestT2PTestSmell(unittest.TestCase):
 
         self.assertEqual(3, rt_all["smell_total"])
         self.assertEqual(2, rt_all["smell_n"])
-        self.assertAlmostEqual(66.666, rt_all["percent"], places=2)
+        self.assertEqual(66.67, rt_all["percent"])
         self.assertEqual(3, rt_ar["smell_total"])
         self.assertEqual(2, rt_ar["smell_n"])
-        self.assertAlmostEqual(66.666, rt_ar["percent"], places=2)
+        self.assertEqual(66.67, rt_ar["percent"])
 
     def test_prevalence_main_applies_min_t2p_links_and_writes_aggregate_csv(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -364,6 +364,7 @@ class TestT2PTestSmell(unittest.TestCase):
             )
             self.assertIn(ALL_SMELLS, output_df["smell"].tolist())
             self.assertNotIn("ET", output_df["smell"].tolist())
+            self.assertTrue(output_df["percent"].map(lambda value: value == round(value, 2)).all())
             self.assertEqual(
                 [
                     "strategy",
@@ -689,7 +690,7 @@ class TestT2PTestSmell(unittest.TestCase):
         pd.DataFrame(rows).to_csv(output_file, index=False)
 
     def write_smells(self, experiment_dir: Path, project: str, rows: list[dict]) -> None:
-        output_file = experiment_dir / "test-smell" / "jnose" / f"{project}.csv"
+        output_file = experiment_dir / "test-smell" / "jnose" / "nc" / f"{project}.csv"
         output_file.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(rows).to_csv(output_file, index=False)
 
