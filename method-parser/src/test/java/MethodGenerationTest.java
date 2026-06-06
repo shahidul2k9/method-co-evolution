@@ -43,6 +43,7 @@ public class MethodGenerationTest extends TestConfigurationBase {
                             Path repoRootPath = Paths.get(repoRoot).toAbsolutePath().normalize();
                             Path targetPath = repoRootPath.resolve(testCase.targetPath).normalize();
                             methodScanner.init(
+                                    projectConfig.name,
                                     repoRoot,
                                     projectConfig.repositoryUrl,
                                     projectConfig.commitHash,
@@ -82,6 +83,7 @@ public class MethodGenerationTest extends TestConfigurationBase {
     public void testCheckTestAnnotation() {
         MethodScannerImpl methodScanner = MethodScannerImpl.getInstance();
         methodScanner.init(
+                "checkstyle",
                 Path.of(REPOSITORY_DIRECTORY, "checkstyle").toFile().getAbsolutePath(),
                 "https://github.com/checkstyle/checkstyle",
                 "164a755af951cf0fd459d70873e1c199210d9d8b",
@@ -116,6 +118,7 @@ public class MethodGenerationTest extends TestConfigurationBase {
         try {
             MethodScannerImpl methodScanner = MethodScannerImpl.getInstance();
             methodScanner.init(
+                    "demo-project",
                     repoRoot.toString(),
                     "https://github.com/example/demo",
                     "abc123",
@@ -131,6 +134,24 @@ public class MethodGenerationTest extends TestConfigurationBase {
         } finally {
             System.clearProperty("mhc.methodScan.resolve");
         }
+    }
+
+    @Test
+    public void testMethodScannerRequiresProjectName() throws Exception {
+        Path repoRoot = Files.createTempDirectory("method-scan-project-required");
+        MethodScannerImpl methodScanner = MethodScannerImpl.getInstance();
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> methodScanner.init(
+                        " ",
+                        repoRoot.toString(),
+                        "https://github.com/apache/hadoop",
+                        "abc123",
+                        null,
+                        false
+                )
+        );
     }
 
     @Test

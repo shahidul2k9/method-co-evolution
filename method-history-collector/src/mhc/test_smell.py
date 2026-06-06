@@ -14,6 +14,7 @@ from urllib.request import urlopen
 import git
 import pandas as pd
 
+import mhc.util as util
 from mhc.artifacts import has_tag
 from mhc.command_util import load_test_smell_acronyms, parse_name_list
 from mhc.method_scanner import clone_and_checkout_commit
@@ -159,7 +160,7 @@ def _run_test_smell_project(
     stage: str,
     replace: bool,
 ) -> None:
-    project = str(repository["project"])
+    project = util.require_project_name(repository)
     if not replace and _postprocess_file(data_directory, project, CALLGRAPH_VARIANT).exists():
         logging.info("Skipping test-smell for %s; precomputed output already exists", project)
         return
@@ -183,7 +184,7 @@ def _run_strategy_test_smell_project(
     stage: str,
     replace: bool,
 ) -> None:
-    project = str(repository["project"])
+    project = util.require_project_name(repository)
     if not replace and _postprocess_file(data_directory, project, strategy).exists():
         logging.info("Skipping test-smell for %s/%s; precomputed output already exists", strategy, project)
         return
@@ -203,7 +204,7 @@ def preprocess_project(
     repository_directory: str,
     data_directory: str,
 ) -> pd.DataFrame | None:
-    project = str(repository["project"])
+    project = util.require_project_name(repository)
     method_file = Path(data_directory) / "method" / f"{project}.csv"
     callgraph_file = Path(data_directory) / "callgraph" / f"{project}.csv"
     output_file = _input_file(data_directory, project, CALLGRAPH_VARIANT)
@@ -299,7 +300,7 @@ def _execute_command(jar_file: str, input_file: Path, output_file: Path) -> list
 
 
 def postprocess_project(repository: pd.Series, data_directory: str) -> pd.DataFrame:
-    project = str(repository["project"])
+    project = util.require_project_name(repository)
     raw_file = _raw_output_file(data_directory, project, CALLGRAPH_VARIANT)
     method_file = Path(data_directory) / "method" / f"{project}.csv"
     output_file = _postprocess_file(data_directory, project, CALLGRAPH_VARIANT)
@@ -386,7 +387,7 @@ def preprocess_strategy_project(
     data_directory: str,
     strategy: str,
 ) -> pd.DataFrame | None:
-    project = str(repository["project"])
+    project = util.require_project_name(repository)
     t2p_file = Path(data_directory) / "t2p-link" / strategy / f"{project}.csv"
     input_file = _input_file(data_directory, project, strategy)
     bridge_file = _bridge_file(data_directory, project, strategy)
@@ -483,7 +484,7 @@ def preprocess_strategy_project(
 
 
 def postprocess_strategy_project(repository: pd.Series, data_directory: str, strategy: str) -> pd.DataFrame:
-    project = str(repository["project"])
+    project = util.require_project_name(repository)
     raw_file = _raw_output_file(data_directory, project, strategy)
     bridge_file = _bridge_file(data_directory, project, strategy)
     output_file = _postprocess_file(data_directory, project, strategy)
@@ -1056,8 +1057,8 @@ def _file_path_from_git_url(file_url: str) -> str:
 
 
 def _ensure_repository_checkout(repository: pd.Series, repository_directory: str) -> None:
-    project = str(repository["project"])
-    repository_path = Path(repository_directory) / project
+    project = util.require_project_name(repository)
+    repository_path = Path(util.format_git_project_directory(repository_directory, project))
     if repository_path.exists():
         return
     repository_url = str(repository.get("url", "") or "")

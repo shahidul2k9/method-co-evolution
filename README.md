@@ -129,6 +129,14 @@ WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/method-code/<project>.csv
 
 Then run history collection, candidate generation, LLM linking, or TestLinker depending on the experiment.
 
+To review histories in the local UI, run:
+
+```bash
+scripts/history-viewer.sh
+```
+
+The helper serves `ptc-history-viewer` at `http://127.0.0.1:8765`; see [scripts/README.md](scripts/README.md#history-viewersh) for details.
+
 ## Pipeline Overview
 
 ```text

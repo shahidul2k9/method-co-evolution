@@ -37,7 +37,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                                       max_workers: int = 1) -> None:
     for tool_name in tool_names:
         for _, repository in repository_df.iterrows():
-            repository_name = repository["project"]
+            repository_name = util.require_project_name(repository)
             url = repository['url']
             hash = repository['updated_hash']
             method_history_path = util.format_method_history_path(history_directory, tool_name, repository_name)
@@ -60,7 +60,8 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                 method_df = pd.read_csv(util.format_method_list_file(data_directory, repository_name),
                                         keep_default_na=False, na_filter=False)
                 method_df = method_df[method_df["expression"] == "method"]
-                ms.clone_and_checkout_commit(url, os.path.join(repository_directory, repository_name), hash)
+                repository_path = util.format_git_project_directory(repository_directory, repository_name)
+                ms.clone_and_checkout_commit(url, repository_path, hash)
                 repo_path = Path(method_history_path)
                 unzip_index = set(str(p.relative_to(repo_path)) for p in repo_path.rglob("*.json"))
 
@@ -79,7 +80,7 @@ def execute_method_history_if_missing(repository_df: DataFrame, repository_direc
                                 method_history_file_suffix,
                                 tool_name,
                                 jar_file_map[tool_name],
-                                os.path.join(repository_directory, repository_name),
+                                repository_path,
                                 url,
                                 hash,
                                 file,

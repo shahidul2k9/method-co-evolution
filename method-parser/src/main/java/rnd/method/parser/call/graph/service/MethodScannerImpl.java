@@ -50,6 +50,7 @@ public class MethodScannerImpl implements MethodScanner {
 
     @Override
     public synchronized void init(
+            String projectName,
             String repoRoot,
             String repoUrl,
             String commitHash,
@@ -63,6 +64,7 @@ public class MethodScannerImpl implements MethodScanner {
             MethodParserUtil.prepareRepositoryForCommit(repoUrl, repoRoot, commitHash);
         }
 
+        String canonicalProjectName = requireProjectName(projectName);
         Path repoRootPath = Path.of(repoRoot);
         long contextStartedAt = System.nanoTime();
         JavaParserContext parserContext = ENABLE_METHOD_SCAN_SYMBOL_RESOLUTION
@@ -78,7 +80,7 @@ public class MethodScannerImpl implements MethodScanner {
         this.repoRoot = repoRoot;
         this.repoUrl = repoUrl;
         this.commitHash = commitHash;
-        this.repositoryName = MethodParserUtil.extractRepositoryName(repoUrl);
+        this.repositoryName = canonicalProjectName;
         this.parserWithSymbolResolver = parserContext.parser();
 
         long artifactStartedAt = System.nanoTime();
@@ -94,6 +96,13 @@ public class MethodScannerImpl implements MethodScanner {
                 this.repositoryName,
                 secondsSince(artifactStartedAt)
         );
+    }
+
+    private static String requireProjectName(String projectName) {
+        if (projectName == null || projectName.isBlank()) {
+            throw new IllegalArgumentException("Project name is required");
+        }
+        return projectName.trim();
     }
 
     @Override

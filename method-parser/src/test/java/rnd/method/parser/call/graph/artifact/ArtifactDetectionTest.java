@@ -3,6 +3,7 @@ package rnd.method.parser.call.graph.artifact;
 import org.junit.Assert;
 import org.junit.Test;
 import rnd.method.parser.call.graph.model.Method;
+import rnd.method.parser.call.graph.service.ClassScannerImpl;
 import rnd.method.parser.call.graph.service.MethodScannerImpl;
 import rnd.method.parser.call.graph.util.JavaParserContext;
 
@@ -13,6 +14,24 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ArtifactDetectionTest {
+    @Test
+    public void classScannerRequiresProjectName() throws Exception {
+        Path repo = Files.createTempDirectory("class-scan-project-required");
+        ClassScannerImpl scanner = ClassScannerImpl.getInstance();
+
+        Assert.assertThrows(
+                IllegalArgumentException.class,
+                () -> scanner.init(
+                        "",
+                        repo.toString(),
+                        "https://github.com/apache/hadoop",
+                        "abc123",
+                        null,
+                        false
+                )
+        );
+    }
+
     @Test
     public void tagEncodingAndLookupUseHashDelimitedTags() {
         String artifact = "#test-module #test-code #test-case-method";
@@ -399,7 +418,7 @@ public class ArtifactDetectionTest {
                 .readAllBytes()).trim();
 
         MethodScannerImpl scanner = MethodScannerImpl.getInstance();
-        scanner.init(repo.toString(), "https://github.com/example/demo", commit, null, true);
+        scanner.init("demo-project", repo.toString(), "https://github.com/example/demo", commit, null, true);
         List<Method> methods = scanner.scanMethod("src/test/java/demo/TokenTest.java");
         Map<String, String> artifacts = methods.stream()
                 .collect(Collectors.toMap(Method::getName, Method::getArtifact));

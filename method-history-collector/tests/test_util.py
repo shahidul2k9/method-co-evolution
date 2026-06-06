@@ -68,5 +68,12 @@ class UtilCase(unittest.TestCase):
         normalized = util.normalize_integer_columns(df, ["start_line"])
 
         self.assertEqual(["12.5", "unknown"], normalized["start_line"].tolist())
+
+    def test_require_project_name_rejects_missing_or_blank_values(self):
+        self.assertEqual("apache-hadoop-copy", util.require_project_name({"project": " apache-hadoop-copy "}))
+
+        for repository in ({}, {"project": ""}, {"project": None}, {"project": pd.NA}):
+            with self.assertRaises(ValueError):
+                util.require_project_name(repository)
 if __name__ == '__main__':
     unittest.main()

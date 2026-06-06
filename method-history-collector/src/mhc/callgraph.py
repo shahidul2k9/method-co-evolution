@@ -343,6 +343,7 @@ def _finalize_callgraph(
 
 def _build_callgraph_scanner(
     CallGraphServiceImpl,
+    repository_name: str,
     repository_url: str,
     repository_path: str,
     commit_hash: str,
@@ -364,6 +365,7 @@ def _build_callgraph_scanner(
     )
     scanner = CallGraphServiceImpl.getInstance()
     scanner.init(
+        repository_name,
         repository_url,
         repository_path,
         commit_hash,
@@ -424,6 +426,7 @@ def _scan_callgraph_file_task(
     if not hasattr(thread_local, "scanner"):
         thread_local.scanner = _build_callgraph_scanner(
             CallGraphServiceImpl,
+            repository_name,
             repository_url,
             repository_path,
             commit_hash,
@@ -490,7 +493,7 @@ def execute_callgraph_per_file(
         CallGraphServiceImpl = JClass("rnd.method.parser.call.graph.service.CallGraphServiceImpl")
 
     for _, repository in repository_df.iterrows():
-        repository_name = repository["project"]
+        repository_name = util.require_project_name(repository)
         url = repository["url"]
         commit_hash = repository["updated_hash"]
         repository_started_at = time.monotonic()
@@ -618,6 +621,7 @@ def execute_callgraph_per_file(
         if max_workers == 1:
             scanner = _build_callgraph_scanner(
                 CallGraphServiceImpl,
+                repository_name,
                 url,
                 repository_path,
                 commit_hash,

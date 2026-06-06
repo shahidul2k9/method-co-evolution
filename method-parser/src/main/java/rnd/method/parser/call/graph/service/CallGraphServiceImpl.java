@@ -76,6 +76,7 @@ public class CallGraphServiceImpl implements CallGraphService {
 
     @Override
     public synchronized void init(
+            String projectName,
             String repositoryUrl,
             String repositoryPath,
             String commitHash,
@@ -90,11 +91,12 @@ public class CallGraphServiceImpl implements CallGraphService {
         if (checkoutRepository) {
             MethodParserUtil.prepareRepositoryForCommit(repositoryUrl, repositoryPath, commitHash);
         }
+        String canonicalProjectName = requireProjectName(projectName);
         this.maxCacheSizeMb = Math.max(0, maxCacheSizeMb);
         this.repositoryUrl = repositoryUrl;
         this.repositoryLocation = repositoryPath;
         this.commitHash = commitHash;
-        this.repositoryName = MethodParserUtil.extractRepositoryName(repositoryUrl);
+        this.repositoryName = canonicalProjectName;
         this.classMappingIndex = ClassMappingIndex.load(classMappingFile, this.maxCacheSizeMb);
         this.methodMappingIndex = MethodMappingIndex.load(methodMappingFile, classMappingIndex);
         Path repoPath = Paths.get(repositoryPath);
@@ -108,6 +110,13 @@ public class CallGraphServiceImpl implements CallGraphService {
                 artifactConfigPath == null || artifactConfigPath.isBlank() ? null : Paths.get(artifactConfigPath),
                 parserContext.parser()
         );
+    }
+
+    private static String requireProjectName(String projectName) {
+        if (projectName == null || projectName.isBlank()) {
+            throw new IllegalArgumentException("Project name is required");
+        }
+        return projectName.trim();
     }
 
     @Override

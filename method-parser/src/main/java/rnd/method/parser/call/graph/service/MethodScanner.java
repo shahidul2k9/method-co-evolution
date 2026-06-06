@@ -9,7 +9,8 @@ import java.util.List;
  * @since 2026-01-12
  */
 public interface MethodScanner {
-    void init(String repoRoot,
+    void init(String projectName,
+              String repoRoot,
               String repoUrl,
               String commitHash,
               String artifactConfigPath,

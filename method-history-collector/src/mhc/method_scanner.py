@@ -785,7 +785,7 @@ def generate_method_code(
         merge_interval_seconds = SCAN_METHOD_FLUSH_INTERVAL_SECONDS
 
     for _, repository in repository_df.iterrows():
-        repository_name = repository["project"]
+        repository_name = util.require_project_name(repository)
         repository_url = repository["url"]
         commit_hash = repository["updated_hash"]
         repository_root = util.format_git_project_directory(repository_directory, repository_name)
@@ -984,7 +984,14 @@ def _scan_methods_in_file(
     return methods_in_file, None
 
 
-def _build_method_scanner(MethodScannerImpl, repository_root: str, url: str, commit_hash: str, artifact_config_path: str | None):
+def _build_method_scanner(
+    MethodScannerImpl,
+    repository_name: str,
+    repository_root: str,
+    url: str,
+    commit_hash: str,
+    artifact_config_path: str | None,
+):
     started_at = time.monotonic()
     thread_name = threading.current_thread().name
     logging.info(
@@ -994,7 +1001,7 @@ def _build_method_scanner(MethodScannerImpl, repository_root: str, url: str, com
         commit_hash,
     )
     scanner = MethodScannerImpl.getInstance()
-    scanner.init(repository_root, url, commit_hash, artifact_config_path, False)
+    scanner.init(repository_name, repository_root, url, commit_hash, artifact_config_path, False)
     _log_slow_operation(
         "method-scan scanner-init finish thread=%s repository_root=%s commit=%s",
         time.monotonic() - started_at,
@@ -1036,7 +1043,14 @@ def _scan_method_file_task(
             files_since_init,
         )
     if not hasattr(thread_local, "scanner"):
-        thread_local.scanner = _build_method_scanner(MethodScannerImpl, repository_root, url, commit_hash, artifact_config_path)
+        thread_local.scanner = _build_method_scanner(
+            MethodScannerImpl,
+            repository_name,
+            repository_root,
+            url,
+            commit_hash,
+            artifact_config_path,
+        )
         thread_local.scanner_file_count = 0
     thread_local.scanner_file_count += 1
     started_at = time.monotonic()
@@ -1105,7 +1119,7 @@ def scan_method(
         )
 
     for _, repository in repository_df.iterrows():
-        repository_name = repository["project"]
+        repository_name = util.require_project_name(repository)
         url = repository['url']
         commit_hash = repository['updated_hash']
         repository_started_at = time.monotonic()
@@ -1227,7 +1241,14 @@ def scan_method(
         )
 
         if max_workers == 1:
-            scanner = _build_method_scanner(MethodScannerImpl, dot_file_directory, url, commit_hash, artifact_config_path)
+            scanner = _build_method_scanner(
+                MethodScannerImpl,
+                repository_name,
+                dot_file_directory,
+                url,
+                commit_hash,
+                artifact_config_path,
+            )
             thread_local = threading.local()
             thread_local.scanner = scanner
             thread_local.scanner_file_count = 0

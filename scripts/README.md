@@ -46,8 +46,19 @@ These thin wrappers call `mhc` with project defaults from `.env`:
 | `artifact-update.sh` | `mhc artifact-update` |
 | `test-smell.sh` | `mhc test-smell` |
 | `testlinker.sh` | `ptc-testlinker testlinker` |
+| `history-viewer.sh` | `ptc-history-viewer serve` |
 
 Use the underlying CLI directly when you need full control over project selection, sharding, or paths.
+
+## `history-viewer.sh`
+
+Starts the local history review UI at `http://127.0.0.1:8765`.
+
+```bash
+scripts/history-viewer.sh
+```
+
+It reads `ME_WORKSPACE_DIRECTORY` from `.env` and uses `ME_EXPERIMENT_NAME`, defaulting to `main`.
 
 ## `job.sh`
 
