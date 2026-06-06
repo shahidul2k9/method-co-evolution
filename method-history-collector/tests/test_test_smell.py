@@ -923,6 +923,13 @@ class TestSmellHelpersTest(unittest.TestCase):
                 str(repo_dir),
             )
 
+    def test_ensure_repository_checkout_requires_project_name(self):
+        with self.assertRaisesRegex(ValueError, "Project name is required"):
+            _ensure_repository_checkout(
+                pd.Series({"project": " ", "url": "https://example.com/repo.git", "updated_hash": "abc"}),
+                "/tmp/repositories",
+            )
+
     def test_execute_command_shape(self):
         self.assertEqual(
             [
