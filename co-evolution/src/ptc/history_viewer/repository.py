@@ -300,6 +300,8 @@ def normalize_single_tag(value: str) -> str:
 
 def ensure_ground_truth_fieldnames(fieldnames: list[str]) -> list[str]:
     normalized = normalize_ground_truth_fieldnames(fieldnames)
+    if "candidate" not in normalized and "to_call_depth" in normalized:
+        normalized.insert(normalized.index("to_call_depth") + 1, "candidate")
     for fieldname in (
         "project",
         "from_name",
@@ -321,6 +323,8 @@ def ensure_ground_truth_fieldnames(fieldnames: list[str]) -> list[str]:
     ):
         if fieldname not in normalized:
             normalized.append(fieldname)
+    if "candidate" not in normalized:
+        normalized.insert(normalized.index("to_call_depth") + 1, "candidate")
     return normalized
 
 

@@ -1976,6 +1976,7 @@ class HistoryViewerApp:
             values = candidate.values
             label_value = values.get("label", "").strip()
             depth_value = values.get("to_call_depth", "").strip() or "1"
+            candidate_value = values.get("candidate", "").strip()
             notes_name = f"notes-{candidate.row_index}"
             tags_name = f"tags-{candidate.row_index}"
             artifact_value = values.get("to_artifact", "").strip()
@@ -1996,6 +1997,7 @@ class HistoryViewerApp:
   <td>{html.escape(artifact_value)}</td>
   <td><a href="{html.escape(values.get('to_url', ''))}" target="_blank" rel="noreferrer">Open</a></td>
   <td class="number-cell">{html.escape(depth_value)}</td>
+  <td class="ground-truth-compact-cell"><span class="ground-truth-compact-text" title="{html.escape(candidate_value)}">{html.escape(truncate_display_text(candidate_value, 28))}</span></td>
   <td class="label-cell">
     <div class="label-control">
       <label><input type="radio" name="label-{candidate.row_index}" value="0" {"checked" if label_value == "0" else ""} /><span>0</span></label>
@@ -2009,7 +2011,7 @@ class HistoryViewerApp:
 """
             )
         if not rows:
-            rows.append('<tr><td colspan="8"><span class="muted">No production candidates found for this test method.</span></td></tr>')
+            rows.append('<tr><td colspan="9"><span class="muted">No production candidates found for this test method.</span></td></tr>')
 
         back_url = f"/ground-truth?ground_truth_csv={quote(ground_truth_csv, safe='')}"
         return f"""
@@ -2067,13 +2069,14 @@ class HistoryViewerApp:
     </div>
     <table class="ground-truth-detail-table">
       <colgroup>
-        <col style="width:27%;" />
+        <col style="width:24%;" />
         <col style="width:12%;" />
         <col style="width:6%;" />
         <col style="width:6%;" />
-        <col style="width:10%;" />
-        <col style="width:14%;" />
-        <col style="width:16%;" />
+        <col style="width:8%;" />
+        <col style="width:9%;" />
+        <col style="width:13%;" />
+        <col style="width:15%;" />
         <col style="width:9%;" />
       </colgroup>
       <thead>
@@ -2082,6 +2085,7 @@ class HistoryViewerApp:
           <th>Artifact</th>
           <th>URL</th>
           <th class="number-cell">Depth</th>
+          <th>Candidate</th>
           <th class="label-cell">Label</th>
           <th>Tags</th>
           <th>Notes</th>

@@ -63,7 +63,7 @@ def expand_transitive_test_calls(
         visited.add(current_to_url)
         artifact = method_artifact_mapping.get(current_to_url, "")
 
-        if is_main_code(artifact):
+        if depth > 1:
             new_row = row.copy()
 
             for col in current_row.index:
@@ -73,6 +73,8 @@ def expand_transitive_test_calls(
             new_row["to_caller_url"] = current_row["from_url"]
             new_row["to_call_depth"] = depth
             results.append(new_row)
+
+        if is_main_code(artifact):
             continue
 
         for next_row in from_url_graph.get(current_to_url, []):

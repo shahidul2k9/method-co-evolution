@@ -28,7 +28,13 @@ from ptc.history_viewer.app import (
     render_diff_html,
     truncate_display_text,
 )
-from ptc.history_viewer.repository import HistoryRepository, SampleRow, parse_commit_datetime, parse_method_url
+from ptc.history_viewer.repository import (
+    HistoryRepository,
+    SampleRow,
+    ensure_ground_truth_fieldnames,
+    parse_commit_datetime,
+    parse_method_url,
+)
 
 
 WORKSPACE_DIRECTORY = REPOSITORY_ROOT / "workspace" / "experiment" / "main"
@@ -59,6 +65,7 @@ class TestHistoryViewer(unittest.TestCase):
             "from_artifact",
             "to_artifact",
             "to_call_depth",
+            "candidate",
             "label",
             "tags",
         ]
@@ -73,6 +80,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_artifact": "#test-code #test-case-method",
                 "to_artifact": "#main-code",
                 "to_call_depth": "",
+                "candidate": "direct-link",
                 "label": "1",
                 "tags": "#existing",
             },
@@ -86,6 +94,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_artifact": "#test-code #test-case-method",
                 "to_artifact": "#main-code",
                 "to_call_depth": "2",
+                "candidate": "transitive-link",
                 "label": "",
                 "tags": "",
             },
@@ -99,6 +108,7 @@ class TestHistoryViewer(unittest.TestCase):
                 "from_artifact": "#test-code #test-case-method",
                 "to_artifact": "#main-code",
                 "to_call_depth": "1",
+                "candidate": "beta-link",
                 "label": "0",
                 "tags": "#beta",
             },
@@ -150,6 +160,13 @@ class TestHistoryViewer(unittest.TestCase):
             writer.writeheader()
             writer.writerows(rows)
         return csv_path
+
+    def test_ensure_ground_truth_fieldnames_adds_candidate_after_depth(self) -> None:
+        fieldnames = ensure_ground_truth_fieldnames(["project", "to_call_depth", "label"])
+
+        self.assertIn("candidate", fieldnames)
+        self.assertLess(fieldnames.index("to_call_depth"), fieldnames.index("candidate"))
+        self.assertLess(fieldnames.index("candidate"), fieldnames.index("label"))
 
     def write_sample_review_fixture(self, directory_name: str = "sample-review") -> Path:
         temp_dir = REPOSITORY_ROOT / "workspace" / "test" / "history-viewer" / directory_name
@@ -507,6 +524,7 @@ class TestHistoryViewer(unittest.TestCase):
             rows = list(csv.DictReader(handle))
         self.assertEqual("1", rows[0]["label"])
         self.assertEqual("0", rows[1]["label"])
+        self.assertEqual("transitive-link", rows[1]["candidate"])
         self.assertIn("notes", rows[1])
         self.assertEqual("not production ground truth", rows[1]["notes"])
 
@@ -557,6 +575,9 @@ class TestHistoryViewer(unittest.TestCase):
         )
         self.assertIn("Called Production Methods", detail_body)
         self.assertIn("<th>Artifact</th>", detail_body)
+        self.assertLess(detail_body.index("Depth</th>"), detail_body.index("<th>Candidate</th>"))
+        self.assertLess(detail_body.index("<th>Candidate</th>"), detail_body.index("Label</th>"))
+        self.assertIn("direct-link", detail_body)
         self.assertIn("production", detail_body)
         self.assertIn("Update All", detail_body)
         self.assertIn("Add Entry", detail_body)
@@ -666,6 +687,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertEqual("testBeta", rows[3]["from_name"])
         self.assertEqual("#test-code #test-case-method", rows[2]["from_artifact"])
         self.assertEqual("1", rows[2]["to_call_depth"])
+        self.assertEqual("", rows[2]["candidate"])
         self.assertEqual("", rows[2]["label"])
         self.assertEqual("", rows[2]["tags"])
         self.assertEqual("", rows[2]["notes"])
@@ -716,6 +738,10 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertEqual(2, response["labelled_count"])
         self.assertEqual(2, response["candidate_count"])
         self.assertTrue(response["complete"])
+        with csv_path.open("r", encoding="utf-8", newline="") as handle:
+            rows = list(csv.DictReader(handle))
+        self.assertEqual("direct-link", rows[0]["candidate"])
+        self.assertEqual("transitive-link", rows[1]["candidate"])
 
     def test_sample_review_apis_persist_label_and_rename_folder_tags(self) -> None:
         csv_path = self.write_sample_review_fixture("sample-review-api")
