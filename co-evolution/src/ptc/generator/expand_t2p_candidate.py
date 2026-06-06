@@ -108,7 +108,7 @@ def expand_candidate_df(
                 )
             )
 
-    return pd.DataFrame(expanded_rows)
+    return pd.DataFrame(expanded_rows).drop_duplicates().reset_index(drop=True)
 
 
 def main(argv: list[str] | None = None) -> None:

@@ -135,7 +135,7 @@ class TestExpandT2PCandidates(unittest.TestCase):
         self.assertEqual("test-util://A.verify", test_rows.loc[1, "to_caller_url"])
         self.assertEqual("test-util://A.actualViolations", test_rows.loc[2, "to_caller_url"])
 
-    def test_duplicate_helper_calls_keep_original_rows_and_expand_once_per_occurrence(self):
+    def test_duplicate_helper_calls_are_deduplicated_by_entire_row(self):
         fan_out_df = pd.DataFrame(
             [
                 {
@@ -154,7 +154,7 @@ class TestExpandT2PCandidates(unittest.TestCase):
                     "to_url": "test-util://A.findPlugin",
                     "to_name": "findPlugin",
                     "to_call_depth": "",
-                    "to_caller_url": "",
+                    "to_caller_url": "test://A.testPlugins",
                 },
                 {
                     "project": "demo",
@@ -188,10 +188,14 @@ class TestExpandT2PCandidates(unittest.TestCase):
         test_rows = expanded_df[expanded_df["from_url"] == "test://A.testPlugins"].reset_index(drop=True)
 
         self.assertEqual(
-            ["findPlugin", "getShortName", "findPlugin", "getShortName"],
+            ["findPlugin", "getShortName", "findPlugin"],
             test_rows["to_name"].tolist(),
         )
-        self.assertEqual([1, 2, 1, 2], test_rows["to_call_depth"].tolist())
+        self.assertEqual([1, 2, 1], test_rows["to_call_depth"].tolist())
+        self.assertEqual(
+            ["", "test-util://A.findPlugin", "test://A.testPlugins"],
+            test_rows["to_caller_url"].tolist(),
+        )
 
 
 if __name__ == "__main__":
