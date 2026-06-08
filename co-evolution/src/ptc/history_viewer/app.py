@@ -1901,6 +1901,7 @@ class HistoryViewerApp:
   <td><a class="ground-truth-method-link" href="{html.escape(detail_url)}" title="{html.escape(method.from_name)}"><strong>{html.escape(method.from_name)}</strong></a></td>
   <td class="number-cell">{method.truth_count}</td>
   <td class="number-cell">{method.labelled_count}/{method.candidate_count}</td>
+  <td class="number-cell">{method.no_candidate_count}/{method.total_row_count}</td>
   <td><span class="{status_class}">{status_label}</span></td>
   <td><a href="{html.escape(method.from_url)}" target="_blank" rel="noreferrer">Open</a></td>
   <td class="ground-truth-compact-cell"><span class="ground-truth-compact-text" title="{html.escape(method.tags)}">{html.escape(truncate_display_text(method.tags, 44))}</span></td>
@@ -1910,7 +1911,7 @@ class HistoryViewerApp:
 """
             )
         if not rows:
-            rows.append('<tr><td colspan="8"><span class="muted">No test methods found in this CSV.</span></td></tr>')
+            rows.append('<tr><td colspan="9"><span class="muted">No test methods found in this CSV.</span></td></tr>')
 
         back_url = f"/ground-truth?ground_truth_dir={quote(str(Path(ground_truth_csv).parent), safe='')}"
         return f"""
@@ -1930,13 +1931,14 @@ class HistoryViewerApp:
     <div class="eyebrow" style="text-transform:none; letter-spacing:0;">Test Methods</div>
     <table class="ground-truth-method-table">
       <colgroup>
-        <col style="width:31%;" />
-        <col style="width:7%;" />
-        <col style="width:10%;" />
-        <col style="width:12%;" />
+        <col style="width:25%;" />
         <col style="width:6%;" />
+        <col style="width:9%;" />
         <col style="width:11%;" />
-        <col style="width:14%;" />
+        <col style="width:11%;" />
+        <col style="width:6%;" />
+        <col style="width:10%;" />
+        <col style="width:13%;" />
         <col style="width:9%;" />
       </colgroup>
       <thead>
@@ -1944,6 +1946,7 @@ class HistoryViewerApp:
           <th style="text-transform:none; letter-spacing:0;">Method</th>
           <th class="number-cell" style="text-transform:none; letter-spacing:0;">Truth</th>
           <th class="number-cell" style="text-transform:none; letter-spacing:0;">Labelled</th>
+          <th class="number-cell" style="text-transform:none; letter-spacing:0;">No Candidate</th>
           <th style="text-transform:none; letter-spacing:0;">Completion</th>
           <th>URL</th>
           <th style="text-transform:none; letter-spacing:0;">Tags</th>

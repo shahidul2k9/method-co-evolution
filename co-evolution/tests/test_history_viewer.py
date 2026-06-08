@@ -508,19 +508,40 @@ class TestHistoryViewer(unittest.TestCase):
 
     def test_ground_truth_summaries_group_by_test_method_and_completion(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-summary")
+        self.append_duplicate_ground_truth_candidate(csv_path)
+        with csv_path.open("r", encoding="utf-8", newline="") as handle:
+            reader = csv.DictReader(handle)
+            fieldnames = list(reader.fieldnames or [])
+            rows = list(reader)
+        rows[0]["candidate"] = "0"
+        rows[1]["candidate"] = "0"
+        rows[2]["candidate"] = ""
+        rows[3]["candidate"] = "1"
+        legacy_candidate_row = dict(rows[3])
+        legacy_candidate_row["candidate"] = "direct-link"
+        rows.append(legacy_candidate_row)
+        with csv_path.open("w", encoding="utf-8", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
 
         project_summary = self.repository.summarize_ground_truth_projects(csv_path.parent)[0]
         method_summaries = self.repository.summarize_ground_truth_test_methods(csv_path)
 
         self.assertEqual("sample-project", project_summary.project)
-        self.assertEqual(3, project_summary.total_rows)
+        self.assertEqual(5, project_summary.total_rows)
         self.assertEqual(2, project_summary.test_method_count)
         self.assertEqual(1, project_summary.completed_test_method_count)
         alpha_summary = next(method for method in method_summaries if method.from_name == "testAlpha")
-        self.assertEqual(2, alpha_summary.candidate_count)
-        self.assertEqual(1, alpha_summary.labelled_count)
+        self.assertEqual(3, alpha_summary.candidate_count)
+        self.assertEqual(3, alpha_summary.total_row_count)
+        self.assertEqual(3, alpha_summary.no_candidate_count)
+        self.assertEqual(2, alpha_summary.labelled_count)
         self.assertEqual(1, alpha_summary.truth_count)
         self.assertFalse(alpha_summary.is_complete)
+        beta_summary = next(method for method in method_summaries if method.from_name == "testBeta")
+        self.assertEqual(0, beta_summary.no_candidate_count)
+        self.assertEqual(2, beta_summary.total_row_count)
 
     def test_update_ground_truth_label_updates_every_matching_url_pair(self) -> None:
         csv_path = self.write_ground_truth_fixture("ground-truth-update")
@@ -573,7 +594,10 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertIn("<th>URL</th>", method_body)
         self.assertNotIn(">Candidates</th>", method_body)
         self.assertIn(">Truth</th>", method_body)
+        self.assertIn(">No Candidate</th>", method_body)
+        self.assertLess(method_body.index(">No Candidate</th>"), method_body.index(">Completion</th>"))
         self.assertIn("1/2", method_body)
+        self.assertIn("0/2", method_body)
         self.assertIn("<td class=\"number-cell\">1</td>", method_body)
         self.assertIn(">Open</a>", method_body)
         self.assertIn("ground-truth-delete-method", method_body)
@@ -757,7 +781,7 @@ class TestHistoryViewer(unittest.TestCase):
         self.assertEqual("testBeta", rows[3]["from_name"])
         self.assertEqual("#test-code #test-case-method", rows[2]["from_artifact"])
         self.assertEqual("1", rows[2]["to_call_depth"])
-        self.assertEqual("", rows[2]["candidate"])
+        self.assertEqual("0", rows[2]["candidate"])
         self.assertEqual("", rows[2]["label"])
         self.assertEqual("", rows[2]["tags"])
         self.assertEqual("", rows[2]["notes"])

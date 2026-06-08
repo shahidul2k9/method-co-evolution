@@ -135,8 +135,10 @@ class GroundTruthTestMethodSummary:
     from_name: str
     from_url: str
     candidate_count: int
+    total_row_count: int
     labelled_count: int
     truth_count: int = 0
+    no_candidate_count: int = 0
     tags: str = ""
     notes: str = ""
 
@@ -589,18 +591,23 @@ class HistoryRepository:
                 {
                     "from_name": row.values.get("from_name", "") or row.values.get("from_fqs", "") or from_url,
                     "candidate_count": 0,
+                    "total_row_count": 0,
                     "labelled_count": 0,
                     "truth_count": 0,
+                    "no_candidate_count": 0,
                     "tags": set(),
                     "notes": [],
                 },
             )
             group["candidate_count"] += 1
+            group["total_row_count"] += 1
             label_value = row.values.get("label", "").strip()
             if label_value != "":
                 group["labelled_count"] += 1
             if label_value == "1":
                 group["truth_count"] += 1
+            if row.values.get("candidate", "").strip() in {"", "0"}:
+                group["no_candidate_count"] += 1
             for tag in parse_ground_truth_tags(row.values.get("tags", "")):
                 group["tags"].add(tag)
             notes_value = row.values.get("notes", row.values.get("note", "")).strip()
@@ -612,8 +619,10 @@ class HistoryRepository:
                 from_name=str(values["from_name"]),
                 from_url=from_url,
                 candidate_count=int(values["candidate_count"]),
+                total_row_count=int(values["total_row_count"]),
                 labelled_count=int(values["labelled_count"]),
                 truth_count=int(values["truth_count"]),
+                no_candidate_count=int(values["no_candidate_count"]),
                 tags=" ".join(sorted(values["tags"], key=str.lower)),
                 notes=" | ".join(values["notes"]),
             )
@@ -888,6 +897,7 @@ class HistoryRepository:
         new_row["to_testlinker_fqs"] = method_row.get("testlinker_fqs", "")
         new_row["to_artifact"] = method_row.get("artifact", "")
         new_row["to_call_depth"] = "1"
+        new_row["candidate"] = "0"
         new_row["label"] = ""
         new_row["tags"] = ""
         new_row["notes"] = ""

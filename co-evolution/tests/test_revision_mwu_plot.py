@@ -28,10 +28,19 @@ class TestRevisionMwuPlot(unittest.TestCase):
 
             with warnings.catch_warnings(record=True) as caught_warnings:
                 warnings.simplefilter("always")
-                main(["--workspace-directory", tmpdir, "--experiment-name", "demo"])
+                main(
+                    [
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo",
+                        "--tools",
+                        "codeShovel,historyFinder",
+                    ]
+                )
 
-            first_tex = experiment_dir / "figure" / "revision_mwu--historyFinder.tex"
-            second_tex = experiment_dir / "figure" / "revision_mwu--codeShovel.tex"
+            first_tex = experiment_dir / "figure" / "artifact-revision-mww--historyFinder.tex"
+            second_tex = experiment_dir / "figure" / "artifact-revision-mww--codeShovel.tex"
             self.assertTrue(first_tex.exists())
             self.assertTrue(second_tex.exists())
 
@@ -43,8 +52,8 @@ class TestRevisionMwuPlot(unittest.TestCase):
             if shutil.which("pdflatex") is None:
                 self.assertTrue(any("pdflatex not found" in str(warning.message) for warning in caught_warnings))
             else:
-                self.assertTrue((experiment_dir / "figure" / "revision_mwu--historyFinder.pdf").exists())
-                self.assertTrue((experiment_dir / "figure" / "revision_mwu--codeShovel.pdf").exists())
+                self.assertTrue((experiment_dir / "figure" / "artifact-revision-mww--historyFinder.pdf").exists())
+                self.assertTrue((experiment_dir / "figure" / "artifact-revision-mww--codeShovel.pdf").exists())
 
     def create_experiment(self, workspace_dir: str) -> Path:
         experiment_dir = Path(workspace_dir) / "experiment" / "demo"
@@ -60,11 +69,12 @@ class TestRevisionMwuPlot(unittest.TestCase):
                 "size": 6,
                 "main_size": 3,
                 "test_size": 3,
-                "mwu_u1": 9,
-                "mwu_u2": 0,
-                "mwu_p": 0.1,
-                "mwu_d": 1,
-                "mwu_size": "large",
+                "mww_u1": 9,
+                "mww_u2": 0,
+                "mww_p": 0.1,
+                "d_value": 1,
+                "d_sign": "+",
+                "effect_size": "large",
                 "N": "",
                 "S": "",
                 "M": "",
@@ -77,11 +87,12 @@ class TestRevisionMwuPlot(unittest.TestCase):
                 "size": 6,
                 "main_size": 3,
                 "test_size": 3,
-                "mwu_u1": 9,
-                "mwu_u2": 0,
-                "mwu_p": 0.1,
-                "mwu_d": 1,
-                "mwu_size": "large",
+                "mww_u1": 9,
+                "mww_u2": 0,
+                "mww_p": 0.1,
+                "d_value": 1,
+                "d_sign": "+",
+                "effect_size": "large",
                 "N": "",
                 "S": "",
                 "M": "",
@@ -94,11 +105,12 @@ class TestRevisionMwuPlot(unittest.TestCase):
                 "size": 6,
                 "main_size": 3,
                 "test_size": 3,
-                "mwu_u1": 9,
-                "mwu_u2": 0,
-                "mwu_p": 0.1,
-                "mwu_d": 1,
-                "mwu_size": "large",
+                "mww_u1": 9,
+                "mww_u2": 0,
+                "mww_p": 0.1,
+                "d_value": 1,
+                "d_sign": "+",
+                "effect_size": "large",
                 "N": "",
                 "S": "",
                 "M": "",
@@ -111,18 +123,19 @@ class TestRevisionMwuPlot(unittest.TestCase):
                 "size": 6,
                 "main_size": 3,
                 "test_size": 3,
-                "mwu_u1": 9,
-                "mwu_u2": 0,
-                "mwu_p": 0.2,
-                "mwu_d": 0.8,
-                "mwu_size": "large",
+                "mww_u1": 9,
+                "mww_u2": 0,
+                "mww_p": 0.2,
+                "d_value": 0.8,
+                "d_sign": "+",
+                "effect_size": "large",
                 "N": "",
                 "S": "",
                 "M": "",
                 "L": "x",
             },
         ]
-        pd.DataFrame(rows).to_csv(experiment_dir / "aggregate" / "revision_mwu.csv", index=False)
+        pd.DataFrame(rows).to_csv(experiment_dir / "aggregate" / "artifact-revision-mww.csv", index=False)
 
 
 if __name__ == "__main__":

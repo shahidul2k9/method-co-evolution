@@ -32,9 +32,14 @@ class TestGenerateRevisionMwu(unittest.TestCase):
                 test_values=list(range(15)),
             )
 
-            main(["--workspace-directory", tmpdir, "--experiment-name", "demo"])
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always")
+                main(["--workspace-directory", tmpdir, "--experiment-name", "demo"])
 
-            output_df = pd.read_csv(experiment_dir / "aggregate" / "revision_mwu.csv", keep_default_na=False)
+            output_df = pd.read_csv(
+                experiment_dir / "aggregate" / "artifact-revision-mww.csv",
+                keep_default_na=False,
+            )
             self.assertIn("demo", set(output_df["project"]))
             self.assertIn(ALL_REPOSITORY, set(output_df["project"]))
             self.assertNotIn("strategy", output_df.columns)
@@ -46,9 +51,13 @@ class TestGenerateRevisionMwu(unittest.TestCase):
             self.assertEqual(MIN_REVISION_METHODS_FOR_MWU, diff_row["size"])
             self.assertEqual(MIN_REVISION_METHODS_FOR_MWU // 2, diff_row["main_size"])
             self.assertEqual(MIN_REVISION_METHODS_FOR_MWU // 2, diff_row["test_size"])
-            self.assertIn(diff_row["mwu_size"], {"negligible", "small", "medium", "large"})
+            self.assertIn(diff_row["effect_size"], {"negligible", "small", "medium", "large"})
             marked_columns = [column for column in ["N", "S", "M", "L"] if diff_row[column] == "x"]
             self.assertEqual(1, len(marked_columns))
+            self.assertIn(
+                "project=demo: 1 invalid abstract values out of 33 methods.",
+                [str(warning.message) for warning in caught_warnings],
+            )
 
     def test_skips_below_threshold_and_missing_group_rows(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -58,8 +67,8 @@ class TestGenerateRevisionMwu(unittest.TestCase):
                 "historyFinder",
                 "small",
                 [
-                    {"artifact": "#main-code", "ch_all": 1, "ch_diff": 1},
-                    {"artifact": "#test-code", "ch_all": 2, "ch_diff": 2},
+                    {"artifact": "#main-code", "abstract": 0, "ch_all": 1, "ch_diff": 1},
+                    {"artifact": "#test-code", "abstract": 0, "ch_all": 2, "ch_diff": 2},
                 ],
             )
             self.write_rows(
@@ -67,9 +76,9 @@ class TestGenerateRevisionMwu(unittest.TestCase):
                 "historyFinder",
                 "mainOnly",
                 [
-                    {"artifact": "#main-code", "ch_all": 1, "ch_diff": 1},
-                    {"artifact": "#main-code", "ch_all": 2, "ch_diff": 2},
-                    {"artifact": "#main-code", "ch_all": 3, "ch_diff": 3},
+                    {"artifact": "#main-code", "abstract": 0, "ch_all": 1, "ch_diff": 1},
+                    {"artifact": "#main-code", "abstract": 0, "ch_all": 2, "ch_diff": 2},
+                    {"artifact": "#main-code", "abstract": 0, "ch_all": 3, "ch_diff": 3},
                 ],
             )
 
@@ -77,7 +86,7 @@ class TestGenerateRevisionMwu(unittest.TestCase):
                 warnings.simplefilter("always")
                 main(["--workspace-directory", tmpdir, "--experiment-name", "demo"])
 
-            output_df = pd.read_csv(experiment_dir / "aggregate" / "revision_mwu.csv")
+            output_df = pd.read_csv(experiment_dir / "aggregate" / "artifact-revision-mww.csv")
             self.assertNotIn("small", set(output_df["project"]))
             self.assertNotIn("mainOnly", set(output_df["project"]))
             self.assertTrue(any("project=small" in str(warning.message) for warning in caught_warnings))
@@ -97,9 +106,16 @@ class TestGenerateRevisionMwu(unittest.TestCase):
     ) -> None:
         rows = []
         for value in main_values:
-            rows.append({"artifact": "#main-code", "ch_all": value, "ch_diff": value})
+            rows.append({"artifact": "#main-code", "abstract": 0, "ch_all": value, "ch_diff": value})
         for value in test_values:
-            rows.append({"artifact": "#test-code", "ch_all": value, "ch_diff": value})
+            rows.append({"artifact": "#test-code", "abstract": 0, "ch_all": value, "ch_diff": value})
+        rows.extend(
+            [
+                {"artifact": "#main-code", "abstract": 1, "ch_all": 999, "ch_diff": 999},
+                {"artifact": "#test-code", "abstract": 1, "ch_all": 999, "ch_diff": 999},
+                {"artifact": "#main-code", "abstract": "", "ch_all": 998, "ch_diff": 998},
+            ]
+        )
         self.write_rows(experiment_dir, tool, project, rows)
 
     def write_rows(self, experiment_dir: Path, tool: str, project: str, rows: list[dict]) -> None:
@@ -110,6 +126,7 @@ class TestGenerateRevisionMwu(unittest.TestCase):
                 "project": project,
                 "name": f"method{index}",
                 "artifact": row["artifact"],
+                "abstract": row["abstract"],
                 "ch_all": row["ch_all"],
                 "ch_diff": row["ch_diff"],
             }

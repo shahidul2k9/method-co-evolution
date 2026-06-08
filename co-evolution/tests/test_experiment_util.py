@@ -2,6 +2,7 @@ from pathlib import Path
 import sys
 import unittest
 from unittest import mock
+import warnings
 
 import pandas as pd
 
@@ -20,6 +21,7 @@ from mhc.command_util import (
     select_named_items,
     select_revision_columns,
 )
+from ptc.util.helper import filter_concrete_methods
 
 
 class TestExperimentParser(unittest.TestCase):
@@ -135,6 +137,61 @@ class TestExperimentParser(unittest.TestCase):
             )
 
         self.assertEqual(["ch_all", "ch_diff"], columns)
+
+    def test_concrete_method_filter_keeps_only_binary_zero_values(self):
+        df = pd.DataFrame(
+            [
+                {"name": "integer-concrete", "abstract": 0},
+                {"name": "string-concrete", "abstract": "0"},
+                {"name": "integer-abstract", "abstract": 1},
+                {"name": "string-abstract", "abstract": "1"},
+            ]
+        )
+
+        filtered_df = filter_concrete_methods(df)
+
+        self.assertEqual(
+            ["integer-concrete", "string-concrete"],
+            filtered_df["name"].tolist(),
+        )
+
+    def test_concrete_method_filter_warns_per_project_and_drops_invalid_values(self):
+        df = pd.DataFrame(
+            [
+                {"project": "first", "name": "valid", "abstract": 0},
+                {"project": "first", "name": "blank", "abstract": ""},
+                {"project": "first", "name": "non-binary", "abstract": 2},
+                {"project": "second", "name": "text", "abstract": "abstract"},
+                {"project": "second", "name": "abstract", "abstract": 1},
+            ]
+        )
+
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")
+            filtered_df = filter_concrete_methods(df)
+
+        self.assertEqual(["valid"], filtered_df["name"].tolist())
+        warning_messages = [str(warning.message) for warning in caught_warnings]
+        self.assertIn("project=first: 2 invalid abstract values out of 3 methods.", warning_messages)
+        self.assertIn("project=second: 1 invalid abstract values out of 2 methods.", warning_messages)
+
+    def test_concrete_method_filter_warns_and_returns_empty_when_abstract_column_is_missing(self):
+        df = pd.DataFrame(
+            [
+                {"project": "first", "name": "method1"},
+                {"project": "first", "name": "method2"},
+                {"project": "second", "name": "method3"},
+            ]
+        )
+
+        with warnings.catch_warnings(record=True) as caught_warnings:
+            warnings.simplefilter("always")
+            filtered_df = filter_concrete_methods(df)
+
+        self.assertTrue(filtered_df.empty)
+        warning_messages = [str(warning.message) for warning in caught_warnings]
+        self.assertIn("project=first: 2 invalid abstract values out of 2 methods.", warning_messages)
+        self.assertIn("project=second: 1 invalid abstract values out of 1 methods.", warning_messages)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ from mhc.command_util import (
     select_named_items,
 )
 from ptc.plot_util import man_utest
+from ptc.util.helper import filter_concrete_methods
 
 METHOD_KINDS = ["test-code", "main-code"]
 MIN_REVISION_METHODS_FOR_MWU = 30
@@ -141,6 +142,7 @@ def main(argv: list[str] | None = None) -> None:
 
         df = pd.concat(history_repository_dfs, ignore_index=True)
         df = filter_artifact_dataframe(df)
+        df = filter_concrete_methods(df)
         df["method_kind"] = df["artifact"].map(classify_method_kind)
         df = df[df["method_kind"].isin(METHOD_KINDS)].copy()
         if df.empty:

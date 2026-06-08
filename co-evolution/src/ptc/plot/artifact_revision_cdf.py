@@ -23,6 +23,7 @@ from ptc.plot_util import (
     select_revision_columns,
     select_named_items,
 )
+from ptc.util.helper import filter_concrete_methods
 
 METHOD_KINDS = ["test-code", "main-code"]
 METHOD_KIND_LABELS = {
@@ -183,6 +184,7 @@ def main(argv: list[str] | None = None) -> None:
             continue
 
         df = filter_artifact_dataframe(df)
+        df = filter_concrete_methods(df)
         df["method_kind"] = df["artifact"].map(classify_method_kind)
         df = df[df["method_kind"].isin(METHOD_KINDS)]
         if df.empty:

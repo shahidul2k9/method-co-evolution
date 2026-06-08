@@ -1,5 +1,34 @@
 import re
+import warnings
+
+import pandas as pd
+
 from ptc.constants import MethodChangeType
+
+
+def filter_concrete_methods(df: pd.DataFrame) -> pd.DataFrame:
+    abstract = (
+        pd.to_numeric(df["abstract"], errors="coerce")
+        if "abstract" in df.columns
+        else pd.Series(float("nan"), index=df.index)
+    )
+    invalid = abstract.isna() | ~abstract.isin([0, 1])
+    if invalid.any():
+        if "project" in df.columns:
+            for project, project_df in df.groupby("project", dropna=False, sort=False):
+                project_invalid_count = int(invalid.loc[project_df.index].sum())
+                if project_invalid_count:
+                    warnings.warn(
+                        f"project={project}: {project_invalid_count} invalid abstract values "
+                        f"out of {len(project_df)} methods."
+                    )
+        else:
+            warnings.warn(
+                f"project=<unknown>: {int(invalid.sum())} invalid abstract values "
+                f"out of {len(df)} methods."
+            )
+
+    return df[~invalid & (abstract == 0)].copy()
 
 
 def extract_change_count(history_json) -> dict[str, int]:
