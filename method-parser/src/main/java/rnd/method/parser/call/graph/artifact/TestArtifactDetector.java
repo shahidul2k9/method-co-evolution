@@ -415,8 +415,8 @@ public final class TestArtifactDetector {
         if (hierarchy.extendsLegacyTestCase()) {
             return true;
         }
-        // If JavaParser cannot resolve the hierarchy, allow only classic public void test* in *Test classes.
-        return hierarchy.resolutionFailed() && looksLikeLegacyJUnit3Class(parent.get());
+        // Resolution failures are common in incomplete checkouts. Keep the fallback narrow and configurable.
+        return hierarchy.resolutionFailed() && looksLikeLegacyTestClass(parent.get(), rules);
     }
 
     private boolean startsWithAny(String value, List<String> prefixes) {
@@ -428,9 +428,12 @@ public final class TestArtifactDetector {
         return false;
     }
 
-    private boolean looksLikeLegacyJUnit3Class(ClassOrInterfaceDeclaration cls) {
+    private boolean looksLikeLegacyTestClass(
+            ClassOrInterfaceDeclaration cls,
+            ArtifactDetectionConfig.RuleSet rules) {
         String className = cls.getNameAsString();
-        return className.endsWith("Test") || className.endsWith("TestCase");
+        return rules.legacyTestClassNamePatterns.stream()
+                .anyMatch(pattern -> globMatches(pattern, className));
     }
 
     private LegacyHierarchyResult classExtendsLegacyTestCase(
@@ -538,6 +541,11 @@ public final class TestArtifactDetector {
                 }
             }
             if (type instanceof ClassOrInterfaceDeclaration cls && classExtendsConfiguredType(cls, rules.testClassSuperclasses)) {
+                return true;
+            }
+            // A legacy test base both establishes test-code context and enables valid name-based test methods.
+            if (type instanceof ClassOrInterfaceDeclaration cls
+                    && classExtendsLegacyTestCase(cls, rules).extendsLegacyTestCase()) {
                 return true;
             }
         }
@@ -803,7 +811,8 @@ public final class TestArtifactDetector {
         if (doc == null) {
             return;
         }
-        String artifactId = firstText(doc, "artifactId");
+        // Maven parents also contain artifactId; module configuration must use the project's own identity.
+        String artifactId = directProjectText(doc, "artifactId").orElse(null);
         module.setModuleName(artifactId);
     }
 
@@ -1005,6 +1014,22 @@ public final class TestArtifactDetector {
 
     private String firstText(Document doc, String tag) {
         return firstTextOptional(doc, tag).orElse(null);
+    }
+
+    private Optional<String> directProjectText(Document doc, String tag) {
+        org.w3c.dom.Node project = doc.getDocumentElement();
+        if (project == null) {
+            return Optional.empty();
+        }
+        NodeList children = project.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            org.w3c.dom.Node child = children.item(i);
+            if (tag.equals(child.getNodeName())) {
+                String value = child.getTextContent();
+                return value == null || value.isBlank() ? Optional.empty() : Optional.of(value.trim());
+            }
+        }
+        return Optional.empty();
     }
 
     private Optional<String> firstTextOptional(Document doc, String tag) {

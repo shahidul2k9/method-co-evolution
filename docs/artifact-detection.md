@@ -100,6 +100,11 @@ defaults:
     - example.CustomTestBase
   legacyTestMethodNamePrefixes:
     - test
+  legacyTestClassNamePatterns:
+    - "Test*"
+    - "*Test"
+    - "*Tests"
+    - "*TestCase"
   testClassContextAnnotations:
     - org.junit.jupiter.api.extension.ExtendWith
     - org.junit.runner.RunWith
@@ -157,7 +162,7 @@ Framework-specific rules:
 | --- | --- |
 | JUnit 5/Jupiter | Configured Jupiter test annotations are test cases when the method is not `private`. Package-private methods are valid. |
 | JUnit 4 | `org.junit.Test` methods must be `public`, non-static, `void`, and have no parameters. |
-| JUnit 3 | Unannotated name-based tests must be `public void test*()` and the class must directly or indirectly extend a configured legacy test superclass such as `junit.framework.TestCase`. |
+| JUnit 3 and compatible custom runners | Unannotated name-based tests must be `public void test*()` and the class must directly or indirectly extend a configured legacy test superclass such as `junit.framework.TestCase` or `LuceneTestCase`. |
 | TestNG | Configured TestNG test annotations are test cases when the method is not `private`. |
 | jqwik | `net.jqwik.api.Property` and `net.jqwik.api.Example` methods are test cases when not `private` and returning `void`, `boolean`, or `Boolean`. |
 | Custom configured annotations | Project/module-configured annotations are accepted as test markers when the method is not `private`. |
@@ -169,19 +174,46 @@ produce `#test-fixture-method`. Fixture methods are never promoted to
 Fallbacks are intentionally conservative. If `@Test` cannot be resolved to a
 framework, the detector accepts it only for non-private `void` no-arg methods in
 test code. If JavaParser cannot resolve JUnit 3 hierarchy, name-based detection
-falls back only for `public void test*()` methods in classes named `*Test` or
-`*TestCase`. This avoids marking protected or public helper methods named
+falls back only for `public void test*()` methods in classes matching a
+configured `legacyTestClassNamePatterns` value. The default patterns are
+`Test*`, `*Test`, `*Tests`, and `*TestCase`. The fallback is not used when the
+hierarchy resolves successfully and does not contain a configured legacy test
+superclass. These restrictions avoid marking private, protected, package-private,
+static, parameterized, non-void, or ordinary public helpers named
 `testSomething` as test cases.
 
 Mockito and JUnit extension annotations are context annotations. They can help
 explain why a class is a test class, but they are not test method annotations and
 do not turn arbitrary methods into `#test-case-method`.
 
-Configured `testClassSuperclasses` and `testClassContextAnnotations` promote a
-compilation unit to `test-code`. Its methods are still classified separately:
-only configured test annotations or valid JUnit 3 conventions create
+The three test-class context settings have deliberately different meanings:
+
+- `testClassSuperclasses` promotes a compilation unit to `test-code`, but does
+  not enable unannotated name-based test methods.
+- `legacyTestCaseSuperclasses` promotes a compilation unit to `test-code` and
+  enables valid `public void test*()` methods. Direct and indirect inheritance
+  are supported. This covers custom runners such as Lucene and Elasticsearch
+  that retain JUnit-3-style method discovery without extending
+  `junit.framework.TestCase`.
+- `testClassContextAnnotations` promotes a compilation unit to `test-code`, but
+  does not turn arbitrary methods into test cases.
+
+Methods in a promoted compilation unit are still classified separately. Only
+configured test annotations or valid legacy conventions create
 `test-case-method`; other methods become test helpers. Assertion libraries such
 as Hamcrest do not establish test-class context.
+
+Module-specific roots can represent projects that intentionally keep tests
+under `src/main/java` without changing sibling modules:
+
+```yaml
+projects:
+  hibernate-search:
+    modules:
+      hibernate-search-integrationtest-backend-tck:
+        unitTestSourceRoots:
+          - src/main/java
+```
 
 ## Examples
 
