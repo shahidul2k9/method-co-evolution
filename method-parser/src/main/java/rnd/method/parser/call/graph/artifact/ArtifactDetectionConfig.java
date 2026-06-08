@@ -50,6 +50,7 @@ public final class ArtifactDetectionConfig {
         public final List<String> legacyTestCaseSuperclasses = new ArrayList<>();
         public final List<String> testClassSuperclasses = new ArrayList<>();
         public final List<String> legacyTestMethodNamePrefixes = new ArrayList<>();
+        public final List<String> legacyTestClassNamePatterns = new ArrayList<>();
         public final List<String> testClassContextAnnotations = new ArrayList<>();
         public Boolean allSourceRootsInTestModuleAreTest;
 
@@ -116,6 +117,7 @@ public final class ArtifactDetectionConfig {
             ));
             rules.allSourceRootsInTestModuleAreTest = false;
             rules.legacyTestMethodNamePrefixes.add("test");
+            rules.legacyTestClassNamePatterns.addAll(List.of("Test*", "*Test", "*Tests", "*TestCase"));
             rules.testClassContextAnnotations.addAll(List.of(
                     "org.junit.jupiter.api.extension.ExtendWith",
                     "org.junit.runner.RunWith",
@@ -150,6 +152,7 @@ public final class ArtifactDetectionConfig {
             addAll(legacyTestCaseSuperclasses, other.legacyTestCaseSuperclasses);
             addAll(testClassSuperclasses, other.testClassSuperclasses);
             addAll(legacyTestMethodNamePrefixes, other.legacyTestMethodNamePrefixes);
+            addAll(legacyTestClassNamePatterns, other.legacyTestClassNamePatterns);
             addAll(testClassContextAnnotations, other.testClassContextAnnotations);
             if (other.allSourceRootsInTestModuleAreTest != null) {
                 allSourceRootsInTestModuleAreTest = other.allSourceRootsInTestModuleAreTest;

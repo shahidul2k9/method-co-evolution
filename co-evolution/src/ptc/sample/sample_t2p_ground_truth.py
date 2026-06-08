@@ -305,6 +305,13 @@ def _select_test_methods(
     return selected_urls, len(reused_unique), len(added_urls)
 
 
+def _non_empty_unique_urls(df: pd.DataFrame, column: str) -> list[str]:
+    if df.empty or column not in df.columns:
+        return []
+    urls = [str(url) for url in df[column].dropna().astype(str) if str(url).strip()]
+    return list(dict.fromkeys(urls))
+
+
 def _merge_working_labels(
     output_df: pd.DataFrame,
     working_df: pd.DataFrame,
@@ -515,6 +522,7 @@ def regenerate_project(
     exclude_test_artifact_pattern: Pattern[str] | None = None,
     update_columns: list[str] | None = None,
     add_missing_candidates: bool = False,
+    add_only: bool = False,
 ) -> GroundTruthProjectStats | None:
     working_df = _read_working_ground_truth(project, working_dir)
     if sample_count_per_project == 0 and working_df.empty:
@@ -537,17 +545,39 @@ def regenerate_project(
         if skip_reason:
             print(f"  {project}: {skip_reason}; preserving existing working rows only")
 
-    working_urls = (
-        working_df["from_url"].dropna().astype(str).tolist()
-        if "from_url" in working_df.columns
-        else []
-    )
+    working_urls = _non_empty_unique_urls(working_df, "from_url")
     selected_urls, reused_count, added_count = _select_test_methods(
         available_urls=fresh_pool_urls,
         working_urls=working_urls,
         sample_count_per_project=sample_count_per_project,
         random_state=random_state,
     )
+
+    if add_only:
+        added_urls = selected_urls.difference(working_urls)
+        fresh_output_df = _build_output_df(cg_df, added_urls)
+        if not fresh_output_df.empty:
+            fresh_output_df = fresh_output_df.copy()
+            fresh_output_df["candidate"] = 1
+        output_df = pd.concat([working_df, fresh_output_df], ignore_index=True)
+        output_df = output_df[GROUND_TRUTH_COLUMNS]
+        output_file = _write_output_atomic(output_df, project=project, output_dir=output_dir, temp_dir=temp_dir)
+        return GroundTruthProjectStats(
+            project=project,
+            working_test_methods=len(working_urls),
+            reused_test_methods=reused_count,
+            added_test_methods=added_count,
+            excluded_test_methods=excluded_count,
+            selected_test_methods=len(selected_urls),
+            generated_rows=len(output_df),
+            manual_rows_preserved=len(working_df),
+            rows_refreshed=0,
+            rows_not_refreshed=0,
+            missing_candidate_rows_added=0,
+            carried_label_rows=int((working_df["label"].astype(str).str.strip() != "").sum()),
+            new_or_unlabelled_rows=int((output_df["label"].astype(str).str.strip() == "").sum()),
+            output_file=output_file,
+        )
 
     output_df = _build_output_df(cg_df, selected_urls)
     output_df, carried_label_rows, fresh_rows_refreshed = _merge_working_labels(
@@ -589,7 +619,7 @@ def regenerate_project(
     new_or_unlabelled_rows = int((output_df["label"].astype(str).str.strip() == "").sum())
     return GroundTruthProjectStats(
         project=project,
-        working_test_methods=working_df["from_url"].nunique() if "from_url" in working_df.columns else 0,
+        working_test_methods=len(working_urls),
         reused_test_methods=reused_count,
         added_test_methods=added_count,
         excluded_test_methods=excluded_count,
@@ -615,7 +645,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--project-index",
         default=None,
-        help="Python-style project index or slice from project.csv. Use ':' for all projects.",
+        help="Project index, comma-separated indexes, or Python-style slice from project.csv. Use ':' for all projects.",
     )
     parser.add_argument(
         "--sample-count-per-project",
@@ -637,12 +667,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--update-columns",
         default=None,
-        help="Comma-separated ground-truth columns to refresh on reused rows when source data is available.",
+        help="Comma-separated ground-truth columns to refresh on reused rows. Cannot be combined with --add-only.",
     )
     parser.add_argument(
         "--add-missing-candidates",
         action="store_true",
-        help="Append expanded candidate rows for from_url values already present in the input ground truth.",
+        help="Append expanded candidate rows for existing from_url values. Cannot be combined with --add-only.",
+    )
+    parser.add_argument(
+        "--add-only",
+        action="store_true",
+        help="Only append fresh sampled test methods needed to reach the sample count; preserve existing rows unchanged.",
     )
     return parser
 
@@ -652,6 +687,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     if args.sample_count_per_project < 0:
         parser.error("--sample-count-per-project must be a non-negative integer")
+    if args.add_only and args.update_columns:
+        parser.error("--add-only cannot be combined with --update-columns")
+    if args.add_only and args.add_missing_candidates:
+        parser.error("--add-only cannot be combined with --add-missing-candidates")
 
     working_dir = args.t2p_ground_truth_dir.expanduser()
     if not working_dir.is_dir():
@@ -708,6 +747,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Update columns: {', '.join(update_columns)}")
     if args.add_missing_candidates:
         print("Add missing candidates: yes")
+    if args.add_only:
+        print("Add only: yes")
     print()
 
     stats: list[GroundTruthProjectStats] = []
@@ -723,6 +764,7 @@ def main(argv: list[str] | None = None) -> int:
             exclude_test_artifact_pattern=exclude_test_artifact_pattern,
             update_columns=update_columns,
             add_missing_candidates=args.add_missing_candidates,
+            add_only=args.add_only,
         )
         if project_stats is None:
             continue

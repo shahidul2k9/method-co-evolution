@@ -7,7 +7,6 @@ from pytctracer.config.constants.technique_threshold import TechniqueThreshold
 
 from mhc.command_util import (
     build_experiment_parser,
-    list_csv_files,
     resolve_experiment_filters,
     resolve_experiment_paths,
     select_named_items,
@@ -284,6 +283,25 @@ def filter_test_case_to_main_code_links(t2p_link_df: pd.DataFrame) -> pd.DataFra
     ].copy()
 
 
+def select_t2p_tech_files(
+    experiment_directory: Path,
+    selected_projects: list[str] | None,
+) -> list[Path]:
+    repository_df = pd.read_csv(experiment_directory / "project.csv")
+    projects = select_named_items(
+        repository_df["project"].tolist(),
+        selected_projects,
+        item_label="project",
+        strict=False,
+    )
+    t2p_tech_directory = experiment_directory / "t2p-tech"
+    return [
+        t2p_tech_file
+        for project in projects
+        if (t2p_tech_file := t2p_tech_directory / f"{project}.csv").exists()
+    ]
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     stats = GenerationStats("t2p_link")
@@ -296,7 +314,7 @@ def main(argv: list[str] | None = None) -> None:
         strategies=args.strategies,
     )
     link_strategies = select_link_strategies(selected_strategies)
-    for t2p_tech_file in list_csv_files(experiment_directory / "t2p-tech", selected_projects, strict=False):
+    for t2p_tech_file in select_t2p_tech_files(experiment_directory, selected_projects):
         repository_name = t2p_tech_file.stem
         pending_strategies = []
         for link_strategy in link_strategies:

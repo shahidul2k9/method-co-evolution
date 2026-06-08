@@ -92,6 +92,105 @@ class TestGroundTruthSample(unittest.TestCase):
             self.assertEqual("needs-check", preserved["tags"])
             self.assertEqual("keep this", preserved["notes"])
 
+    def test_add_only_preserves_existing_rows_and_fills_remaining_test_methods(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            candidate_dir, method_dir, working_dir, output_dir = self._make_dirs(root)
+            self._write_project_inputs(candidate_dir, method_dir, project="demo", test_count=3)
+            pd.DataFrame(
+                [
+                    {
+                        "project": "demo",
+                        "from_name": "staleTestA",
+                        "to_name": "staleProd",
+                        "from_url": "test://A",
+                        "to_url": "prod://1",
+                        "from_fqs": "stale.from()",
+                        "from_tctracer_fqs": "stale.from()",
+                        "from_testlinker_fqs": "stale.from.linker()",
+                        "to_fqs": "stale.to()",
+                        "to_tctracer_fqs": "stale.to()",
+                        "to_testlinker_fqs": "stale.to.linker()",
+                        "from_artifact": "stale-from-artifact",
+                        "to_artifact": "stale-to-artifact",
+                        "to_call_depth": "99",
+                        "candidate": "0",
+                        "label": "1",
+                        "tags": "reviewed",
+                        "notes": "preserve all values",
+                    }
+                ]
+            ).to_csv(working_dir / "demo.csv", index=False)
+
+            stats = self._regenerate_project(
+                candidate_dir,
+                method_dir,
+                project="demo",
+                sample_count_per_project=2,
+                working_dir=working_dir,
+                output_dir=output_dir,
+                temp_dir=root / ".output",
+                random_state=42,
+                add_only=True,
+            )
+
+            result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
+            preserved = result.iloc[0]
+            self.assertEqual(1, stats.reused_test_methods)
+            self.assertEqual(1, stats.added_test_methods)
+            self.assertEqual(2, result["from_url"].nunique())
+            self.assertEqual("staleTestA", preserved["from_name"])
+            self.assertEqual("stale.from.linker()", preserved["from_testlinker_fqs"])
+            self.assertEqual("stale.to.linker()", preserved["to_testlinker_fqs"])
+            self.assertEqual("stale-from-artifact", preserved["from_artifact"])
+            self.assertEqual("stale-to-artifact", preserved["to_artifact"])
+            self.assertEqual("99", str(preserved["to_call_depth"]))
+            self.assertEqual("0", str(preserved["candidate"]))
+            self.assertEqual("1", str(preserved["label"]))
+            appended = result[result["from_url"] != "test://A"]
+            self.assertFalse(appended.empty)
+            self.assertEqual({"1"}, set(appended["candidate"].astype(str)))
+
+    def test_add_only_with_enough_existing_methods_appends_nothing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            candidate_dir, method_dir, working_dir, output_dir = self._make_dirs(root)
+            self._write_project_inputs(candidate_dir, method_dir, project="demo", test_count=3)
+            working_rows = [
+                {
+                    "project": "demo",
+                    "from_name": f"existing{index}",
+                    "to_name": "prod1",
+                    "from_url": f"test://{chr(ord('A') + index)}",
+                    "to_url": "prod://1",
+                    "from_testlinker_fqs": f"stale.from.{index}()",
+                    "to_testlinker_fqs": f"stale.to.{index}()",
+                    "candidate": "0",
+                    "label": str(index % 2),
+                }
+                for index in range(3)
+            ]
+            pd.DataFrame(working_rows).to_csv(working_dir / "demo.csv", index=False)
+
+            stats = self._regenerate_project(
+                candidate_dir,
+                method_dir,
+                project="demo",
+                sample_count_per_project=2,
+                working_dir=working_dir,
+                output_dir=output_dir,
+                temp_dir=root / ".output",
+                add_only=True,
+            )
+
+            result = pd.read_csv(output_dir / "demo.csv", keep_default_na=False, na_filter=False)
+            self.assertEqual(3, stats.reused_test_methods)
+            self.assertEqual(0, stats.added_test_methods)
+            self.assertEqual(3, len(result))
+            self.assertEqual(["existing0", "existing1", "existing2"], result["from_name"].tolist())
+            self.assertEqual(["stale.from.0()", "stale.from.1()", "stale.from.2()"], result["from_testlinker_fqs"].tolist())
+            self.assertEqual(["0", "0", "0"], result["candidate"].astype(str).tolist())
+
     def test_update_columns_keeps_fresh_values_for_callgraph_backed_rows(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -773,6 +872,41 @@ class TestGroundTruthSample(unittest.TestCase):
                         ]
                     )
             regenerate.assert_not_called()
+
+    def test_main_rejects_add_only_with_update_columns(self):
+        with mock.patch.object(ground_truth_sample, "regenerate_project") as regenerate:
+            with self.assertRaises(SystemExit):
+                ground_truth_sample.main(
+                    [
+                        "--project-index",
+                        "0",
+                        "--sample-count-per-project",
+                        "20",
+                        "--t2p-ground-truth-dir",
+                        "unused",
+                        "--add-only",
+                        "--update-columns",
+                        "to_testlinker_fqs",
+                    ]
+                )
+        regenerate.assert_not_called()
+
+    def test_main_rejects_add_only_with_add_missing_candidates(self):
+        with mock.patch.object(ground_truth_sample, "regenerate_project") as regenerate:
+            with self.assertRaises(SystemExit):
+                ground_truth_sample.main(
+                    [
+                        "--project-index",
+                        "0",
+                        "--sample-count-per-project",
+                        "20",
+                        "--t2p-ground-truth-dir",
+                        "unused",
+                        "--add-only",
+                        "--add-missing-candidates",
+                    ]
+                )
+        regenerate.assert_not_called()
 
     def test_main_accepts_t2p_ground_truth_dir_and_project_index(self):
         with tempfile.TemporaryDirectory() as tmpdir:

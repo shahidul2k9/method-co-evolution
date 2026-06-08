@@ -305,6 +305,7 @@ public class ArtifactDetectionTest {
                 import org.junit.Test;
                 class SuperclassTest extends CustomTestBase {
                     @Test public void verifiesBehavior() {}
+                    public void testNamingAloneIsNotEnough() {}
                     void helper() {}
                 }
                 class CustomTestBase {}
@@ -315,6 +316,7 @@ public class ArtifactDetectionTest {
                 @CustomTestContext
                 class AnnotationTest {
                     void annotationHelper() {}
+                    public void testAnnotationContextIsNotLegacy() {}
                 }
                 @interface CustomTestContext {}
                 """);
@@ -326,7 +328,61 @@ public class ArtifactDetectionTest {
         assertHas(methods, "verifiesBehavior", "test-case-method");
         assertHas(methods, "helper", "test-helper-method");
         assertNotHas(methods, "helper", "test-case-method");
+        assertHas(methods, "testNamingAloneIsNotEnough", "test-helper-method");
+        assertNotHas(methods, "testNamingAloneIsNotEnough", "test-case-method");
         assertHas(annotationMethods, "annotationHelper", "test-helper-method");
+        assertHas(annotationMethods, "testAnnotationContextIsNotLegacy", "test-helper-method");
+        assertNotHas(annotationMethods, "testAnnotationContextIsNotLegacy", "test-case-method");
+    }
+
+    @Test
+    public void configuredLegacySuperclassPromotesMainSourceAndDetectsNameBasedTests() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-custom-legacy-context");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("demo.yml"), """
+                projects:
+                  demo:
+                    legacyTestCaseSuperclasses:
+                      - demo.LuceneTestCase
+                      - demo.ESTestCase
+                      - demo.SolrTestCaseJ4
+                """);
+        Path source = Files.createDirectories(repo.resolve("src/main/java/demo"));
+        Files.writeString(source.resolve("LuceneTestCase.java"), "package demo; public class LuceneTestCase {}");
+        Files.writeString(source.resolve("ESTestCase.java"), "package demo; public class ESTestCase extends LuceneTestCase {}");
+        Files.writeString(source.resolve("SolrTestCaseJ4.java"), "package demo; public class SolrTestCaseJ4 extends LuceneTestCase {}");
+
+        Path luceneTest = source.resolve("TestSpellChecking.java");
+        Files.writeString(luceneTest, """
+                package demo;
+                public class TestSpellChecking extends LuceneTestCase {
+                    public void testSuggestions() {}
+                    protected void testProtectedHelper() {}
+                }
+                """);
+        Path elasticsearchTest = source.resolve("AuthorizationDenialMessagesTests.java");
+        Files.writeString(elasticsearchTest, """
+                package demo;
+                public class AuthorizationDenialMessagesTests extends ESTestCase {
+                    public void testDenialMessage() {}
+                }
+                """);
+        Path solrTest = source.resolve("SearchHandlerTest.java");
+        Files.writeString(solrTest, """
+                package demo;
+                public class SearchHandlerTest extends SolrTestCaseJ4 {
+                    public void testSearchHandler() {}
+                }
+                """);
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "demo", configDir);
+
+        Map<String, ArtifactClassification> luceneMethods = methodsByName(detector, luceneTest);
+        assertHas(luceneMethods, "testSuggestions", "test-code");
+        assertHas(luceneMethods, "testSuggestions", "test-case-method");
+        assertHas(luceneMethods, "testProtectedHelper", "test-helper-method");
+        assertHas(methodsByName(detector, elasticsearchTest), "testDenialMessage", "test-case-method");
+        assertHas(methodsByName(detector, solrTest), "testSearchHandler", "test-case-method");
     }
 
     @Test
@@ -564,12 +620,194 @@ public class ArtifactDetectionTest {
                 class LegacyFallbackSpec extends MissingBase {
                     public void testNotFallback() {}
                 }
+                class TestPrefixFallback extends MissingBase {
+                    public void testPrefixFallback() {}
+                }
+                class PluralTests extends MissingBase {
+                    public void testPluralFallback() {}
+                }
+                class ExplicitTestCase extends MissingBase {
+                    public void testCaseFallback() {}
+                }
                 """);
 
         Map<String, ArtifactClassification> methods = methodsByName(TestArtifactDetector.load(repo, "demo", null), testFile);
 
         assertHas(methods, "testFallback", "test-case-method");
         assertHas(methods, "testNotFallback", "test-helper-method");
+        assertHas(methods, "testPrefixFallback", "test-case-method");
+        assertHas(methods, "testPluralFallback", "test-case-method");
+        assertHas(methods, "testCaseFallback", "test-case-method");
+    }
+
+    @Test
+    public void resolvedNonLegacyHierarchyDoesNotUseClassNameFallback() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-resolved-non-legacy");
+        Path source = Files.createDirectories(repo.resolve("src/test/java/demo"));
+        Files.writeString(source.resolve("OrdinaryBase.java"), "package demo; public class OrdinaryBase {}");
+        Path testFile = source.resolve("LooksLikeTest.java");
+        Files.writeString(testFile, """
+                package demo;
+                public class LooksLikeTest extends OrdinaryBase {
+                    public void testStillAHelper() {}
+                }
+                """);
+
+        Map<String, ArtifactClassification> methods =
+                methodsByName(TestArtifactDetector.load(repo, "demo", null), testFile);
+
+        assertHas(methods, "testStillAHelper", "test-helper-method");
+        assertNotHas(methods, "testStillAHelper", "test-case-method");
+    }
+
+    @Test
+    public void legacyFallbackRejectsInvalidMethodShapes() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-legacy-invalid-shapes");
+        Path source = Files.createDirectories(repo.resolve("src/test/java/demo"));
+        Path testFile = source.resolve("FallbackTests.java");
+        Files.writeString(testFile, """
+                package demo;
+                public class FallbackTests extends MissingBase {
+                    private void testPrivate() {}
+                    protected void testProtected() {}
+                    void testPackagePrivate() {}
+                    public static void testStatic() {}
+                    public int testNonVoid() { return 1; }
+                    public void testParameterized(String value) {}
+                }
+                """);
+
+        Map<String, ArtifactClassification> methods =
+                methodsByName(TestArtifactDetector.load(repo, "demo", null), testFile);
+
+        for (String method : List.of(
+                "testPrivate", "testProtected", "testPackagePrivate",
+                "testStatic", "testNonVoid", "testParameterized")) {
+            assertHas(methods, method, "test-helper-method");
+            assertNotHas(methods, method, "test-case-method");
+        }
+    }
+
+    @Test
+    public void legacyFallbackClassNamePatternsAreConfigurable() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-configurable-legacy-pattern");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("demo.yml"), """
+                projects:
+                  demo:
+                    legacyTestClassNamePatterns:
+                      - "*Spec"
+                """);
+        Path source = Files.createDirectories(repo.resolve("src/test/java/demo"));
+        Path testFile = source.resolve("SearchSpec.java");
+        Files.writeString(testFile, """
+                package demo;
+                public class SearchSpec extends MissingBase {
+                    public void testSearch() {}
+                }
+                """);
+
+        assertHas(
+                methodsByName(TestArtifactDetector.load(repo, "demo", configDir), testFile),
+                "testSearch",
+                "test-case-method"
+        );
+    }
+
+    @Test
+    public void moduleSpecificMainRootIsTestCodeOnlyInConfiguredModule() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-module-specific-main-test-root");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("hibernate-search.yml"), """
+                projects:
+                  hibernate-search:
+                    modules:
+                      hibernate-search-integrationtest-backend-tck:
+                        unitTestSourceRoots:
+                          - src/main/java
+                """);
+        Path tckModule = Files.createDirectories(repo.resolve("integrationtest/backend/tck"));
+        Files.writeString(tckModule.resolve("pom.xml"), """
+                <project>
+                  <parent>
+                    <artifactId>hibernate-search-integrationtest</artifactId>
+                  </parent>
+                  <artifactId>hibernate-search-integrationtest-backend-tck</artifactId>
+                </project>
+                """);
+        Path tckTest = Files.createDirectories(tckModule.resolve("src/main/java/demo")).resolve("BackendTckTest.java");
+        Files.writeString(tckTest, """
+                package demo;
+                import org.junit.jupiter.api.Test;
+                class BackendTckTest {
+                    @Test void backendWorks() {}
+                }
+                """);
+
+        Path engineModule = Files.createDirectories(repo.resolve("engine"));
+        Files.writeString(engineModule.resolve("pom.xml"), "<project><artifactId>hibernate-search-engine</artifactId></project>");
+        Path engineFile = Files.createDirectories(engineModule.resolve("src/main/java/demo")).resolve("Engine.java");
+        Files.writeString(engineFile, "package demo; class Engine { void run() {} }");
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "hibernate-search", configDir);
+
+        Assert.assertEquals("#test-module #test-code", detector.classify(tckTest, "demo").encodedArtifact());
+        assertHas(methodsByName(detector, tckTest), "backendWorks", "test-case-method");
+        Assert.assertEquals("#main-code", detector.classify(engineFile, "demo").encodedArtifact());
+    }
+
+    @Test
+    public void luceneTestFrameworkSrcJavaIsTestCodeOnlyInConfiguredModule() throws Exception {
+        Path repo = Files.createTempDirectory("artifact-detection-lucene-test-framework");
+        Path configDir = Files.createDirectories(repo.resolve("config"));
+        Files.writeString(configDir.resolve("lucene.yml"), """
+                projects:
+                  lucene:
+                    legacyTestCaseSuperclasses:
+                      - org.apache.lucene.tests.util.LuceneTestCase
+                    modules:
+                      lucene/test-framework:
+                        unitTestSourceRoots:
+                          - src/java
+                """);
+
+        Path testFramework = Files.createDirectories(repo.resolve("lucene/test-framework"));
+        Files.writeString(testFramework.resolve("build.gradle"), "");
+        Path frameworkRoot = Files.createDirectories(testFramework.resolve("src/java"));
+        Path frameworkSource = Files.createDirectories(frameworkRoot.resolve("org/apache/lucene/tests/index"));
+        Path frameworkUtil = Files.createDirectories(frameworkRoot.resolve("org/apache/lucene/tests/util"));
+        Files.writeString(frameworkUtil.resolve("LuceneTestCase.java"), """
+                package org.apache.lucene.tests.util;
+                public class LuceneTestCase {}
+                """);
+        Path frameworkTest = frameworkSource.resolve("LegacyBaseDocValuesFormatTestCase.java");
+        Files.writeString(frameworkTest, """
+                package org.apache.lucene.tests.index;
+                import org.apache.lucene.tests.util.LuceneTestCase;
+                public class LegacyBaseDocValuesFormatTestCase extends LuceneTestCase {
+                    public void testSortedSetTermsEnum() {}
+                    protected void helper() {}
+                }
+                """);
+
+        Path sibling = Files.createDirectories(repo.resolve("lucene/core"));
+        Files.writeString(sibling.resolve("build.gradle"), "");
+        Path siblingFile = Files.createDirectories(sibling.resolve("src/java/org/apache/lucene/index"))
+                .resolve("IndexWriter.java");
+        Files.writeString(siblingFile, """
+                package org.apache.lucene.index;
+                public class IndexWriter {
+                    public void testNamedProductionHelper() {}
+                }
+                """);
+
+        TestArtifactDetector detector = TestArtifactDetector.load(repo, "lucene", configDir);
+        Map<String, ArtifactClassification> frameworkMethods = methodsByName(detector, frameworkTest);
+
+        assertHas(frameworkMethods, "testSortedSetTermsEnum", "test-code");
+        assertHas(frameworkMethods, "testSortedSetTermsEnum", "test-case-method");
+        assertHas(frameworkMethods, "helper", "test-helper-method");
+        Assert.assertEquals("#main-code", detector.classify(siblingFile, "org.apache.lucene.index").encodedArtifact());
     }
 
     @Test

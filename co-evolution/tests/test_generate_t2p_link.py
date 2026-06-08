@@ -1,6 +1,8 @@
 from pathlib import Path
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
 SRC_DIRECTORY = Path(__file__).resolve().parents[1] / "src"
 if str(SRC_DIRECTORY) not in sys.path:
@@ -18,6 +20,7 @@ from ptc.generator.t2p_link import (
     _llm_stage_column_name,
     select_one_stage_indices,
     select_link_strategies,
+    select_t2p_tech_files,
     strategy_output_key,
 )
 from ptc.link_strategy import LinkStrategy, strategies_from_keys
@@ -221,6 +224,22 @@ class TestGenerateT2PLink(unittest.TestCase):
         filtered = filter_test_case_to_main_code_links(frame)
 
         self.assertEqual(["main-in-test-module", "doc-main"], filtered["to_url"].tolist())
+
+    def test_project_index_uses_project_csv_order_instead_of_available_file_order(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            experiment_directory = Path(temp_dir)
+            pd.DataFrame(
+                {"project": ["z-project", "missing-project", "a-project"]}
+            ).to_csv(experiment_directory / "project.csv", index=False)
+            t2p_tech_directory = experiment_directory / "t2p-tech"
+            t2p_tech_directory.mkdir()
+            (t2p_tech_directory / "a-project.csv").touch()
+            (t2p_tech_directory / "z-project.csv").touch()
+
+            with mock.patch.dict("os.environ", {"ME_PROJECT_INDEX": "0"}):
+                selected_files = select_t2p_tech_files(experiment_directory, None)
+
+        self.assertEqual(["z-project.csv"], [path.name for path in selected_files])
 
 
 if __name__ == "__main__":
