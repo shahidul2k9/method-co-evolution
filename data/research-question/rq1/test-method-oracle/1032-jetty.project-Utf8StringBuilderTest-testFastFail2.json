@@ -1,0 +1,43 @@
+{
+  "repositoryName" : "jetty.project",
+  "repositoryUrl" : "https://github.com/eclipse/jetty.project.git",
+  "startCommitHash" : "d94be9b4862f7990276522d79a463f5fc4427e2f",
+  "file" : "jetty-core/jetty-util/src/test/java/org/eclipse/jetty/util/Utf8StringBuilderTest.java",
+  "url" : "https://github.com/eclipse/jetty.project/blob/d94be9b4862f7990276522d79a463f5fc4427e2f/jetty-core/jetty-util/src/test/java/org/eclipse/jetty/util/Utf8StringBuilderTest.java#L191",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testFastFail2",
+  "startLine" : 191,
+  "endLine" : 206,
+  "commits" : [ {
+    "commitHash" : "57b953be672d6444d29b7df5b4b25be55a36ff69",
+    "changeTags" : [ "EXCEPTION" ]
+  }, {
+    "commitHash" : "8636666eec2524d1c64ecc87e748f4c4d6967bcf",
+    "changeTags" : [ "ANNOTATION", "BODY", "FILE_MOVE", "PARAMETER" ]
+  }, {
+    "commitHash" : "825fa759934d7172d6f09f4a4ff1bdf553610c50",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "8c65309963a286a700698ccfd05426f6cfe2767f",
+    "changeTags" : [ "RENAME" ]
+  }, {
+    "commitHash" : "9706d70484863a014d3604e5e7cb4af40aa4cb1e",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "a3f1592c50c3af7001a5ab3c773768660eb8d07a",
+    "changeTags" : [ "ANNOTATION", "BODY", "PARAMETER" ]
+  }, {
+    "commitHash" : "7399947d56fb7e85366d3882bdbc5120e0bbb573",
+    "changeTags" : [ "BODY", "FILE_MOVE" ]
+  }, {
+    "commitHash" : "a1d559e863a221b111b1dbb7b633922feec12b61",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "703cf000fe892f02a9d3817dc637373347552743",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "0f4fe634a37199e0fc7cc8e6330e7bbb3350a8ce",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

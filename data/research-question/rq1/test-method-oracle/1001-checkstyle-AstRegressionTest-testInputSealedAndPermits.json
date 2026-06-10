@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "checkstyle",
+  "repositoryUrl" : "https://github.com/checkstyle/checkstyle.git",
+  "startCommitHash" : "1d66837cd4be945795d8936f4d84cc6ff43e2274",
+  "file" : "src/test/java/com/puppycrawl/tools/checkstyle/grammar/AstRegressionTest.java",
+  "url" : "https://github.com/checkstyle/checkstyle/blob/1d66837cd4be945795d8936f4d84cc6ff43e2274/src/test/java/com/puppycrawl/tools/checkstyle/grammar/AstRegressionTest.java#L216",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testInputSealedAndPermits",
+  "startLine" : 216,
+  "endLine" : 219,
+  "commits" : [ {
+    "commitHash" : "686e2d970a94ce7e4ad786633e76a972d1744892",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "6e2aa17491dc9dcc503e0d12ae2adddd4659967c",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "0ca66ad6a7e1bdc74fb1189363c69dfee60794b9",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

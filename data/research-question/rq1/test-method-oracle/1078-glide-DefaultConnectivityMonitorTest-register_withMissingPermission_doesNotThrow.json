@@ -1,0 +1,37 @@
+{
+  "repositoryName" : "glide",
+  "repositoryUrl" : "https://github.com/bumptech/glide.git",
+  "startCommitHash" : "b12f574fd6ea20430c55c5a2eb29d624d843bf3e",
+  "file" : "library/test/src/test/java/com/bumptech/glide/manager/DefaultConnectivityMonitorTest.java",
+  "url" : "https://github.com/bumptech/glide/blob/b12f574fd6ea20430c55c5a2eb29d624d843bf3e/library/test/src/test/java/com/bumptech/glide/manager/DefaultConnectivityMonitorTest.java#L138",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "register_withMissingPermission_doesNotThrow",
+  "startLine" : 138,
+  "endLine" : 142,
+  "commits" : [ {
+    "commitHash" : "833ef21d4edd9f907cecbdc9e780fc88058bf66f",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "b43ea9833e9f5f0cb0f6b3a35664c3e2aaed956a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "4504939c0f17a98a2afc511814b08e57d8530723",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "66c46f6e160b45031fa58ee51d52025b92e4ba1c",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "05f35ccd2eb059a7c89c8cc1d134e2529a1f3295",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "416797ea294a23ec8adadfc922a1c8b6e331770b",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "95637cfcf37a4d9acf05aa3e46dff6f7799f763a",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "bcd6cc2d72f50f84aa97b1098d465114cd0678c2",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

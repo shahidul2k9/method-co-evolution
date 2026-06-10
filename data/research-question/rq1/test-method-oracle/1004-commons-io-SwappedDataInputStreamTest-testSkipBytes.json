@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "commons-io",
+  "repositoryUrl" : "https://github.com/apache/commons-io.git",
+  "startCommitHash" : "2eb4ff6a65563254689ab6b49f4124aa00bd7391",
+  "file" : "src/test/java/org/apache/commons/io/input/SwappedDataInputStreamTest.java",
+  "url" : "https://github.com/apache/commons-io/blob/2eb4ff6a65563254689ab6b49f4124aa00bd7391/src/test/java/org/apache/commons/io/input/SwappedDataInputStreamTest.java#L143",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testSkipBytes",
+  "startLine" : 143,
+  "endLine" : 146,
+  "commits" : [ {
+    "commitHash" : "0d170ba7ac69b39fa5ef1e62e020bc6df5ec8f32",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "222fd91bad53f6719d49373472abf305edeaa19d",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "4d49a1953e287fffbd10ba2707ed1b3806eef21b",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "83f7246c3e9fe1d3f1ad6cf7ea0715a573fe2f2a",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "a094516c1b360f830527dd0b7811dd928495447a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "1dbb70871e3d35f68717923973270d0c5d69d1c4",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,40 @@
+{
+  "repositoryName" : "javaparser",
+  "repositoryUrl" : "https://github.com/javaparser/javaparser.git",
+  "startCommitHash" : "3dc8e77116dc740489fa6d7b74c3bfa4a9750d7e",
+  "file" : "javaparser-core-testing/src/test/java/com/github/javaparser/printer/lexicalpreservation/LexicalPreservingPrinterTest.java",
+  "url" : "https://github.com/javaparser/javaparser/blob/3dc8e77116dc740489fa6d7b74c3bfa4a9750d7e/javaparser-core-testing/src/test/java/com/github/javaparser/printer/lexicalpreservation/LexicalPreservingPrinterTest.java#L334",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "checkNodeTextCreatedArrayCreationLevelWith",
+  "startLine" : 334,
+  "endLine" : 346,
+  "commits" : [ {
+    "commitHash" : "5106428130cd3ff052a57d37a3d192f040da5edf",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "cf1da736245de0d0622e655edd9a8f4fbc04ba50",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "068172047996f6de9e76408be4f73b242f2b79ef",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "315278cca2eb6141dd93e34b183b8f3c3c3e7a3a",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "98e6c2f915a109d3157bed8cc2b775b430894535",
+    "changeTags" : [ "BODY", "EXCEPTION" ]
+  }, {
+    "commitHash" : "872ea1cf8fce25fc8ad7390eb8779ad878f2f1d4",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "dd0f96d32e589249fdd05ab40f9d087c79415730",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "d22b0b24f7226a4459369324f6e32b81fe576fbc",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "b5102be425f0cc4fa7bd45d31fd284d8faeb0251",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,34 @@
+{
+  "repositoryName" : "junit4",
+  "repositoryUrl" : "https://github.com/junit-team/junit4.git",
+  "startCommitHash" : "71c33ce555230d9dfb6cab5e133e22a4cc95cdff",
+  "file" : "src/test/java/org/junit/tests/junit3compatibility/SuiteMethodTest.java",
+  "url" : "https://github.com/junit-team/junit4/blob/71c33ce555230d9dfb6cab5e133e22a4cc95cdff/src/test/java/org/junit/tests/junit3compatibility/SuiteMethodTest.java#L76",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "descriptionAndRunNotificationsAreConsistent",
+  "startLine" : 76,
+  "endLine" : 82,
+  "commits" : [ {
+    "commitHash" : "30f2b16525dabb477373be9ed3e76bb98b200806",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "97402a3401c6cc2d45d395c0d9d636f483b5571c",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "9de3abe6c337247fd4b5d5af6406bdbb30403f50",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "870289f3272917f312de6902b8b6bdc43552d4b7",
+    "changeTags" : [ "BODY", "DOCUMENTATION" ]
+  }, {
+    "commitHash" : "8226e3e64a7d4ace29eb08ab6c9fc9d4055f20c9",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "35f5f3a78cdc49954e9542dafeea86f13705fdf8",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "dabf9f919413ef7f86c95140502792bcaa2b842a",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

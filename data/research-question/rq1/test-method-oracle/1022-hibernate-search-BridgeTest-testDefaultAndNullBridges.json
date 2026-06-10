@@ -1,0 +1,112 @@
+{
+  "repositoryName" : "hibernate-search",
+  "repositoryUrl" : "https://github.com/hibernate/hibernate-search.git",
+  "startCommitHash" : "b83992727a0e950119b2be98380246de7bf8160d",
+  "file" : "integrationtest/v5migrationhelper/orm/src/test/java/org/hibernate/search/test/bridge/BridgeTest.java",
+  "url" : "https://github.com/hibernate/hibernate-search/blob/b83992727a0e950119b2be98380246de7bf8160d/integrationtest/v5migrationhelper/orm/src/test/java/org/hibernate/search/test/bridge/BridgeTest.java#L43",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testDefaultAndNullBridges",
+  "startLine" : 43,
+  "endLine" : 125,
+  "commits" : [ {
+    "commitHash" : "c371d05f060b63880549f391f574ffd268cfb6fc",
+    "changeTags" : [ "BODY", "MODIFIER" ]
+  }, {
+    "commitHash" : "7b6b15c04f0ce6ec98e8d4983605b97f36d34fd5",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "09fbfeadad5a512f48460d9e137d21606bec95a0",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e65eab066a63573e07905a4a1e95f97c3a9d3110",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3925105a745bb2b5c347234c676cd0a80091a65e",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "07a773b5faf544ea5dd0e8e067894deb493d6cf0",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "8377ec039526aa15e89c78f04c0640a8fcd12d62",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "94cbe7cc876f0c09629ec785c6368cedf7efc6f6",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "b90e89ae59f2e0a4deccc8e51160fcd0cf8554bf",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "cec38b8e423350b8ae6220f451a80de6c738ac6a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f62a71ed9c3e9daad6dc28f2e2967955b8889c2d",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "9c50f08139e587d369eca80903c7287c3d3b96dc",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "23cd5d41d0beedb9dc60d5c57d9e7886a30a670d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f509f8095030b3a303058791ea41c35ee18c9593",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "a51e16bca141c7be80f8e6ead072d1313e21b34b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "30ac943e73e9b9ceea3ec31ded36e492738ac781",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "6ee95bac4860e7c6d54ae7a712c10b4dfae9105a",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "7cb8daa7d8119bc42d900002e514d4626e30b421",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "3bd1adbc90617ab6c9487400849ed4ee2e3c3569",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "354f2cadec6dee7d4dde2250e13f468e2d93cd27",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "630bc2309e570137f504e7c710f0b10766a55a8f",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "0b794a1f8afe3858d5f1534164dc8070b36df901",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "89c8aedee65fa3417994f599329ce3253e47845d",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "39529f69239ecf1f14dbf548a1b36eb40ee7b97e",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "abbca2effbc5adf096062d1fb080e1aa21df8acc",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "649352e557acb9fa52f1853fb927616eaeaeb6be",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f4ae5f166be051a2156e1ee0bd12b888e487a9c5",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "3010ed5125ef718aa41c6f5d9d17c1d899abf8f8",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "09041626474ffa1b84867106b4bb0a083e99e51b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ef01f883ffbcc7564eba162bd16165947ea5e508",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "6a53752c24d7612341dbcc9dceef1010d9fd03f9",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "a87b6a009d1abcd916c44c80c1f0c64c7dacc938",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "804c5de76bfcb5e1145f7f0272c7843d561a53f9",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

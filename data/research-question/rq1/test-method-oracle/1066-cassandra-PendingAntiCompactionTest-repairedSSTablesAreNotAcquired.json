@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "cassandra",
+  "repositoryUrl" : "https://github.com/apache/cassandra.git",
+  "startCommitHash" : "cd707ba67d182c5a8cfba087d0ae48da87532469",
+  "file" : "test/unit/org/apache/cassandra/db/repair/PendingAntiCompactionTest.java",
+  "url" : "https://github.com/apache/cassandra/blob/cd707ba67d182c5a8cfba087d0ae48da87532469/test/unit/org/apache/cassandra/db/repair/PendingAntiCompactionTest.java#L201",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "repairedSSTablesAreNotAcquired",
+  "startLine" : 201,
+  "endLine" : 224,
+  "commits" : [ {
+    "commitHash" : "5a0d6154d144b958404a4d7117602d35157848ba",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "7f634feb7cf1fdb135133946ffd75efa681b8cb7",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "6e27e65f150ed6cc6a7205b9d7c89a763f3256fa",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f7431b432875e334170ccdb19934d05545d2cebd",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "c5a7fcaa8e00083d6f74967c40474aef07b0d21a",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "98d74ed998706e9e047dc0f7886a1e9b18df3ce9",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "solr",
+  "repositoryUrl" : "https://github.com/apache/solr.git",
+  "startCommitHash" : "640428af236008d1d3050278c4fbb6ff15d53ad6",
+  "file" : "solr/core/src/test/org/apache/solr/rest/schema/TestDynamicFieldResource.java",
+  "url" : "https://github.com/apache/solr/blob/640428af236008d1d3050278c4fbb6ff15d53ad6/solr/core/src/test/org/apache/solr/rest/schema/TestDynamicFieldResource.java#L56",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testJsonGetDynamicField",
+  "startLine" : 56,
+  "endLine" : 75,
+  "commits" : [ {
+    "commitHash" : "73e64a959c93f721fd72e9d701cd8f3d925c9688",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "8ecbb972566856fa49c707870968e8a68e614dca",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "5c7ca6aa4841a92cb6220d445edacd46c8ec1713",
+    "changeTags" : [ "BODY", "FILE_MOVE" ]
+  }, {
+    "commitHash" : "4618a5a0fee3cb5ecf32ef42960bd7f9bb81237c",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

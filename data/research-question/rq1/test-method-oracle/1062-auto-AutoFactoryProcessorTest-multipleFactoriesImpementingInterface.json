@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "auto",
+  "repositoryUrl" : "https://github.com/google/auto.git",
+  "startCommitHash" : "8a2b2d0b5074866bf0ebe5b9281e0515312b63af",
+  "file" : "factory/src/test/java/com/google/auto/factory/processor/AutoFactoryProcessorTest.java",
+  "url" : "https://github.com/google/auto/blob/8a2b2d0b5074866bf0ebe5b9281e0515312b63af/factory/src/test/java/com/google/auto/factory/processor/AutoFactoryProcessorTest.java#L434",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "multipleFactoriesImpementingInterface",
+  "startLine" : 434,
+  "endLine" : 442,
+  "commits" : [ {
+    "commitHash" : "0e6bbe20e2ea77e22d775de528a6bae2cf433813",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "9cc29ca31a07cc94d205b306b5c8d8ec2314658b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e7748beb9793c71249540e6d2e852bc23fa314c4",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "bee3b1cd9a549e363de9e89fc3fa7b21d43bc850",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "b1aca4d116191f27171642b348eb464882194e3f",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

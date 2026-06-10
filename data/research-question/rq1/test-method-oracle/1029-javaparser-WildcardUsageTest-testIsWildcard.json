@@ -1,0 +1,37 @@
+{
+  "repositoryName" : "javaparser",
+  "repositoryUrl" : "https://github.com/javaparser/javaparser.git",
+  "startCommitHash" : "3dc8e77116dc740489fa6d7b74c3bfa4a9750d7e",
+  "file" : "javaparser-symbol-solver-testing/src/test/java/com/github/javaparser/symbolsolver/model/typesystem/WildcardUsageTest.java",
+  "url" : "https://github.com/javaparser/javaparser/blob/3dc8e77116dc740489fa6d7b74c3bfa4a9750d7e/javaparser-symbol-solver-testing/src/test/java/com/github/javaparser/symbolsolver/model/typesystem/WildcardUsageTest.java#L148",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testIsWildcard",
+  "startLine" : 148,
+  "endLine" : 154,
+  "commits" : [ {
+    "commitHash" : "270f450ad02f4d992ae27ea963b2dd1a32a49128",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "09232ff6b0ea19e850482f3a87ac6ef1c063c759",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "3cb5aa96ed5202a067dcdcc0050169471bfb5e23",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "08322b4714f672bed5ec424d3ace0a40da9ccd47",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "9c53c2cbc607ea694438ade8630be0c155a33162",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "ecc78c8b480ceb41019f764c983aaa69c2dabfe3",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "f4b07b1a2deac6d1b562424ac2380b92cec77a90",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "ff4e7740c1438c3e78528fc928578dcc097dffa9",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

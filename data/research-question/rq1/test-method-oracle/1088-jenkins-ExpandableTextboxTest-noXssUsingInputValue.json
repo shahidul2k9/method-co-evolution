@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "jenkins",
+  "repositoryUrl" : "https://github.com/jenkinsci/jenkins.git",
+  "startCommitHash" : "a71fe2bb671ff2066e700e2c121225da63e925ca",
+  "file" : "test/src/test/java/lib/form/ExpandableTextboxTest.java",
+  "url" : "https://github.com/jenkinsci/jenkins/blob/a71fe2bb671ff2066e700e2c121225da63e925ca/test/src/test/java/lib/form/ExpandableTextboxTest.java#L164",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "noXssUsingInputValue",
+  "startLine" : 164,
+  "endLine" : 182,
+  "commits" : [ {
+    "commitHash" : "71bc0d7edd138de4c44e1e4b6db202d431f50d28",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "77912a09ed04501f23afb857008c5885319800ce",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "cb54d2fbbce6711d48af69dcc1c8b4d8d764ae3b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "9f2c4b12425da7e1cc2f72821b1f8a5200d225bc",
+    "changeTags" : [ "ANNOTATION", "MOVE" ]
+  }, {
+    "commitHash" : "df600eb7a28dea189c41037398fd36fcea36302e",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

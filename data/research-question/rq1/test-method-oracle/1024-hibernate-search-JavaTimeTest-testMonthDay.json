@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "hibernate-search",
+  "repositoryUrl" : "https://github.com/hibernate/hibernate-search.git",
+  "startCommitHash" : "b83992727a0e950119b2be98380246de7bf8160d",
+  "file" : "integrationtest/v5migrationhelper/engine/src/test/java/org/hibernate/search/test/bridge/time/JavaTimeTest.java",
+  "url" : "https://github.com/hibernate/hibernate-search/blob/b83992727a0e950119b2be98380246de7bf8160d/integrationtest/v5migrationhelper/engine/src/test/java/org/hibernate/search/test/bridge/time/JavaTimeTest.java#L196",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testMonthDay",
+  "startLine" : 196,
+  "endLine" : 203,
+  "commits" : [ {
+    "commitHash" : "94cbe7cc876f0c09629ec785c6368cedf7efc6f6",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "1506079ae04dff2db00f72dd17edaf38206d794a",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "f62a71ed9c3e9daad6dc28f2e2967955b8889c2d",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "6dfbb22d3dc3093f6c4231a7601fc08afc5c1476",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "2c35cd172c90eeabadf3092b0f4ffb8baa3c829f",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

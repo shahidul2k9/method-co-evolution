@@ -1,0 +1,34 @@
+{
+  "repositoryName" : "javaparser",
+  "repositoryUrl" : "https://github.com/javaparser/javaparser.git",
+  "startCommitHash" : "3dc8e77116dc740489fa6d7b74c3bfa4a9750d7e",
+  "file" : "javaparser-symbol-solver-testing/src/test/java/com/github/javaparser/symbolsolver/resolution/LambdaResolutionTest.java",
+  "url" : "https://github.com/javaparser/javaparser/blob/3dc8e77116dc740489fa6d7b74c3bfa4a9750d7e/javaparser-symbol-solver-testing/src/test/java/com/github/javaparser/symbolsolver/resolution/LambdaResolutionTest.java#L161",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "lambdaBlockExplicitReturn",
+  "startLine" : 161,
+  "endLine" : 171,
+  "commits" : [ {
+    "commitHash" : "4c2c06f666ba1854aaab239cd56f039bf1627c47",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "270f450ad02f4d992ae27ea963b2dd1a32a49128",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "b54617e765d73b3ce0d187cf12ad8da382bce439",
+    "changeTags" : [ "EXCEPTION" ]
+  }, {
+    "commitHash" : "09232ff6b0ea19e850482f3a87ac6ef1c063c759",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "3f34115468f45e51a556908bc624c3f0d02b2220",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3cb5aa96ed5202a067dcdcc0050169471bfb5e23",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "1476b43b1eb066e37d45994d11a21dcec9dd24a5",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

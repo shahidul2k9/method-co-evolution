@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "zxing",
+  "repositoryUrl" : "https://github.com/zxing/zxing.git",
+  "startCommitHash" : "50799640d5c4d6cd85f75f047a3055d05485fae5",
+  "file" : "core/src/test/java/com/google/zxing/oned/rss/expanded/BinaryUtilTest.java",
+  "url" : "https://github.com/zxing/zxing/blob/50799640d5c4d6cd85f75f047a3055d05485fae5/core/src/test/java/com/google/zxing/oned/rss/expanded/BinaryUtilTest.java#L44",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testBuildBitArrayFromString",
+  "startLine" : 44,
+  "endLine" : 60,
+  "commits" : [ {
+    "commitHash" : "08e5431d995a88d443c06406520e62e2e0d02034",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "1bcc298ad386c346c73bde68a9d9718dd51e2d0d",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "1d086a09afd49264659fa0af06db54ee9d4e5fbf",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "8f2ddd96e715837439a38cded24b3e2d7d579405",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "74c8744e8cb4fdf4e522dea9760bf7b1c5d51589",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

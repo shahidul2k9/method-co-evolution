@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "MPAndroidChart",
+  "repositoryUrl" : "https://github.com/PhilJay/MPAndroidChart.git",
+  "startCommitHash" : "9c7275a0596a7ac0e50ca566e680f7f9d73607af",
+  "file" : "MPChartLib/src/test/java/com/github/mikephil/charting/test/LargeValueFormatterTest.java",
+  "url" : "https://github.com/PhilJay/MPAndroidChart/blob/9c7275a0596a7ac0e50ca566e680f7f9d73607af/MPChartLib/src/test/java/com/github/mikephil/charting/test/LargeValueFormatterTest.java#L15",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "test",
+  "startLine" : 15,
+  "endLine" : 94,
+  "commits" : [ {
+    "commitHash" : "bc0be2cfe13e32a5d8adefaa507e3512d22d85fb",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e5b66192e7b303d7d25fc172b1878c055b554047",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f69ae3f76bdb427e02f9675fa2e2ba4a8c781680",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

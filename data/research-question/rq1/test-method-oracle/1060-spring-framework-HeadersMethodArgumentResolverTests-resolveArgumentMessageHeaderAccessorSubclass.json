@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "spring-framework",
+  "repositoryUrl" : "https://github.com/spring-projects/spring-framework.git",
+  "startCommitHash" : "16f4b23c328500353194dfeb59e7a68550564ca8",
+  "file" : "spring-messaging/src/test/java/org/springframework/messaging/handler/annotation/reactive/HeadersMethodArgumentResolverTests.java",
+  "url" : "https://github.com/spring-projects/spring-framework/blob/16f4b23c328500353194dfeb59e7a68550564ca8/spring-messaging/src/test/java/org/springframework/messaging/handler/annotation/reactive/HeadersMethodArgumentResolverTests.java#L90",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "resolveArgumentMessageHeaderAccessorSubclass",
+  "startLine" : 90,
+  "endLine" : 93,
+  "commits" : [ {
+    "commitHash" : "01c62f86b35b39666c250fbc4a319579af450db5",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "9d74da006c950c464b13247bc5649d6cacff3060",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "57984c570564f26928a8b701ef68b00a3850c05f",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "567c559da8434a43b2291d835717b23161adadca",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

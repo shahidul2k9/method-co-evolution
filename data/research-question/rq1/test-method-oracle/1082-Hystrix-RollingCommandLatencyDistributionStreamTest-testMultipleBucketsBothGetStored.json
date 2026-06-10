@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "Hystrix",
+  "repositoryUrl" : "https://github.com/Netflix/Hystrix.git",
+  "startCommitHash" : "5ce3bc58c38e7ca60ef2fe0e516e390e294ad941",
+  "file" : "hystrix-core/src/test/java/com/netflix/hystrix/metric/consumer/RollingCommandLatencyDistributionStreamTest.java",
+  "url" : "https://github.com/Netflix/Hystrix/blob/5ce3bc58c38e7ca60ef2fe0e516e390e294ad941/hystrix-core/src/test/java/com/netflix/hystrix/metric/consumer/RollingCommandLatencyDistributionStreamTest.java#L423",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testMultipleBucketsBothGetStored",
+  "startLine" : 423,
+  "endLine" : 481,
+  "commits" : [ {
+    "commitHash" : "80e35829d78af2be57ceffaf71bcc417c2e423ad",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "5801e5b068dec8c46181e2042c29440537eb67c3",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3d180d324f583174d9575840525fc8bd1e8678d0",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "0ca5067c4a8ae5231ab0966dab8df0b52b45b98b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f288c0dca9f49e558ac655c4daf2fc2cf63d700c",
+    "changeTags" : [ "BODY", "FILE_MOVE" ]
+  }, {
+    "commitHash" : "6aacadc0dc552f87a703e31bee011ca31468f1b6",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,43 @@
+{
+  "repositoryName" : "pmd",
+  "repositoryUrl" : "https://github.com/pmd/pmd.git",
+  "startCommitHash" : "38c3567c01f9656c67d64496e1722866b1f6a8fb",
+  "file" : "pmd-core/src/test/java/net/sourceforge/pmd/AbstractRuleTest.java",
+  "url" : "https://github.com/pmd/pmd/blob/38c3567c01f9656c67d64496e1722866b1f6a8fb/pmd-core/src/test/java/net/sourceforge/pmd/AbstractRuleTest.java#L184",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testEquals7",
+  "startLine" : 184,
+  "endLine" : 189,
+  "commits" : [ {
+    "commitHash" : "af860c25e053b7f3048ba2d9d936965ae43285d0",
+    "changeTags" : [ "BODY", "MODIFIER" ]
+  }, {
+    "commitHash" : "f748539c45aa4a042c022ca52c75d0e2d947534e",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "531d322cb16fb1b6c5f1a9b8c4df28133c4a97e4",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "f4c833b3a5789a1800d9697d5e16fe01d2432d24",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "83e1230981de8a2012fa15b8c3c8eb33868fad88",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "169f77021eb9606f5b2af2b3299b2bae2344499e",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "81bdfe16c685720672a6f7c54c526f2e112dd090",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "c60a9625e2b97f7bcafbbb530e6c36c109420f0a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "8c1468bea142f19b130e444b5029648360b0c853",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "d3d0d87f98c5f2d7476302bdf382ca730db465f9",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

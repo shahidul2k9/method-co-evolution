@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "zxing",
+  "repositoryUrl" : "https://github.com/zxing/zxing.git",
+  "startCommitHash" : "50799640d5c4d6cd85f75f047a3055d05485fae5",
+  "file" : "core/src/test/java/com/google/zxing/client/result/EmailAddressParsedResultTestCase.java",
+  "url" : "https://github.com/zxing/zxing/blob/50799640d5c4d6cd85f75f047a3055d05485fae5/core/src/test/java/com/google/zxing/client/result/EmailAddressParsedResultTestCase.java#L56",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testEmailAddress",
+  "startLine" : 56,
+  "endLine" : 59,
+  "commits" : [ {
+    "commitHash" : "1bcc298ad386c346c73bde68a9d9718dd51e2d0d",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "8f2ddd96e715837439a38cded24b3e2d7d579405",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "9433c5955bd01b9cc0e9f4f7637022bcde693322",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

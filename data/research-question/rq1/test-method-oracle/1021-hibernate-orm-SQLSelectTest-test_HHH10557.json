@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "hibernate-orm",
+  "repositoryUrl" : "https://github.com/hibernate/hibernate-orm.git",
+  "startCommitHash" : "64ad80559533e23587982e460f6eb8a87c14a7e1",
+  "file" : "hibernate-core/src/test/java/org/hibernate/orm/test/sql/SQLSelectTest.java",
+  "url" : "https://github.com/hibernate/hibernate-orm/blob/64ad80559533e23587982e460f6eb8a87c14a7e1/hibernate-core/src/test/java/org/hibernate/orm/test/sql/SQLSelectTest.java#L85",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "test_HHH10557",
+  "startLine" : 85,
+  "endLine" : 110,
+  "commits" : [ {
+    "commitHash" : "dd565eb388180773a16c154d2af9d8b9a2815b27",
+    "changeTags" : [ "BODY", "PARAMETER" ]
+  }, {
+    "commitHash" : "8da3f3700f8d7dcc467df4f7c2dc46d23c55085d",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "570ccae476aab2a9f5a23eb7f55b5cc72153e99b",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "3ceb91d28097fe43459b9d64002526564e172ced",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

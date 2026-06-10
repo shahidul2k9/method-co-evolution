@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "hibernate-orm",
+  "repositoryUrl" : "https://github.com/hibernate/hibernate-orm.git",
+  "startCommitHash" : "64ad80559533e23587982e460f6eb8a87c14a7e1",
+  "file" : "hibernate-core/src/test/java/org/hibernate/orm/test/constraint/ForeignKeyConstraintMapsIdTest.java",
+  "url" : "https://github.com/hibernate/hibernate-orm/blob/64ad80559533e23587982e460f6eb8a87c14a7e1/hibernate-core/src/test/java/org/hibernate/orm/test/constraint/ForeignKeyConstraintMapsIdTest.java#L41",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testForeignKeyNameSetForMapsIdJoinColumn",
+  "startLine" : 41,
+  "endLine" : 56,
+  "commits" : [ {
+    "commitHash" : "dd565eb388180773a16c154d2af9d8b9a2815b27",
+    "changeTags" : [ "BODY", "PARAMETER" ]
+  }, {
+    "commitHash" : "8fb6a0e1fc6605dd1abd8604f78eb2dbfb7f2255",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "bbc325c26f59c258cbaef01f07c71905754fc365",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "bb0541d754b0e752a3cb91c8ab5808a8eb006f0e",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "8fe4b40ef8b85d8901feddba071a76adea14f920",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "9022085f5c48467089e74f4354ee6716d1616e99",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

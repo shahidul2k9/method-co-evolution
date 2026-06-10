@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "intellij-community",
+  "repositoryUrl" : "https://github.com/JetBrains/intellij-community.git",
+  "startCommitHash" : "1e05f4447723efe125034ffad6a3764387893163",
+  "file" : "java/java-tests/testSrc/com/intellij/java/codeInspection/dataFlow/rangeSet/LongRangeSetTest.java",
+  "url" : "https://github.com/JetBrains/intellij-community/blob/1e05f4447723efe125034ffad6a3764387893163/java/java-tests/testSrc/com/intellij/java/codeInspection/dataFlow/rangeSet/LongRangeSetTest.java#L582",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testShl",
+  "startLine" : 582,
+  "endLine" : 590,
+  "commits" : [ {
+    "commitHash" : "8aae7e79a43fd0869fc5e49c5ffe0dde1a26c0c8",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e974f34ddc763006a1fd35f59620b177b3dc64e6",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "85a0b4cde7c8f80ccdc543ef7094aacd514ee6b5",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "a48ee49974482272a3ab3e24d53737c135d4442b",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

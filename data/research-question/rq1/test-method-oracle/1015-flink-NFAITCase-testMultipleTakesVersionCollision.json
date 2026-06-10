@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "flink",
+  "repositoryUrl" : "https://github.com/apache/flink.git",
+  "startCommitHash" : "d141ad7ab86dcddc5937dce52f1657bae6ded2ed",
+  "file" : "flink-libraries/flink-cep/src/test/java/org/apache/flink/cep/nfa/NFAITCase.java",
+  "url" : "https://github.com/apache/flink/blob/d141ad7ab86dcddc5937dce52f1657bae6ded2ed/flink-libraries/flink-cep/src/test/java/org/apache/flink/cep/nfa/NFAITCase.java#L2579",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testMultipleTakesVersionCollision",
+  "startLine" : 2579,
+  "endLine" : 2727,
+  "commits" : [ {
+    "commitHash" : "990a7dac90af5ea7e8450521a63802c2563f4548",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "c6997c97c575d334679915c328792b8a3067cfb5",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "d8164e1ed119f78a97e1a8156e9532f5480c1a78",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "9218df82bc5748cf7fd4717b5b5e2f7dba0e01be",
+    "changeTags" : [ "BODY", "EXCEPTION" ]
+  }, {
+    "commitHash" : "00ce3f1b12c7d7bf996d5f91bf006f0e18a719e7",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

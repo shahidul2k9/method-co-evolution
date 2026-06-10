@@ -1,0 +1,46 @@
+{
+  "repositoryName" : "pulsar",
+  "repositoryUrl" : "https://github.com/apache/pulsar.git",
+  "startCommitHash" : "52a4d5ee84fad6af2736376a6fcdd1bc41e7c52f",
+  "file" : "pulsar-broker/src/test/java/org/apache/pulsar/broker/service/MessagePublishBufferThrottleTest.java",
+  "url" : "https://github.com/apache/pulsar/blob/52a4d5ee84fad6af2736376a6fcdd1bc41e7c52f/pulsar-broker/src/test/java/org/apache/pulsar/broker/service/MessagePublishBufferThrottleTest.java#L118",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testBlockByPublishRateLimiting",
+  "startLine" : 118,
+  "endLine" : 165,
+  "commits" : [ {
+    "commitHash" : "c9c5bb49b05118429426a4589cd8f57c47980318",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "c4cff0ab3dac169c0a1418ef2f63f61604f6278e",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "60d8e645e7ca6afa46625b15f32c1b65862888ce",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "01a78ae1c6a07251c698684a809c366918f49db8",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "42db27849c517e816eca5f046c0b0d9ee6fae166",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "2a522c85c0add3f1f647befb0a560689324114bd",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "25484d7131c9c36dd1d4b0d4782d3608030f3b1c",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "34b1d5afee0609bbfa032f0ea9a479951b1fcc47",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "2a183ab0dfedfda9d13a8536c02d95c109056b63",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "df325c291e1051aaa43c1f0be5bee8920a6bda2b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "91dfa1a9648e8f24a649d06ce96f38ef933a3c15",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,52 @@
+{
+  "repositoryName" : "spring-boot",
+  "repositoryUrl" : "https://github.com/spring-projects/spring-boot.git",
+  "startCommitHash" : "f8f1da605e936a62d1d3028e222d7e9f14f742cd",
+  "file" : "module/spring-boot-security/src/test/java/org/springframework/boot/security/autoconfigure/actuate/web/servlet/AbstractEndpointRequestIntegrationTests.java",
+  "url" : "https://github.com/spring-projects/spring-boot/blob/f8f1da605e936a62d1d3028e222d7e9f14f742cd/module/spring-boot-security/src/test/java/org/springframework/boot/security/autoconfigure/actuate/web/servlet/AbstractEndpointRequestIntegrationTests.java#L90",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "toAllEndpointsShouldMatch",
+  "startLine" : 90,
+  "endLine" : 101,
+  "commits" : [ {
+    "commitHash" : "c2e68c09115a96603293ff63fb2e4451ec872a15",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "decc32dde3c04c980466f6f5bc7b25f17ca99c69",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "95b3c367ce50216e82bf5a5c3b4ffd4a02218c31",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "e74718553b24d88744da9ec1d1beee84dee889fd",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "10fd1f3fa5402d089968487f18d78851aab399b1",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "df5898a1464112f185d295d585740de696934a12",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "f234d9c0ec7c6bf437be3104bc8d8480fbdb687a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "b18fffaf14f9ce3e5651f44745019890e8a899c2",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "24925c3daef169deaa9b2107ef02be4a67edb886",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "24925c3daef169deaa9b2107ef02be4a67edb886",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "c6c139d980a50a1b39e564d44a1df6d46f8ca11b",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "bd0a41d82de5f69f98af586cd4e61d1c2894f442",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "0fd873f0f9db1d79c30695112a487659d87425a2",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

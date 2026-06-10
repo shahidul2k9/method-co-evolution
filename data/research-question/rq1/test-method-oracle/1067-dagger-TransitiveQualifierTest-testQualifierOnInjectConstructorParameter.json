@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "dagger",
+  "repositoryUrl" : "https://github.com/google/dagger.git",
+  "startCommitHash" : "f9deeef1e70346aabd9a7523f21d652dde76469d",
+  "file" : "javatests/artifacts/dagger/build-tests/src/test/java/buildtests/TransitiveQualifierTest.java",
+  "url" : "https://github.com/google/dagger/blob/f9deeef1e70346aabd9a7523f21d652dde76469d/javatests/artifacts/dagger/build-tests/src/test/java/buildtests/TransitiveQualifierTest.java#L61",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testQualifierOnInjectConstructorParameter",
+  "startLine" : 61,
+  "endLine" : 108,
+  "commits" : [ {
+    "commitHash" : "f50ff84b93d4f6aecf45c646fa1d6bcc5a431e0b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ef2264905d0f24be307b36bca1fce87db30536d0",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "727068f38de496413ff21f84e61664eed12b04dc",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "dd31bd53550c61f6c2dd8003fc9f3e2ee4543eb9",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "08be250b0fc0459f060a98e13f1a1b97599807a2",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

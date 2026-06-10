@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "guice",
+  "repositoryUrl" : "https://github.com/google/guice.git",
+  "startCommitHash" : "6682b69d081371cceff2a100075a74f41b819a87",
+  "file" : "core/test/com/google/inject/JitBindingsTest.java",
+  "url" : "https://github.com/google/guice/blob/6682b69d081371cceff2a100075a74f41b819a87/core/test/com/google/inject/JitBindingsTest.java#L100",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testLinkedEagerSingleton",
+  "startLine" : 100,
+  "endLine" : 116,
+  "commits" : [ {
+    "commitHash" : "34e7c5d7151043ddc65dc37c3912e714baae4fcb",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "8b64d455b982d5841480a0247c15d68de0759c91",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "74d714c1e72bb60706ed9df4d1982971c88c10aa",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "6cc80945b3c8e471366bb1bd61a30b8cb1fc6ba3",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

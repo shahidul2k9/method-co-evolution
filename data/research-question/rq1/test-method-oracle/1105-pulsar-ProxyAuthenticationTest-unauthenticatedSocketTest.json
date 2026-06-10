@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "pulsar",
+  "repositoryUrl" : "https://github.com/apache/pulsar.git",
+  "startCommitHash" : "52a4d5ee84fad6af2736376a6fcdd1bc41e7c52f",
+  "file" : "pulsar-broker/src/test/java/org/apache/pulsar/websocket/proxy/ProxyAuthenticationTest.java",
+  "url" : "https://github.com/apache/pulsar/blob/52a4d5ee84fad6af2736376a6fcdd1bc41e7c52f/pulsar-broker/src/test/java/org/apache/pulsar/websocket/proxy/ProxyAuthenticationTest.java#L160",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "unauthenticatedSocketTest",
+  "startLine" : 160,
+  "endLine" : 168,
+  "commits" : [ {
+    "commitHash" : "5190af3ec8a202701620ba9e4a8c9d4ed7558118",
+    "changeTags" : [ "ANNOTATION", "EXCEPTION" ]
+  }, {
+    "commitHash" : "c56ad9d3018eb00210ec3340e7078db3922b2985",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e0c04adf06e66a962c8a2f98bc99288e7f8b793b",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "netty",
+  "repositoryUrl" : "https://github.com/netty/netty.git",
+  "startCommitHash" : "eafd77f6c03c9ee2a9caadc568bd585dedd530da",
+  "file" : "codec-http/src/test/java/io/netty/handler/codec/http/cors/CorsConfigTest.java",
+  "url" : "https://github.com/netty/netty/blob/eafd77f6c03c9ee2a9caadc568bd585dedd530da/codec-http/src/test/java/io/netty/handler/codec/http/cors/CorsConfigTest.java#L117",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "defaultPreflightResponseHeaders",
+  "startLine" : 117,
+  "endLine" : 121,
+  "commits" : [ {
+    "commitHash" : "b43c4e3ce0e02dc45c38739e2d7dfa3ef8124145",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "412f719aa82a830966d6aa7ee0164ccd18b9280c",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "4ce994dd4fe58a03fa25b0911e5b3a2079b33692",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "4fc9afa1023935b674f624933fc2510702d1c2b5",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "74f418bace1bb905ddeff3256c0553d21f884f98",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

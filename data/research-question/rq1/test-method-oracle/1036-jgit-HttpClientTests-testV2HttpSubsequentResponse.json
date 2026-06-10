@@ -1,0 +1,34 @@
+{
+  "repositoryName" : "jgit",
+  "repositoryUrl" : "https://github.com/eclipse-jgit/jgit.git",
+  "startCommitHash" : "1e9dd8cb9bedce1b5d579dcd841c5c9aac24b1e7",
+  "file" : "org.eclipse.jgit.http.test/tst/org/eclipse/jgit/http/test/HttpClientTests.java",
+  "url" : "https://github.com/eclipse-jgit/jgit/blob/1e9dd8cb9bedce1b5d579dcd841c5c9aac24b1e7/org.eclipse.jgit.http.test/tst/org/eclipse/jgit/http/test/HttpClientTests.java#L385",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testV2HttpSubsequentResponse",
+  "startLine" : 385,
+  "endLine" : 413,
+  "commits" : [ {
+    "commitHash" : "d9143287b778deba259cdd9d7db0a6aaba558eb2",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "23389a63238c50daf0d8d1e3fd2b1d29f4171645",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "308bdb5d1b3a675f134dd5c038b29bfa1a671d19",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ee747827b0d26cf770f44a33b201de31e81ca8ea",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3151bc33ea0b48eb222aebac1164f69105cc4b22",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3f8b9cb5fa74b8ea57023ab86b230093cd8e0e5e",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f516c1df9d18ff9aaba1dd5668db1776d42dd2bb",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

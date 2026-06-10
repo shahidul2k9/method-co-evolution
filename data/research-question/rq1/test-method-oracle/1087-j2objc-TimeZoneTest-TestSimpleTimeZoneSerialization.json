@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "j2objc",
+  "repositoryUrl" : "https://github.com/google/j2objc.git",
+  "startCommitHash" : "185a8ac8a249b3fcd96ba8a5d464c13b5e3f3a72",
+  "file" : "jre_emul/android/platform/external/icu/android_icu4j/src/main/tests/android/icu/dev/test/timezone/TimeZoneTest.java",
+  "url" : "https://github.com/google/j2objc/blob/185a8ac8a249b3fcd96ba8a5d464c13b5e3f3a72/jre_emul/android/platform/external/icu/android_icu4j/src/main/tests/android/icu/dev/test/timezone/TimeZoneTest.java#L1145",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "TestSimpleTimeZoneSerialization",
+  "startLine" : 1145,
+  "endLine" : 1193,
+  "commits" : [ {
+    "commitHash" : "99c40f1c2f9728d4cb777fa6c101ada950261865",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "e87078a2925058e131e00ef30fb7697464fa7717",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "59c83dca6c877102ba80502402ad7e883a81aa38",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

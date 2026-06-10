@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "zxing",
+  "repositoryUrl" : "https://github.com/zxing/zxing.git",
+  "startCommitHash" : "50799640d5c4d6cd85f75f047a3055d05485fae5",
+  "file" : "core/src/test/java/com/google/zxing/common/StringUtilsTestCase.java",
+  "url" : "https://github.com/zxing/zxing/blob/50799640d5c4d6cd85f75f047a3055d05485fae5/core/src/test/java/com/google/zxing/common/StringUtilsTestCase.java#L60",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testMixedShiftJIS1",
+  "startLine" : 60,
+  "endLine" : 65,
+  "commits" : [ {
+    "commitHash" : "515688992bec0973288f3deb9b4538dd780c8760",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "a372dfe17508943e1b771187eabc5b7fa58414c9",
+    "changeTags" : [ "RENAME" ]
+  }, {
+    "commitHash" : "1bcc298ad386c346c73bde68a9d9718dd51e2d0d",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "5d89cc30fc92c161c678ac7ae24d7589f0f7a8ab",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

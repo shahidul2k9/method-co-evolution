@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "dagger",
+  "repositoryUrl" : "https://github.com/google/dagger.git",
+  "startCommitHash" : "f9deeef1e70346aabd9a7523f21d652dde76469d",
+  "file" : "javatests/artifacts/dagger/build-tests/src/test/java/buildtests/TransitiveScopeTest.java",
+  "url" : "https://github.com/google/dagger/blob/f9deeef1e70346aabd9a7523f21d652dde76469d/javatests/artifacts/dagger/build-tests/src/test/java/buildtests/TransitiveScopeTest.java#L38",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testTransitiveScope_WithImplementation",
+  "startLine" : 38,
+  "endLine" : 52,
+  "commits" : [ {
+    "commitHash" : "f50ff84b93d4f6aecf45c646fa1d6bcc5a431e0b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "43eb1a6bb8b0c3591ad27d1e65992cc4df776609",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "727068f38de496413ff21f84e61664eed12b04dc",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "86b83d6b4048546e03a4534e4b2f24539298fa58",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f37b9a1344c15a76acd6d5d53164071ebf3455e7",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "jmeter",
+  "repositoryUrl" : "https://github.com/apache/jmeter.git",
+  "startCommitHash" : "b1843c2a0aa0bc8292cc504e2a0cea53ca373234",
+  "file" : "src/core/src/test/java/org/apache/jmeter/testbeans/gui/TestBooleanPropertyEditor.java",
+  "url" : "https://github.com/apache/jmeter/blob/b1843c2a0aa0bc8292cc504e2a0cea53ca373234/src/core/src/test/java/org/apache/jmeter/testbeans/gui/TestBooleanPropertyEditor.java#L43",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testBooleanEditor",
+  "startLine" : 43,
+  "endLine" : 46,
+  "commits" : [ {
+    "commitHash" : "f6dafdf60d669a815ae677f9a87fcafd28c6197c",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "fbdf1012a3b4d56ce83fdd18f98360f0dd49e636",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "1271065d0d1f5a4dd41871f59e7f04e2a7c5ee82",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "93bd8e7007eda2b1813ad825115d37e05fb607dd",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "20043454aaaaf716d6a4c4afabac3fe24ea7ebfd",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "d940a98b5a973b32cea605605625d0ca2ed7535c",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,43 @@
+{
+  "repositoryName" : "pmd",
+  "repositoryUrl" : "https://github.com/pmd/pmd.git",
+  "startCommitHash" : "38c3567c01f9656c67d64496e1722866b1f6a8fb",
+  "file" : "pmd-java/src/test/java/net/sourceforge/pmd/lang/java/cpd/JavaCpdLexerTest.java",
+  "url" : "https://github.com/pmd/pmd/blob/38c3567c01f9656c67d64496e1722866b1f6a8fb/pmd-java/src/test/java/net/sourceforge/pmd/lang/java/cpd/JavaCpdLexerTest.java#L91",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testIgnoreIdentifiersHandlesEnums",
+  "startLine" : 91,
+  "endLine" : 93,
+  "commits" : [ {
+    "commitHash" : "9e900a2c70cbfcfcc093575e38ed06abe6f2c0bd",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "6163f67b06c51f2521a6e2ffcd8e4566ace6134f",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "15ea5f0c00f529b309ce9b9cd12162a4e636322d",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "ddbfc90c14763d08fb1d3378f5e6e62f187ddf7c",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "e7a72df12ed937c935d196374ca0132b63c84195",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "6ff4a1c4d44589faf435af56500727bacea7f182",
+    "changeTags" : [ "BODY", "FILE_MOVE" ]
+  }, {
+    "commitHash" : "344d02600c4e8551ec9b07c88eef10946aa9d07d",
+    "changeTags" : [ "BODY", "EXCEPTION" ]
+  }, {
+    "commitHash" : "2680c33d84306aed438baeedaca115fe1b6f2d05",
+    "changeTags" : [ "EXCEPTION" ]
+  }, {
+    "commitHash" : "0ebcac0705f8afa2c62c805e35cd30ead84fc1b6",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "a7b46723c8dcc630fa984b03d07ff3d215260cfb",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

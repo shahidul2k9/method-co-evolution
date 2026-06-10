@@ -1,0 +1,34 @@
+{
+  "repositoryName" : "checkstyle",
+  "repositoryUrl" : "https://github.com/checkstyle/checkstyle.git",
+  "startCommitHash" : "1d66837cd4be945795d8936f4d84cc6ff43e2274",
+  "file" : "src/test/java/com/puppycrawl/tools/checkstyle/checks/SuppressWarningsHolderTest.java",
+  "url" : "https://github.com/checkstyle/checkstyle/blob/1d66837cd4be945795d8936f4d84cc6ff43e2274/src/test/java/com/puppycrawl/tools/checkstyle/checks/SuppressWarningsHolderTest.java#L73",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testGet",
+  "startLine" : 73,
+  "endLine" : 82,
+  "commits" : [ {
+    "commitHash" : "2e7520d3ea23232c555f89bbcbe44c5526aa0078",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "9fe3ab458008fa9014bbd7bf25abe2cb5f66a942",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "38d9db59b7753781add55597c7513438c1cdd16e",
+    "changeTags" : [ "BODY", "RENAME" ]
+  }, {
+    "commitHash" : "8dec45a601f965886a55b486c5c045dff2efa553",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3a2cb4d787e3c626bb0e2e02915cc1c37deb9d0b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "613ac4bb77cbdb6b93d4a79360c8e4aa47f5596b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "77c3f223267aab46a071d93342580620c614e269",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

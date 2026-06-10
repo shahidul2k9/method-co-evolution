@@ -1,0 +1,40 @@
+{
+  "repositoryName" : "junit5",
+  "repositoryUrl" : "https://github.com/junit-team/junit5.git",
+  "startCommitHash" : "09dd24418b02bf37557fb6dfe7eb76bc3bae68d5",
+  "file" : "jupiter-tests/src/test/java/org/junit/jupiter/api/AssertNotEqualsAssertionsTests.java",
+  "url" : "https://github.com/junit-team/junit5/blob/09dd24418b02bf37557fb6dfe7eb76bc3bae68d5/jupiter-tests/src/test/java/org/junit/jupiter/api/AssertNotEqualsAssertionsTests.java#L579",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "assertNotEqualsWithObjectVsNull",
+  "startLine" : 579,
+  "endLine" : 581,
+  "commits" : [ {
+    "commitHash" : "10dd4002ff0c094662ce0b98bd59faff480769c1",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "0f62c6b261044009542620b6fc645217fe793ccb",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "0a1dd0854e06b4000ded0025f2326f8bfdf41b4a",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "b1ce8faa6f1e61e71fb6fb69a7f5948217965eb7",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "4972eb58d680a30e8fbd1ffb6cdc6477bef83374",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "507e50872c6df8a66c32f45cb2153555f510c4b1",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "89d2279fe4b4585b20d82ea80ad9b55a4fead240",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "e6a65acc0f93a461a6cbace8b93d71ee0add3b4c",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "f930f21025e6dd1140063c20fa499ca6d5a374e9",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

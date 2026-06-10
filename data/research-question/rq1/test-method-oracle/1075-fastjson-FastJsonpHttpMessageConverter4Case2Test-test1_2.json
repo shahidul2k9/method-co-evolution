@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "fastjson",
+  "repositoryUrl" : "https://github.com/alibaba/fastjson.git",
+  "startCommitHash" : "c942c83443117b73af5ad278cc780270998ba3e1",
+  "file" : "src/test/java/com/alibaba/json/bvt/support/spring/mock/testcase/FastJsonpHttpMessageConverter4Case2Test.java",
+  "url" : "https://github.com/alibaba/fastjson/blob/c942c83443117b73af5ad278cc780270998ba3e1/src/test/java/com/alibaba/json/bvt/support/spring/mock/testcase/FastJsonpHttpMessageConverter4Case2Test.java#L89",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "test1_2",
+  "startLine" : 89,
+  "endLine" : 104,
+  "commits" : [ {
+    "commitHash" : "d342dadc4cbff4156bd1deff03a2e54008ee7008",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "19a5315612b2fb8776dfba8edc5c1c9e0c34d212",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "495b6cf1926a326e9c452fad9b60894c3400692f",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "32fbffdef6386427c9b38e318984ef9ad5b78402",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

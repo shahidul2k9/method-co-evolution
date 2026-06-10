@@ -1,0 +1,43 @@
+{
+  "repositoryName" : "kafka",
+  "repositoryUrl" : "https://github.com/apache/kafka.git",
+  "startCommitHash" : "62206cfc5461629818a34723fee7817b369a6f7e",
+  "file" : "connect/runtime/src/test/java/org/apache/kafka/connect/runtime/WorkerTest.java",
+  "url" : "https://github.com/apache/kafka/blob/62206cfc5461629818a34723fee7817b369a6f7e/connect/runtime/src/test/java/org/apache/kafka/connect/runtime/WorkerTest.java#L1046",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testProducerConfigsWithoutOverrides",
+  "startLine" : 1046,
+  "endLine" : 1055,
+  "commits" : [ {
+    "commitHash" : "3a3f9ce48e59fafefd8b3fae50e5d8428b6bb4f0",
+    "changeTags" : [ "ANNOTATION", "BODY", "PARAMETER" ]
+  }, {
+    "commitHash" : "970dea60e8674ca54a1458fd20c685704cc01f7c",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "9e8ef8bb317599c184ce8201d494edf109d9c528",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "6853d63e4de03d679978add576aa0977cecc053a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "7f284497cb46366cc266ec6abac4661e6e3a839d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "07843cfbf4e3e7a2d26d63904bbf0da0fcd07ca2",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "9c833f665f349e5c292228f75188f5521282835d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "2e91a310d7bf9e7d4d46b0bc0ca0c11cb4531e10",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "fbb09952ac5a42b32042e32cde95e48c22ba129a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ace4dd00566afb7d04235bbbcc50097191af0fec",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

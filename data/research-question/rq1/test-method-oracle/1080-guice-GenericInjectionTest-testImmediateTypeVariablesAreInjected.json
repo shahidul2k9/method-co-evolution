@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "guice",
+  "repositoryUrl" : "https://github.com/google/guice.git",
+  "startCommitHash" : "6682b69d081371cceff2a100075a74f41b819a87",
+  "file" : "core/test/com/google/inject/GenericInjectionTest.java",
+  "url" : "https://github.com/google/guice/blob/6682b69d081371cceff2a100075a74f41b819a87/core/test/com/google/inject/GenericInjectionTest.java#L200",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testImmediateTypeVariablesAreInjected",
+  "startLine" : 200,
+  "endLine" : 211,
+  "commits" : [ {
+    "commitHash" : "713c06cce9ccabd3acae303b047c874a3e7f0bd8",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "74d714c1e72bb60706ed9df4d1982971c88c10aa",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "4272aef70de48e239e9f70ab10b0becefd3030cb",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "kafka",
+  "repositoryUrl" : "https://github.com/apache/kafka.git",
+  "startCommitHash" : "62206cfc5461629818a34723fee7817b369a6f7e",
+  "file" : "group-coordinator/src/test/java/org/apache/kafka/coordinator/group/GroupMetadataManagerTest.java",
+  "url" : "https://github.com/apache/kafka/blob/62206cfc5461629818a34723fee7817b369a6f7e/group-coordinator/src/test/java/org/apache/kafka/coordinator/group/GroupMetadataManagerTest.java#L7488",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testStaticMemberRejoinWithKnownMemberId",
+  "startLine" : 7488,
+  "endLine" : 7530,
+  "commits" : [ {
+    "commitHash" : "d24abe0edebad37e554adea47408c3063037f744",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "98aca56ee53d4af5e9314e45fbd9f048745c3328",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "6391c6603582a4e4b5bb670233c345e53f82a77b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "19f9e1e6d0853646b68b08080f8afc5ef0038110",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "d2fc9076231261db947168776505f0c21418a25f",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

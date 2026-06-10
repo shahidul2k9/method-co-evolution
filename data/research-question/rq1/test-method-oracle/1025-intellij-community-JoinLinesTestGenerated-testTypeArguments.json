@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "intellij-community",
+  "repositoryUrl" : "https://github.com/JetBrains/intellij-community.git",
+  "startCommitHash" : "1e05f4447723efe125034ffad6a3764387893163",
+  "file" : "plugins/kotlin/idea/tests/test/org/jetbrains/kotlin/idea/intentions/declarations/JoinLinesTestGenerated.java",
+  "url" : "https://github.com/JetBrains/intellij-community/blob/1e05f4447723efe125034ffad6a3764387893163/plugins/kotlin/idea/tests/test/org/jetbrains/kotlin/idea/intentions/declarations/JoinLinesTestGenerated.java#L497",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testTypeArguments",
+  "startLine" : 497,
+  "endLine" : 499,
+  "commits" : [ {
+    "commitHash" : "5297aeef2cbc6d43cf8bba8e99591fd29571d705",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "13693b978f0c73f27cc52b96e0762d642ee91e11",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "82432694a18b27a59ea5b6a6c729e1197677feab",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "6e96192933c4f953782c09734b92569ca0543e13",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "491519915a77e903c13c5ea6a6acb313ec18e719",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,37 @@
+{
+  "repositoryName" : "mockito",
+  "repositoryUrl" : "https://github.com/mockito/mockito.git",
+  "startCommitHash" : "d16fcfc274d7ca03a2b4bdc22dd7c3ec6dac8690",
+  "file" : "mockito-core/src/test/java/org/mockitousage/annotation/MockInjectionUsingSetterOrPropertyTest.java",
+  "url" : "https://github.com/mockito/mockito/blob/d16fcfc274d7ca03a2b4bdc22dd7c3ec6dac8690/mockito-core/src/test/java/org/mockitousage/annotation/MockInjectionUsingSetterOrPropertyTest.java#L112",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "should_inject_mocks_by_name",
+  "startLine" : 112,
+  "endLine" : 116,
+  "commits" : [ {
+    "commitHash" : "ab32438db0e4f49ead93fd350c3294a7d749db2c",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "b3fc349e8e525e41f34ff04aca8c3140ff2b335a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "fe7bbabb82ce3d1000c13d39d6355c134e94ac27",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "6ab58506d0418e35cc47909ccbebea7d8a5aedf0",
+    "changeTags" : [ "RENAME" ]
+  }, {
+    "commitHash" : "05219d5173006eaf49d421a288eee348db1e7fc1",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "5a4cdb5a40542e01c1558f7fbc34df01cfa794aa",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "3fc9e27f6698f87dfc985d282ec7436e4cba0c9f",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "32755003f012e4369c3bb812a1f6e83b4223bf1d",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

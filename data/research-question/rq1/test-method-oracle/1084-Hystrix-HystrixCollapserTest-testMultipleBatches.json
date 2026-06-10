@@ -1,0 +1,34 @@
+{
+  "repositoryName" : "Hystrix",
+  "repositoryUrl" : "https://github.com/Netflix/Hystrix.git",
+  "startCommitHash" : "5ce3bc58c38e7ca60ef2fe0e516e390e294ad941",
+  "file" : "hystrix-core/src/test/java/com/netflix/hystrix/HystrixCollapserTest.java",
+  "url" : "https://github.com/Netflix/Hystrix/blob/5ce3bc58c38e7ca60ef2fe0e516e390e294ad941/hystrix-core/src/test/java/com/netflix/hystrix/HystrixCollapserTest.java#L99",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testMultipleBatches",
+  "startLine" : 99,
+  "endLine" : 121,
+  "commits" : [ {
+    "commitHash" : "36bfd70bba4cb8bffd7d371a89df9adba581b499",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "d90dc531c6e6ddfa03f7f8cabeacbaedf823292f",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "857b13b0284129a26e059dbfcf06eaeeca04a8b8",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "1c27b126b3bf07df89507e28fa660459f17600af",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "de706a229819d2a7088ac656f5c6c654af3dc304",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "7f031e5052b7c2a9d2c6743ea67574953f70bdf1",
+    "changeTags" : [ "FORMAT", "MOVE" ]
+  }, {
+    "commitHash" : "ee89c24b958d3f045ca29d9dbadc4d6b56e40bc5",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

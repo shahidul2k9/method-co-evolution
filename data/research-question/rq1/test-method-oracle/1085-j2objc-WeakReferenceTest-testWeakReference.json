@@ -1,0 +1,34 @@
+{
+  "repositoryName" : "j2objc",
+  "repositoryUrl" : "https://github.com/google/j2objc.git",
+  "startCommitHash" : "185a8ac8a249b3fcd96ba8a5d464c13b5e3f3a72",
+  "file" : "jre_emul/misc_tests/j2objc/java/lang/ref/WeakReferenceTest.java",
+  "url" : "https://github.com/google/j2objc/blob/185a8ac8a249b3fcd96ba8a5d464c13b5e3f3a72/jre_emul/misc_tests/j2objc/java/lang/ref/WeakReferenceTest.java#L57",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testWeakReference",
+  "startLine" : 57,
+  "endLine" : 78,
+  "commits" : [ {
+    "commitHash" : "4049398106818032023403309fca77721b218eab",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "aaa49420c09071e67b2f60fa41eca56efeba094b",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "9680a5ae45deaa4088bc4fc95838094bbeef496d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ca9126b677c0f5f788b8054dfd6601c1564ae815",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "95dce1a7ff193f5ccc997aec3629db77cffaec36",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "36f952bfefb84005187d30b32dbd4279a4c1fed0",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "592382e0bf314134fac9bfee862dacca50fccdb1",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

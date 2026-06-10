@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "rocketmq",
+  "repositoryUrl" : "https://github.com/apache/rocketmq.git",
+  "startCommitHash" : "9ad4a1b94719aa39fd1f1569d739f9978885dc63",
+  "file" : "test/src/test/java/org/apache/rocketmq/test/client/producer/batch/BatchSendIT.java",
+  "url" : "https://github.com/apache/rocketmq/blob/9ad4a1b94719aa39fd1f1569d739f9978885dc63/test/src/test/java/org/apache/rocketmq/test/client/producer/batch/BatchSendIT.java#L71",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testBatchSend_ViewMessage",
+  "startLine" : 71,
+  "endLine" : 100,
+  "commits" : [ {
+    "commitHash" : "e1339ac8a07126c1eead06b57dfc7a0402f4df5b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3690049cb5c30d74ec82b76b016e23cdb57f1f82",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "821b91f0a25839550fe2fbdd8183ddb389147e78",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "11653ce24c72189f4e6121c4babe709b33bc0230",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

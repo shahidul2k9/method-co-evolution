@@ -1,0 +1,43 @@
+{
+  "repositoryName" : "spring-boot",
+  "repositoryUrl" : "https://github.com/spring-projects/spring-boot.git",
+  "startCommitHash" : "f8f1da605e936a62d1d3028e222d7e9f14f742cd",
+  "file" : "module/spring-boot-jdbc-test/src/test/java/org/springframework/boot/jdbc/test/autoconfigure/TestDatabaseAutoConfigurationTests.java",
+  "url" : "https://github.com/spring-projects/spring-boot/blob/f8f1da605e936a62d1d3028e222d7e9f14f742cd/module/spring-boot-jdbc-test/src/test/java/org/springframework/boot/jdbc/test/autoconfigure/TestDatabaseAutoConfigurationTests.java#L46",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "replaceWithNoDataSourceAvailable",
+  "startLine" : 46,
+  "endLine" : 48,
+  "commits" : [ {
+    "commitHash" : "5348880b69cc5e6186b738f63cfe92e27284bf33",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "decc32dde3c04c980466f6f5bc7b25f17ca99c69",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "b18fffaf14f9ce3e5651f44745019890e8a899c2",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "c6c139d980a50a1b39e564d44a1df6d46f8ca11b",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "0ba4830b4fb20deea040ca5e1c9a34651708b222",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "497457c397d9c45b127285c5cc3f2ba36aa5b890",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e1ef2a591f2b59b023dd96066045ad49d2e04d01",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "19ddfad63ef072871a88833df3e1e5dd6e571856",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "b618c70e52d9c102743498d66f5b8b422684b649",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "a03ce0a9d1e02dc9b0a1c43e81b286f90263ee93",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

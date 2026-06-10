@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "netty",
+  "repositoryUrl" : "https://github.com/netty/netty.git",
+  "startCommitHash" : "eafd77f6c03c9ee2a9caadc568bd585dedd530da",
+  "file" : "codec-http2/src/test/java/io/netty/handler/codec/http2/DefaultHttp2ConnectionEncoderTest.java",
+  "url" : "https://github.com/netty/netty/blob/eafd77f6c03c9ee2a9caadc568bd585dedd530da/codec-http2/src/test/java/io/netty/handler/codec/http2/DefaultHttp2ConnectionEncoderTest.java#L769",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "headersWriteShouldHalfCloseAfterOnErrorForPreCreatedStream",
+  "startLine" : 769,
+  "endLine" : 792,
+  "commits" : [ {
+    "commitHash" : "e875e59a9bbe10671240e7ee96fee1a35eaee045",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "044515f3697c72b39aa881037cbb89ff8f5b57ca",
+    "changeTags" : [ "BODY", "RENAME" ]
+  }, {
+    "commitHash" : "a95b7a791e93192af417c9587626b2c28750fde6",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

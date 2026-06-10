@@ -1,0 +1,67 @@
+{
+  "repositoryName" : "hadoop",
+  "repositoryUrl" : "https://github.com/apache/hadoop.git",
+  "startCommitHash" : "c6e716bf5bc8958a1f5fc63d1b2844a2f8f118be",
+  "file" : "hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestCheckpoint.java",
+  "url" : "https://github.com/apache/hadoop/blob/c6e716bf5bc8958a1f5fc63d1b2844a2f8f118be/hadoop-hdfs-project/hadoop-hdfs/src/test/java/org/apache/hadoop/hdfs/server/namenode/TestCheckpoint.java#L1967",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testNamespaceVerifiedOnFileTransfer",
+  "startLine" : 1967,
+  "endLine" : 2028,
+  "commits" : [ {
+    "commitHash" : "2d8559b5be4b9b91b68ab9042fc8110dce538bba",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "1129288cf5045e17b0e761a0d75f40bf2fe6de03",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ab3c4cff4af338caaa23be0ec383fc1fe473714f",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "94a1632fcb677fda6f4d812614026417f1d0a360",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "dbd22b23c2d68b97b4da47215897906f06f978e3",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "0f595915a388305edbb3ce928415571811d304e8",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e9a17c8ce0656a4e5d47401ca22a575c5f5f66db",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e3d2e4c156851de7dac16154521a2e06ea83ec7b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "00067895a01c66d53715b50bbcb3605efd6425f2",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "045dc880e13271737b3cf316296e92fb95806663",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "1822529e88831545d10d307c227d8c264d796ed6",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "d8f39138561170d4b691a50085121123b1ebc4d9",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "62c7e2edfc0cd5baeda71d7c3737398302aea795",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "b0632df93ae5d00180b21983d960d50a45f8fb7a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "cd7157784e5e5ddc4e77144d042e54dd0d04bac1",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "d86f3183d93714ba078416af4f609d26376eadb0",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "eb6e44b1ba58ed971360a39ea5d5ce02ae65aa0f",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "28e6a4e44a3e920dcaf858f9a74a6358226b3a63",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,109 @@
+{
+  "repositoryName" : "dagger",
+  "repositoryUrl" : "https://github.com/google/dagger.git",
+  "startCommitHash" : "f9deeef1e70346aabd9a7523f21d652dde76469d",
+  "file" : "javatests/dagger/internal/codegen/MembersInjectionTest.java",
+  "url" : "https://github.com/google/dagger/blob/f9deeef1e70346aabd9a7523f21d652dde76469d/javatests/dagger/internal/codegen/MembersInjectionTest.java#L420",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "mixedMemberInjection",
+  "startLine" : 420,
+  "endLine" : 444,
+  "commits" : [ {
+    "commitHash" : "2decc417b177d0cad0405b8309d0c270615bdf75",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "dd31bd53550c61f6c2dd8003fc9f3e2ee4543eb9",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ba1ad49f104fac13d7922e5795896fde56701b3f",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "25228ea007f8a8478e8c387b5ee565d22332a3ed",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "469178393309d0daf0e69783467547a035537fe5",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "c96fc3ed86c741b00c321623e279d42e6ecfca8e",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "29c27d5aa80fefcd3b463da066feb1f07b53ebf1",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ce23333d6a84ef0b62b43da1c63d905047d06258",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "02de19750c009e8ed18c0bb76db39ffc980b75c8",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f6982bc5b9c3578c280b57c4a5561e36f989fecc",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e05f921812772eba98ef3b4a1ab6b301f3b25e26",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "7544b62c402318f5a4fa5854a98fbcd59cc4a819",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3a179ec55332ad1c08bfe4c2bd8addbc8e4fa6da",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "f22babc5198fccf14ac06e6abf33edf830338b99",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "732e50289c9339668b9fa20dfa175e339b2132a8",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "822516247f1a6130986b7fbc466272852ae58870",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3bfdd50c870120ca0ddcaf97871e01653479683a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "0488c9d339031eacaa8eda39e761930e4532c259",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "fa3ce1edd4de4d1a40ee97a3a3cd260ca851c88d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "c4bd8bffccb4f36188726fc24f3ec18d7aa48b88",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "49b4cd58fc0a4fc118095082d22a7fa72385fbc5",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "14527d5093e0681a95ccd91c5419003fd92e97aa",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "238cc654af2ff18ec4615ff13a9f06b9c41a284b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "1f70d573a60e4a862bbae8dcfb7146abfeed7106",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "2ea676a2702a48866f227988a9994e0e6649e1ce",
+    "changeTags" : [ "BODY", "MOVE" ]
+  }, {
+    "commitHash" : "3306ad809b66c0499b7753836a705f142065abfd",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "b3ffdcbd4a7f0ba4c7ed8a1e885bcfc639d59931",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "2a90069d8c66bbbaf03b60f7635d9ad735fc9e1b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "791bd292c6c10ae70120d55a52df28ac69af6741",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "b7b8c2721c64cbe6094941d955955e13c9cdb20d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "fbb8e4bd01c3c139142ad916fc636d5668881228",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "4df3679d864e00fe49f611bf479e7fd3325357a1",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

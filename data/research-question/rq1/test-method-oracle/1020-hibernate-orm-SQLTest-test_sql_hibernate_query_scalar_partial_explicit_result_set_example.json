@@ -1,0 +1,37 @@
+{
+  "repositoryName" : "hibernate-orm",
+  "repositoryUrl" : "https://github.com/hibernate/hibernate-orm.git",
+  "startCommitHash" : "64ad80559533e23587982e460f6eb8a87c14a7e1",
+  "file" : "hibernate-core/src/test/java/org/hibernate/orm/test/sql/SQLTest.java",
+  "url" : "https://github.com/hibernate/hibernate-orm/blob/64ad80559533e23587982e460f6eb8a87c14a7e1/hibernate-core/src/test/java/org/hibernate/orm/test/sql/SQLTest.java#L226",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "test_sql_hibernate_query_scalar_partial_explicit_result_set_example",
+  "startLine" : 226,
+  "endLine" : 243,
+  "commits" : [ {
+    "commitHash" : "dd565eb388180773a16c154d2af9d8b9a2815b27",
+    "changeTags" : [ "BODY", "PARAMETER" ]
+  }, {
+    "commitHash" : "570ccae476aab2a9f5a23eb7f55b5cc72153e99b",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "c45330023fcca639f262fd139e0249dd2e4edc6a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "0e55930c759c0811475b9e942ba7c9cefa13c931",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "710ebe57b0c1c8081d49f56a9048b990b2562f40",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "25e3aeb0b8513ade7b79c4a848f0dd8adcbc13b3",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "7c06d003dcf184bf4082f5f911c4582aa81d1ffb",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "2167b442a420260393060f5d29c3894814ba81d8",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

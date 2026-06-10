@@ -1,0 +1,40 @@
+{
+  "repositoryName" : "glide",
+  "repositoryUrl" : "https://github.com/bumptech/glide.git",
+  "startCommitHash" : "b12f574fd6ea20430c55c5a2eb29d624d843bf3e",
+  "file" : "library/test/src/test/java/com/bumptech/glide/load/data/HttpUrlFetcherServerTest.java",
+  "url" : "https://github.com/bumptech/glide/blob/b12f574fd6ea20430c55c5a2eb29d624d843bf3e/library/test/src/test/java/com/bumptech/glide/load/data/HttpUrlFetcherServerTest.java#L179",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testFailsIfRedirectLocationIsPresentAndEmpty",
+  "startLine" : 179,
+  "endLine" : 185,
+  "commits" : [ {
+    "commitHash" : "416797ea294a23ec8adadfc922a1c8b6e331770b",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "95637cfcf37a4d9acf05aa3e46dff6f7799f763a",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "615eaec24057f54d21c26711b1a679d3b3e7442c",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "7734f6dff4d9dca650974b4c0fd88ac92fde8fa3",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "363b68e98c6fd45d825261bc290e91ab28756e04",
+    "changeTags" : [ "BODY", "RENAME" ]
+  }, {
+    "commitHash" : "3a88d42bf46ae5c3a33fe63d285727f37185ae42",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f389e91ccecac6ddf736bbf1a4346782609eb034",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "4679c6e171b7bb59ed13aac862d32a8dee9a09d1",
+    "changeTags" : [ "BODY", "RENAME" ]
+  }, {
+    "commitHash" : "27fdb88d48eabbbab3b9babb7d8757a014327da0",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

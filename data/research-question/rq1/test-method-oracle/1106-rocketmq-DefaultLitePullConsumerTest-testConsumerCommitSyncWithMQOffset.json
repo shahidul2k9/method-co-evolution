@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "rocketmq",
+  "repositoryUrl" : "https://github.com/apache/rocketmq.git",
+  "startCommitHash" : "9ad4a1b94719aa39fd1f1569d739f9978885dc63",
+  "file" : "client/src/test/java/org/apache/rocketmq/client/consumer/DefaultLitePullConsumerTest.java",
+  "url" : "https://github.com/apache/rocketmq/blob/9ad4a1b94719aa39fd1f1569d739f9978885dc63/client/src/test/java/org/apache/rocketmq/client/consumer/DefaultLitePullConsumerTest.java#L186",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testConsumerCommitSyncWithMQOffset",
+  "startLine" : 186,
+  "endLine" : 216,
+  "commits" : [ {
+    "commitHash" : "46869c9e9b44fac006c2d9783ebd5182964a5bd1",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e5fadc7db7c4a5c098e5f912a19fd71cba3dde3d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "db1f1839b9f8b9486e670b70cdc0c22ad2dcc708",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ec0426ca0ebeb1e75bbaa5a2c450fee202125663",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "a1d2a7325505d572a80f4fe18928a1997a3abbcc",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

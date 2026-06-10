@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "solr",
+  "repositoryUrl" : "https://github.com/apache/solr.git",
+  "startCommitHash" : "640428af236008d1d3050278c4fbb6ff15d53ad6",
+  "file" : "solr/core/src/test/org/apache/solr/handler/component/SuggestComponentContextFilterQueryTest.java",
+  "url" : "https://github.com/apache/solr/blob/640428af236008d1d3050278c4fbb6ff15d53ad6/solr/core/src/test/org/apache/solr/handler/component/SuggestComponentContextFilterQueryTest.java#L362",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testContextFilterOnInvalidFieldGivesNoSuggestions",
+  "startLine" : 362,
+  "endLine" : 376,
+  "commits" : [ {
+    "commitHash" : "e8437d6616d8639b4d4255c9d81c3285bb6cdaef",
+    "changeTags" : [ "EXCEPTION" ]
+  }, {
+    "commitHash" : "73e64a959c93f721fd72e9d701cd8f3d925c9688",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "b831a14ba52604532aefdb62105128258ce60997",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

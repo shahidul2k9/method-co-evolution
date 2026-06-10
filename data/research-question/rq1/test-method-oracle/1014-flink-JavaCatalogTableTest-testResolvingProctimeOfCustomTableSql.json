@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "flink",
+  "repositoryUrl" : "https://github.com/apache/flink.git",
+  "startCommitHash" : "d141ad7ab86dcddc5937dce52f1657bae6ded2ed",
+  "file" : "flink-table/flink-table-planner/src/test/java/org/apache/flink/table/planner/catalog/JavaCatalogTableTest.java",
+  "url" : "https://github.com/apache/flink/blob/d141ad7ab86dcddc5937dce52f1657bae6ded2ed/flink-table/flink-table-planner/src/test/java/org/apache/flink/table/planner/catalog/JavaCatalogTableTest.java#L116",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testResolvingProctimeOfCustomTableSql",
+  "startLine" : 116,
+  "endLine" : 133,
+  "commits" : [ {
+    "commitHash" : "529f64078a34d9840a26906bcf967a2147d305f9",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "1fbe223a5d7b9232d58f471ae620306b9dad58ea",
+    "changeTags" : [ "ANNOTATION", "MODIFIER" ]
+  }, {
+    "commitHash" : "ab70dcfa19827febd2c3cdc5cb81e942caa5b2f0",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "c6997c97c575d334679915c328792b8a3067cfb5",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "7b68d537b185c921fd509ab3e78afe5ed7e47c79",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "dc102ecc4aef38fd7ddeaeeec86e16d10a609098",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

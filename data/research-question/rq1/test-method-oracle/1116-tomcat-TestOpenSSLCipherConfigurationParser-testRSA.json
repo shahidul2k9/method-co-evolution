@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "tomcat",
+  "repositoryUrl" : "https://github.com/apache/tomcat.git",
+  "startCommitHash" : "94a295ac6cce3ad5f20de1932486010b1ac9bc4a",
+  "file" : "test/org/apache/tomcat/util/net/openssl/ciphers/TestOpenSSLCipherConfigurationParser.java",
+  "url" : "https://github.com/apache/tomcat/blob/94a295ac6cce3ad5f20de1932486010b1ac9bc4a/test/org/apache/tomcat/util/net/openssl/ciphers/TestOpenSSLCipherConfigurationParser.java#L104",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testRSA",
+  "startLine" : 104,
+  "endLine" : 106,
+  "commits" : [ {
+    "commitHash" : "79a0c51d07961716c654239e9475d47a6670efde",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "b958106367e94d98dc5e43bf9ec73aeae37935b1",
+    "changeTags" : [ "RENAME" ]
+  }, {
+    "commitHash" : "73b066e5d59df7a6bf9c9fa7c65503c9ac6a3278",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,34 @@
+{
+  "repositoryName" : "spring-framework",
+  "repositoryUrl" : "https://github.com/spring-projects/spring-framework.git",
+  "startCommitHash" : "16f4b23c328500353194dfeb59e7a68550564ca8",
+  "file" : "spring-core/src/test/java/org/springframework/core/annotation/AnnotatedElementUtilsTests.java",
+  "url" : "https://github.com/spring-projects/spring-framework/blob/16f4b23c328500353194dfeb59e7a68550564ca8/spring-core/src/test/java/org/springframework/core/annotation/AnnotatedElementUtilsTests.java#L588",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "findMergedAnnotationAttributesOnInheritedAnnotationInterface",
+  "startLine" : 588,
+  "endLine" : 591,
+  "commits" : [ {
+    "commitHash" : "fab96cad67dbc86deaec31fcced8b4091488b8bc",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "9d74da006c950c464b13247bc5649d6cacff3060",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "32c17bf54021440d629fffb1389d3a586bfb42e3",
+    "changeTags" : [ "BODY", "RENAME" ]
+  }, {
+    "commitHash" : "5c0f98aea43499ac90eb0e3ba4cfc717ddc882cc",
+    "changeTags" : [ "DOCUMENTATION" ]
+  }, {
+    "commitHash" : "ad6bea1cda366bd24ce641ed2207529dfca8b382",
+    "changeTags" : [ "BODY", "RENAME" ]
+  }, {
+    "commitHash" : "7f0f04dfe38ead84e502f0d34897d1c415565cdd",
+    "changeTags" : [ "BODY", "DOCUMENTATION", "RENAME" ]
+  }, {
+    "commitHash" : "b94c6fdf7ae1305516166db710070acf4f967f21",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

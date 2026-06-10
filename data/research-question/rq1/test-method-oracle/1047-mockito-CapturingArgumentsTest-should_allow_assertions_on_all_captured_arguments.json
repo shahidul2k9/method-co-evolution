@@ -1,0 +1,40 @@
+{
+  "repositoryName" : "mockito",
+  "repositoryUrl" : "https://github.com/mockito/mockito.git",
+  "startCommitHash" : "d16fcfc274d7ca03a2b4bdc22dd7c3ec6dac8690",
+  "file" : "mockito-core/src/test/java/org/mockitousage/matchers/CapturingArgumentsTest.java",
+  "url" : "https://github.com/mockito/mockito/blob/d16fcfc274d7ca03a2b4bdc22dd7c3ec6dac8690/mockito-core/src/test/java/org/mockitousage/matchers/CapturingArgumentsTest.java#L79",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "should_allow_assertions_on_all_captured_arguments",
+  "startLine" : 79,
+  "endLine" : 90,
+  "commits" : [ {
+    "commitHash" : "ab32438db0e4f49ead93fd350c3294a7d749db2c",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "a0dd0b9968f9a6c7b105dea4c296be1c7095f232",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "fe7bbabb82ce3d1000c13d39d6355c134e94ac27",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "41b184237e5713d1c9b71714a7ecd00caab5e1b7",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "adf127bc2ff5e932245eac473fddc8e0d06e249d",
+    "changeTags" : [ "RENAME" ]
+  }, {
+    "commitHash" : "c01c0aa8acfe7d461e1d3959226c8433678bd69b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e19cb56fdf5a90711cd5b936c29a98f81083c363",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "9ad80915fada08d8e5da0efabbf1c249ffabd28f",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "e878da23e3a555c644438302cdb6e497252268e6",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

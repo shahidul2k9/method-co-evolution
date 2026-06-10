@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "guice",
+  "repositoryUrl" : "https://github.com/google/guice.git",
+  "startCommitHash" : "6682b69d081371cceff2a100075a74f41b819a87",
+  "file" : "extensions/servlet/test/com/google/inject/servlet/TransferRequestIntegrationTest.java",
+  "url" : "https://github.com/google/guice/blob/6682b69d081371cceff2a100075a74f41b819a87/extensions/servlet/test/com/google/inject/servlet/TransferRequestIntegrationTest.java#L136",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testTransferNonHttpRequest_concurrentUseBlocks",
+  "startLine" : 136,
+  "endLine" : 154,
+  "commits" : [ {
+    "commitHash" : "37255a24d9bfc37bf8b76cb594d05e3203c984e0",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "faa39c76ab3cdc1fc28dcdea2a220cbfaf837ad6",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "4a4d8257ed41d8e2be03fd59a6c9dcf00c2379de",
+    "changeTags" : [ "BODY", "RENAME" ]
+  }, {
+    "commitHash" : "7dc62e5869d6d14744cc717b4a3d02e30fa22f66",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

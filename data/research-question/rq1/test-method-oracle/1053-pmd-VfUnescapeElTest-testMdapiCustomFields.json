@@ -1,0 +1,37 @@
+{
+  "repositoryName" : "pmd",
+  "repositoryUrl" : "https://github.com/pmd/pmd.git",
+  "startCommitHash" : "38c3567c01f9656c67d64496e1722866b1f6a8fb",
+  "file" : "pmd-visualforce/src/test/java/net/sourceforge/pmd/lang/visualforce/rule/security/VfUnescapeElTest.java",
+  "url" : "https://github.com/pmd/pmd/blob/38c3567c01f9656c67d64496e1722866b1f6a8fb/pmd-visualforce/src/test/java/net/sourceforge/pmd/lang/visualforce/rule/security/VfUnescapeElTest.java#L54",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testMdapiCustomFields",
+  "startLine" : 54,
+  "endLine" : 66,
+  "commits" : [ {
+    "commitHash" : "d21e5c95d0296b1b53d178f5b344c933eaca92b4",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "008fe948c6e067512c8522470961bed89ec900c2",
+    "changeTags" : [ "BODY", "MODIFIER" ]
+  }, {
+    "commitHash" : "9808c743d235ec305c018087ce28282c7f5682f3",
+    "changeTags" : [ "EXCEPTION" ]
+  }, {
+    "commitHash" : "fe5d1e49f13f549339e285521d4bf19f35ac524d",
+    "changeTags" : [ "EXCEPTION" ]
+  }, {
+    "commitHash" : "08227f8b18badf9990d3bd55d3544215ee77beab",
+    "changeTags" : [ "EXCEPTION" ]
+  }, {
+    "commitHash" : "86b5948f072a789d4a95b7934c0b0814021088e2",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "db7bf0a786954ee065a1ac0f4959cd9ac13cfbc7",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ddf55c7f8115ba79a597cabfd1e629ac3822df32",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

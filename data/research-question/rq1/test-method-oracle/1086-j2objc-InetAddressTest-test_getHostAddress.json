@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "j2objc",
+  "repositoryUrl" : "https://github.com/google/j2objc.git",
+  "startCommitHash" : "185a8ac8a249b3fcd96ba8a5d464c13b5e3f3a72",
+  "file" : "jre_emul/android/platform/libcore/luni/src/test/java/libcore/java/net/InetAddressTest.java",
+  "url" : "https://github.com/google/j2objc/blob/185a8ac8a249b3fcd96ba8a5d464c13b5e3f3a72/jre_emul/android/platform/libcore/luni/src/test/java/libcore/java/net/InetAddressTest.java#L396",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "test_getHostAddress",
+  "startLine" : 396,
+  "endLine" : 462,
+  "commits" : [ {
+    "commitHash" : "ab8138f14a0bf19d7fed8b364524b0c4b53fa8ad",
+    "changeTags" : [ "ANNOTATION", "BODY" ]
+  }, {
+    "commitHash" : "927db3e0fd6592c8e73c5d2fc45823cd851f3261",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "592382e0bf314134fac9bfee862dacca50fccdb1",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

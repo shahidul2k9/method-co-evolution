@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "elasticsearch",
+  "repositoryUrl" : "https://github.com/elastic/elasticsearch.git",
+  "startCommitHash" : "ab2ec85bdeef6727cd1b13f58bd314e8c0cd7994",
+  "file" : "x-pack/plugin/sql/src/test/java/org/elasticsearch/xpack/sql/util/LikeConversionTests.java",
+  "url" : "https://github.com/elastic/elasticsearch/blob/ab2ec85bdeef6727cd1b13f58bd314e8c0cd7994/x-pack/plugin/sql/src/test/java/org/elasticsearch/xpack/sql/util/LikeConversionTests.java#L89",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testWildcardEscapedWildcard",
+  "startLine" : 89,
+  "endLine" : 91,
+  "commits" : [ {
+    "commitHash" : "2efd22454a62e7387c51eb0cd973e5ff7a3fb09f",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "310d1d2302b1c273309510682f8f7db8f4737913",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "ba81321d0dccaffdd5a2297f65582f9756f8433f",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

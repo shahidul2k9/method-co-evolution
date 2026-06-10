@@ -1,0 +1,37 @@
+{
+  "repositoryName" : "checkstyle",
+  "repositoryUrl" : "https://github.com/checkstyle/checkstyle.git",
+  "startCommitHash" : "1d66837cd4be945795d8936f4d84cc6ff43e2274",
+  "file" : "src/test/java/com/puppycrawl/tools/checkstyle/checks/OuterTypeFilenameCheckTest.java",
+  "url" : "https://github.com/checkstyle/checkstyle/blob/1d66837cd4be945795d8936f4d84cc6ff43e2274/src/test/java/com/puppycrawl/tools/checkstyle/checks/OuterTypeFilenameCheckTest.java#L44",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testGetRequiredTokens",
+  "startLine" : 44,
+  "endLine" : 56,
+  "commits" : [ {
+    "commitHash" : "3b9aad1e496084e4636af251ce66c295725152d1",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "95d115a3d88c3351caa56d13f9324a9b8302f8d5",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "b0cee6ba15be77f746bf4a8509237be15c79505c",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "9fe3ab458008fa9014bbd7bf25abe2cb5f66a942",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "8dec45a601f965886a55b486c5c045dff2efa553",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3a2cb4d787e3c626bb0e2e02915cc1c37deb9d0b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "613ac4bb77cbdb6b93d4a79360c8e4aa47f5596b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "77c3f223267aab46a071d93342580620c614e269",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

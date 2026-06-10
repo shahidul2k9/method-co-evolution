@@ -1,0 +1,46 @@
+{
+  "repositoryName" : "solr",
+  "repositoryUrl" : "https://github.com/apache/solr.git",
+  "startCommitHash" : "640428af236008d1d3050278c4fbb6ff15d53ad6",
+  "file" : "solr/solrj-streaming/src/test/org/apache/solr/client/solrj/io/stream/eval/AddEvaluatorTest.java",
+  "url" : "https://github.com/apache/solr/blob/640428af236008d1d3050278c4fbb6ff15d53ad6/solr/solrj-streaming/src/test/org/apache/solr/client/solrj/io/stream/eval/AddEvaluatorTest.java#L207",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "addManyFieldsWithManySubAdds",
+  "startLine" : 207,
+  "endLine" : 264,
+  "commits" : [ {
+    "commitHash" : "d840a3bef651214e6b8d937fe549a0f4d536aa9a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "8154d220f4db4ca08982b40113ebdb5337e21f89",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "62cef8ee25551bddbf7f5faca424805a7c1e5354",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "db28836ac46372e353e087e171fa0b25875f2320",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "9a9ab920ebe22148947b700e6c74030e577271a6",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "981e4039e2fd9f7384c340291fef8a434924c7da",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f08f7bb3ef90381078e427f0d164a9f13afe070c",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "3b6e918dc35e677f09c04678ba61052e93897126",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ad1c24e1903a74c611ec610aaf350d50d709519e",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "4b6f2e5ca781102ae4270b98245f8d658fd0ed3a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "62489678d074edb2ee962e1c4ee38026ff504b2a",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

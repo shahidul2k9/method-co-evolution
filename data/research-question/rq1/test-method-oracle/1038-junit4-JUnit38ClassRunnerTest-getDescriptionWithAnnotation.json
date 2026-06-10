@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "junit4",
+  "repositoryUrl" : "https://github.com/junit-team/junit4.git",
+  "startCommitHash" : "71c33ce555230d9dfb6cab5e133e22a4cc95cdff",
+  "file" : "src/test/java/org/junit/tests/junit3compatibility/JUnit38ClassRunnerTest.java",
+  "url" : "https://github.com/junit-team/junit4/blob/71c33ce555230d9dfb6cab5e133e22a4cc95cdff/src/test/java/org/junit/tests/junit3compatibility/JUnit38ClassRunnerTest.java#L112",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "getDescriptionWithAnnotation",
+  "startLine" : 112,
+  "endLine" : 115,
+  "commits" : [ {
+    "commitHash" : "810536929044271a608e019255e87c756235bb97",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "90b53f3683af074aa7aa982821219338053b0345",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "c6e3d2cf121ce6e371bafefa59f216054167845b",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

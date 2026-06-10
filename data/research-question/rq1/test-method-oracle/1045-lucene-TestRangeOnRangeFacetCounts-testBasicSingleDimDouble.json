@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "lucene",
+  "repositoryUrl" : "https://github.com/apache/lucene.git",
+  "startCommitHash" : "a06c51e41bc14ae0d7786cf78388b691e0dfb08b",
+  "file" : "lucene/facet/src/test/org/apache/lucene/facet/rangeonrange/TestRangeOnRangeFacetCounts.java",
+  "url" : "https://github.com/apache/lucene/blob/a06c51e41bc14ae0d7786cf78388b691e0dfb08b/lucene/facet/src/test/org/apache/lucene/facet/rangeonrange/TestRangeOnRangeFacetCounts.java#L694",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testBasicSingleDimDouble",
+  "startLine" : 694,
+  "endLine" : 737,
+  "commits" : [ {
+    "commitHash" : "bc7deedc0924b083976f3f9e9f6df3d91966e512",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "49e781084a5bbf6d5fca0317d8a623e8f58cc2b5",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "cbfed77fd33c24ea57e9acaace2c643bc7979b33",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

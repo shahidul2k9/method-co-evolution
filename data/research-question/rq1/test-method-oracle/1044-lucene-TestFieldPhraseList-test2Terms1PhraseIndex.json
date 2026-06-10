@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "lucene",
+  "repositoryUrl" : "https://github.com/apache/lucene.git",
+  "startCommitHash" : "a06c51e41bc14ae0d7786cf78388b691e0dfb08b",
+  "file" : "lucene/highlighter/src/test/org/apache/lucene/search/vectorhighlight/TestFieldPhraseList.java",
+  "url" : "https://github.com/apache/lucene/blob/a06c51e41bc14ae0d7786cf78388b691e0dfb08b/lucene/highlighter/src/test/org/apache/lucene/search/vectorhighlight/TestFieldPhraseList.java#L98",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "test2Terms1PhraseIndex",
+  "startLine" : 98,
+  "endLine" : 115,
+  "commits" : [ {
+    "commitHash" : "6faa4f98e04817bf27d02d96332904a29fb7db69",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "57729c9acaace26f37644c42a0b0889508e589ba",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "778d96752fa94636a2136ea2b4d58a3fcbe283ec",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "e8e4245d9b36123446546ff15967ac95429ea2b0",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "45ea59dd5728afb7a9bb201a09a59ab8eb7c80d0",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "9cbe5f4ff47815429f19776005674dac67464a80",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

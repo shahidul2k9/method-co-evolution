@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "fastjson",
+  "repositoryUrl" : "https://github.com/alibaba/fastjson.git",
+  "startCommitHash" : "c942c83443117b73af5ad278cc780270998ba3e1",
+  "file" : "src/test/java/com/alibaba/json/bvt/validate/JSONValidatorTest.java",
+  "url" : "https://github.com/alibaba/fastjson/blob/c942c83443117b73af5ad278cc780270998ba3e1/src/test/java/com/alibaba/json/bvt/validate/JSONValidatorTest.java#L35",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "validate_test_bracket",
+  "startLine" : 35,
+  "endLine" : 38,
+  "commits" : [ {
+    "commitHash" : "50532a4506826d82b85c3d2c9660d1303c78cfc3",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "30404ab3b3c59b63ff846a3513957671019f66e6",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "65fe893435c7ab8b9667122fd1f43612432cc1e9",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "9b5d18579a83f087a04848dcf6a428a325f32f1e",
+    "changeTags" : [ "RENAME" ]
+  }, {
+    "commitHash" : "1e0578d76af8044a6b18e40d33c2e0dd74b566a5",
+    "changeTags" : [ "BODY" ]
+  }, {
+      "commitHash": "945dbf8bedf00b0c0661bd306f2524c06f44d3be",
+      "changeTags": [ "INTRODUCTION" ]
+    } ]
+}

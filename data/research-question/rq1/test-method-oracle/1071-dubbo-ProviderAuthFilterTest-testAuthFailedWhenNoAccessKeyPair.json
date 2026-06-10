@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "dubbo",
+  "repositoryUrl" : "https://github.com/apache/dubbo.git",
+  "startCommitHash" : "f5d6436fae851c577fcf2eb1aaab543e92acf9b4",
+  "file" : "dubbo-plugin/dubbo-auth/src/test/java/org/apache/dubbo/auth/filter/ProviderAuthFilterTest.java",
+  "url" : "https://github.com/apache/dubbo/blob/f5d6436fae851c577fcf2eb1aaab543e92acf9b4/dubbo-plugin/dubbo-auth/src/test/java/org/apache/dubbo/auth/filter/ProviderAuthFilterTest.java#L107",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testAuthFailedWhenNoAccessKeyPair",
+  "startLine" : 107,
+  "endLine" : 124,
+  "commits" : [ {
+    "commitHash" : "a25b21facd6ad74a4116424a74c8a0baf7a80d18",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "098787a4ef95c53f43f2130c90995cbf4c8e732f",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "1dfb1147344e012f0e070f67aed2d95a1d8d9377",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "c783e55ec955beb93916d1cdd5dbdf0ef1451796",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "8bf918ff676e2e19e46ea02bf9169e0abf86d15d",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

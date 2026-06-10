@@ -1,0 +1,37 @@
+{
+  "repositoryName" : "lucene",
+  "repositoryUrl" : "https://github.com/apache/lucene.git",
+  "startCommitHash" : "a06c51e41bc14ae0d7786cf78388b691e0dfb08b",
+  "file" : "lucene/analysis/common/src/test/org/apache/lucene/analysis/ngram/TestNGramFilters.java",
+  "url" : "https://github.com/apache/lucene/blob/a06c51e41bc14ae0d7786cf78388b691e0dfb08b/lucene/analysis/common/src/test/org/apache/lucene/analysis/ngram/TestNGramFilters.java#L39",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testNGramTokenizer2",
+  "startLine" : 39,
+  "endLine" : 44,
+  "commits" : [ {
+    "commitHash" : "8ef6a0da56878177ff8d6880c92e8f7d0321d076",
+    "changeTags" : [ "DOCUMENTATION", "FORMAT" ]
+  }, {
+    "commitHash" : "42bc0c4616cfcebd1df8ca43bcd5359a2ebf410c",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "db22b4d1f71eee62de9e622cc65aeab9cdbf8860",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "ab0e85fafede7182059693e61feac882aa1b0bc2",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "a03e38d5d05008aaef969a200071c03a1d6cb991",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "29b5142e79b3179f1e0b4f84b42a62f10079792d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "fe2d1194fb6b4323c87802549b8d81e0d8363326",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "b105beef661af675058610d8683cf674c07c9d57",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "pulsar",
+  "repositoryUrl" : "https://github.com/apache/pulsar.git",
+  "startCommitHash" : "52a4d5ee84fad6af2736376a6fcdd1bc41e7c52f",
+  "file" : "pulsar-common/src/test/java/org/apache/pulsar/common/util/ReflectionsTest.java",
+  "url" : "https://github.com/apache/pulsar/blob/52a4d5ee84fad6af2736376a6fcdd1bc41e7c52f/pulsar-common/src/test/java/org/apache/pulsar/common/util/ReflectionsTest.java#L95",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testCreateInstanceAbstractClass",
+  "startLine" : 95,
+  "endLine" : 102,
+  "commits" : [ {
+    "commitHash" : "e451be300e5a0e718c444dd3a5b3a80a16734974",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "86f6cdcaebef231689cac879ebbb54334740eee2",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "275daf0ce05ffc3940b06edfb8be0570da6750cd",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

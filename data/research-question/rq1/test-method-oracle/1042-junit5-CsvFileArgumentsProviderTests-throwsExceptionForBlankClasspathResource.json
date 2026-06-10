@@ -1,0 +1,37 @@
+{
+  "repositoryName" : "junit5",
+  "repositoryUrl" : "https://github.com/junit-team/junit5.git",
+  "startCommitHash" : "09dd24418b02bf37557fb6dfe7eb76bc3bae68d5",
+  "file" : "jupiter-tests/src/test/java/org/junit/jupiter/params/provider/CsvFileArgumentsProviderTests.java",
+  "url" : "https://github.com/junit-team/junit5/blob/09dd24418b02bf37557fb6dfe7eb76bc3bae68d5/jupiter-tests/src/test/java/org/junit/jupiter/params/provider/CsvFileArgumentsProviderTests.java#L363",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "throwsExceptionForBlankClasspathResource",
+  "startLine" : 363,
+  "endLine" : 370,
+  "commits" : [ {
+    "commitHash" : "1312cdac278c7a8c635bf292d77f1fa575c93886",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "d983a97d934dcff2821922dedea237a359bc14ff",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "a37f726bc3f5241cdffd7491e16b0266002e0eb9",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "24780393b29c62d2dcdbbaff050f64827459804a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "501c12001e74b66ed9d88188426855e9f25ae4a0",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ac0f6dc379c30a3c821dfbffc73f95732734b6b1",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f3a8797894bd8adc639cd32ca804502358bcfdf3",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "0c945209715a070f4f5295fde77128b2aa66abe2",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

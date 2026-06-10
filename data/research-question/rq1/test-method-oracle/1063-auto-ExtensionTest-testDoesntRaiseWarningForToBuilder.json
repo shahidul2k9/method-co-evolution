@@ -1,0 +1,37 @@
+{
+  "repositoryName" : "auto",
+  "repositoryUrl" : "https://github.com/google/auto.git",
+  "startCommitHash" : "8a2b2d0b5074866bf0ebe5b9281e0515312b63af",
+  "file" : "value/src/test/java/com/google/auto/value/processor/ExtensionTest.java",
+  "url" : "https://github.com/google/auto/blob/8a2b2d0b5074866bf0ebe5b9281e0515312b63af/value/src/test/java/com/google/auto/value/processor/ExtensionTest.java#L208",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testDoesntRaiseWarningForToBuilder",
+  "startLine" : 208,
+  "endLine" : 242,
+  "commits" : [ {
+    "commitHash" : "40b5eb709b4e8fdb0900cb2d191621197ece2e5a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ce8646fd5efa218a51399529950e2e47bfc05c8a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "324470ba28e85482c7b359a3679601583323d9ab",
+    "changeTags" : [ "BODY", "EXCEPTION" ]
+  }, {
+    "commitHash" : "d6e56d3a75425584dd84b9cc7b15ae7701df7979",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "41d78d29859afa4ab4d6a9650f2fc612d45d6f23",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "b541775f1884cb95240180893a9fec2634bb48df",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "651aa3a72271d07b281c7da542b1c2007416a327",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "a88d843828f958783028e6604e1e6ffd116465de",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "flink",
+  "repositoryUrl" : "https://github.com/apache/flink.git",
+  "startCommitHash" : "d141ad7ab86dcddc5937dce52f1657bae6ded2ed",
+  "file" : "flink-table/flink-table-planner/src/test/java/org/apache/flink/table/planner/operations/converters/MergeTableLikeUtilTest.java",
+  "url" : "https://github.com/apache/flink/blob/d141ad7ab86dcddc5937dce52f1657bae6ded2ed/flink-table/flink-table-planner/src/test/java/org/apache/flink/table/planner/operations/converters/MergeTableLikeUtilTest.java#L762",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "mergeExcludingDistributionOnDuplicate",
+  "startLine" : 762,
+  "endLine" : 773,
+  "commits" : [ {
+    "commitHash" : "e93fd02a31d938135e9509c0bcacf3726a438895",
+    "changeTags" : [ "BODY", "FILE_MOVE" ]
+  }, {
+    "commitHash" : "dc44259b62fcfe7032f9bd88a5cc4d02906bd61e",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "538c24c8bf490eb8870c4d39c8ac5b204d3613ee",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "6c9ac5c6ae06bf5b42d33b57a7dc1006ac2b2744",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

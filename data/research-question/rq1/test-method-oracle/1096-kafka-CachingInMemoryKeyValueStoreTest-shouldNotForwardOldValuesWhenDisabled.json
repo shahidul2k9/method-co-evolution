@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "kafka",
+  "repositoryUrl" : "https://github.com/apache/kafka.git",
+  "startCommitHash" : "62206cfc5461629818a34723fee7817b369a6f7e",
+  "file" : "streams/src/test/java/org/apache/kafka/streams/state/internals/CachingInMemoryKeyValueStoreTest.java",
+  "url" : "https://github.com/apache/kafka/blob/62206cfc5461629818a34723fee7817b369a6f7e/streams/src/test/java/org/apache/kafka/streams/state/internals/CachingInMemoryKeyValueStoreTest.java#L297",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "shouldNotForwardOldValuesWhenDisabled",
+  "startLine" : 297,
+  "endLine" : 317,
+  "commits" : [ {
+    "commitHash" : "d0e6943bdd048aa6e0a4dbbdad3c8da460db16dc",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "0a1c26934757afae4dce49ff3ee038311ca6dd4a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "36556b8041d3647375380e6fd70b8f37ba572ddc",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

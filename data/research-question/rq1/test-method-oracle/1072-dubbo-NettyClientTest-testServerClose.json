@@ -1,0 +1,55 @@
+{
+  "repositoryName" : "dubbo",
+  "repositoryUrl" : "https://github.com/apache/dubbo.git",
+  "startCommitHash" : "f5d6436fae851c577fcf2eb1aaab543e92acf9b4",
+  "file" : "dubbo-remoting/dubbo-remoting-netty/src/test/java/org/apache/dubbo/remoting/transport/netty/NettyClientTest.java",
+  "url" : "https://github.com/apache/dubbo/blob/f5d6436fae851c577fcf2eb1aaab543e92acf9b4/dubbo-remoting/dubbo-remoting-netty/src/test/java/org/apache/dubbo/remoting/transport/netty/NettyClientTest.java#L92",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testServerClose",
+  "startLine" : 92,
+  "endLine" : 104,
+  "commits" : [ {
+    "commitHash" : "d979b211ce6a160ce4787ebf2ac073a0ee95852a",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "bc85a3f29a01e44fb415b0647ac755c319f3fcac",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "741b7854af74637461634572c0c1e8987494fc3a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "feaa530589fdc39e76771cdacb65b4ec58e4b181",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "143d61d3e28ce16dc3f89c53d7933524fb9ebff8",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "3d7557b0c44a5cfb84af8bd6cee0cb11407443b7",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "cefe7c37e9c31d478b2fe08f323c1f9542ca1466",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "550b40461197fbd9d1e6dc7ba5cb6ade8d7be77f",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "5298afdf401185876edd49b0ad5755f8f618e4cb",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "d2ae941502410fbbf937e654b25f1399eedd3fbf",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e92a5536465f6a4255c36da3541caa77b0bb735b",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "0d681d0d4090ef75b3293fde31164335db8ce561",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "d2a9b3a291ac0830fde034d57f4c711fb4c4ed2a",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "2c9911de9dd428f380167328604167f238adb8ff",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

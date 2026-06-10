@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "auto",
+  "repositoryUrl" : "https://github.com/google/auto.git",
+  "startCommitHash" : "8a2b2d0b5074866bf0ebe5b9281e0515312b63af",
+  "file" : "value/src/test/java/com/google/auto/value/processor/AutoValueCompilationTest.java",
+  "url" : "https://github.com/google/auto/blob/8a2b2d0b5074866bf0ebe5b9281e0515312b63af/value/src/test/java/com/google/auto/value/processor/AutoValueCompilationTest.java#L3225",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "autoValueBuilderToBuilderWrongTypeParameters",
+  "startLine" : 3225,
+  "endLine" : 3254,
+  "commits" : [ {
+    "commitHash" : "d6e56d3a75425584dd84b9cc7b15ae7701df7979",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "ca013a23482807586f2972837e3507efb3fb7acd",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "845e4ecf73d0845bbcd72a5fb32b5fb3a93b926a",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "41d78d29859afa4ab4d6a9650f2fc612d45d6f23",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "66dd05ac673d3357f2b5b0da8adc9211a10d7702",
+    "changeTags" : [ "ANNOTATION", "RENAME" ]
+  }, {
+    "commitHash" : "cddbcebd42c12d8e81d50c0bef50241d217f4274",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "netty",
+  "repositoryUrl" : "https://github.com/netty/netty.git",
+  "startCommitHash" : "eafd77f6c03c9ee2a9caadc568bd585dedd530da",
+  "file" : "codec-http/src/test/java/io/netty/handler/codec/http/cookie/ServerCookieEncoderTest.java",
+  "url" : "https://github.com/netty/netty/blob/eafd77f6c03c9ee2a9caadc568bd585dedd530da/codec-http/src/test/java/io/netty/handler/codec/http/cookie/ServerCookieEncoderTest.java#L66",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testEncodingWithNoCookies",
+  "startLine" : 66,
+  "endLine" : 72,
+  "commits" : [ {
+    "commitHash" : "97d871a7553a01384b43df855dccdda5205ae77a",
+    "changeTags" : [ "BODY", "FILE_MOVE" ]
+  }, {
+    "commitHash" : "7d102084c1c775d15141970beb5fd98d08b6131a",
+    "changeTags" : [ "BODY", "FILE_MOVE" ]
+  }, {
+    "commitHash" : "c298230128a72c791d101bb6fd5d0451e274e90f",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

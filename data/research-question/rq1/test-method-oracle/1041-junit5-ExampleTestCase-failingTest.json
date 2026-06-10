@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "junit5",
+  "repositoryUrl" : "https://github.com/junit-team/junit5.git",
+  "startCommitHash" : "09dd24418b02bf37557fb6dfe7eb76bc3bae68d5",
+  "file" : "documentation/src/test/java/example/ExampleTestCase.java",
+  "url" : "https://github.com/junit-team/junit5/blob/09dd24418b02bf37557fb6dfe7eb76bc3bae68d5/documentation/src/test/java/example/ExampleTestCase.java#L53",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "failingTest",
+  "startLine" : 53,
+  "endLine" : 56,
+  "commits" : [ {
+    "commitHash" : "fe1993e609df405456f8a7fb78f0bbb733f741fd",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "8dd3926c8ae95106a9dbfdecadf4ef51db73735d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "d89d174e11e8e969d18e9692a9ab7b45596eb8f0",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "Hystrix",
+  "repositoryUrl" : "https://github.com/Netflix/Hystrix.git",
+  "startCommitHash" : "5ce3bc58c38e7ca60ef2fe0e516e390e294ad941",
+  "file" : "hystrix-contrib/hystrix-rx-netty-metrics-stream/src/test/java/com/netflix/hystrix/contrib/rxnetty/metricsstream/HystrixMetricsStreamHandlerTest.java",
+  "url" : "https://github.com/Netflix/Hystrix/blob/5ce3bc58c38e7ca60ef2fe0e516e390e294ad941/hystrix-contrib/hystrix-rx-netty-metrics-stream/src/test/java/com/netflix/hystrix/contrib/rxnetty/metricsstream/HystrixMetricsStreamHandlerTest.java#L92",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testMetricsAreDeliveredAsSseStream",
+  "startLine" : 92,
+  "endLine" : 109,
+  "commits" : [ {
+    "commitHash" : "94c5cbb8e5dc3eb88db55ada355dd4db6ed775fd",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "5029a5699d5e40213a00529c8fdc207bcbc31ad0",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "5714927e2a4acd8053f188923dc2de2e053f36c8",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

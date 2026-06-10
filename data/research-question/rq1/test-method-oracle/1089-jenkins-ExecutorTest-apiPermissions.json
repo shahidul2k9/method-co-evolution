@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "jenkins",
+  "repositoryUrl" : "https://github.com/jenkinsci/jenkins.git",
+  "startCommitHash" : "a71fe2bb671ff2066e700e2c121225da63e925ca",
+  "file" : "test/src/test/java/hudson/model/ExecutorTest.java",
+  "url" : "https://github.com/jenkinsci/jenkins/blob/a71fe2bb671ff2066e700e2c121225da63e925ca/test/src/test/java/hudson/model/ExecutorTest.java#L138",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "apiPermissions",
+  "startLine" : 138,
+  "endLine" : 171,
+  "commits" : [ {
+    "commitHash" : "577eef21eab43f0ad73988e0d986465b37ada87c",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "94d4a2b94bb915e5c9c45dba34d637510d3076cf",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "814d202716a6c61c7d371c6a62755d296fe199a5",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "da06fd471cea79123821c778228eeb08e1cedcc7",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

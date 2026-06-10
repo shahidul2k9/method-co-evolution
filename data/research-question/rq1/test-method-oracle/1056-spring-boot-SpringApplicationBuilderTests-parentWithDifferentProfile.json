@@ -1,0 +1,55 @@
+{
+  "repositoryName" : "spring-boot",
+  "repositoryUrl" : "https://github.com/spring-projects/spring-boot.git",
+  "startCommitHash" : "f8f1da605e936a62d1d3028e222d7e9f14f742cd",
+  "file" : "core/spring-boot/src/test/java/org/springframework/boot/builder/SpringApplicationBuilderTests.java",
+  "url" : "https://github.com/spring-projects/spring-boot/blob/f8f1da605e936a62d1d3028e222d7e9f14f742cd/core/spring-boot/src/test/java/org/springframework/boot/builder/SpringApplicationBuilderTests.java#L247",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "parentWithDifferentProfile",
+  "startLine" : 247,
+  "endLine" : 260,
+  "commits" : [ {
+    "commitHash" : "418e057afc290702713dff11226b6f0b4232c686",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "decc32dde3c04c980466f6f5bc7b25f17ca99c69",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "df5898a1464112f185d295d585740de696934a12",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "b18fffaf14f9ce3e5651f44745019890e8a899c2",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "24925c3daef169deaa9b2107ef02be4a67edb886",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "24925c3daef169deaa9b2107ef02be4a67edb886",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "c6c139d980a50a1b39e564d44a1df6d46f8ca11b",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "a89b2ae46ea6cb40846cd547085f636e31232272",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "23218add9042af53b5ab465528bf588601ce2f7f",
+    "changeTags" : [ "EXCEPTION" ]
+  }, {
+    "commitHash" : "0ba4830b4fb20deea040ca5e1c9a34651708b222",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "95f659f4f99232e157fd02c8b9d18d349fe29e6b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e19e3209d9fcb40f3ccb0485652e931977b13947",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "6ab376e2e88ac9f3a4b1aa3c2962cba29d44965b",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "6ed2c658523f11d58f22a2491a724cc57e997938",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

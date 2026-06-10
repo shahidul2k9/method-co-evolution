@@ -1,0 +1,43 @@
+{
+  "repositoryName" : "shardingsphere",
+  "repositoryUrl" : "https://github.com/apache/shardingsphere.git",
+  "startCommitHash" : "1aed56b3a5ce281336da008b800d031fadf3d931",
+  "file" : "proxy/backend/dialect/mysql/src/test/java/org/apache/shardingsphere/proxy/backend/mysql/connector/sane/MySQLDialectSaneQueryResultEngineTest.java",
+  "url" : "https://github.com/apache/shardingsphere/blob/1aed56b3a5ce281336da008b800d031fadf3d931/proxy/backend/dialect/mysql/src/test/java/org/apache/shardingsphere/proxy/backend/mysql/connector/sane/MySQLDialectSaneQueryResultEngineTest.java#L52",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "assertGetSaneQueryResultForSyntaxError",
+  "startLine" : 52,
+  "endLine" : 55,
+  "commits" : [ {
+    "commitHash" : "267ee071317b047e4b838f298760fa756236819d",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "c0dd50699d617a7939b7a7f27702b283fbe33de0",
+    "changeTags" : [ "BODY", "FILE_MOVE" ]
+  }, {
+    "commitHash" : "9008885303dd50b9dba25a14151bf11e1467c0e0",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "88b21d6cabe1c66759853e6102230c99aa664db5",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "1cfda59668917c1475be7ebd353a5b8b7574f226",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "a65c87bf7cf1dee5670aa12d4ef0c3e5c106c391",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "dba36bcd633785581df9b23ed708af26ee2e77fe",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "f824c9ac29319b34d494f9a8182315cd51f67032",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "163a4bd2b863435bb69cc1181035e79d4335b5ad",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "ed0ddc4bbcadaaedd384318a57e790dc4a32e7d4",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "jmeter",
+  "repositoryUrl" : "https://github.com/apache/jmeter.git",
+  "startCommitHash" : "b1843c2a0aa0bc8292cc504e2a0cea53ca373234",
+  "file" : "src/core/src/test/java/org/apache/jmeter/util/StringUtilitiesTest.java",
+  "url" : "https://github.com/apache/jmeter/blob/b1843c2a0aa0bc8292cc504e2a0cea53ca373234/src/core/src/test/java/org/apache/jmeter/util/StringUtilitiesTest.java#L60",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testSub4",
+  "startLine" : 60,
+  "endLine" : 65,
+  "commits" : [ {
+    "commitHash" : "b36213767d69b63453c1768302a122d19b50b517",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f6dafdf60d669a815ae677f9a87fcafd28c6197c",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "050d3492f21e17b22d34aa3958831bed1c48c980",
+    "changeTags" : [ "MOVE" ]
+  }, {
+    "commitHash" : "3ed7dca4a5bfe48c71141025b0c876e2e4938b16",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "6af75a31b8bc68498bd81d2537c579fc7b197fed",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

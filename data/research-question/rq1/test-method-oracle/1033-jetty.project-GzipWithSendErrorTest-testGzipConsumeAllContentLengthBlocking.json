@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "jetty.project",
+  "repositoryUrl" : "https://github.com/eclipse/jetty.project.git",
+  "startCommitHash" : "d94be9b4862f7990276522d79a463f5fc4427e2f",
+  "file" : "jetty-ee9/jetty-ee9-tests/jetty-ee9-test-integration/src/test/java/org/eclipse/jetty/ee9/test/GzipWithSendErrorTest.java",
+  "url" : "https://github.com/eclipse/jetty.project/blob/d94be9b4862f7990276522d79a463f5fc4427e2f/jetty-ee9/jetty-ee9-tests/jetty-ee9-test-integration/src/test/java/org/eclipse/jetty/ee9/test/GzipWithSendErrorTest.java#L172",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testGzipConsumeAllContentLengthBlocking",
+  "startLine" : 172,
+  "endLine" : 264,
+  "commits" : [ {
+    "commitHash" : "7e67e33d3ca2e6d36f22e33042493a287f5647b4",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "e990f0dfbb4a53ed4b9134b51d11d6f79ba7cdc5",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "04acdb72f041a15267bb79c36d8fc4d517beaadb",
+    "changeTags" : [ "BODY", "FILE_MOVE" ]
+  }, {
+    "commitHash" : "e163b001c34704154edb45c7aa37908e0d9aafd7",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "88c03ac1dc8571b68e778f2c1cf0da08326ca3e0",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "5f6e72d2ed099ea72b4f665d7aac2c34282762a3",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

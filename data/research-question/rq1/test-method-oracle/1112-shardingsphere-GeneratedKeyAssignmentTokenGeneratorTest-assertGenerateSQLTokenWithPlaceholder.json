@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "shardingsphere",
+  "repositoryUrl" : "https://github.com/apache/shardingsphere.git",
+  "startCommitHash" : "1aed56b3a5ce281336da008b800d031fadf3d931",
+  "file" : "infra/rewrite/core/src/test/java/org/apache/shardingsphere/infra/rewrite/sql/token/keygen/generator/GeneratedKeyAssignmentTokenGeneratorTest.java",
+  "url" : "https://github.com/apache/shardingsphere/blob/1aed56b3a5ce281336da008b800d031fadf3d931/infra/rewrite/core/src/test/java/org/apache/shardingsphere/infra/rewrite/sql/token/keygen/generator/GeneratedKeyAssignmentTokenGeneratorTest.java#L56",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "assertGenerateSQLTokenWithPlaceholder",
+  "startLine" : 56,
+  "endLine" : 61,
+  "commits" : [ {
+    "commitHash" : "ae802ac2f422dba233665f58371203cd4daab5de",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "736414d9466459d47db056ca3b712dc48a64a0b7",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "e562f47a294949c0b830114b408c5c91898736bc",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "1cc5b41c965b12bbddde1a22b59d6eddd318dd07",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "9008885303dd50b9dba25a14151bf11e1467c0e0",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "aadf92a17cd685532bba3a3167abd59eee941613",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

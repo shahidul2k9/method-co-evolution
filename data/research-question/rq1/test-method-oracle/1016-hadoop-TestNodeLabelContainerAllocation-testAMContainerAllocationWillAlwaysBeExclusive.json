@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "hadoop",
+  "repositoryUrl" : "https://github.com/apache/hadoop.git",
+  "startCommitHash" : "c6e716bf5bc8958a1f5fc63d1b2844a2f8f118be",
+  "file" : "hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestNodeLabelContainerAllocation.java",
+  "url" : "https://github.com/apache/hadoop/blob/c6e716bf5bc8958a1f5fc63d1b2844a2f8f118be/hadoop-yarn-project/hadoop-yarn/hadoop-yarn-server/hadoop-yarn-server-resourcemanager/src/test/java/org/apache/hadoop/yarn/server/resourcemanager/scheduler/capacity/TestNodeLabelContainerAllocation.java#L1661",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testAMContainerAllocationWillAlwaysBeExclusive",
+  "startLine" : 1661,
+  "endLine" : 1720,
+  "commits" : [ {
+    "commitHash" : "6e844030c9eb88d398fc9fade0be4fe769ea27b2",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "a36d8adfd18e88f2752f4387ac4497aadd3a74e7",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "682e6fdeda68b7244e92d32cd35fe317c9b32ede",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "6cb0af3c39a5d49cb2f7911ee21363a9542ca2d7",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "f5fe35e297ed4a00a1ba93d090207ef67cebcc9d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "0fefda645bca935b87b6bb8ca63e6f18340d59f5",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

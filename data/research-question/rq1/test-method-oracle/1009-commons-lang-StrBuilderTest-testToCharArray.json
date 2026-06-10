@@ -1,0 +1,46 @@
+{
+  "repositoryName" : "commons-lang",
+  "repositoryUrl" : "https://github.com/apache/commons-lang.git",
+  "startCommitHash" : "7bcb03a49923bc12f7e3f2c04912d0925f178978",
+  "file" : "src/test/java/org/apache/commons/lang3/text/StrBuilderTest.java",
+  "url" : "https://github.com/apache/commons-lang/blob/7bcb03a49923bc12f7e3f2c04912d0925f178978/src/test/java/org/apache/commons/lang3/text/StrBuilderTest.java#L1741",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testToCharArray",
+  "startLine" : 1741,
+  "endLine" : 1753,
+  "commits" : [ {
+    "commitHash" : "2bfc356b832a4c17c74956076b8c3f2ee55faf30",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "b82f96ecbb3d53b7ff8b2122f515162149c811e1",
+    "changeTags" : [ "DOCUMENTATION" ]
+  }, {
+    "commitHash" : "c01fa9aa42e078951f9d77ffe3b7546411278633",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "182e335432fe4634d770c5861be40dacf1816f0c",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "5292526e476ffbb19c6613a98464054236c86ace",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "77d33a665a06cf784b3a24e35b45673902b1e751",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "8104e916b4303e39816dbbd81fe2142de967cf44",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "debc02c6d9b94c717b4182ae4dd7a97d47293a52",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "810e69f7a470eb9dce71de314f0a98c0f7840a24",
+    "changeTags" : [ "DOCUMENTATION", "FORMAT" ]
+  }, {
+    "commitHash" : "020480ad81ec66871a02080c8d92ca9743e496c1",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3535bf265b3eb34df28ff2ee5c029065e569add8",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

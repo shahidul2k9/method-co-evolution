@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "elasticsearch",
+  "repositoryUrl" : "https://github.com/elastic/elasticsearch.git",
+  "startCommitHash" : "ab2ec85bdeef6727cd1b13f58bd314e8c0cd7994",
+  "file" : "server/src/test/java/org/elasticsearch/index/mapper/RangeFieldQueryStringQueryBuilderTests.java",
+  "url" : "https://github.com/elastic/elasticsearch/blob/ab2ec85bdeef6727cd1b13f58bd314e8c0cd7994/server/src/test/java/org/elasticsearch/index/mapper/RangeFieldQueryStringQueryBuilderTests.java#L174",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testIPRangeQuery",
+  "startLine" : 174,
+  "endLine" : 183,
+  "commits" : [ {
+    "commitHash" : "12ad399c488f0cc60e19b5e1b29c6d569cb4351a",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "5852fbedf52c77b0a76c2c731fdd4982fb65cd87",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "1a0dddf4ad24b3f2c751a1fe0e024fdbf8754f94",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "99f88f15c5febbca2d13b5b5fda27b844153bf1a",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "75c0cd06720bddb1afd76c3b37296d5233d2ce20",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "77617c8e62f7fa1407c62bdf33e4892206d62952",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

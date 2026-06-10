@@ -1,0 +1,28 @@
+{
+  "repositoryName" : "dubbo",
+  "repositoryUrl" : "https://github.com/apache/dubbo.git",
+  "startCommitHash" : "f5d6436fae851c577fcf2eb1aaab543e92acf9b4",
+  "file" : "dubbo-metadata/dubbo-metadata-report-zookeeper/src/test/java/org/apache/dubbo/metadata/store/zookeeper/ZookeeperMetadataReportTest.java",
+  "url" : "https://github.com/apache/dubbo/blob/f5d6436fae851c577fcf2eb1aaab543e92acf9b4/dubbo-metadata/dubbo-metadata-report-zookeeper/src/test/java/org/apache/dubbo/metadata/store/zookeeper/ZookeeperMetadataReportTest.java#L206",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testDoSaveSubscriberData",
+  "startLine" : 206,
+  "endLine" : 225,
+  "commits" : [ {
+    "commitHash" : "d979b211ce6a160ce4787ebf2ac073a0ee95852a",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "f05662a66deb331008dbe02e8a0b3f4174820ad9",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "1fbeed8e552d221822b06740cf31312aa7aa29c5",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "675cd4bb13481c3f1c9f33d18503d084a7bcc132",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "8bc9257f4e09b2937e21842b90984dfcaefe97b6",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

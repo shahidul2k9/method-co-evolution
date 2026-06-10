@@ -1,0 +1,37 @@
+{
+  "repositoryName" : "shardingsphere",
+  "repositoryUrl" : "https://github.com/apache/shardingsphere.git",
+  "startCommitHash" : "1aed56b3a5ce281336da008b800d031fadf3d931",
+  "file" : "kernel/transaction/core/src/test/java/org/apache/shardingsphere/transaction/core/ResourceIdGeneratorTest.java",
+  "url" : "https://github.com/apache/shardingsphere/blob/1aed56b3a5ce281336da008b800d031fadf3d931/kernel/transaction/core/src/test/java/org/apache/shardingsphere/transaction/core/ResourceIdGeneratorTest.java#L29",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "assertNextIdProperly",
+  "startLine" : 29,
+  "endLine" : 31,
+  "commits" : [ {
+    "commitHash" : "8fe8be930b3ba2a542ad95baf694c71c396270fe",
+    "changeTags" : [ "BODY", "FILE_MOVE" ]
+  }, {
+    "commitHash" : "9008885303dd50b9dba25a14151bf11e1467c0e0",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "086c47390346d4c0695c12228597ca01412d9ef0",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "163a4bd2b863435bb69cc1181035e79d4335b5ad",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "8d567410d64da2dc56b821125608cb5e8716470c",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "858a1ecd95c45862f112e6c9bb0253ec6c67c664",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "362ed5f8e1dde2ffbfa502408138dce941078c03",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "48f71354524f6da0239b383a5511eb3737cdd510",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

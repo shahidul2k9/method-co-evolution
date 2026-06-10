@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "tomcat",
+  "repositoryUrl" : "https://github.com/apache/tomcat.git",
+  "startCommitHash" : "94a295ac6cce3ad5f20de1932486010b1ac9bc4a",
+  "file" : "modules/jdbc-pool/src/test/java/org/apache/tomcat/jdbc/test/CheckOutThreadTest.java",
+  "url" : "https://github.com/apache/tomcat/blob/94a295ac6cce3ad5f20de1932486010b1ac9bc4a/modules/jdbc-pool/src/test/java/org/apache/tomcat/jdbc/test/CheckOutThreadTest.java#L31",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testDBCPThreads10Connections10",
+  "startLine" : 31,
+  "endLine" : 48,
+  "commits" : [ {
+    "commitHash" : "e1d07255aabaf8d211f885c8619fcb69e502b2c4",
+    "changeTags" : [ "ANNOTATION", "BODY" ]
+  }, {
+    "commitHash" : "9b48dfd98aecd2b5d2c69dff3472f0a4409f6ffa",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "ef8b46923c010a0ecb239e45b47bcced66ccf027",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "baa492f1dcf5cad6a7ae41ebd90ca5d1055f71b7",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

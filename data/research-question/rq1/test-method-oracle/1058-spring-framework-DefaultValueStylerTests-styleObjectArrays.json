@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "spring-framework",
+  "repositoryUrl" : "https://github.com/spring-projects/spring-framework.git",
+  "startCommitHash" : "16f4b23c328500353194dfeb59e7a68550564ca8",
+  "file" : "spring-core/src/test/java/org/springframework/core/style/DefaultValueStylerTests.java",
+  "url" : "https://github.com/spring-projects/spring-framework/blob/16f4b23c328500353194dfeb59e7a68550564ca8/spring-core/src/test/java/org/springframework/core/style/DefaultValueStylerTests.java#L91",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "styleObjectArrays",
+  "startLine" : 91,
+  "endLine" : 100,
+  "commits" : [ {
+    "commitHash" : "fab96cad67dbc86deaec31fcced8b4091488b8bc",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "a3c7ae2c58dc932be4f576ebbad007442aff2cff",
+    "changeTags" : [ "FILE_MOVE", "RENAME" ]
+  }, {
+    "commitHash" : "1d6e44ab04cc007e34c09191cd77517795cbd8ca",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

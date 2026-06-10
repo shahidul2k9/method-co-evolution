@@ -1,0 +1,55 @@
+{
+  "repositoryName" : "hibernate-search",
+  "repositoryUrl" : "https://github.com/hibernate/hibernate-search.git",
+  "startCommitHash" : "b83992727a0e950119b2be98380246de7bf8160d",
+  "file" : "integrationtest/v5migrationhelper/orm/src/test/java/org/hibernate/search/test/spatial/SpatialIndexingTest.java",
+  "url" : "https://github.com/hibernate/hibernate-search/blob/b83992727a0e950119b2be98380246de7bf8160d/integrationtest/v5migrationhelper/orm/src/test/java/org/hibernate/search/test/spatial/SpatialIndexingTest.java#L169",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testDistanceSort",
+  "startLine" : 169,
+  "endLine" : 196,
+  "commits" : [ {
+    "commitHash" : "c371d05f060b63880549f391f574ffd268cfb6fc",
+    "changeTags" : [ "BODY", "MODIFIER" ]
+  }, {
+    "commitHash" : "4b4dbc0e22ad95152d1400d5ed6c518636755ea4",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "94cbe7cc876f0c09629ec785c6368cedf7efc6f6",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "b90e89ae59f2e0a4deccc8e51160fcd0cf8554bf",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "f62a71ed9c3e9daad6dc28f2e2967955b8889c2d",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "99a221a05b7489bc363732372bc8dcf689a06036",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "938d3896f85a27e8a334e78414ebab876351d683",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "40c9e6d80dc3b52e87aa946488d36878bb895da6",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "6ee95bac4860e7c6d54ae7a712c10b4dfae9105a",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "8ad6c1fc4454dfffd4341f11207f28275de390a3",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "51fd40d11134317c069aeb306031fe0dc7bcb5c3",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "f0b019bcf9f23307bb919f9125025302a343ee22",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "354f2cadec6dee7d4dde2250e13f468e2d93cd27",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "86c3e92db95c1f8512a65e7a59bc3bec07158832",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

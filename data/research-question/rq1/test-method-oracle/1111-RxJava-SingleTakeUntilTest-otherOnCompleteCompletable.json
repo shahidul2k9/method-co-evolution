@@ -1,0 +1,31 @@
+{
+  "repositoryName" : "RxJava",
+  "repositoryUrl" : "https://github.com/ReactiveX/RxJava.git",
+  "startCommitHash" : "5df6e33ef01cf4da7b37ebc1c917fe91713ceaf7",
+  "file" : "src/test/java/io/reactivex/rxjava3/internal/operators/single/SingleTakeUntilTest.java",
+  "url" : "https://github.com/ReactiveX/RxJava/blob/5df6e33ef01cf4da7b37ebc1c917fe91713ceaf7/src/test/java/io/reactivex/rxjava3/internal/operators/single/SingleTakeUntilTest.java#L171",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "otherOnCompleteCompletable",
+  "startLine" : 171,
+  "endLine" : 181,
+  "commits" : [ {
+    "commitHash" : "a1693ecc9215027a7a3eae75272979ebb4d79a27",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "ab520503925bc9cdff47d6a4ceaf8b2209b61250",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "470eddb38b71bedcb4c39c1210db8dad67900600",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "5d7f5493520714acd75d0922742ed89cae04cab8",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "35281d57811dc5fad372b599db57129d40db05f7",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "fba05ea81197929e8a66a1db8bdd4a590d5dc7e3",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

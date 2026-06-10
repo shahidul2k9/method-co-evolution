@@ -1,0 +1,52 @@
+{
+  "repositoryName" : "intellij-community",
+  "repositoryUrl" : "https://github.com/JetBrains/intellij-community.git",
+  "startCommitHash" : "1e05f4447723efe125034ffad6a3764387893163",
+  "file" : "platform/platform-tests/testSrc/com/intellij/ui/tree/ui/TreeControlPainterTest.java",
+  "url" : "https://github.com/JetBrains/intellij-community/blob/1e05f4447723efe125034ffad6a3764387893163/platform/platform-tests/testSrc/com/intellij/ui/tree/ui/TreeControlPainterTest.java#L52",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testClassicCompact",
+  "startLine" : 52,
+  "endLine" : 65,
+  "commits" : [ {
+    "commitHash" : "123242c4b23a90f7910193139aa4d3b2979d9647",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "c1813cfb52c169cb685a1f39a7913b9a1427714b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "91f7445298e88f2ea1bfbb4c9ee7d7042fc060df",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "39d2d7715578f39096e1935af36fb0533658d31e",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "3fee046d2007f647e44c0a3744adfba605aad47d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "dcaeb8f8c778b583efc34948cb4ba92dc2fb6901",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "b429440a58c2143fbfe97c27288ad3e048b06507",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "185284cee6096791c8bd0de0a9436d1eceac28bc",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "9215f4240b9b60ca3d4e7b6d897d54ac7e25561d",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "6dd67ce3b8bb3a1231d2b418f2f34d2e3f2810a1",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "1cbac5513674b14475d0e7b7529d22e98cb7fe51",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "54daa77342208b09a1726e9577a98a7ee7286227",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "0fcd3f7ca19d26f7e92384cc71d1bdbd5c3b04e8",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

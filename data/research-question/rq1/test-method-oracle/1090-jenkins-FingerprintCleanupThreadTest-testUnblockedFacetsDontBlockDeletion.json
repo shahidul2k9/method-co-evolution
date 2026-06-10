@@ -1,0 +1,25 @@
+{
+  "repositoryName" : "jenkins",
+  "repositoryUrl" : "https://github.com/jenkinsci/jenkins.git",
+  "startCommitHash" : "a71fe2bb671ff2066e700e2c121225da63e925ca",
+  "file" : "test/src/test/java/hudson/model/FingerprintCleanupThreadTest.java",
+  "url" : "https://github.com/jenkinsci/jenkins/blob/a71fe2bb671ff2066e700e2c121225da63e925ca/test/src/test/java/hudson/model/FingerprintCleanupThreadTest.java#L129",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testUnblockedFacetsDontBlockDeletion",
+  "startLine" : 129,
+  "endLine" : 140,
+  "commits" : [ {
+    "commitHash" : "577eef21eab43f0ad73988e0d986465b37ada87c",
+    "changeTags" : [ "MODIFIER" ]
+  }, {
+    "commitHash" : "be28d586b5db3cd3a5b7bbbfa265e73e86b6446b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "a5310b10d6f4489eab4316cda8ab5a5d7ce14771",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "0ca5ff7b4044ce168c32ffe5a2b51b93c69275b4",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

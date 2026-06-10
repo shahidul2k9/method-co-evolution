@@ -1,0 +1,37 @@
+{
+  "repositoryName" : "glide",
+  "repositoryUrl" : "https://github.com/bumptech/glide.git",
+  "startCommitHash" : "b12f574fd6ea20430c55c5a2eb29d624d843bf3e",
+  "file" : "library/test/src/test/java/com/bumptech/glide/load/engine/bitmap_recycle/SizeConfigStrategyTest.java",
+  "url" : "https://github.com/bumptech/glide/blob/b12f574fd6ea20430c55c5a2eb29d624d843bf3e/library/test/src/test/java/com/bumptech/glide/load/engine/bitmap_recycle/SizeConfigStrategyTest.java#L23",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testKeyEquals",
+  "startLine" : 23,
+  "endLine" : 32,
+  "commits" : [ {
+    "commitHash" : "0dcc33fe6957657b910484599c499430cdf3461c",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "8f8a1600826fd042abae9251cbad063dee5144b2",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "c375a2fbf594bdf422c45a1395a65823141a8bd5",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "416797ea294a23ec8adadfc922a1c8b6e331770b",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "95637cfcf37a4d9acf05aa3e46dff6f7799f763a",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "54801bd931cc99ee7ed738bd179cfa2a805a415b",
+    "changeTags" : [ "FORMAT" ]
+  }, {
+    "commitHash" : "7734f6dff4d9dca650974b4c0fd88ac92fde8fa3",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "431ccaf04b5c3db3f87e2ac2c1ca151f5d63744f",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "RxJava",
+  "repositoryUrl" : "https://github.com/ReactiveX/RxJava.git",
+  "startCommitHash" : "5df6e33ef01cf4da7b37ebc1c917fe91713ceaf7",
+  "file" : "src/test/java/io/reactivex/rxjava3/internal/operators/flowable/FlowableConcatMapSchedulerTest.java",
+  "url" : "https://github.com/ReactiveX/RxJava/blob/5df6e33ef01cf4da7b37ebc1c917fe91713ceaf7/src/test/java/io/reactivex/rxjava3/internal/operators/flowable/FlowableConcatMapSchedulerTest.java#L1057",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "mapperDelayErrorScheduledLong",
+  "startLine" : 1057,
+  "endLine" : 1077,
+  "commits" : [ {
+    "commitHash" : "f1441b00f3cc174ab5ef47e3339156d8a7c2a1f5",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "a1693ecc9215027a7a3eae75272979ebb4d79a27",
+    "changeTags" : [ "FILE_MOVE" ]
+  }, {
+    "commitHash" : "9e9d31c4db1a14d9a2ee7aca68b140fe79bec048",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}

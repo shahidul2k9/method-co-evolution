@@ -1,0 +1,22 @@
+{
+  "repositoryName" : "jgit",
+  "repositoryUrl" : "https://github.com/eclipse-jgit/jgit.git",
+  "startCommitHash" : "1e9dd8cb9bedce1b5d579dcd841c5c9aac24b1e7",
+  "file" : "org.eclipse.jgit.http.test/tst/org/eclipse/jgit/http/test/DumbClientSmartServerTest.java",
+  "url" : "https://github.com/eclipse-jgit/jgit/blob/1e9dd8cb9bedce1b5d579dcd841c5c9aac24b1e7/org.eclipse.jgit.http.test/tst/org/eclipse/jgit/http/test/DumbClientSmartServerTest.java#L207",
+  "language" : "Java",
+  "elementType" : "method",
+  "element" : "testPushNotSupported",
+  "startLine" : 207,
+  "endLine" : 222,
+  "commits" : [ {
+    "commitHash" : "ef9046fa89038ad3801af1194fbb492b66e0b62b",
+    "changeTags" : [ "BODY" ]
+  }, {
+    "commitHash" : "d9e07a574a946693e491668e0d94619bc5d886a5",
+    "changeTags" : [ "ANNOTATION" ]
+  }, {
+    "commitHash" : "f5eb0d93660786213b98dadde7d93c5605454495",
+    "changeTags" : [ "INTRODUCTION" ]
+  } ]
+}
