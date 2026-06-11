@@ -54,6 +54,24 @@ class TestT2PLinkEvaluation(unittest.TestCase):
         self.write_links(gt_file, rows)
         self.write_links(pred_file, rows)
 
+    def create_scored_project(
+        self,
+        root: Path,
+        workspace: Path,
+        experiment: str,
+        project: str,
+        ground_truth_rows: list[dict[str, str]],
+        prediction_rows: list[dict[str, str]],
+        candidate_rows: list[dict[str, str]],
+        strategy: str = "tarantula",
+    ) -> None:
+        gt_file = root / "data" / experiment / "t2p-ground-truth" / f"{project}.csv"
+        pred_file = workspace / "experiment" / experiment / "t2p-link" / strategy / f"{project}.csv"
+        candidate_file = workspace / "experiment" / experiment / "t2p-tech" / f"{project}.csv"
+        self.write_links(gt_file, ground_truth_rows)
+        self.write_links(pred_file, prediction_rows)
+        self.write_links(candidate_file, candidate_rows)
+
     def test_load_ground_truth_df_filters_zero_label_rows(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             gt_file = Path(temp_dir) / "ground-truth.csv"
@@ -69,6 +87,34 @@ class TestT2PLinkEvaluation(unittest.TestCase):
             result_df = t2p_link_evaluation.load_ground_truth_df(gt_file)
 
         self.assertEqual([("test-a", "prod-a")], list(result_df[["from_url", "to_url"]].itertuples(index=False, name=None)))
+
+    def test_load_candidate_df_keeps_only_test_case_to_main_code_pairs(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            candidate_file = root / "t2p-tech.csv"
+            method_file = root / "method.csv"
+            self.write_links(
+                candidate_file,
+                [
+                    {"from_url": "test-a", "to_url": "prod-a", "tech_tarantula": "0.9"},
+                    {"from_url": "test-a", "to_url": "helper-a", "tech_tarantula": "0.8"},
+                ],
+            )
+            self.write_links(
+                method_file,
+                [
+                    {"url": "test-a", "artifact": "#test-code #test-case-method"},
+                    {"url": "prod-a", "artifact": "#main-code"},
+                    {"url": "helper-a", "artifact": "#test-code"},
+                ],
+            )
+
+            result_df = t2p_link_evaluation.load_candidate_df(candidate_file, method_file)
+
+        self.assertEqual(
+            [("test-a", "prod-a")],
+            list(result_df[["from_url", "to_url"]].itertuples(index=False, name=None)),
+        )
 
     def test_load_config_treats_experiments_as_single_member_groups(self):
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -170,6 +216,142 @@ class TestT2PLinkEvaluation(unittest.TestCase):
         self.assertEqual(2, project_row["pred_links"])
         self.assertEqual(1, project_row["tp"])
         self.assertEqual(1, project_row["fp"])
+
+    def test_map_rewards_correct_links_earlier_and_penalizes_missing_links(self):
+        gt_pairs = {
+            ("test-a", "prod-a"),
+            ("test-a", "prod-c"),
+            ("test-b", "prod-d"),
+        }
+        candidate_df = pd.DataFrame(
+            [
+                {"from_url": "test-a", "to_url": "prod-a", "tech_tarantula": 0.9},
+                {"from_url": "test-a", "to_url": "prod-b", "tech_tarantula": 0.8},
+                {"from_url": "test-a", "to_url": "prod-c", "tech_tarantula": 0.7},
+                {"from_url": "test-b", "to_url": "prod-x", "tech_tarantula": 0.9},
+                {"from_url": "test-b", "to_url": "prod-d", "tech_tarantula": 0.8},
+            ]
+        )
+
+        map_score, _ = t2p_link_evaluation.calculate_ranking_scores(
+            "tarantula",
+            candidate_df,
+            candidate_df,
+            gt_pairs,
+        )
+        missing_candidate_map, _ = t2p_link_evaluation.calculate_ranking_scores(
+            "tarantula",
+            candidate_df[candidate_df["to_url"] != "prod-c"],
+            candidate_df[candidate_df["to_url"] != "prod-c"],
+            gt_pairs,
+        )
+
+        self.assertAlmostEqual((5 / 6 + 1 / 2) / 2, map_score)
+        self.assertLess(missing_candidate_map, map_score)
+
+    def test_pr_auc_uses_all_scored_candidates(self):
+        gt_pairs = {("test-a", "prod-a"), ("test-a", "prod-c")}
+        candidate_df = pd.DataFrame(
+            [
+                {"from_url": "test-a", "to_url": "prod-a", "tech_tarantula": 0.9},
+                {"from_url": "test-a", "to_url": "prod-b", "tech_tarantula": 0.8},
+                {"from_url": "test-a", "to_url": "prod-c", "tech_tarantula": 0.7},
+                {"from_url": "test-a", "to_url": "prod-d", "tech_tarantula": 0.1},
+            ]
+        )
+
+        _, auc_score = t2p_link_evaluation.calculate_ranking_scores(
+            "tarantula",
+            candidate_df[candidate_df["tech_tarantula"] >= 0.7],
+            candidate_df,
+            gt_pairs,
+        )
+
+        self.assertAlmostEqual(0.7916666666666666, auc_score)
+
+    def test_binary_and_omc_strategies_have_map_but_no_pr_auc(self):
+        candidate_df = pd.DataFrame(
+            [
+                {"from_url": "test-a", "to_url": "prod-a", "tech_nc": 1},
+                {"from_url": "test-b", "to_url": "prod-x", "tech_nc": 1},
+            ]
+        )
+        gt_pairs = {("test-a", "prod-a"), ("test-b", "prod-b")}
+
+        nc_map, nc_auc = t2p_link_evaluation.calculate_ranking_scores(
+            "nc",
+            candidate_df,
+            candidate_df,
+            gt_pairs,
+        )
+        omc_map, omc_auc = t2p_link_evaluation.calculate_ranking_scores(
+            "omc",
+            candidate_df,
+            candidate_df,
+            gt_pairs,
+        )
+
+        self.assertEqual(0.5, nc_map)
+        self.assertEqual(0.5, omc_map)
+        self.assertTrue(pd.isna(nc_auc))
+        self.assertTrue(pd.isna(omc_auc))
+
+    def test_pr_auc_uses_t2p_tech_for_project_and_group_rows(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            workspace = root / "workspace"
+            config_file = self.write_config(root)
+            self.create_scored_project(
+                root,
+                workspace,
+                "exp-a",
+                "project-a",
+                [{"from_url": "test-a", "to_url": "prod-a"}],
+                [{"from_url": "test-a", "to_url": "prod-a", "tech_tarantula": 0.9}],
+                [
+                    {"from_url": "test-a", "to_url": "prod-a", "tech_tarantula": 0.9},
+                    {"from_url": "test-a", "to_url": "prod-b", "tech_tarantula": 0.1},
+                ],
+            )
+            self.create_scored_project(
+                root,
+                workspace,
+                "exp-b",
+                "project-b",
+                [{"from_url": "test-b", "to_url": "prod-c"}],
+                [{"from_url": "test-b", "to_url": "prod-c", "tech_tarantula": 0.4}],
+                [
+                    {"from_url": "test-b", "to_url": "prod-d", "tech_tarantula": 0.8},
+                    {"from_url": "test-b", "to_url": "prod-c", "tech_tarantula": 0.4},
+                ],
+            )
+
+            with mock.patch.object(t2p_link_evaluation, "PROJECT_DIRECTORY", str(root)):
+                t2p_link_evaluation.main(
+                    [
+                        "--workspace-directory",
+                        str(workspace),
+                        "--experiment-name",
+                        "exp-a",
+                        "--experiment-group",
+                        "plus",
+                        "--ground-truth-config",
+                        str(config_file),
+                    ]
+                )
+
+            result_df = pd.read_csv(workspace / "t2p_link_overall_metric.csv")
+
+        self.assertIn("map", result_df.columns)
+        self.assertIn("auc", result_df.columns)
+        self.assertNotIn("mcc", result_df.columns)
+        project_a = result_df[result_df["project"] == "project-a"].iloc[0]
+        project_b = result_df[result_df["project"] == "project-b"].iloc[0]
+        aggregate = result_df[result_df["project"] == "avg-plus"].iloc[0]
+        self.assertEqual(1.0, project_a["map"])
+        self.assertEqual(1.0, project_b["map"])
+        self.assertEqual(1.0, aggregate["map"])
+        self.assertFalse(pd.isna(aggregate["auc"]))
 
     def test_group_keeps_overlapping_projects_distinct_and_writes_average(self):
         with tempfile.TemporaryDirectory() as temp_dir:

@@ -13,6 +13,7 @@ if str(MHC_SRC_DIRECTORY) not in sys.path:
 if str(SRC_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(SRC_DIRECTORY))
 
+from mhc import config
 from mhc.command_util import (
     artifact_matches,
     build_experiment_parser,
@@ -61,6 +62,26 @@ class TestExperimentParser(unittest.TestCase):
         args = parser.parse_args([])
 
         self.assertFalse(hasattr(args, "replace"))
+
+    def test_project_directory_option_uses_shared_default_when_included(self):
+        parser = build_experiment_parser(
+            "demo",
+            include_project_directory=True,
+        )
+
+        args = parser.parse_args([])
+
+        self.assertEqual(config.PROJECT_DIRECTORY, args.project_directory)
+
+    def test_output_directory_option_is_available_when_included(self):
+        parser = build_experiment_parser(
+            "demo",
+            include_output_directory=True,
+        )
+
+        args = parser.parse_args(["--output-directory", "paper/figure"])
+
+        self.assertEqual("paper/figure", args.output_directory)
 
     def test_replace_default_false_can_come_from_env(self):
         with mock.patch.dict("os.environ", {"ME_REPLACE": "false"}):

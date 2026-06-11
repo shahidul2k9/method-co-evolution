@@ -359,6 +359,8 @@ def build_experiment_parser(
     include_strategies: bool = True,
     include_revision_types: bool = False,
     include_smell_detector: bool = False,
+    include_project_directory: bool = False,
+    include_output_directory: bool = False,
     include_workspace: bool = True,
     include_experiment: bool = True,
     include_replace: bool = False,
@@ -371,6 +373,20 @@ def build_experiment_parser(
     replace_help: str | None = None,
 ) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=description)
+    if include_project_directory:
+        parser.add_argument(
+            "--project-directory",
+            dest="project_directory",
+            default=config.PROJECT_DIRECTORY,
+            help=f"Project root. Defaults to ME_PROJECT_DIRECTORY (currently: {config.PROJECT_DIRECTORY}).",
+        )
+    if include_output_directory:
+        parser.add_argument(
+            "--output-directory",
+            dest="output_directory",
+            default=None,
+            help="Directory for generated outputs. Relative paths resolve from the project root.",
+        )
     if include_workspace:
         parser.add_argument(
             "--workspace-directory",
