@@ -31,7 +31,7 @@ PREPROCESS_COLUMNS = [
     "candidateCount",
     "confidence",
 ]
-POSTPROCESS_COLUMNS = ["project", "name", "smell", "smell_detector", "url", "smell_begin", "smell_end"]
+POSTPROCESS_COLUMNS = ["project", "name", "smell", "smell_detector", "url", "smell_begin", "smell_end", "loc"]
 POSTPROCESS_ERROR_COLUMNS = [
     "project",
     "name",
@@ -372,6 +372,7 @@ def postprocess_project(repository: pd.Series, data_directory: str) -> pd.DataFr
                         "url": match["url"],
                         "smell_begin": smell_begin,
                         "smell_end": smell_end,
+                        "loc": "",
                     }
                 )
 
@@ -568,6 +569,7 @@ def postprocess_strategy_project(repository: pd.Series, data_directory: str, str
                         "url": match["from_url"],
                         "smell_begin": smell_begin,
                         "smell_end": smell_end,
+                        "loc": _method_loc(match.get("from_old_start", ""), match.get("from_old_end", "")),
                     }
                 )
 
@@ -749,6 +751,14 @@ def _range_contains_smell(start_value: str, end_value: str, smell_range: tuple[i
         return False
     smell_start, smell_end = smell_range
     return start <= smell_start and smell_end <= end
+
+
+def _method_loc(start_value: str, end_value: str) -> str:
+    start = _to_int(start_value)
+    end = _to_int(end_value)
+    if start is None or end is None or end < start:
+        return ""
+    return str(end - start + 1)
 
 
 def _deduplicate_dicts(rows: list[dict[str, str]], keys: list[str]) -> list[dict[str, str]]:
