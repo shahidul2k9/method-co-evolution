@@ -22,6 +22,12 @@ from ptc.generator.t2p_test_smell_prevalence_wilcoxon_srt import (
     paired_smell_values,
     selected_two_revision_groups,
 )
+from ptc.generator.t2p_test_smell_loc_group import (
+    loc_group,
+    loc_group_rows,
+    main as loc_group_main,
+    unique_method_locs,
+)
 from ptc.generator.t2p_test_smell_prevalence import (
     ALL_SMELLS,
     main as prevalence_main,
@@ -422,6 +428,88 @@ class TestT2PTestSmell(unittest.TestCase):
                 ],
                 output_df.columns.tolist(),
             )
+
+    def test_loc_group_uses_unique_first_valid_method_loc(self):
+        frame = pd.DataFrame(
+            [
+                {"url": "test://A", "loc": "bad"},
+                {"url": "test://A", "loc": "10"},
+                {"url": "test://A", "loc": "99"},
+                {"url": "test://B", "loc": "0"},
+                {"url": "test://C", "loc": "3"},
+                {"url": "", "loc": "4"},
+            ]
+        )
+
+        method_locs = unique_method_locs([frame])
+
+        self.assertEqual(["test://A", "test://C"], method_locs["url"].tolist())
+        self.assertEqual([10, 3], method_locs["loc"].tolist())
+
+    def test_loc_group_rows_use_percentile_boundaries(self):
+        method_locs = pd.DataFrame(
+            [{"url": f"test://{index}", "loc": index} for index in range(1, 11)]
+        )
+
+        rows = loc_group_rows(method_locs, strategy="nc", smell_detector="jnose")
+        output = pd.DataFrame(rows).set_index("group")
+
+        groups = ["LOC_S", "LOC_M", "LOC_L", "LOC_XL"]
+        self.assertEqual("LOC_S", loc_group(7, (7, 8, 9)))
+        self.assertEqual("LOC_M", loc_group(8, (7, 8, 9)))
+        self.assertEqual("LOC_L", loc_group(9, (7, 8, 9)))
+        self.assertEqual("LOC_XL", loc_group(10, (7, 8, 9)))
+        self.assertEqual(["1", "8", "9", "10"], output.loc[groups, "loc_min"].tolist())
+        self.assertEqual(["7", "8", "9", "10"], output.loc[groups, "loc_max"].tolist())
+        self.assertEqual([7, 1, 1, 1], output.loc[groups, "methods"].tolist())
+        self.assertEqual([70.0, 10.0, 10.0, 10.0], output.loc[groups, "percent"].tolist())
+
+    def test_loc_group_main_writes_aggregate_and_applies_project_filter(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            self.write_smells(
+                experiment_dir,
+                "demo",
+                [
+                    {"url": f"test://{index}", "smell": "AR", "loc": index}
+                    for index in range(1, 11)
+                ]
+                + [
+                    {"url": "test://1", "smell": "ET", "loc": 99},
+                    {"url": "test://bad", "smell": "ET", "loc": "bad"},
+                ],
+            )
+            self.write_smells(experiment_dir, "other", [{"url": "test://other", "smell": "AR", "loc": 100}])
+
+            loc_group_main(
+                [
+                    "--workspace-directory",
+                    tmpdir,
+                    "--experiment-name",
+                    "demo-exp",
+                    "--strategies",
+                    "nc",
+                    "--projects",
+                    "demo",
+                    "--smell-detector",
+                    "jnose",
+                    "--replace",
+                ]
+            )
+
+            output_df = pd.read_csv(
+                experiment_dir / "aggregate" / "t2p-test-smell-loc-size.csv",
+                keep_default_na=False,
+                na_filter=False,
+            )
+            self.assertEqual(
+                ["strategy", "smell_detector", "group", "loc_min", "loc_max", "methods", "percent"],
+                output_df.columns.tolist(),
+            )
+            self.assertEqual(["LOC_S", "LOC_M", "LOC_L", "LOC_XL"], output_df["group"].tolist())
+            self.assertEqual([1, 8, 9, 10], output_df["loc_min"].tolist())
+            self.assertEqual([7, 8, 9, 10], output_df["loc_max"].tolist())
+            self.assertNotIn(100, output_df["loc_max"].tolist())
 
     def test_load_generated_frames_applies_min_t2p_links(self):
         with tempfile.TemporaryDirectory() as tmpdir:
