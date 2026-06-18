@@ -17,6 +17,7 @@ from mhc.command_util import (
     select_revision_columns,
 )
 from ptc.generator.artifact_revision_mww import SIZE_MARKER_COLUMNS
+from ptc.generator.run_stats import GenerationStats, record_written_csv, should_generate
 from ptc.generator.t2p_test_smell_prevalence import ALL_SMELLS, OUTPUT_FILE_NAME
 from ptc.generator.t2p_test_smell_revision import CHANGE_COLUMNS, REVISION_GROUP_ORDER
 
@@ -48,6 +49,7 @@ def build_parser():
         include_revision_types=True,
         include_smell_detector=True,
         include_projects=False,
+        include_replace=True,
         projects_help=None,
         strategies_help="Comma-separated strategy names to include. Defaults to ME_STRATEGIES.",
         revision_types_help="Comma-separated revision types to include. Defaults to ME_REVISION_TYPES.",
@@ -152,13 +154,20 @@ def build_stat_row(
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    stats = GenerationStats("t2p_test_smell_prevalence_wilcoxon_srt")
     experiment_directory = resolve_experiment_paths(
         getattr(args, "workspace_directory", None),
         args.experiment_name,
     ).experiment_directory
     input_file = experiment_directory / "aggregate" / OUTPUT_FILE_NAME
+    output_file = experiment_directory / "aggregate" / OUTPUT_FILE
     if not input_file.exists():
         warnings.warn(f"File not found, skipping: {input_file}")
+        stats.skipped_missing_input += 1
+        stats.print_summary()
+        return
+    if not should_generate(output_file, replace=args.replace, label=OUTPUT_FILE, stats=stats):
+        stats.print_summary()
         return
 
     selected_tools, _, selected_strategies = resolve_experiment_filters(
@@ -204,13 +213,14 @@ def main(argv: list[str] | None = None) -> None:
             if stat_row is not None:
                 rows.append(stat_row)
 
-    output_file = experiment_directory / "aggregate" / OUTPUT_FILE
     os.makedirs(output_file.parent, exist_ok=True)
     output_df = pd.DataFrame(rows, columns=STAT_COLUMNS)
     if not output_df.empty:
         output_df = output_df.sort_values(["strategy", "tool", "smell_detector", "change"]).reset_index(drop=True)
     output_df.to_csv(output_file, index=False)
+    record_written_csv(output_file, stats, rows=len(output_df))
     print(f"Wrote {output_file}")
+    stats.print_summary()
 
 
 if __name__ == "__main__":

@@ -59,6 +59,7 @@ from ptc.plot.t2p_test_smell_boxplot import (
     load_generated_frames,
     main as boxplot_main,
     plot_boxplot_axis,
+    plot_revision_type,
     selected_revision_groups,
 )
 
@@ -727,13 +728,35 @@ class TestT2PTestSmell(unittest.TestCase):
             plot_boxplot_axis(ax, rows, [REVISION_GROUP_2, REVISION_GROUP_3])
             x_labels = [label.get_text() for label in ax.get_xticklabels()]
             legend_labels = [text.get_text() for text in ax.get_legend().get_texts()]
+            legend_hatches = [handle.get_hatch() for handle in ax.get_legend().legend_handles]
         finally:
             plt.close(fig)
 
         self.assertEqual(["Assertion Roulette", "Verbose Test"], x_labels)
-        self.assertIn(ALL_GROUPS, legend_labels)
+        self.assertEqual("", ax.get_title())
+        self.assertEqual("# Test Method Revisions", ax.get_ylabel())
+        self.assertNotIn(ALL_GROUPS, legend_labels)
         self.assertIn("Revision-Prone Test (RT)", legend_labels)
         self.assertIn("Recurrent Revision-Prone Test (RRT)", legend_labels)
+        self.assertEqual(len(legend_hatches), len(set(legend_hatches)))
+        self.assertTrue(all(hatch for hatch in legend_hatches))
+
+    def test_boxplot_can_include_all_groups_when_requested(self):
+        frame = pd.DataFrame(
+            [
+                {"smells": "AR", "from_ch_diff": 10, "rg_ch_diff": REVISION_GROUP_3},
+                {"smells": "AR", "from_ch_diff": 5, "rg_ch_diff": REVISION_GROUP_2},
+            ]
+        )
+        rows = boxplot_values(
+            frame,
+            "ch_diff",
+            [REVISION_GROUP_2, REVISION_GROUP_3],
+            {"AR": "Assertion Roulette"},
+            include_all_groups=True,
+        )
+
+        self.assertIn(ALL_GROUPS, [row["group"] for row in rows])
 
     def test_boxplot_reads_generated_csv_and_filters_revision_groups(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -778,6 +801,86 @@ class TestT2PTestSmell(unittest.TestCase):
                     / "t2p-test-smell-boxplot--historyFinder--nc--jnose--ch_diff.pdf"
                 ).exists()
             )
+
+    def test_boxplot_writes_to_project_relative_output_directory(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_directory = Path(tmpdir)
+            experiment_dir = self.create_experiment(tmpdir)
+            output_dir = output_directory(experiment_dir, "nc", "historyFinder", "jnose")
+            output_dir.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                [
+                    self.generated_row("demo", "test://A", "prod://A", 10, 1, "AR", REVISION_GROUP_3),
+                    self.generated_row("demo", "test://B", "prod://B", 1, 5, "ET", REVISION_GROUP_1),
+                ]
+            ).to_csv(output_dir / "demo.csv", index=False)
+
+            boxplot_main(
+                [
+                    "--project-directory",
+                    str(project_directory),
+                    "--workspace-directory",
+                    tmpdir,
+                    "--experiment-name",
+                    "demo-exp",
+                    "--tools",
+                    "historyFinder",
+                    "--strategies",
+                    "nc",
+                    "--projects",
+                    "demo",
+                    "--revision-types",
+                    "ch_diff",
+                    "--revision-groups",
+                    "RP,RRT",
+                    "--min-t2p-links",
+                    "0",
+                    "--smell-detector",
+                    "jnose",
+                    "--output-directory",
+                    "t2plinker-latex/figure",
+                ]
+            )
+
+            self.assertTrue(
+                (
+                    project_directory
+                    / "t2plinker-latex"
+                    / "figure"
+                    / "t2p-test-smell-boxplot--historyFinder--nc--jnose--ch_diff.pdf"
+                ).exists()
+            )
+
+    def test_boxplot_uses_unique_methods_and_excludes_conflicting_groups(self):
+        frame = pd.DataFrame(
+            [
+                self.generated_row("demo", "test://dup", "prod://1", 10, 1, "AR", REVISION_GROUP_3),
+                self.generated_row("demo", "test://dup", "prod://2", 10, 1, "VT", REVISION_GROUP_3),
+                self.generated_row("demo", "test://conflict", "prod://3", 10, 1, "ET", REVISION_GROUP_3),
+                self.generated_row("demo", "test://conflict", "prod://4", 1, 5, "ET", REVISION_GROUP_1),
+                self.generated_row("demo", "test://rp", "prod://5", 1, 5, "AR", REVISION_GROUP_1),
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_file = Path(tmpdir) / "boxplot.pdf"
+            captured_frames = []
+
+            def capture_boxplot_values(plot_df, *args, **kwargs):
+                captured_frames.append(plot_df.copy())
+                return boxplot_values(plot_df, *args, **kwargs)
+
+            with mock.patch("ptc.plot.t2p_test_smell_boxplot.boxplot_values", side_effect=capture_boxplot_values):
+                plot_revision_type(
+                    frame,
+                    "ch_diff",
+                    [REVISION_GROUP_1, REVISION_GROUP_3],
+                    {"AR": "Assertion Roulette", "VT": "Verbose Test", "ET": "Exception Handling"},
+                    output_file,
+                )
+
+            plotted_urls = captured_frames[0]["from_url"].tolist()
+            self.assertEqual(["test://dup", "test://rp"], plotted_urls)
+            self.assertEqual(["AR VT", "AR"], captured_frames[0]["smells"].tolist())
 
     def test_wilcoxon_requires_two_revision_groups_and_preserves_order(self):
         self.assertEqual([REVISION_GROUP_3, REVISION_GROUP_1], selected_two_revision_groups("RRT,RP"))
@@ -885,6 +988,7 @@ class TestT2PTestSmell(unittest.TestCase):
                     "RRT,RP",
                     "--smell-detector",
                     "jnose",
+                    "--replace",
                 ]
             )
 

@@ -8,7 +8,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 import pandas as pd
 
 import mhc.util as util
@@ -32,6 +32,8 @@ from ptc.generator.t2p_test_smell_revision import (
     REVISION_GROUP_ORDER,
     output_directory,
 )
+from ptc.generator.t2p_test_smell_prevalence import unique_method_frame
+from ptc.plot.method_history_runtime_table import resolve_path
 from ptc.plot_util import build_experiment_plot_parser
 
 ALL_GROUPS = "All groups"
@@ -41,11 +43,11 @@ GROUP_STYLE_COLORS = {
     "RT": "tab:gray",
     "RRT": "tab:blue",
 }
-GROUP_STYLE_MARKERS = {
-    ALL_GROUPS: "o",
-    "RP": "s",
-    "RT": "^",
-    "RRT": "D",
+GROUP_STYLE_HATCHES = {
+    ALL_GROUPS: "",
+    "RP": "....",
+    "RT": "...",
+    "RRT": "xx",
 }
 
 
@@ -54,6 +56,8 @@ def build_parser():
         "Plot generated test smell revision groups.",
         include_revision_types=True,
         include_smell_detector=True,
+        include_project_directory=True,
+        include_output_directory=True,
     )
     parser.add_argument(
         "--revision-groups",
@@ -68,6 +72,12 @@ def build_parser():
         type=non_negative_int,
         default=resolve_min_t2p_links(),
         help="Minimum generated linked test-production rows required before plots include a project. Defaults to ME_MIN_T2P_LINKS.",
+    )
+    parser.add_argument(
+        "--include-all-groups",
+        dest="include_all_groups",
+        action="store_true",
+        help="Include an additional box summarizing all selected revision groups for each smell.",
     )
     return parser
 
@@ -130,6 +140,8 @@ def boxplot_values(
     revision_type: str,
     revision_groups: list[str],
     smell_names: dict[str, str],
+    *,
+    include_all_groups: bool = False,
 ) -> list[dict]:
     group_column = f"rg_{revision_type}"
     from_column = f"from_{revision_type}"
@@ -138,14 +150,15 @@ def boxplot_values(
     for smell in smell_types:
         smell_mask = frame["smells"].map(lambda value: smell in split_smells(value))
         smell_df = frame[smell_mask].copy()
-        rows.append(
-            {
-                "smell": smell,
-                "smell_name": display_smell(smell, smell_names),
-                "group": ALL_GROUPS,
-                "values": pd.to_numeric(smell_df[from_column], errors="coerce").dropna().tolist(),
-            }
-        )
+        if include_all_groups:
+            rows.append(
+                {
+                    "smell": smell,
+                    "smell_name": display_smell(smell, smell_names),
+                    "group": ALL_GROUPS,
+                    "values": pd.to_numeric(smell_df[from_column], errors="coerce").dropna().tolist(),
+                }
+            )
         for group in revision_groups:
             group_df = smell_df[smell_df[group_column] == group]
             rows.append(
@@ -159,11 +172,17 @@ def boxplot_values(
     return rows
 
 
-def _group_keys(revision_groups: list[str]) -> list[str]:
-    return [ALL_GROUPS, *revision_groups]
+def _group_keys(revision_groups: list[str], *, include_all_groups: bool = False) -> list[str]:
+    return [ALL_GROUPS, *revision_groups] if include_all_groups else list(revision_groups)
 
 
-def plot_boxplot_axis(ax, box_rows: list[dict], revision_groups: list[str]) -> None:
+def plot_boxplot_axis(
+    ax,
+    box_rows: list[dict],
+    revision_groups: list[str],
+    *,
+    include_all_groups: bool = False,
+) -> None:
     plotted_rows = [row for row in box_rows if row["values"]]
     if not plotted_rows:
         ax.text(0.5, 0.5, "No revision values", ha="center", va="center", transform=ax.transAxes)
@@ -171,7 +190,7 @@ def plot_boxplot_axis(ax, box_rows: list[dict], revision_groups: list[str]) -> N
         return
 
     smell_names = list(dict.fromkeys(row["smell_name"] for row in box_rows))
-    group_keys = _group_keys(revision_groups)
+    group_keys = _group_keys(revision_groups, include_all_groups=include_all_groups)
     row_lookup = {
         (row["smell_name"], row["group"]): row["values"]
         for row in box_rows
@@ -180,17 +199,19 @@ def plot_boxplot_axis(ax, box_rows: list[dict], revision_groups: list[str]) -> N
     positions = []
     values = []
     box_groups = []
-    box_width = 0.12 if len(group_keys) > 3 else 0.16
+    box_width = 0.18 if len(group_keys) > 3 else 0.26
+    smell_spacing = 0.78
     group_offsets = [
-        (index - (len(group_keys) - 1) / 2) * (box_width * 1.35)
+        (index - (len(group_keys) - 1) / 2) * (box_width * 1.15)
         for index in range(len(group_keys))
     ]
     for smell_index, smell_name in enumerate(smell_names, start=1):
+        smell_position = smell_index * smell_spacing
         for group_index, group in enumerate(group_keys):
             group_values = row_lookup.get((smell_name, group))
             if not group_values:
                 continue
-            positions.append(smell_index + group_offsets[group_index])
+            positions.append(smell_position + group_offsets[group_index])
             values.append(group_values)
             box_groups.append(group)
 
@@ -202,24 +223,21 @@ def plot_boxplot_axis(ax, box_rows: list[dict], revision_groups: list[str]) -> N
         showfliers=False,
     )
     for patch, group in zip(boxplot["boxes"], box_groups):
-        patch.set_facecolor(GROUP_STYLE_COLORS.get(group, "white"))
+        patch.set_facecolor("white")
         patch.set_edgecolor("black")
+        patch.set_hatch(GROUP_STYLE_HATCHES.get(group, ""))
     for median in boxplot["medians"]:
         median.set_color("black")
 
-    ax.set_title("Test revisions by smell type")
-    ax.set_ylabel("Test revisions")
-    ax.set_xticks(range(1, len(smell_names) + 1))
-    ax.set_xticklabels(smell_names, rotation=35, ha="right")
+    ax.set_ylabel("# Test Method Revisions")
+    ax.set_xticks([index * smell_spacing for index in range(1, len(smell_names) + 1)])
+    ax.set_xticklabels(smell_names, rotation=40, ha="right", fontsize=8)
+    ax.set_xlim(smell_spacing * 0.35, smell_spacing * (len(smell_names) + 0.65))
     legend_handles = [
-        Line2D(
-            [0],
-            [0],
-            marker=GROUP_STYLE_MARKERS.get(group, "o"),
-            color="black",
-            markerfacecolor=GROUP_STYLE_COLORS.get(group, "white"),
-            linestyle="None",
-            markersize=8,
+        Patch(
+            facecolor="white",
+            edgecolor="black",
+            hatch=GROUP_STYLE_HATCHES.get(group, ""),
             label=REVISION_GROUP_LABELS.get(group, group),
         )
         for group in group_keys
@@ -234,21 +252,33 @@ def plot_revision_type(
     revision_groups: list[str],
     smell_names: dict[str, str],
     output_file: Path,
+    *,
+    include_all_groups: bool = False,
 ) -> None:
     group_column = f"rg_{revision_type}"
     if group_column not in frame.columns or f"from_{revision_type}" not in frame.columns:
         warnings.warn(f"Skipping revision type {revision_type}: missing generated columns.")
         return
 
-    plot_df = frame[frame[group_column].isin(revision_groups)].copy()
+    plot_df = unique_method_frame(frame, revision_type, revision_groups)
     if plot_df.empty:
         warnings.warn(f"Skipping revision type {revision_type}: no rows for selected revision groups.")
         return
 
-    box_rows = boxplot_values(plot_df, revision_type, revision_groups, smell_names)
-    fig, ax = plt.subplots(figsize=(max(12, len(smell_type_order(plot_df, smell_names)) * 1.25), 6))
-    plot_boxplot_axis(ax, box_rows, revision_groups)
-    fig.suptitle(f"Test smells with {revision_type} revision groups", fontsize=14)
+    box_rows = boxplot_values(
+        plot_df,
+        revision_type,
+        revision_groups,
+        smell_names,
+        include_all_groups=include_all_groups,
+    )
+    fig, ax = plt.subplots(figsize=(max(10, len(smell_type_order(plot_df, smell_names)) * 0.72), 4.8))
+    plot_boxplot_axis(
+        ax,
+        box_rows,
+        revision_groups,
+        include_all_groups=include_all_groups,
+    )
     fig.tight_layout()
     os.makedirs(output_file.parent, exist_ok=True)
     fig.savefig(output_file, bbox_inches="tight")
@@ -257,10 +287,16 @@ def plot_revision_type(
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    project_directory = Path(args.project_directory)
     experiment_directory = resolve_experiment_paths(
         getattr(args, "workspace_directory", None),
         args.experiment_name,
     ).experiment_directory
+    figure_directory = (
+        resolve_path(project_directory, args.output_directory, Path())
+        if args.output_directory is not None
+        else experiment_directory / "figure"
+    )
     selected_tools, selected_projects, selected_strategies = resolve_experiment_filters(
         tools=args.tools,
         projects=args.projects,
@@ -307,11 +343,17 @@ def main(argv: list[str] | None = None) -> None:
                 continue
             for revision_type in revision_types:
                 output_file = (
-                    experiment_directory
-                    / "figure"
+                    figure_directory
                     / f"t2p-test-smell-boxplot--{tool}--{strategy}--{smell_detector}--{revision_type}.pdf"
                 )
-                plot_revision_type(frame, revision_type, revision_groups, smell_names, output_file)
+                plot_revision_type(
+                    frame,
+                    revision_type,
+                    revision_groups,
+                    smell_names,
+                    output_file,
+                    include_all_groups=args.include_all_groups,
+                )
                 if output_file.exists():
                     plotted_any = True
                     print(f"Wrote {output_file}")
