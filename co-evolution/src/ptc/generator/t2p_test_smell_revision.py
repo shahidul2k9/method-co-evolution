@@ -39,6 +39,15 @@ REVISION_GROUP_LABELS = {
     REVISION_GROUP_2: "Revision-Prone Test (RT)",
     REVISION_GROUP_3: "Recurrent Revision-Prone Test (RRT)",
 }
+REVISION_GROUP_ALIASES = {
+    "REVISION_RP": REVISION_GROUP_1,
+    "REVISION_RT": REVISION_GROUP_2,
+    "REVISION_RRT": REVISION_GROUP_3,
+}
+
+
+def normalize_revision_group(group: str) -> str:
+    return REVISION_GROUP_ALIASES.get(group, group)
 
 
 def build_parser():

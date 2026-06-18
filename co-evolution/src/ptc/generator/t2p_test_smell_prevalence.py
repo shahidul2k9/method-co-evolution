@@ -24,18 +24,22 @@ from ptc.generator.t2p_test_smell_revision import (
     CHANGE_COLUMNS,
     OUTPUT_DIRECTORY_NAME,
     REVISION_GROUP_ORDER,
+    normalize_revision_group,
     output_directory,
 )
+from ptc.generator.t2p_test_smell_loc_group import SIZE_GROUPS, loc_group, percentile_thresholds, valid_loc
 from ptc.generator.run_stats import GenerationStats, should_generate, unlink_stale_output
 
 ALL_SMELLS = "all"
+ALL_LOC_GROUP = "ALL"
 OUTPUT_FILE_NAME = "t2p-test-smell-prevalence.csv"
 PREVALENCE_COLUMNS = [
     "strategy",
     "tool",
     "smell_detector",
     "change",
-    "revision_group",
+    "rg_group",
+    "loc_group",
     "methods",
     "smell",
     "percent",
@@ -109,7 +113,7 @@ def unique_method_frame(
 
 
 def selected_revision_groups(value: str | list[str] | None = None) -> list[str]:
-    selected = parse_name_list(value) or list(REVISION_GROUP_ORDER)
+    selected = [normalize_revision_group(group) for group in (parse_name_list(value) or list(REVISION_GROUP_ORDER))]
     known_groups = set(REVISION_GROUP_ORDER)
     unknown = [group for group in selected if group not in known_groups]
     if unknown:
@@ -119,6 +123,21 @@ def selected_revision_groups(value: str | list[str] | None = None) -> list[str]:
 
 def percentage(count: int, total: int) -> float:
     return round(count / total * 100, 2) if total else 0.0
+
+
+def rg_group_order(group: str) -> int:
+    try:
+        return REVISION_GROUP_ORDER.index(group)
+    except ValueError:
+        return len(REVISION_GROUP_ORDER)
+
+
+def loc_group_order(group: str) -> int:
+    all_groups = [ALL_LOC_GROUP, *SIZE_GROUPS]
+    try:
+        return all_groups.index(group)
+    except ValueError:
+        return len(all_groups)
 
 
 def load_generated_frames(
@@ -158,6 +177,7 @@ def prevalence_rows(
     smell_detector: str,
     revision_type: str,
     revision_groups: list[str] | None = None,
+    loc_groups: pd.DataFrame | None = None,
 ) -> list[dict]:
     revision_groups = revision_groups or list(REVISION_GROUP_ORDER)
     group_column = f"rg_{revision_type}"
@@ -169,45 +189,135 @@ def prevalence_rows(
         return []
 
     frame = unique_method_frame(frame, revision_type, revision_groups)
+    if loc_groups is not None and not loc_groups.empty:
+        frame = frame.merge(loc_groups[["from_url", "loc_group"]], on="from_url", how="left")
+    elif "loc_group" not in frame.columns:
+        frame["loc_group"] = ""
     smell_types = smell_type_order(frame)
     rows = []
     for revision_group in revision_groups:
-        group_df = frame[frame[group_column] == revision_group].copy()
-        methods = len(group_df)
-        smell_total = len(group_df)
-        smelly_mask = group_df.get("smells", pd.Series(dtype=str)).astype(bool)
-        smelly_count = int(smelly_mask.sum())
+        revision_df = frame[frame[group_column] == revision_group].copy()
+        rows.extend(
+            _prevalence_rows_for_group(
+                revision_df,
+                smell_types,
+                strategy=strategy,
+                tool=tool,
+                smell_detector=smell_detector,
+                revision_type=revision_type,
+                revision_group=revision_group,
+                loc_group=ALL_LOC_GROUP,
+            )
+        )
+        for loc_group_value in SIZE_GROUPS:
+            loc_df = revision_df[revision_df["loc_group"] == loc_group_value].copy()
+            rows.extend(
+                _prevalence_rows_for_group(
+                    loc_df,
+                    smell_types,
+                    strategy=strategy,
+                    tool=tool,
+                    smell_detector=smell_detector,
+                    revision_type=revision_type,
+                    revision_group=revision_group,
+                    loc_group=loc_group_value,
+                )
+            )
+    return rows
+
+
+def _prevalence_rows_for_group(
+    group_df: pd.DataFrame,
+    smell_types: list[str],
+    *,
+    strategy: str,
+    tool: str,
+    smell_detector: str,
+    revision_type: str,
+    revision_group: str,
+    loc_group: str,
+) -> list[dict]:
+    rows = []
+    methods = len(group_df)
+    smell_total = len(group_df)
+    smelly_mask = group_df.get("smells", pd.Series(dtype=str)).astype(bool)
+    smelly_count = int(smelly_mask.sum())
+    rows.append(
+        {
+            "strategy": strategy,
+            "tool": tool,
+            "smell_detector": smell_detector,
+            "change": revision_type,
+            "rg_group": revision_group,
+            "loc_group": loc_group,
+            "methods": methods,
+            "smell": ALL_SMELLS,
+            "percent": percentage(smelly_count, smell_total),
+            "smell_total": smell_total,
+            "smell_n": smelly_count,
+        }
+    )
+    for smell in smell_types:
+        smell_n = int(group_df.get("smells", pd.Series(dtype=str)).map(lambda value: smell in split_smells(value)).sum())
         rows.append(
             {
                 "strategy": strategy,
                 "tool": tool,
                 "smell_detector": smell_detector,
                 "change": revision_type,
-                "revision_group": revision_group,
+                "rg_group": revision_group,
+                "loc_group": loc_group,
                 "methods": methods,
-                "smell": ALL_SMELLS,
-                "percent": percentage(smelly_count, smell_total),
+                "smell": smell,
+                "percent": percentage(smell_n, smell_total),
                 "smell_total": smell_total,
-                "smell_n": smelly_count,
+                "smell_n": smell_n,
             }
         )
-        for smell in smell_types:
-            smell_n = int(group_df.get("smells", pd.Series(dtype=str)).map(lambda value: smell in split_smells(value)).sum())
-            rows.append(
-                {
-                    "strategy": strategy,
-                    "tool": tool,
-                    "smell_detector": smell_detector,
-                    "change": revision_type,
-                    "revision_group": revision_group,
-                    "methods": methods,
-                    "smell": smell,
-                    "percent": percentage(smell_n, smell_total),
-                    "smell_total": smell_total,
-                    "smell_n": smell_n,
-                }
-            )
     return rows
+
+
+def loc_group_frame(smell_frames: list[pd.DataFrame]) -> pd.DataFrame:
+    loc_by_url: dict[str, int] = {}
+    for smell_df in smell_frames:
+        if not {"url", "loc"}.issubset(smell_df.columns):
+            continue
+        for row in smell_df[["url", "loc"]].itertuples(index=False):
+            url = str(row.url or "")
+            if not url or url in loc_by_url:
+                continue
+            loc = valid_loc(row.loc)
+            if loc is None:
+                continue
+            loc_by_url[url] = loc
+
+    frame = pd.DataFrame(
+        [{"from_url": url, "loc": loc} for url, loc in loc_by_url.items()],
+        columns=["from_url", "loc"],
+    )
+    if frame.empty:
+        return pd.DataFrame(columns=["from_url", "loc_group"])
+    thresholds = percentile_thresholds(frame["loc"])
+    frame["loc_group"] = frame["loc"].map(lambda loc: loc_group(int(loc), thresholds))
+    return frame[["from_url", "loc_group"]]
+
+
+def load_smell_frames(
+    experiment_directory: Path,
+    smell_detector: str,
+    strategy: str,
+    selected_projects: list[str] | None,
+) -> list[pd.DataFrame]:
+    input_dir = experiment_directory / "test-smell" / smell_detector / strategy
+    csv_files = list_csv_files(input_dir, selected_projects, strict=False)
+    frames = []
+    for csv_file in csv_files:
+        frame = pd.read_csv(csv_file, keep_default_na=False, na_filter=False)
+        if not {"url", "loc"}.issubset(frame.columns):
+            warnings.warn(f"Skipping {csv_file}: missing required column(s): url, loc.")
+            continue
+        frames.append(frame)
+    return frames
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -268,6 +378,9 @@ def main(argv: list[str] | None = None) -> None:
             )
             if frame.empty:
                 continue
+            loc_groups = loc_group_frame(
+                load_smell_frames(experiment_directory, smell_detector, strategy, selected_projects)
+            )
             for revision_type in revision_types:
                 rows.extend(
                     prevalence_rows(
@@ -276,15 +389,18 @@ def main(argv: list[str] | None = None) -> None:
                         tool=tool,
                         smell_detector=smell_detector,
                         revision_type=revision_type,
+                        loc_groups=loc_groups,
                     )
                 )
 
     os.makedirs(output_file.parent, exist_ok=True)
     output_df = pd.DataFrame(rows, columns=PREVALENCE_COLUMNS)
     if not output_df.empty:
+        output_df["_rg_group_order"] = output_df["rg_group"].map(rg_group_order)
+        output_df["_loc_group_order"] = output_df["loc_group"].map(loc_group_order)
         output_df = output_df.sort_values(
-            ["strategy", "tool", "smell_detector", "change", "revision_group", "smell"]
-        ).reset_index(drop=True)
+            ["strategy", "tool", "smell_detector", "change", "_rg_group_order", "_loc_group_order", "smell"]
+        ).drop(columns=["_rg_group_order", "_loc_group_order"]).reset_index(drop=True)
     output_df.to_csv(output_file, index=False)
     if output_df.empty:
         stats.record_empty_output()

@@ -16,6 +16,18 @@ from ptc.generator.t2p_test_smell_prevalence import ALL_SMELLS
 from ptc.plot.method_history_runtime_table import resolve_path
 from ptc.plot_util import build_experiment_plot_parser
 
+NUMERIC_COLUMNS = [
+    "baseline_percent",
+    "focal_percent",
+    "difference_pp",
+    "odds_ratio",
+    "odds_ratio_ci_low",
+    "odds_ratio_ci_high",
+    "fisher_p_adjusted",
+    "mh_odds_ratio",
+    "mh_p_adjusted",
+]
+
 
 def build_parser():
     parser = build_experiment_plot_parser(
@@ -35,23 +47,45 @@ def escape_latex(value: object) -> str:
     return text.replace("\\", r"\textbackslash{}").replace("&", r"\&").replace("%", r"\%").replace("_", r"\_")
 
 
+def numeric_table_frame(frame: pd.DataFrame) -> pd.DataFrame:
+    output = frame.copy()
+    for column in NUMERIC_COLUMNS:
+        if column in output.columns:
+            output[column] = pd.to_numeric(output[column], errors="coerce")
+    return output
+
+
+def format_number(value: object, spec: str, *, missing: str = "--") -> str:
+    number = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(number):
+        return missing
+    return format(float(number), spec)
+
+
 def format_p(value: object) -> str:
-    number = float(value)
+    number = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
+    if pd.isna(number):
+        return ""
     return r"$<.001$" if number < 0.001 else f"{number:.3f}"
 
 
 def render_latex_table(frame: pd.DataFrame, smell_names: dict[str, str]) -> str:
+    frame = numeric_table_frame(frame)
     individual = frame[frame["smell"] != ALL_SMELLS].sort_values("difference_pp", ascending=False)
     rows = []
     for _, row in individual.iterrows():
         smell = escape_latex(smell_names.get(row["smell"], row["smell"]))
         if str(row["significant"]) == "x":
             smell = rf"\textbf{{{smell}}}"
+        odds_ratio = format_number(row["odds_ratio"], ".2f")
+        odds_ratio_low = format_number(row["odds_ratio_ci_low"], ".2f")
+        odds_ratio_high = format_number(row["odds_ratio_ci_high"], ".2f")
         rows.append(
-            f"{smell} & {row['baseline_percent']:.1f} & {row['focal_percent']:.1f} & "
-            f"{row['difference_pp']:+.1f} & {row['odds_ratio']:.2f} "
-            f"[{row['odds_ratio_ci_low']:.2f}, {row['odds_ratio_ci_high']:.2f}] & "
-            f"{format_p(row['fisher_p_adjusted'])} & {row['mh_odds_ratio']:.2f} & "
+            f"{smell} & {format_number(row['baseline_percent'], '.1f')} & "
+            f"{format_number(row['focal_percent'], '.1f')} & "
+            f"{format_number(row['difference_pp'], '+.1f')} & {odds_ratio} "
+            f"[{odds_ratio_low}, {odds_ratio_high}] & "
+            f"{format_p(row['fisher_p_adjusted'])} & {format_number(row['mh_odds_ratio'], '.2f')} & "
             f"{format_p(row['mh_p_adjusted'])} \\\\"
         )
     summary = frame[frame["smell"] == ALL_SMELLS]
@@ -59,8 +93,9 @@ def render_latex_table(frame: pd.DataFrame, smell_names: dict[str, str]) -> str:
     if not summary.empty:
         row = summary.iloc[0]
         summary_text = (
-            f"Any test smell was present in {row['baseline_percent']:.1f}\\% of RP methods and "
-            f"{row['focal_percent']:.1f}\\% of RRT methods ({row['difference_pp']:+.1f} percentage points)."
+            f"Any test smell was present in {format_number(row['baseline_percent'], '.1f')}\\% of RP methods and "
+            f"{format_number(row['focal_percent'], '.1f')}\\% of RRT methods "
+            f"({format_number(row['difference_pp'], '+.1f')} percentage points)."
         )
     body = "\n".join(rows)
     return rf"""\begin{{table*}}[t]
@@ -108,6 +143,8 @@ def main(argv: list[str] | None = None) -> None:
     smell_detector = resolve_smell_detector(args.smell_detector)
     frame = pd.read_csv(input_file, keep_default_na=False, na_filter=False)
     frame = frame[(frame["smell_detector"] == smell_detector) & (frame["change"] == args.change)]
+    if "loc_group" in frame.columns:
+        frame = frame[frame["loc_group"] == "ALL"]
     if selected_tools is not None:
         frame = frame[frame["tool"].isin(selected_tools)]
     if selected_strategies is not None:

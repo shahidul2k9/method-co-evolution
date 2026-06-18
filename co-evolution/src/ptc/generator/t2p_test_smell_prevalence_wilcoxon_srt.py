@@ -17,16 +17,25 @@ from mhc.command_util import (
     select_revision_columns,
 )
 from ptc.generator.artifact_revision_mww import SIZE_MARKER_COLUMNS
+from ptc.generator.run_stats import GenerationStats, record_written_csv, should_generate
 from ptc.generator.t2p_test_smell_prevalence import ALL_SMELLS, OUTPUT_FILE_NAME
-from ptc.generator.t2p_test_smell_revision import CHANGE_COLUMNS, REVISION_GROUP_ORDER
+from ptc.generator.t2p_test_smell_revision import (
+    CHANGE_COLUMNS,
+    REVISION_GROUP_1,
+    REVISION_GROUP_3,
+    REVISION_GROUP_ORDER,
+    normalize_revision_group,
+)
 
 OUTPUT_FILE = "t2p-test-smell-prevalence-wilcoxon-srt.csv"
+DEFAULT_REVISION_GROUPS = [REVISION_GROUP_1, REVISION_GROUP_3]
 STAT_COLUMNS = [
     "groups",
     "strategy",
     "tool",
     "smell_detector",
     "change",
+    "loc_group",
     "size",
     "g1_size",
     "g2_size",
@@ -48,6 +57,7 @@ def build_parser():
         include_revision_types=True,
         include_smell_detector=True,
         include_projects=False,
+        include_replace=True,
         projects_help=None,
         strategies_help="Comma-separated strategy names to include. Defaults to ME_STRATEGIES.",
         revision_types_help="Comma-separated revision types to include. Defaults to ME_REVISION_TYPES.",
@@ -56,7 +66,7 @@ def build_parser():
         "--revision-groups",
         dest="revision_groups",
         type=str,
-        default=",".join(REVISION_GROUP_ORDER[:2]),
+        default=",".join(DEFAULT_REVISION_GROUPS),
         help="Exactly two comma-separated revision groups to compare. Order is preserved.",
     )
     return parser
@@ -65,7 +75,8 @@ def build_parser():
 def selected_two_revision_groups(value: str | list[str] | None) -> list[str]:
     selected = parse_name_list(value)
     if selected is None:
-        selected = list(REVISION_GROUP_ORDER[:2])
+        selected = list(DEFAULT_REVISION_GROUPS)
+    selected = [normalize_revision_group(group) for group in selected]
     known_groups = set(REVISION_GROUP_ORDER)
     unknown = [group for group in selected if group not in known_groups]
     if unknown:
@@ -76,8 +87,9 @@ def selected_two_revision_groups(value: str | list[str] | None) -> list[str]:
 
 
 def paired_smell_values(pair_df: pd.DataFrame, group1: str, group2: str) -> pd.DataFrame:
-    g1_df = pair_df[pair_df["revision_group"] == group1][["smell", "smell_n"]].copy()
-    g2_df = pair_df[pair_df["revision_group"] == group2][["smell", "smell_n"]].copy()
+    group_column = "rg_group" if "rg_group" in pair_df.columns else ("group" if "group" in pair_df.columns else "revision_group")
+    g1_df = pair_df[pair_df[group_column] == group1][["smell", "smell_n"]].copy()
+    g2_df = pair_df[pair_df[group_column] == group2][["smell", "smell_n"]].copy()
     g1_df["g1_smell_n"] = pd.to_numeric(g1_df["smell_n"], errors="coerce")
     g2_df["g2_smell_n"] = pd.to_numeric(g2_df["smell_n"], errors="coerce")
     paired_df = g1_df[["smell", "g1_smell_n"]].merge(
@@ -110,12 +122,14 @@ def build_stat_row(
     tool: str,
     smell_detector: str,
     change: str,
+    loc_group: str = "ALL",
 ) -> dict | None:
     pair_df = prevalence_df[
         (prevalence_df["strategy"] == strategy)
         & (prevalence_df["tool"] == tool)
         & (prevalence_df["smell_detector"] == smell_detector)
         & (prevalence_df["change"] == change)
+        & (prevalence_df["loc_group"] == loc_group)
         & (prevalence_df["smell"] != ALL_SMELLS)
     ].copy()
     paired_df = paired_smell_values(pair_df, group1, group2)
@@ -138,6 +152,7 @@ def build_stat_row(
         "tool": tool,
         "smell_detector": smell_detector,
         "change": change,
+        "loc_group": loc_group,
         "size": len(paired_df),
         "g1_size": len(paired_df),
         "g2_size": len(paired_df),
@@ -152,13 +167,20 @@ def build_stat_row(
 
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    stats = GenerationStats("t2p_test_smell_prevalence_wilcoxon_srt")
     experiment_directory = resolve_experiment_paths(
         getattr(args, "workspace_directory", None),
         args.experiment_name,
     ).experiment_directory
     input_file = experiment_directory / "aggregate" / OUTPUT_FILE_NAME
+    output_file = experiment_directory / "aggregate" / OUTPUT_FILE
     if not input_file.exists():
         warnings.warn(f"File not found, skipping: {input_file}")
+        stats.skipped_missing_input += 1
+        stats.print_summary()
+        return
+    if not should_generate(output_file, replace=args.replace, label=OUTPUT_FILE, stats=stats):
+        stats.print_summary()
         return
 
     selected_tools, _, selected_strategies = resolve_experiment_filters(
@@ -179,9 +201,14 @@ def main(argv: list[str] | None = None) -> None:
         rows = []
     else:
         rows = []
+        group_column = "rg_group" if "rg_group" in prevalence_df.columns else (
+            "group" if "group" in prevalence_df.columns else "revision_group"
+        )
+        if "loc_group" not in prevalence_df.columns:
+            prevalence_df["loc_group"] = "ALL"
         frame = prevalence_df[
             (prevalence_df["smell_detector"] == smell_detector)
-            & (prevalence_df["revision_group"].isin([group1, group2]))
+            & (prevalence_df[group_column].isin([group1, group2]))
         ].copy()
         if selected_tools is not None:
             frame = frame[frame["tool"].isin(selected_tools)]
@@ -190,7 +217,7 @@ def main(argv: list[str] | None = None) -> None:
         if selected_changes:
             frame = frame[frame["change"].isin(selected_changes)]
 
-        grouping = frame[["strategy", "tool", "smell_detector", "change"]].drop_duplicates()
+        grouping = frame[["strategy", "tool", "smell_detector", "change", "loc_group"]].drop_duplicates()
         for row in grouping.itertuples(index=False):
             stat_row = build_stat_row(
                 frame,
@@ -200,17 +227,19 @@ def main(argv: list[str] | None = None) -> None:
                 tool=row.tool,
                 smell_detector=row.smell_detector,
                 change=row.change,
+                loc_group=row.loc_group,
             )
             if stat_row is not None:
                 rows.append(stat_row)
 
-    output_file = experiment_directory / "aggregate" / OUTPUT_FILE
     os.makedirs(output_file.parent, exist_ok=True)
     output_df = pd.DataFrame(rows, columns=STAT_COLUMNS)
     if not output_df.empty:
-        output_df = output_df.sort_values(["strategy", "tool", "smell_detector", "change"]).reset_index(drop=True)
+        output_df = output_df.sort_values(["strategy", "tool", "smell_detector", "change", "loc_group"]).reset_index(drop=True)
     output_df.to_csv(output_file, index=False)
+    record_written_csv(output_file, stats, rows=len(output_df))
     print(f"Wrote {output_file}")
+    stats.print_summary()
 
 
 if __name__ == "__main__":

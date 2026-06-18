@@ -19,16 +19,21 @@ from mhc.command_util import (
     select_named_items,
 )
 from ptc.generator.t2p_test_smell_prevalence import (
+    ALL_LOC_GROUP,
     ALL_SMELLS,
     load_generated_frames,
+    load_smell_frames,
+    loc_group_frame,
     smell_type_order,
     split_smells,
     unique_method_frame,
 )
+from ptc.generator.t2p_test_smell_loc_group import SIZE_GROUPS
 from ptc.generator.t2p_test_smell_revision import (
     OUTPUT_DIRECTORY_NAME,
     REVISION_GROUP_1,
     REVISION_GROUP_3,
+    normalize_revision_group,
 )
 
 OUTPUT_FILE_NAME = "t2p-test-smell-association.csv"
@@ -39,6 +44,7 @@ OUTPUT_COLUMNS = [
     "tool",
     "smell_detector",
     "change",
+    "loc_group",
     "baseline_group",
     "focal_group",
     "smell",
@@ -63,6 +69,10 @@ OUTPUT_COLUMNS = [
     "mh_significant",
     "sensitivity_agrees",
 ]
+
+
+def output_revision_group(group: str) -> str:
+    return normalize_revision_group(group)
 
 
 def build_parser():
@@ -184,9 +194,56 @@ def association_rows(
     change: str = DEFAULT_CHANGE,
     baseline_group: str = REVISION_GROUP_1,
     focal_group: str = REVISION_GROUP_3,
+    loc_groups: pd.DataFrame | None = None,
 ) -> list[dict]:
     group_column = f"rg_{change}"
     unique = unique_method_frame(frame, change, [baseline_group, focal_group])
+    if unique.empty or group_column not in unique.columns:
+        return []
+    if loc_groups is not None and not loc_groups.empty:
+        unique = unique.merge(loc_groups[["from_url", "loc_group"]], on="from_url", how="left")
+    elif "loc_group" not in unique.columns:
+        unique["loc_group"] = ""
+
+    rows = _association_rows_for_frame(
+        unique,
+        strategy=strategy,
+        tool=tool,
+        smell_detector=smell_detector,
+        change=change,
+        loc_group=ALL_LOC_GROUP,
+        baseline_group=baseline_group,
+        focal_group=focal_group,
+    )
+    for loc_group_value in SIZE_GROUPS:
+        loc_df = unique[unique["loc_group"] == loc_group_value].copy()
+        rows.extend(
+            _association_rows_for_frame(
+                loc_df,
+                strategy=strategy,
+                tool=tool,
+                smell_detector=smell_detector,
+                change=change,
+                loc_group=loc_group_value,
+                baseline_group=baseline_group,
+                focal_group=focal_group,
+            )
+        )
+    return rows
+
+
+def _association_rows_for_frame(
+    unique: pd.DataFrame,
+    *,
+    strategy: str,
+    tool: str,
+    smell_detector: str,
+    change: str,
+    loc_group: str,
+    baseline_group: str,
+    focal_group: str,
+) -> list[dict]:
+    group_column = f"rg_{change}"
     if unique.empty or group_column not in unique.columns:
         return []
     baseline = unique[unique[group_column] == baseline_group]
@@ -221,8 +278,9 @@ def association_rows(
                 "tool": tool,
                 "smell_detector": smell_detector,
                 "change": change,
-                "baseline_group": baseline_group,
-                "focal_group": focal_group,
+                "loc_group": loc_group,
+                "baseline_group": output_revision_group(baseline_group),
+                "focal_group": output_revision_group(focal_group),
                 "smell": smell,
                 "baseline_n": len(baseline),
                 "baseline_smell_n": baseline_smell_n,
@@ -294,6 +352,9 @@ def main(argv: list[str] | None = None) -> None:
             item_label="tool",
         )
         for tool in tools:
+            loc_groups = loc_group_frame(
+                load_smell_frames(experiment_directory, smell_detector, strategy, selected_projects)
+            )
             frame = load_generated_frames(
                 experiment_directory,
                 tool,
@@ -310,6 +371,7 @@ def main(argv: list[str] | None = None) -> None:
                         tool=tool,
                         smell_detector=smell_detector,
                         change=args.change,
+                        loc_groups=loc_groups,
                     )
                 )
 
@@ -318,8 +380,8 @@ def main(argv: list[str] | None = None) -> None:
     output_df = pd.DataFrame(rows, columns=OUTPUT_COLUMNS)
     if not output_df.empty:
         output_df = output_df.sort_values(
-            ["strategy", "tool", "smell_detector", "change", "difference_pp"],
-            ascending=[True, True, True, True, False],
+            ["strategy", "tool", "smell_detector", "change", "loc_group", "difference_pp"],
+            ascending=[True, True, True, True, True, False],
         )
     output_df.to_csv(output_file, index=False)
     print(f"Wrote {output_file}")

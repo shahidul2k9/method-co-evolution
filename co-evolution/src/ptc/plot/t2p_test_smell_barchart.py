@@ -22,7 +22,12 @@ from mhc.command_util import (
 )
 from ptc.generator.t2p_test_smell_association import OUTPUT_FILE_NAME as ASSOCIATION_OUTPUT_FILE_NAME
 from ptc.generator.t2p_test_smell_prevalence import ALL_SMELLS, OUTPUT_FILE_NAME
-from ptc.generator.t2p_test_smell_revision import CHANGE_COLUMNS, REVISION_GROUP_LABELS, REVISION_GROUP_ORDER
+from ptc.generator.t2p_test_smell_revision import (
+    CHANGE_COLUMNS,
+    REVISION_GROUP_LABELS,
+    REVISION_GROUP_ORDER,
+    normalize_revision_group,
+)
 from ptc.plot.method_history_runtime_table import resolve_path
 from ptc.plot.t2p_test_smell_boxplot import GROUP_STYLE_COLORS
 from ptc.plot_util import build_experiment_plot_parser
@@ -48,7 +53,7 @@ def build_parser():
 
 
 def selected_revision_groups(value: str | list[str] | None) -> list[str]:
-    selected = parse_name_list(value) or list(REVISION_GROUP_ORDER)
+    selected = [normalize_revision_group(group) for group in (parse_name_list(value) or list(REVISION_GROUP_ORDER))]
     known_groups = set(REVISION_GROUP_ORDER)
     unknown = [group for group in selected if group not in known_groups]
     if unknown:
@@ -90,8 +95,11 @@ def plot_prevalence_axis(
         (index - (len(revision_groups) - 1) / 2) * width
         for index in range(len(revision_groups))
     ]
+    group_column = "rg_group" if "rg_group" in prevalence_df.columns else (
+        "group" if "group" in prevalence_df.columns else "revision_group"
+    )
     for index, group in enumerate(revision_groups):
-        group_df = prevalence_df[prevalence_df["revision_group"] == group].set_index("smell")
+        group_df = prevalence_df[prevalence_df[group_column] == group].set_index("smell")
         values = [float(group_df["percent"].get(smell, 0.0)) for smell in smells]
         positions = [value + offsets[index] for value in x]
         bars = ax.bar(
@@ -134,13 +142,18 @@ def plot_prevalence(
     smell_names: dict[str, str],
     output_file: Path,
 ) -> None:
+    group_column = "rg_group" if "rg_group" in prevalence_df.columns else (
+        "group" if "group" in prevalence_df.columns else "revision_group"
+    )
     plot_df = prevalence_df[
         (prevalence_df["strategy"] == strategy)
         & (prevalence_df["tool"] == tool)
         & (prevalence_df["smell_detector"] == smell_detector)
         & (prevalence_df["change"] == change)
-        & (prevalence_df["revision_group"].isin(revision_groups))
+        & (prevalence_df[group_column].isin(revision_groups))
     ].copy()
+    if "loc_group" in plot_df.columns:
+        plot_df = plot_df[plot_df["loc_group"] == "ALL"].copy()
     if plot_df.empty:
         warnings.warn(
             f"Skipping prevalence plot for strategy={strategy}, tool={tool}, "
@@ -282,6 +295,8 @@ def main(argv: list[str] | None = None) -> None:
         return
 
     frame = association_df[association_df["smell_detector"] == smell_detector].copy()
+    if "loc_group" in frame.columns:
+        frame = frame[frame["loc_group"] == "ALL"].copy()
     if selected_tools is not None:
         frame = frame[frame["tool"].isin(selected_tools)]
     if selected_strategies is not None:
