@@ -27,9 +27,9 @@ from ptc.generator.artifact_revision_mww import (
 
 @unittest.skipIf(pd is None, "pandas is required for generate_revision_mwu tests")
 class TestGenerateRevisionMwu(unittest.TestCase):
-    def test_classifies_only_test_case_methods_as_test_methods(self):
-        self.assertEqual("test-case-method", classify_method_kind("#test-code #test-case-method"))
-        self.assertIsNone(classify_method_kind("#test-code"))
+    def test_classifies_test_code_as_test_methods(self):
+        self.assertEqual("test-code", classify_method_kind("#test-code #test-case-method"))
+        self.assertEqual("test-code", classify_method_kind("#test-code"))
         self.assertEqual("main-code", classify_method_kind("#main-code"))
 
     def test_subsequent_revision_series_excludes_introduction(self):
@@ -42,8 +42,8 @@ class TestGenerateRevisionMwu(unittest.TestCase):
             [
                 {"method_kind": "main-code", "ch_diff": 1},
                 {"method_kind": "main-code", "ch_diff": 2},
-                {"method_kind": "test-case-method", "ch_diff": 0},
-                {"method_kind": "test-case-method", "ch_diff": 2},
+                {"method_kind": "test-code", "ch_diff": 0},
+                {"method_kind": "test-code", "ch_diff": 2},
             ]
         )
 
@@ -83,9 +83,9 @@ class TestGenerateRevisionMwu(unittest.TestCase):
 
             diff_row = output_df[(output_df["project"] == "demo") & (output_df["change"] == "diff")].iloc[0]
             self.assertEqual("historyFinder", diff_row["tool"])
-            self.assertEqual(MIN_REVISION_METHODS_FOR_MWU, diff_row["size"])
+            self.assertEqual(MIN_REVISION_METHODS_FOR_MWU + 1, diff_row["size"])
             self.assertEqual(MIN_REVISION_METHODS_FOR_MWU // 2, diff_row["main_size"])
-            self.assertEqual(MIN_REVISION_METHODS_FOR_MWU // 2, diff_row["test_size"])
+            self.assertEqual((MIN_REVISION_METHODS_FOR_MWU // 2) + 1, diff_row["test_size"])
             self.assertIn(diff_row["effect_size"], {"negligible", "small", "medium", "large"})
             marked_columns = [column for column in ["N", "S", "M", "L"] if diff_row[column] == "x"]
             self.assertEqual(1, len(marked_columns))

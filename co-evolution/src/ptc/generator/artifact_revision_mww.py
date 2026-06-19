@@ -4,7 +4,7 @@ import warnings
 import pandas as pd
 
 import mhc.util as util
-from mhc.artifacts import is_main_code, is_test_case_method
+from mhc.artifacts import is_main_code, is_test_code
 from ptc.constants import ALL_REPOSITORY, MethodChangeType
 from mhc.command_util import (
     build_experiment_parser,
@@ -18,7 +18,7 @@ from mhc.command_util import (
 from ptc.plot_util import man_utest
 from ptc.util.helper import filter_concrete_methods
 
-METHOD_KINDS = ["test-case-method", "main-code"]
+METHOD_KINDS = ["test-code", "main-code"]
 MIN_REVISION_METHODS_FOR_MWU = 30
 CHANGE_COLUMNS = [
     "ch_all",
@@ -52,8 +52,8 @@ STAT_COLUMNS = [
 
 
 def classify_method_kind(artifact: str | None) -> str | None:
-    if is_test_case_method(artifact):
-        return "test-case-method"
+    if is_test_code(artifact):
+        return "test-code"
     if is_main_code(artifact):
         return "main-code"
     return None
@@ -81,7 +81,7 @@ def build_stat_row(project: str, tool: str, change: str, project_df: pd.DataFram
         errors="coerce",
     ).dropna()
     test_change = pd.to_numeric(
-        project_df[project_df["method_kind"] == "test-case-method"][change],
+        project_df[project_df["method_kind"] == "test-code"][change],
         errors="coerce",
     ).dropna()
     if main_change.empty or test_change.empty:

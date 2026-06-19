@@ -9,7 +9,7 @@ from matplotlib.lines import Line2D
 import pandas as pd
 
 import mhc.util as util
-from mhc.artifacts import is_main_code, is_test_case_method
+from mhc.artifacts import is_main_code, is_test_code
 from ptc.constants import ALL_REPOSITORY, MethodChangeType
 from ptc.plot_util import (
     GRAPH_STYLES,
@@ -25,13 +25,13 @@ from ptc.plot_util import (
 )
 from ptc.util.helper import filter_concrete_methods
 
-METHOD_KINDS = ["test-case-method", "main-code"]
+METHOD_KINDS = ["test-code", "main-code"]
 METHOD_KIND_LABELS = {
-    "test-case-method": "Test Method",
+    "test-code": "Test Method",
     "main-code": "Production Method",
 }
 METHOD_KIND_COLORS = {
-    "test-case-method": "tab:blue",
+    "test-code": "tab:blue",
     "main-code": "tab:orange",
 }
 PAPER_REVISION_CLIP_MAX = 10
@@ -47,8 +47,8 @@ CHANGE_COLUMNS = [
 
 
 def classify_method_kind(artifact: str | None) -> str | None:
-    if is_test_case_method(artifact):
-        return "test-case-method"
+    if is_test_code(artifact):
+        return "test-code"
     if is_main_code(artifact):
         return "main-code"
     return None
@@ -79,7 +79,7 @@ def format_count(value: int) -> str:
 
 def build_project_stats(project_df: pd.DataFrame) -> dict[str, int]:
     total = len(project_df)
-    test_count = int((project_df["method_kind"] == "test-case-method").sum())
+    test_count = int((project_df["method_kind"] == "test-code").sum())
     production_count = int((project_df["method_kind"] == "main-code").sum())
     return {
         "total": total,
@@ -296,7 +296,7 @@ def main(argv: list[str] | None = None) -> None:
         df["method_kind"] = df["artifact"].map(classify_method_kind)
         df = df[df["method_kind"].isin(METHOD_KINDS)]
         if df.empty:
-            print(f"No test-case-method or main-code method-history data available to plot for {tool}.")
+            print(f"No test-code or main-code method-history data available to plot for {tool}.")
             continue
 
         change_cols = order_change_columns(

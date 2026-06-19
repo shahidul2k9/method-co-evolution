@@ -44,11 +44,11 @@ class TestArtifactRevisionCdf(unittest.TestCase):
             concrete_df = filter_concrete_methods(df)
         concrete_df["method_kind"] = concrete_df["artifact"].map(classify_method_kind)
 
-        method_df = concrete_df[concrete_df["method_kind"].isin(["test-case-method", "main-code"])]
+        method_df = concrete_df[concrete_df["method_kind"].isin(["test-code", "main-code"])]
 
-        self.assertEqual(["concrete-main", "concrete-test"], method_df["name"].tolist())
-        self.assertEqual({"total": 2, "test": 1, "production": 1}, build_project_stats(method_df))
-        self.assertEqual([2, 3], method_df["ch_diff"].tolist())
+        self.assertEqual(["concrete-main", "concrete-test", "concrete-helper"], method_df["name"].tolist())
+        self.assertEqual({"total": 3, "test": 2, "production": 1}, build_project_stats(method_df))
+        self.assertEqual([2, 3, 4], method_df["ch_diff"].tolist())
         self.assertEqual(
             ["project=<unknown>: 1 invalid abstract values out of 6 methods."],
             [str(warning.message) for warning in caught_warnings],
@@ -138,9 +138,9 @@ class TestArtifactRevisionCdf(unittest.TestCase):
                 {"method_kind": "main-code", "ch_diff": 0},
                 {"method_kind": "main-code", "ch_diff": 1},
                 {"method_kind": "main-code", "ch_diff": 11},
-                {"method_kind": "test-case-method", "ch_diff": 1},
-                {"method_kind": "test-case-method", "ch_diff": 2},
-                {"method_kind": "test-case-method", "ch_diff": 11},
+                {"method_kind": "test-code", "ch_diff": 1},
+                {"method_kind": "test-code", "ch_diff": 2},
+                {"method_kind": "test-code", "ch_diff": 11},
             ]
         )
         fig, ax = plt.subplots()
@@ -170,8 +170,8 @@ class TestArtifactRevisionCdf(unittest.TestCase):
             [
                 {"method_kind": "main-code", "ch_diff": 1},
                 {"method_kind": "main-code", "ch_diff": 12},
-                {"method_kind": "test-case-method", "ch_diff": 2},
-                {"method_kind": "test-case-method", "ch_diff": 11},
+                {"method_kind": "test-code", "ch_diff": 2},
+                {"method_kind": "test-code", "ch_diff": 11},
             ]
         )
         fig, ax = plt.subplots()
