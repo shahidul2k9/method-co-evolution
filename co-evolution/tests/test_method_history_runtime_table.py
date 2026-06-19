@@ -65,6 +65,11 @@ class TestMethodHistoryRuntimeTable(unittest.TestCase):
 
         latex = render_latex_table(stats_df)
 
+        self.assertTrue(latex.startswith(r"\begin{tabular}{lrrr}"))
+        self.assertNotIn(r"\begin{table}", latex)
+        self.assertNotIn(r"\centering", latex)
+        self.assertNotIn(r"\caption", latex)
+        self.assertNotIn(r"\label", latex)
         self.assertIn(r"HistoryFinder & \textbf{1.00} & 2.00 & 4.00 \\", latex)
         self.assertIn(r"CodeShovel & 2.00 & \textbf{1.00} & \textbf{3.00} \\", latex)
 
@@ -111,7 +116,7 @@ class TestMethodHistoryRuntimeTable(unittest.TestCase):
             output_text = output_file.read_text(encoding="utf-8")
             self.assertIn("GitFuncName", output_text)
             self.assertNotIn("IntelliJ &", output_text)
-            self.assertIn("generated manually", output_text)
+            self.assertNotIn(r"\caption", output_text)
 
     def test_main_writes_table_to_explicit_output_directory(self):
         with tempfile.TemporaryDirectory() as tmpdir:

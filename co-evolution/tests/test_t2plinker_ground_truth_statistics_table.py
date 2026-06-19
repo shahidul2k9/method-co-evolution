@@ -77,7 +77,12 @@ class TestT2PLinkerGroundTruthStatisticsTable(unittest.TestCase):
             ]
         )
         latex = render_latex_table(table_df)
-        self.assertIn(r"\begin{table*}", latex)
+        self.assertTrue(latex.startswith(r"\begin{tabular}{lrrrrr}"))
+        self.assertNotIn(r"\begin{table}", latex)
+        self.assertNotIn(r"\begin{table*}", latex)
+        self.assertNotIn(r"\centering", latex)
+        self.assertNotIn(r"\caption", latex)
+        self.assertNotIn(r"\label", latex)
         self.assertIn(r"project\_a & 1,234 & 20 & 10 & 2.5 & 3 \\", latex)
         self.assertIn(r"\textbf{Total} & 3,234 & 50 & 30 & 3.0 & 7 \\", latex)
         self.assertEqual(2, latex.count(r"\midrule"))

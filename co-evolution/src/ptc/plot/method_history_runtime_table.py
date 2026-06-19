@@ -119,20 +119,13 @@ def render_latex_table(stats_df: pd.DataFrame) -> str:
         )
 
     body = "\n".join(rows)
-    return rf"""\begin{{table}}[t]
-\centering
-\caption{{Runtime statistics (in seconds) for method-history generation tools.
-Bold values indicate the lowest runtime in each column. IntelliJ is excluded
-because its method histories were generated manually.}}
-\label{{tab:method-history-runtime}}
-\begin{{tabular}}{{lrrr}}
+    return rf"""\begin{{tabular}}{{lrrr}}
 \toprule
 \textbf{{Tool}} & \textbf{{Mean}} & \textbf{{Median}} & \textbf{{Max}} \\
 \midrule
 {body}
 \bottomrule
 \end{{tabular}}
-\end{{table}}
 """
 
 

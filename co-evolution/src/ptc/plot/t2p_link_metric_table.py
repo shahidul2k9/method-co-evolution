@@ -155,12 +155,7 @@ def render_latex_table(table_df: pd.DataFrame) -> str:
         dataset_blocks.append("\n".join(rows))
 
     body = "\n\\midrule\n".join(dataset_blocks)
-    return rf"""\begin{{table*}}[t]
-\centering
-\caption{{Average test-to-production link prediction performance by dataset.
-Bold values indicate the best performance within each dataset.}}
-\label{{tab:t2p-link-metric}}
-\begin{{tabular}}{{llrrrrrrrr}}
+    return rf"""\begin{{tabular}}{{llrrrrrrrr}}
 \toprule
 \textbf{{Dataset}} & \textbf{{Strategy}} & \textbf{{TP}} & \textbf{{FP}} &
 \textbf{{FN}} & \textbf{{Precision}} & \textbf{{Recall}} & \textbf{{F1}} &
@@ -169,7 +164,6 @@ Bold values indicate the best performance within each dataset.}}
 {body}
 \bottomrule
 \end{{tabular}}
-\end{{table*}}
 """
 
 

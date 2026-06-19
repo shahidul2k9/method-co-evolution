@@ -170,12 +170,7 @@ def render_latex_table(table_df: pd.DataFrame) -> str:
         ]
     )
     body = "\n".join(rows)
-    return rf"""\begin{{table*}}[t]
-\centering
-\caption{{T2PLinker ground-truth dataset statistics. Method calls exclude
-non-candidates and implicit production methods.}}
-\label{{tab:t2plinker-ground-truth-statistics}}
-\begin{{tabular}}{{lrrrrr}}
+    return rf"""\begin{{tabular}}{{lrrrrr}}
 \toprule
 \textbf{{Project}} & \textbf{{Production Methods}} & \textbf{{Test Methods}} &
 \textbf{{Method Calls}} & \textbf{{Median Method Calls}} &
@@ -184,7 +179,6 @@ non-candidates and implicit production methods.}}
 {body}
 \bottomrule
 \end{{tabular}}
-\end{{table*}}
 """
 
 

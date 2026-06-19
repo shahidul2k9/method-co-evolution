@@ -98,12 +98,7 @@ def render_latex_table(frame: pd.DataFrame, smell_names: dict[str, str]) -> str:
             f"({format_number(row['difference_pp'], '+.1f')} percentage points)."
         )
     body = "\n".join(rows)
-    return rf"""\begin{{table*}}[t]
-\centering
-\caption{{Initial test smells associated with recurrent revision-proneness. Positive differences and odds ratios above one indicate greater prevalence among RRT methods. Bold smells are significant after Benjamini--Hochberg correction. MH reports the project-stratified Mantel--Haenszel sensitivity analysis.}}
-\label{{tab:rq4-test-smell-association}}
-\small
-\begin{{tabular}}{{lrrrrrrr}}
+    return rf"""\begin{{tabular}}{{lrrrrrrr}}
 \toprule
 \textbf{{Test smell}} & \textbf{{RP \%}} & \textbf{{RRT \%}} & \textbf{{$\Delta$ pp}} &
 \textbf{{OR [95\% CI]}} & \textbf{{$p_{{BH}}$}} & \textbf{{MH OR}} & \textbf{{MH $p_{{BH}}$}} \\
@@ -116,7 +111,6 @@ def render_latex_table(frame: pd.DataFrame, smell_names: dict[str, str]) -> str:
 \footnotesize RP methods changed fewer times than their linked production methods; RRT methods exceeded
 their linked production methods by at least ten revisions. Each unique test method appears in one group;
 methods classified into both groups are excluded. {summary_text}
-\end{{table*}}
 """
 
 

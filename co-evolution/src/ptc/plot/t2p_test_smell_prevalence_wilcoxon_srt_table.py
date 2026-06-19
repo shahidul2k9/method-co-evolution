@@ -88,19 +88,13 @@ def render_latex_table(frame: pd.DataFrame) -> str:
             f"{escape_latex(row['d_sign'])} & {escape_latex(row['effect_size'])} \\\\"
         )
     body = "\n".join(rows)
-    return rf"""\begin{{table}}[t]
-\centering
-\caption{{Wilcoxon signed-rank and Cliff's delta comparison of test-smell prevalence between RP and RRT methods, reported for all methods and within LOC strata. Positive Cliff's delta values indicate higher smell counts for RRT.}}
-\label{{tab:rq4-test-smell-wilcoxon-srt}}
-\small
-\begin{{tabular}}{{lrrll}}
+    return rf"""\begin{{tabular}}{{lrrll}}
 \toprule
 \textbf{{Group}} & \textbf{{$p$}} & \textbf{{Cliff's $\delta$}} & \textbf{{Sign}} & \textbf{{Effect}} \\
 \midrule
 {body}
 \bottomrule
 \end{{tabular}}
-\end{{table}}
 """
 
 

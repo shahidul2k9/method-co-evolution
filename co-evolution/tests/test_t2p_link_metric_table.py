@@ -65,6 +65,12 @@ class TestT2PLinkMetricTable(unittest.TestCase):
 
         latex = render_latex_table(table_df)
 
+        self.assertTrue(latex.startswith(r"\begin{tabular}{llrrrrrrrr}"))
+        self.assertNotIn(r"\begin{table}", latex)
+        self.assertNotIn(r"\begin{table*}", latex)
+        self.assertNotIn(r"\centering", latex)
+        self.assertNotIn(r"\caption", latex)
+        self.assertNotIn(r"\label", latex)
         self.assertIn(r"TCTracer ICSE~\cite{white_establishing_2020}", latex)
         self.assertIn(r"TCTracer ESE~\cite{white_tctracer_2022}", latex)
         self.assertIn(r"TestLinker TSE~\cite{sun_method-level_2024}", latex)
