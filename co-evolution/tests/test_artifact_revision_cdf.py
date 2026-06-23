@@ -23,17 +23,112 @@ from ptc.plot.artifact_revision_cdf import (
     plot_change_axis,
     subsequent_revision_series,
 )
-from ptc.util.helper import filter_concrete_methods
+import ptc.generator.artifact_revision as artifact_revision_generator
+from ptc.generator.filter_artifact import main as filter_artifact_main
+from ptc.util.helper import (
+    filter_revision_method_base_population,
+    filter_revision_method_population,
+    join_method_code,
+    load_method_code_df,
+)
 
 
 class TestArtifactRevisionCdf(unittest.TestCase):
+    def test_raw_artifact_revision_generator_does_not_load_method_code(self):
+        self.assertFalse(hasattr(artifact_revision_generator, "load_method_code_df"))
+        self.assertFalse(hasattr(artifact_revision_generator, "method_code_file"))
+
+    def test_method_code_loader_does_not_import_artifact_column(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = Path(tmpdir) / "experiment" / "demo"
+            code_file = experiment_dir / "method-code" / "projectA.csv"
+            code_file.parent.mkdir(parents=True)
+            pd.DataFrame(
+                [
+                    {
+                        "project": "projectA",
+                        "name": "getName",
+                        "url": "https://example.test/projectA/Foo.java#L1",
+                        "artifact": "#test-code #test-case-method",
+                        "start_line": 1,
+                        "end_line": 3,
+                        "code": "public String getName() {\n  return name;\n}",
+                    }
+                ]
+            ).to_csv(code_file, index=False)
+
+            method_code_df = load_method_code_df(experiment_dir, "projectA")
+
+            self.assertEqual(["url", "code"], method_code_df.columns.tolist())
+
+    def test_join_method_code_drops_missing_code_after_base_population_filter(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = Path(tmpdir) / "experiment" / "demo"
+            df = pd.DataFrame(
+                [
+                    {
+                        "project": "projectA",
+                        "name": "abstractMain",
+                        "url": "https://example.test/projectA/Foo.java#L1",
+                        "artifact": "#main-code",
+                        "abstract": 1,
+                        "ch_diff": 99,
+                    },
+                    {
+                        "project": "projectA",
+                        "name": "missingMain",
+                        "url": "https://example.test/projectA/Foo.java#L10",
+                        "artifact": "#main-code",
+                        "abstract": 0,
+                        "ch_diff": 4,
+                    },
+                    {
+                        "project": "projectA",
+                        "name": "validTest",
+                        "url": "https://example.test/projectA/FooTest.java#L1",
+                        "artifact": "#test-code #test-case-method",
+                        "abstract": 0,
+                        "ch_diff": 3,
+                    },
+                ]
+            )
+            code_file = experiment_dir / "method-code" / "projectA.csv"
+            code_file.parent.mkdir(parents=True)
+            pd.DataFrame(
+                [
+                    {
+                        "url": "https://example.test/projectA/Foo.java#L1",
+                        "code": "",
+                    },
+                    {
+                        "url": "https://example.test/projectA/Foo.java#L10",
+                        "code": "",
+                    },
+                    {
+                        "url": "https://example.test/projectA/FooTest.java#L1",
+                        "code": "public void validTest() { assertTrue(true); }",
+                    },
+                ]
+            ).to_csv(code_file, index=False)
+
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always")
+                base_df = filter_revision_method_base_population(df)
+                joined_df = join_method_code(base_df, experiment_dir)
+
+            self.assertEqual(["validTest"], joined_df["name"].tolist())
+            self.assertEqual(
+                ["Dropping 1 method-history rows with missing method code in project=projectA."],
+                [str(warning.message) for warning in caught_warnings],
+            )
+
     def test_abstract_methods_are_excluded_from_cdf_population_and_counts(self):
         df = pd.DataFrame(
             [
                 {"name": "concrete-main", "artifact": "#main-code", "abstract": 0, "ch_diff": 2},
                 {"name": "abstract-main", "artifact": "#main-code", "abstract": 1, "ch_diff": 99},
                 {"name": "concrete-test", "artifact": "#test-code #test-case-method", "abstract": 0, "ch_diff": 3},
-                {"name": "concrete-helper", "artifact": "#test-code", "abstract": 0, "ch_diff": 4},
+                {"name": "concrete-helper", "artifact": "#test-code #test-helper-method", "abstract": 0, "ch_diff": 4},
                 {"name": "abstract-test", "artifact": "#test-code #test-case-method", "abstract": 1, "ch_diff": 98},
                 {"name": "invalid-test", "artifact": "#test-code #test-case-method", "abstract": "", "ch_diff": 97},
             ]
@@ -41,35 +136,76 @@ class TestArtifactRevisionCdf(unittest.TestCase):
 
         with warnings.catch_warnings(record=True) as caught_warnings:
             warnings.simplefilter("always")
-            concrete_df = filter_concrete_methods(df)
-        concrete_df["method_kind"] = concrete_df["artifact"].map(classify_method_kind)
+            method_df = filter_revision_method_population(df)
 
-        method_df = concrete_df[concrete_df["method_kind"].isin(["test-code", "main-code"])]
-
-        self.assertEqual(["concrete-main", "concrete-test", "concrete-helper"], method_df["name"].tolist())
-        self.assertEqual({"total": 3, "test": 2, "production": 1}, build_project_stats(method_df))
-        self.assertEqual([2, 3, 4], method_df["ch_diff"].tolist())
+        self.assertEqual(["concrete-main", "concrete-test"], method_df["name"].tolist())
+        self.assertEqual({"total": 2, "test": 1, "production": 1}, build_project_stats(method_df))
+        self.assertEqual([2, 3], method_df["ch_diff"].tolist())
         self.assertEqual(
             ["project=<unknown>: 1 invalid abstract values out of 6 methods."],
             [str(warning.message) for warning in caught_warnings],
         )
 
-    def test_main_warns_and_generates_cdf_with_valid_rows_from_affected_project(self):
+    def test_filter_artifact_writes_filtered_rows_without_code_then_cdf_plots(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             experiment_dir = Path(tmpdir) / "experiment" / "demo"
+            self.write_project_file(experiment_dir, ["projectA"])
             history_file = experiment_dir / "method-history" / "historyFinder" / "projectA.csv"
             history_file.parent.mkdir(parents=True)
+            method_rows = [
+                {
+                    "project": "projectA",
+                    "name": "mainMethod",
+                    "url": "https://example.test/projectA/Foo.java#L1",
+                    "artifact": "#main-code",
+                    "abstract": 0,
+                    "ch_diff": 2,
+                },
+                {
+                    "project": "projectA",
+                    "name": "testMethod",
+                    "url": "https://example.test/projectA/FooTest.java#L1",
+                    "artifact": "#test-code #test-case-method",
+                    "abstract": 0,
+                    "ch_diff": 3,
+                },
+                {
+                    "project": "projectA",
+                    "name": "helper",
+                    "url": "https://example.test/projectA/FooTest.java#L8",
+                    "artifact": "#test-code #test-helper-method",
+                    "abstract": 0,
+                    "ch_diff": 4,
+                },
+                {
+                    "project": "projectA",
+                    "name": "invalid",
+                    "url": "https://example.test/projectA/Foo.java#L8",
+                    "artifact": "#main-code",
+                    "abstract": "",
+                    "ch_diff": 99,
+                },
+            ]
+            (experiment_dir / "method").mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(method_rows).to_csv(experiment_dir / "method" / "projectA.csv", index=False)
             pd.DataFrame(
                 [
-                    {"project": "projectA", "artifact": "#main-code", "abstract": 0, "ch_diff": 2},
-                    {"project": "projectA", "artifact": "#test-code #test-case-method", "abstract": 0, "ch_diff": 3},
-                    {"project": "projectA", "artifact": "#test-code", "abstract": 0, "ch_diff": 4},
-                    {"project": "projectA", "artifact": "#main-code", "abstract": "", "ch_diff": 99},
+                    {**row, "ch_all": row["ch_diff"]}
+                    for row in method_rows
                 ]
             ).to_csv(history_file, index=False)
+            self.write_method_code_for_rows(experiment_dir, "projectA", method_rows)
 
             with warnings.catch_warnings(record=True) as caught_warnings:
                 warnings.simplefilter("always")
+                filter_artifact_main(
+                    [
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo",
+                    ]
+                )
                 main(
                     [
                         "--workspace-directory",
@@ -81,6 +217,11 @@ class TestArtifactRevisionCdf(unittest.TestCase):
                     ]
                 )
 
+            filtered_file = experiment_dir / "method-artifact-filtered" / "projectA.csv"
+            filtered_df = pd.read_csv(filtered_file, keep_default_na=False, na_filter=False)
+            self.assertEqual(["mainMethod", "testMethod"], filtered_df["name"].tolist())
+            self.assertIn("method_kind", filtered_df.columns)
+            self.assertNotIn("code", filtered_df.columns)
             self.assertTrue(
                 (experiment_dir / "figure" / "artifact-revision-cdf--historyFinder.pdf").exists()
             )
@@ -99,7 +240,7 @@ class TestArtifactRevisionCdf(unittest.TestCase):
                 [
                     {"artifact": "#main-code", "abstract": 0, "ch_all": 20, "ch_diff": 12},
                     {"artifact": "#test-code #test-case-method", "abstract": 0, "ch_all": 4, "ch_diff": 2},
-                    {"artifact": "#test-code", "abstract": 0, "ch_all": 30, "ch_diff": 30},
+                    {"artifact": "#test-code #test-helper-method", "abstract": 0, "ch_all": 30, "ch_diff": 30},
                 ],
             )
             self.write_history_file(
@@ -138,9 +279,9 @@ class TestArtifactRevisionCdf(unittest.TestCase):
                 {"method_kind": "main-code", "ch_diff": 0},
                 {"method_kind": "main-code", "ch_diff": 1},
                 {"method_kind": "main-code", "ch_diff": 11},
-                {"method_kind": "test-code", "ch_diff": 1},
-                {"method_kind": "test-code", "ch_diff": 2},
-                {"method_kind": "test-code", "ch_diff": 11},
+                {"method_kind": "test-case-method", "ch_diff": 1},
+                {"method_kind": "test-case-method", "ch_diff": 2},
+                {"method_kind": "test-case-method", "ch_diff": 11},
             ]
         )
         fig, ax = plt.subplots()
@@ -170,8 +311,8 @@ class TestArtifactRevisionCdf(unittest.TestCase):
             [
                 {"method_kind": "main-code", "ch_diff": 1},
                 {"method_kind": "main-code", "ch_diff": 12},
-                {"method_kind": "test-code", "ch_diff": 2},
-                {"method_kind": "test-code", "ch_diff": 11},
+                {"method_kind": "test-case-method", "ch_diff": 2},
+                {"method_kind": "test-case-method", "ch_diff": 11},
             ]
         )
         fig, ax = plt.subplots()
@@ -194,6 +335,65 @@ class TestArtifactRevisionCdf(unittest.TestCase):
 
         self.assertEqual([0, 0, 1, 10], subsequent_revision_series(series).tolist())
 
+    def test_rq3_population_uses_test_case_methods_and_filters_trivial_production_only(self):
+        df = pd.DataFrame(
+            [
+                {
+                    "name": "getName",
+                    "artifact": "#main-code",
+                    "abstract": 0,
+                    "start_line": 1,
+                    "end_line": 3,
+                    "code": "public String getName() {\n  return name;\n}",
+                },
+                {
+                    "name": "setName",
+                    "artifact": "#main-code",
+                    "abstract": 0,
+                    "start_line": 4,
+                    "end_line": 6,
+                    "code": "public void setName(String name) {\n  this.name = name;\n}",
+                },
+                {
+                    "name": "isReady",
+                    "artifact": "#main-code",
+                    "abstract": 0,
+                    "start_line": 7,
+                    "end_line": 7,
+                    "code": "boolean isReady();",
+                },
+                {
+                    "name": "calculate",
+                    "artifact": "#main-code",
+                    "abstract": 0,
+                    "start_line": 8,
+                    "end_line": 14,
+                    "code": "public int calculate() {\n  int x = 1;\n  int y = 2;\n  int z = 3;\n  return x + y + z;\n}",
+                },
+                {
+                    "name": "testGetName",
+                    "artifact": "#test-code #test-case-method",
+                    "abstract": 0,
+                    "start_line": 15,
+                    "end_line": 17,
+                    "code": "public void testGetName() {\n  assertEquals(\"x\", name);\n}",
+                },
+                {
+                    "name": "helper",
+                    "artifact": "#test-code #test-helper-method",
+                    "abstract": 0,
+                    "start_line": 18,
+                    "end_line": 20,
+                    "code": "private String helper() {\n  return \"x\";\n}",
+                },
+            ]
+        )
+
+        method_df = filter_revision_method_population(df)
+
+        self.assertEqual(["calculate", "testGetName"], method_df["name"].tolist())
+        self.assertEqual(["main-code", "test-case-method"], method_df["method_kind"].tolist())
+
     def write_history_file(
         self,
         experiment_dir: Path,
@@ -203,18 +403,58 @@ class TestArtifactRevisionCdf(unittest.TestCase):
     ) -> None:
         history_file = experiment_dir / "method-history" / tool / f"{project}.csv"
         history_file.parent.mkdir(parents=True, exist_ok=True)
+        history_rows = [
+            {
+                "project": project,
+                "name": f"method{index}",
+                "url": f"https://example.test/{project}/Method{index}.java#L1",
+                "artifact": row["artifact"],
+                "abstract": row["abstract"],
+                "ch_all": row["ch_all"],
+                "ch_diff": row["ch_diff"],
+            }
+            for index, row in enumerate(rows)
+        ]
+        pd.DataFrame(history_rows).to_csv(history_file, index=False)
+        filtered_file = experiment_dir / "method-artifact-filtered" / f"{project}.csv"
+        filtered_file.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame(
+            [
+                {
+                    "project": row["project"],
+                    "name": row["name"],
+                    "url": row["url"],
+                    "artifact": row["artifact"],
+                    "abstract": row["abstract"],
+                    "method_kind": classify_method_kind(row["artifact"]),
+                }
+                for row in history_rows
+                if classify_method_kind(row["artifact"]) in {"test-case-method", "main-code"}
+            ]
+        ).to_csv(filtered_file, index=False)
+
+    def write_method_code_for_rows(self, experiment_dir: Path, project: str, rows: list[dict]) -> None:
+        method_code_file = experiment_dir / "method-code" / f"{project}.csv"
+        method_code_file.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(
             [
                 {
                     "project": project,
-                    "artifact": row["artifact"],
-                    "abstract": row["abstract"],
-                    "ch_all": row["ch_all"],
-                    "ch_diff": row["ch_diff"],
+                    "name": row["name"],
+                    "url": row["url"],
+                    "artifact": "#method-code-artifact-must-not-be-used",
+                    "start_line": 1,
+                    "end_line": 1,
+                    "code": f"public int {row['name']}() {{ return 1; }}",
                 }
                 for row in rows
             ]
-        ).to_csv(history_file, index=False)
+        ).to_csv(method_code_file, index=False)
+
+    def write_project_file(self, experiment_dir: Path, projects: list[str]) -> None:
+        project_file = experiment_dir / "project.csv"
+        project_file.parent.mkdir(parents=True, exist_ok=True)
+        pd.DataFrame([{"project": project} for project in projects]).to_csv(project_file, index=False)
 
 
 if __name__ == "__main__":
