@@ -27,7 +27,7 @@ CHANGE_COLUMNS = [
     *[f"ch_{change_type.name.lower()}" for change_type in MethodChangeType],
 ]
 
-DEFAULT_MIN_T2P_REVISION = 10
+DEFAULT_MIN_T2P_REVISION = 5
 OUTPUT_DIRECTORY_NAME = "t2p-test-smell-with-revision"
 
 REVISION_GROUP_1 = "NTR"

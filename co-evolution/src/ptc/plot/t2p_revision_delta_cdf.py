@@ -35,14 +35,14 @@ CODE_SHOVEL_UNSUPPORTED_CHANGE_SET = {
 SYMLIN_THRESHOLD = 10
 SYMLIN_TICKS = [-100, -50, -10, -5, -1, 1, 5, 10, 50, 100]
 PAPER_MIN_DELTA = -10
-PAPER_MAX_DELTA = 10
+PAPER_MAX_DELTA = 5
 PAPER_SERIES_COLOR = "0.22"
 PAPER_TICK_LABEL_SIZE = 12
 
 REVISION_DELTA_GROUPS = [
     ("NTR", "<=0", lambda delta: delta <= 0),
-    ("MTR", "1-9", lambda delta: (delta >= 1) & (delta < PAPER_MAX_DELTA)),
-    ("HTR", "10+", lambda delta: delta >= PAPER_MAX_DELTA),
+    ("MTR", "1-4", lambda delta: (delta >= 1) & (delta < PAPER_MAX_DELTA)),
+    ("HTR", "5+", lambda delta: delta >= PAPER_MAX_DELTA),
 ]
 
 

@@ -116,6 +116,8 @@ class TestT2PTestSmell(unittest.TestCase):
             self.assertEqual("jnose", resolve_smell_detector())
 
     def test_assign_revision_group_uses_min_t2p_revision(self):
+        self.assertEqual(REVISION_GROUP_2, assign_revision_group(14, 10))
+        self.assertEqual(REVISION_GROUP_3, assign_revision_group(15, 10))
         self.assertEqual(REVISION_GROUP_1, assign_revision_group(2, 3, min_t2p_revision=5))
         self.assertEqual(REVISION_GROUP_1, assign_revision_group(10, 10, min_t2p_revision=5))
         self.assertEqual(REVISION_GROUP_3, assign_revision_group(15, 10, min_t2p_revision=5))

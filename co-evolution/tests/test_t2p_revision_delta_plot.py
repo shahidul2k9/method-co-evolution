@@ -98,20 +98,20 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
         self.assertIsNone(delta_threshold(df, "ch_all"))
 
     def test_paper_delta_cdf_clips_extremes_and_counts_revision_groups(self):
-        delta = pd.Series([-15, -1, 0, 1, 9, 10, 20])
+        delta = pd.Series([-15, -1, 0, 1, 4, 5, 20])
 
         cdf = clipped_delta_cdf(delta)
         groups = revision_delta_group_counts(delta)
 
         self.assertEqual(-10, cdf.index.min())
-        self.assertEqual(10, cdf.index.max())
+        self.assertEqual(5, cdf.index.max())
         self.assertAlmostEqual(1 / 7, cdf.loc[-10])
-        self.assertAlmostEqual(1.0, cdf.loc[10])
+        self.assertAlmostEqual(1.0, cdf.loc[5])
         self.assertEqual(
             [
                 ("NTR", "<=0", 3, 42.9),
-                ("MTR", "1-9", 2, 28.6),
-                ("HTR", "10+", 2, 28.6),
+                ("MTR", "1-4", 2, 28.6),
+                ("HTR", "5+", 2, 28.6),
             ],
             [(code, label, count, round(percent, 1)) for code, label, count, percent in groups],
         )
@@ -122,7 +122,7 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
                 {"from_ch_diff": -15, "to_ch_diff": 0},
                 {"from_ch_diff": 0, "to_ch_diff": 0},
                 {"from_ch_diff": 4, "to_ch_diff": 0},
-                {"from_ch_diff": 10, "to_ch_diff": 0},
+                {"from_ch_diff": 5, "to_ch_diff": 0},
             ]
         )
 
@@ -132,15 +132,15 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
 
             self.assertEqual("# Test - Production Revisions", ax.get_xlabel())
             self.assertEqual("CDF", ax.get_ylabel())
-            self.assertEqual((-10.0, 10.0), ax.get_xlim())
+            self.assertEqual((-10.0, 5.0), ax.get_xlim())
             self.assertEqual([0.1, 0.2, 0.3], [round(value, 1) for value in ax.get_yticks()[:3]])
             self.assertGreaterEqual(len(ax.lines), 1)
             self.assertEqual("0.22", ax.lines[0].get_color())
             self.assertEqual(12, ax.xaxis.get_ticklabels()[0].get_fontsize())
             self.assertEqual(12, ax.yaxis.get_ticklabels()[0].get_fontsize())
             self.assertIn("NTR (<=0): 2 (50.0%)", ax.texts[0].get_text())
-            self.assertIn("MTR (1-9): 1 (25.0%)", ax.texts[0].get_text())
-            self.assertIn("HTR (10+): 1 (25.0%)", ax.texts[0].get_text())
+            self.assertIn("MTR (1-4): 1 (25.0%)", ax.texts[0].get_text())
+            self.assertIn("HTR (5+): 1 (25.0%)", ax.texts[0].get_text())
         finally:
             plt.close(fig)
 
@@ -149,7 +149,7 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
             [
                 {"from_ch_diff": 0, "to_ch_diff": 0},
                 {"from_ch_diff": 4, "to_ch_diff": 0},
-                {"from_ch_diff": 10, "to_ch_diff": 0},
+                {"from_ch_diff": 5, "to_ch_diff": 0},
             ]
         )
 
@@ -158,8 +158,8 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
             plot_paper_delta_axis(ax, df, "ch_diff")
 
             self.assertIn("NTR (<=0): 1 (33.3%)", ax.texts[0].get_text())
-            self.assertIn("MTR (1-9): 1 (33.3%)", ax.texts[0].get_text())
-            self.assertIn("HTR (10+): 1 (33.3%)", ax.texts[0].get_text())
+            self.assertIn("MTR (1-4): 1 (33.3%)", ax.texts[0].get_text())
+            self.assertIn("HTR (5+): 1 (33.3%)", ax.texts[0].get_text())
         finally:
             plt.close(fig)
 
