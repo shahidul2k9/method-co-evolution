@@ -36,8 +36,11 @@ SYMLIN_THRESHOLD = 10
 SYMLIN_TICKS = [-100, -50, -10, -5, -1, 1, 5, 10, 50, 100]
 PAPER_MIN_DELTA = -10
 PAPER_MAX_DELTA = 5
-PAPER_SERIES_COLOR = "0.22"
-PAPER_TICK_LABEL_SIZE = 12
+PAPER_MAX_DISPLAY_DELTA = 10
+PAPER_SERIES_COLOR = "#1f77b4"
+PAPER_THRESHOLD_COLOR = "#d62728"
+PAPER_LABEL_SIZE = 16
+PAPER_TICK_LABEL_SIZE = 14
 
 REVISION_DELTA_GROUPS = [
     ("NTR", "<=0", lambda delta: delta <= 0),
@@ -199,9 +202,9 @@ def clipped_delta_cdf(delta: pd.Series) -> pd.Series:
     if delta.empty:
         return pd.Series(dtype="float64")
 
-    clipped_delta = delta.clip(lower=PAPER_MIN_DELTA, upper=PAPER_MAX_DELTA)
+    clipped_delta = delta.clip(lower=PAPER_MIN_DELTA, upper=PAPER_MAX_DISPLAY_DELTA)
     frequencies = clipped_delta.value_counts().sort_index()
-    frequencies = frequencies.reindex(range(PAPER_MIN_DELTA, PAPER_MAX_DELTA + 1), fill_value=0)
+    frequencies = frequencies.reindex(range(PAPER_MIN_DELTA, PAPER_MAX_DISPLAY_DELTA + 1), fill_value=0)
     return frequencies.cumsum() / frequencies.sum()
 
 
@@ -221,8 +224,8 @@ def format_paper_delta_tick(value: float, _: int) -> str:
     tick = int(round(value))
     if tick == PAPER_MIN_DELTA:
         return f"{PAPER_MIN_DELTA}"
-    if tick == PAPER_MAX_DELTA:
-        return f"{PAPER_MAX_DELTA}"
+    if tick == PAPER_MAX_DISPLAY_DELTA:
+        return f"{PAPER_MAX_DISPLAY_DELTA}"
     return str(tick)
 
 
@@ -259,13 +262,13 @@ def plot_paper_delta_axis(ax, df: pd.DataFrame, change: str, *, show_group_summa
         where="post",
     )
     ax.axvline(0, color="0.2", linewidth=1.0, alpha=0.45)
-    ax.axvline(PAPER_MAX_DELTA, color="0.2", linewidth=1.0, linestyle=":", alpha=0.5)
+    ax.axvline(PAPER_MAX_DELTA, color=PAPER_THRESHOLD_COLOR, linewidth=1.2, linestyle=":", alpha=0.65)
     if show_group_summary:
         draw_revision_group_summary(ax, delta)
 
-    ax.set_xlabel("# Test - Production Revisions", fontsize=14)
-    ax.set_ylabel("CDF", fontsize=14)
-    ax.set_xlim(PAPER_MIN_DELTA, PAPER_MAX_DELTA)
+    ax.set_xlabel("# Test - Production Revisions", fontsize=PAPER_LABEL_SIZE)
+    ax.set_ylabel("CDF", fontsize=PAPER_LABEL_SIZE)
+    ax.set_xlim(PAPER_MIN_DELTA, PAPER_MAX_DISPLAY_DELTA)
     ax.set_ylim(0.0, 1.02)
     ax.xaxis.set_major_locator(MultipleLocator(2))
     ax.xaxis.set_major_formatter(FuncFormatter(format_paper_delta_tick))

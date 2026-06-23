@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.ticker import MultipleLocator
+from matplotlib.ticker import MultipleLocator, NullFormatter
 import pandas as pd
 
 import mhc.util as util
@@ -26,7 +26,10 @@ from ptc.plot_util import (
 )
 
 SIZE_ORDER = ["negligible", "small", "medium", "large"]
-PAPER_CORRELATION_COLOR = "0.40"
+PAPER_CORRELATION_COLOR = "#1f77b4"
+PAPER_CORRELATION_LINE_WIDTH = 2.2
+PAPER_CORRELATION_LABEL_SIZE = 17
+PAPER_CORRELATION_TICK_LABEL_SIZE = 15
 PAPER_CORRELATION_X_PADDING = 0.05
 
 
@@ -120,15 +123,15 @@ def plot_correlation_only_axis(ax, strategy_df: pd.DataFrame, change_names: list
         ax.step(
             x,
             y,
-            linewidth=1.8,
+            linewidth=PAPER_CORRELATION_LINE_WIDTH,
             color=PAPER_CORRELATION_COLOR,
             linestyle="-",
             where="post",
             label=change,
         )
 
-    ax.set_xlabel("Correlation Coefficient", fontsize=14)
-    ax.set_ylabel("CDF", fontsize=14)
+    ax.set_xlabel("Correlation Coefficient", fontsize=PAPER_CORRELATION_LABEL_SIZE)
+    ax.set_ylabel("CDF", fontsize=PAPER_CORRELATION_LABEL_SIZE)
     if plotted_values:
         x_min = max(-1.0, min(plotted_values) - PAPER_CORRELATION_X_PADDING)
         x_max = min(1.0, max(plotted_values) + PAPER_CORRELATION_X_PADDING)
@@ -136,10 +139,16 @@ def plot_correlation_only_axis(ax, strategy_df: pd.DataFrame, change_names: list
             x_min = max(-1.0, x_min - PAPER_CORRELATION_X_PADDING)
             x_max = min(1.0, x_max + PAPER_CORRELATION_X_PADDING)
         ax.set_xlim(x_min, x_max)
-    ax.xaxis.set_major_locator(MultipleLocator(0.1))
+    ax.xaxis.set_major_locator(MultipleLocator(0.2))
+    ax.xaxis.set_minor_locator(MultipleLocator(0.1))
+    ax.xaxis.set_minor_formatter(NullFormatter())
     ax.set_ylim(0.0, 1.02)
-    ax.yaxis.set_major_locator(MultipleLocator(0.1))
-    ax.grid(True, alpha=0.25)
+    ax.yaxis.set_major_locator(MultipleLocator(0.2))
+    ax.yaxis.set_minor_locator(MultipleLocator(0.1))
+    ax.yaxis.set_minor_formatter(NullFormatter())
+    ax.tick_params(axis="both", labelsize=PAPER_CORRELATION_TICK_LABEL_SIZE)
+    ax.grid(True, which="major", alpha=0.30)
+    ax.grid(True, which="minor", alpha=0.18)
 
 
 def main(argv: list[str] | None = None) -> None:

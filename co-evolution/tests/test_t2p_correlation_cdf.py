@@ -15,11 +15,18 @@ for directory in (SRC_DIRECTORY, MHC_SRC_DIRECTORY):
     if str(directory) not in sys.path:
         sys.path.insert(0, str(directory))
 
-from ptc.plot.t2p_correlation_cdf import main, plot_correlation_only_axis
+from ptc.plot.t2p_correlation_cdf import (
+    PAPER_CORRELATION_COLOR,
+    PAPER_CORRELATION_LABEL_SIZE,
+    PAPER_CORRELATION_LINE_WIDTH,
+    PAPER_CORRELATION_TICK_LABEL_SIZE,
+    main,
+    plot_correlation_only_axis,
+)
 
 
 class TestT2PCorrelationCdf(unittest.TestCase):
-    def test_correlation_only_axis_uses_paper_labels_and_black_line_without_markers(self):
+    def test_correlation_only_axis_uses_paper_labels_and_colored_line_without_markers(self):
         df = pd.DataFrame(
             [
                 {"change": "diff", "corr": -0.5},
@@ -37,11 +44,17 @@ class TestT2PCorrelationCdf(unittest.TestCase):
             self.assertEqual("CDF", ax.get_ylabel())
             self.assertEqual((-0.55, 0.55), ax.get_xlim())
             self.assertEqual(1, len(ax.lines))
-            self.assertEqual("0.40", ax.lines[0].get_color())
-            self.assertEqual(1.8, ax.lines[0].get_linewidth())
+            self.assertEqual(PAPER_CORRELATION_COLOR, ax.lines[0].get_color())
+            self.assertEqual(PAPER_CORRELATION_LINE_WIDTH, ax.lines[0].get_linewidth())
             self.assertEqual("None", ax.lines[0].get_marker())
-            self.assertAlmostEqual(0.1, ax.xaxis.get_major_locator()._edge.step)
-            self.assertAlmostEqual(0.1, ax.yaxis.get_major_locator()._edge.step)
+            self.assertEqual(PAPER_CORRELATION_LABEL_SIZE, ax.xaxis.label.get_fontsize())
+            self.assertEqual(PAPER_CORRELATION_LABEL_SIZE, ax.yaxis.label.get_fontsize())
+            self.assertEqual(PAPER_CORRELATION_TICK_LABEL_SIZE, ax.xaxis.get_ticklabels()[0].get_fontsize())
+            self.assertEqual(PAPER_CORRELATION_TICK_LABEL_SIZE, ax.yaxis.get_ticklabels()[0].get_fontsize())
+            self.assertAlmostEqual(0.2, ax.xaxis.get_major_locator()._edge.step)
+            self.assertAlmostEqual(0.2, ax.yaxis.get_major_locator()._edge.step)
+            self.assertAlmostEqual(0.1, ax.xaxis.get_minor_locator()._edge.step)
+            self.assertAlmostEqual(0.1, ax.yaxis.get_minor_locator()._edge.step)
         finally:
             plt.close(fig)
 

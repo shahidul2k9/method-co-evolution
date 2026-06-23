@@ -21,6 +21,10 @@ except ImportError:  # pragma: no cover
     pd = None
 
 from ptc.plot.t2p_revision_delta_cdf import (
+    PAPER_LABEL_SIZE,
+    PAPER_MAX_DISPLAY_DELTA,
+    PAPER_SERIES_COLOR,
+    PAPER_TICK_LABEL_SIZE,
     clipped_delta_cdf,
     delta_cdf,
     delta_threshold,
@@ -104,9 +108,10 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
         groups = revision_delta_group_counts(delta)
 
         self.assertEqual(-10, cdf.index.min())
-        self.assertEqual(5, cdf.index.max())
+        self.assertEqual(PAPER_MAX_DISPLAY_DELTA, cdf.index.max())
         self.assertAlmostEqual(1 / 7, cdf.loc[-10])
-        self.assertAlmostEqual(1.0, cdf.loc[5])
+        self.assertAlmostEqual(6 / 7, cdf.loc[5])
+        self.assertAlmostEqual(1.0, cdf.loc[PAPER_MAX_DISPLAY_DELTA])
         self.assertEqual(
             [
                 ("NTR", "<=0", 3, 42.9),
@@ -132,12 +137,14 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
 
             self.assertEqual("# Test - Production Revisions", ax.get_xlabel())
             self.assertEqual("CDF", ax.get_ylabel())
-            self.assertEqual((-10.0, 5.0), ax.get_xlim())
+            self.assertEqual((-10.0, 10.0), ax.get_xlim())
             self.assertEqual([0.1, 0.2, 0.3], [round(value, 1) for value in ax.get_yticks()[:3]])
             self.assertGreaterEqual(len(ax.lines), 1)
-            self.assertEqual("0.22", ax.lines[0].get_color())
-            self.assertEqual(12, ax.xaxis.get_ticklabels()[0].get_fontsize())
-            self.assertEqual(12, ax.yaxis.get_ticklabels()[0].get_fontsize())
+            self.assertEqual(PAPER_SERIES_COLOR, ax.lines[0].get_color())
+            self.assertEqual(PAPER_LABEL_SIZE, ax.xaxis.label.get_fontsize())
+            self.assertEqual(PAPER_LABEL_SIZE, ax.yaxis.label.get_fontsize())
+            self.assertEqual(PAPER_TICK_LABEL_SIZE, ax.xaxis.get_ticklabels()[0].get_fontsize())
+            self.assertEqual(PAPER_TICK_LABEL_SIZE, ax.yaxis.get_ticklabels()[0].get_fontsize())
             self.assertIn("NTR (<=0): 2 (50.0%)", ax.texts[0].get_text())
             self.assertIn("MTR (1-4): 1 (25.0%)", ax.texts[0].get_text())
             self.assertIn("HTR (5+): 1 (25.0%)", ax.texts[0].get_text())
