@@ -249,22 +249,27 @@ def displayed_revision_values(values, ticks: list[int], *, paper_mode: bool):
     return values
 
 
-def paper_marker_indices(display_x_values) -> list[int]:
-    unique_indices = []
-    seen_positions = set()
-    for index, value in enumerate(display_x_values):
-        position = round(float(value), 6)
-        if position not in seen_positions:
-            unique_indices.append(index)
-            seen_positions.add(position)
+def paper_marker_positions(ticks: list[int], method_kind: str) -> list[float]:
+    if len(ticks) <= 1:
+        return [0]
 
-    if not unique_indices:
-        return []
+    tick_positions = list(range(len(ticks)))
+    if method_kind == "test-case-method":
+        return tick_positions[::PAPER_MARK_EVERY]
+    return [position + 0.5 for position in tick_positions[:-1: PAPER_MARK_EVERY]]
 
-    marker_indices = unique_indices[::PAPER_MARK_EVERY]
-    if unique_indices[-1] not in marker_indices:
-        marker_indices.append(unique_indices[-1])
-    return marker_indices
+
+def y_values_at_marker_positions(marker_positions: list[float], display_x, y) -> np.ndarray:
+    marker_y_values = []
+    display_x = np.asarray(display_x)
+    y = np.asarray(y)
+    for marker_position in marker_positions:
+        previous_indices = np.where(display_x <= marker_position)[0]
+        if len(previous_indices) == 0:
+            marker_y_values.append(y[0])
+        else:
+            marker_y_values.append(y[previous_indices[-1]])
+    return np.asarray(marker_y_values)
 
 
 def plot_change_axis(
@@ -308,11 +313,19 @@ def plot_change_axis(
             linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
             color=METHOD_KIND_COLORS[current_method_kind],
             ls=GRAPH_STYLES[method_kind_index % len(GRAPH_STYLES)],
-            marker=METHOD_KIND_MARKERS[current_method_kind] if paper_mode else None,
-            markevery=paper_marker_indices(display_x) if paper_mode else None,
-            markersize=PAPER_MARKER_SIZE if paper_mode else None,
             label=METHOD_KIND_LABELS[current_method_kind],
         )
+        if paper_mode:
+            marker_x = paper_marker_positions(ticks, current_method_kind)
+            marker_y = y_values_at_marker_positions(marker_x, display_x, y)
+            ax.plot(
+                marker_x,
+                marker_y,
+                linestyle="None",
+                marker=METHOD_KIND_MARKERS[current_method_kind],
+                color=METHOD_KIND_COLORS[current_method_kind],
+                markersize=PAPER_MARKER_SIZE,
+            )
 
     ax.set_xlim(0, revision_axis_upper_bound(ticks))
     ax.set_xticks(range(len(ticks)))

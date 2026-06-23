@@ -29,11 +29,12 @@ from ptc.plot.artifact_revision_cdf import (
     build_project_stats,
     classify_method_kind,
     main,
-    paper_marker_indices,
+    paper_marker_positions,
     plot_change_axis,
     revision_display_positions,
     revision_tick_values,
     subsequent_revision_series,
+    y_values_at_marker_positions,
 )
 import ptc.generator.artifact_revision as artifact_revision_generator
 from ptc.generator.filter_artifact import main as filter_artifact_main
@@ -325,13 +326,15 @@ class TestArtifactRevisionCdf(unittest.TestCase):
                 [text.get_text() for text in legend.get_texts()],
             )
             self.assertEqual([0, 1, 4.5], ax.lines[0].get_xdata().tolist())
-            self.assertEqual([0, 6], ax.lines[1].get_xdata().tolist())
-            self.assertEqual(METHOD_KIND_MARKERS["test-case-method"], ax.lines[0].get_marker())
-            self.assertEqual(METHOD_KIND_MARKERS["main-code"], ax.lines[1].get_marker())
-            self.assertEqual([0, 2], ax.lines[0].get_markevery())
-            self.assertEqual([0, 1], ax.lines[1].get_markevery())
-            self.assertEqual(PAPER_MARKER_SIZE, ax.lines[0].get_markersize())
+            self.assertEqual([0, 6], ax.lines[2].get_xdata().tolist())
+            self.assertEqual("None", ax.lines[0].get_marker())
+            self.assertEqual("None", ax.lines[2].get_marker())
+            self.assertEqual([0, 2, 4, 6], ax.lines[1].get_xdata().tolist())
+            self.assertEqual([0.5, 2.5, 4.5], ax.lines[3].get_xdata().tolist())
+            self.assertEqual(METHOD_KIND_MARKERS["test-case-method"], ax.lines[1].get_marker())
+            self.assertEqual(METHOD_KIND_MARKERS["main-code"], ax.lines[3].get_marker())
             self.assertEqual(PAPER_MARKER_SIZE, ax.lines[1].get_markersize())
+            self.assertEqual(PAPER_MARKER_SIZE, ax.lines[3].get_markersize())
             self.assertEqual((0.0, 6.0), ax.get_xlim())
             self.assertEqual(PAPER_LEGEND_ANCHOR, legend.get_bbox_to_anchor()._bbox.bounds[:2])
         finally:
@@ -389,9 +392,21 @@ class TestArtifactRevisionCdf(unittest.TestCase):
             revision_display_positions([15, 51], ticks).round(2).tolist(),
         )
 
-    def test_paper_marker_indices_skip_duplicate_tail_positions(self):
-        self.assertEqual([0, 2], paper_marker_indices([0, 1, 6, 6, 6]))
-        self.assertEqual([0, 2, 4], paper_marker_indices([0, 1, 2, 3, 4]))
+    def test_paper_marker_positions_are_based_on_x_ticks(self):
+        ticks = [0, 1, 2, 5, 10, 20, 50]
+
+        self.assertEqual([0, 2, 4, 6], paper_marker_positions(ticks, "test-case-method"))
+        self.assertEqual([0.5, 2.5, 4.5], paper_marker_positions(ticks, "main-code"))
+
+    def test_y_values_at_marker_positions_use_cdf_value_at_or_before_marker(self):
+        self.assertEqual(
+            [0.2, 0.6, 1.0],
+            y_values_at_marker_positions(
+                [0.5, 2.5, 6],
+                [0, 2, 4, 6],
+                [0.2, 0.6, 0.8, 1.0],
+            ).tolist(),
+        )
 
     def test_artifact_revision_cdf_figure_widths_are_increased(self):
         self.assertEqual(4.6, PAPER_CHANGE_AXIS_WIDTH)
