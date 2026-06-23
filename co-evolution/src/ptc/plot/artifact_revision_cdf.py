@@ -6,6 +6,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+import numpy as np
 import pandas as pd
 
 import mhc.util as util
@@ -36,7 +37,22 @@ METHOD_KIND_COLORS = {
     "test-case-method": "tab:blue",
     "main-code": "tab:orange",
 }
-PAPER_REVISION_CLIP_MAX = 10
+METHOD_KIND_MARKERS = {
+    "test-case-method": "D",
+    "main-code": "^",
+}
+PAPER_CHANGE_AXIS_WIDTH = 4.6
+DEFAULT_CHANGE_AXIS_WIDTH = 5.5
+ROW_INFO_AXIS_WIDTH = 1.8
+PAPER_FIGURE_HEIGHT = 3.1
+DEFAULT_ROW_HEIGHT = 3.2
+PAPER_TICK_FONT_SIZE = 12
+DEFAULT_TICK_FONT_SIZE = 13
+PAPER_AXIS_LABEL_FONT_SIZE = 14
+PAPER_MARK_EVERY = 2
+PAPER_MARKER_SIZE = 4.2
+PAPER_MAX_REVISION_TICK = 50
+PAPER_LEGEND_ANCHOR = (0.58, 0.30)
 CHANGE_COLUMN_LABELS = {
     "ch_diff": "ch_diff",
     "ch_all": "All revisions",
@@ -185,12 +201,70 @@ def load_history_repository_dfs(
     return [df for df in history_repository_dfs if not df.empty]
 
 
-def clipped_ecdf(series: pd.Series, max_revision_count: int) -> tuple[pd.Series, pd.Series]:
-    return ecdf(series.clip(upper=max_revision_count))
-
-
 def subsequent_revision_series(series: pd.Series) -> pd.Series:
     return (series - 1).clip(lower=0)
+
+
+def revision_axis_upper_bound(ticks_or_max_revision_count) -> float:
+    tick_count = (
+        len(ticks_or_max_revision_count)
+        if isinstance(ticks_or_max_revision_count, list)
+        else len(revision_tick_values(ticks_or_max_revision_count))
+    )
+    if tick_count <= 1:
+        return 1
+    return tick_count - 1
+
+
+def revision_tick_values(max_revision_count: float) -> list[int]:
+    if max_revision_count <= 0:
+        return [0]
+
+    ticks = [0, 1, 2, 5]
+    magnitude = 10
+    while ticks[-1] < max_revision_count:
+        for multiplier in (1, 2, 5):
+            tick = multiplier * magnitude
+            if tick not in ticks:
+                ticks.append(tick)
+            if tick >= max_revision_count:
+                return sorted(ticks)
+        magnitude *= 10
+    return sorted(ticks)
+
+
+def revision_display_positions(values, ticks: list[int]) -> np.ndarray:
+    if len(ticks) <= 1:
+        return np.zeros(len(values))
+    return np.interp(values, ticks, range(len(ticks)))
+
+
+def paper_revision_tick_values(max_revision_count: float) -> list[int]:
+    return [tick for tick in revision_tick_values(max_revision_count) if tick <= PAPER_MAX_REVISION_TICK]
+
+
+def displayed_revision_values(values, ticks: list[int], *, paper_mode: bool):
+    if paper_mode and ticks:
+        return np.minimum(values, ticks[-1])
+    return values
+
+
+def paper_marker_indices(display_x_values) -> list[int]:
+    unique_indices = []
+    seen_positions = set()
+    for index, value in enumerate(display_x_values):
+        position = round(float(value), 6)
+        if position not in seen_positions:
+            unique_indices.append(index)
+            seen_positions.add(position)
+
+    if not unique_indices:
+        return []
+
+    marker_indices = unique_indices[::PAPER_MARK_EVERY]
+    if unique_indices[-1] not in marker_indices:
+        marker_indices.append(unique_indices[-1])
+    return marker_indices
 
 
 def plot_change_axis(
@@ -206,6 +280,8 @@ def plot_change_axis(
     else:
         ax.set_title(change_column_label(change), fontsize=24)
 
+    max_revision_count = 0
+    revision_lines = []
     for method_kind_index, current_method_kind in enumerate(METHOD_KINDS):
         change_series = pd.to_numeric(
             project_df[project_df["method_kind"] == current_method_kind][change],
@@ -214,35 +290,51 @@ def plot_change_axis(
         if change_series.empty:
             continue
 
-        x, y = clipped_ecdf(subsequent_revision_series(change_series), PAPER_REVISION_CLIP_MAX)
+        revisions = subsequent_revision_series(change_series)
+        if not revisions.empty:
+            max_revision_count = max(max_revision_count, revisions.max())
+        revision_lines.append((method_kind_index, current_method_kind, revisions))
+
+    ticks = paper_revision_tick_values(max_revision_count) if paper_mode else revision_tick_values(max_revision_count)
+    for method_kind_index, current_method_kind, revisions in revision_lines:
+        x, y = ecdf(revisions)
+        display_x = revision_display_positions(
+            displayed_revision_values(x, ticks, paper_mode=paper_mode),
+            ticks,
+        )
         ax.plot(
-            x,
+            display_x,
             y,
             linewidth=GRAPH_WIDTHS[change_index % len(GRAPH_WIDTHS)],
             color=METHOD_KIND_COLORS[current_method_kind],
             ls=GRAPH_STYLES[method_kind_index % len(GRAPH_STYLES)],
+            marker=METHOD_KIND_MARKERS[current_method_kind] if paper_mode else None,
+            markevery=paper_marker_indices(display_x) if paper_mode else None,
+            markersize=PAPER_MARKER_SIZE if paper_mode else None,
             label=METHOD_KIND_LABELS[current_method_kind],
         )
 
-    ax.set_xlim(0, PAPER_REVISION_CLIP_MAX)
-    ax.set_xticks(range(0, PAPER_REVISION_CLIP_MAX + 1))
-    ax.set_xticklabels(
-        [
-            str(PAPER_REVISION_CLIP_MAX)
-            if paper_mode and tick == PAPER_REVISION_CLIP_MAX
-            else f"{PAPER_REVISION_CLIP_MAX}+"
-            if tick == PAPER_REVISION_CLIP_MAX
-            else str(tick)
-            for tick in range(0, PAPER_REVISION_CLIP_MAX + 1)
-        ]
+    ax.set_xlim(0, revision_axis_upper_bound(ticks))
+    ax.set_xticks(range(len(ticks)))
+    ax.set_xticklabels([str(tick) for tick in ticks])
+    ax.set_xlabel(
+        "# Method Revisions",
+        fontsize=PAPER_AXIS_LABEL_FONT_SIZE if paper_mode else None,
     )
-    ax.set_xlabel("# Method Revisions")
-    ax.set_ylabel("CDF")
+    ax.set_ylabel(
+        "CDF",
+        fontsize=PAPER_AXIS_LABEL_FONT_SIZE if paper_mode else None,
+    )
+    ax.tick_params(
+        axis="both",
+        labelsize=PAPER_TICK_FONT_SIZE if paper_mode else DEFAULT_TICK_FONT_SIZE,
+    )
     if paper_mode:
+        ax.set_yticks(np.arange(0, 1.01, 0.1))
         ax.legend(
             handles=method_kind_legend_handles(),
             loc="center",
-            bbox_to_anchor=(0.38, 0.30),
+            bbox_to_anchor=PAPER_LEGEND_ANCHOR,
             frameon=True,
             fontsize=10,
             borderaxespad=0.4,
@@ -318,15 +410,15 @@ def main(argv: list[str] | None = None) -> None:
             fig, axes = plt.subplots(
                 1,
                 len(change_cols),
-                figsize=(4.8 * len(change_cols), 3.1),
+                figsize=(PAPER_CHANGE_AXIS_WIDTH * len(change_cols), PAPER_FIGURE_HEIGHT),
                 squeeze=False,
             )
         else:
             fig, axes = plt.subplots(
                 len(projects),
                 len(change_cols) + 1,
-                figsize=(1.8 + 4 * len(change_cols), 3.2 * len(projects)),
-                gridspec_kw={"width_ratios": [1.4, *([4] * len(change_cols))]},
+                figsize=(ROW_INFO_AXIS_WIDTH + DEFAULT_CHANGE_AXIS_WIDTH * len(change_cols), DEFAULT_ROW_HEIGHT * len(projects)),
+                gridspec_kw={"width_ratios": [1.4, *([DEFAULT_CHANGE_AXIS_WIDTH] * len(change_cols))]},
                 squeeze=False,
             )
 

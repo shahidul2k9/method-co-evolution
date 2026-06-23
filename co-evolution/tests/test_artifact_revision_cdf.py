@@ -17,10 +17,22 @@ for directory in (SRC_DIRECTORY, MHC_SRC_DIRECTORY):
         sys.path.insert(0, str(directory))
 
 from ptc.plot.artifact_revision_cdf import (
+    DEFAULT_CHANGE_AXIS_WIDTH,
+    DEFAULT_TICK_FONT_SIZE,
+    METHOD_KIND_MARKERS,
+    PAPER_AXIS_LABEL_FONT_SIZE,
+    PAPER_CHANGE_AXIS_WIDTH,
+    PAPER_LEGEND_ANCHOR,
+    PAPER_MARK_EVERY,
+    PAPER_MARKER_SIZE,
+    PAPER_TICK_FONT_SIZE,
     build_project_stats,
     classify_method_kind,
     main,
+    paper_marker_indices,
     plot_change_axis,
+    revision_display_positions,
+    revision_tick_values,
     subsequent_revision_series,
 )
 import ptc.generator.artifact_revision as artifact_revision_generator
@@ -278,10 +290,10 @@ class TestArtifactRevisionCdf(unittest.TestCase):
             [
                 {"method_kind": "main-code", "ch_diff": 0},
                 {"method_kind": "main-code", "ch_diff": 1},
-                {"method_kind": "main-code", "ch_diff": 11},
+                {"method_kind": "main-code", "ch_diff": 101},
                 {"method_kind": "test-case-method", "ch_diff": 1},
                 {"method_kind": "test-case-method", "ch_diff": 2},
-                {"method_kind": "test-case-method", "ch_diff": 11},
+                {"method_kind": "test-case-method", "ch_diff": 16},
             ]
         )
         fig, ax = plt.subplots()
@@ -291,9 +303,20 @@ class TestArtifactRevisionCdf(unittest.TestCase):
             self.assertEqual("", ax.get_title())
             self.assertEqual("# Method Revisions", ax.get_xlabel())
             self.assertEqual("CDF", ax.get_ylabel())
-            self.assertEqual(
-                [str(value) for value in range(10)] + ["10"],
-                [tick.get_text() for tick in ax.get_xticklabels()],
+            self.assertEqual("linear", ax.get_xscale())
+            tick_labels = [tick.get_text() for tick in ax.get_xticklabels()]
+            self.assertEqual(["0", "1", "2", "5", "10", "20", "50"], tick_labels)
+            self.assertNotIn("10+", tick_labels)
+            self.assertEqual("0", ax.get_xticklabels()[0].get_text())
+            self.assertEqual(list(range(len(tick_labels))), ax.get_xticks().tolist())
+            self.assertEqual(PAPER_AXIS_LABEL_FONT_SIZE, ax.xaxis.label.get_fontsize())
+            self.assertEqual(PAPER_AXIS_LABEL_FONT_SIZE, ax.yaxis.label.get_fontsize())
+            self.assertEqual([round(value, 1) for value in ax.get_yticks().tolist()], [round(value / 10, 1) for value in range(11)])
+            self.assertTrue(
+                all(tick.get_fontsize() == PAPER_TICK_FONT_SIZE for tick in ax.get_xticklabels())
+            )
+            self.assertTrue(
+                all(tick.get_fontsize() == PAPER_TICK_FONT_SIZE for tick in ax.get_yticklabels())
             )
             legend = ax.get_legend()
             self.assertIsNotNone(legend)
@@ -301,18 +324,26 @@ class TestArtifactRevisionCdf(unittest.TestCase):
                 ["Test Method", "Production Method"],
                 [text.get_text() for text in legend.get_texts()],
             )
-            self.assertEqual([0, 1, 10], ax.lines[0].get_xdata().tolist())
-            self.assertEqual([0, 10], ax.lines[1].get_xdata().tolist())
+            self.assertEqual([0, 1, 4.5], ax.lines[0].get_xdata().tolist())
+            self.assertEqual([0, 6], ax.lines[1].get_xdata().tolist())
+            self.assertEqual(METHOD_KIND_MARKERS["test-case-method"], ax.lines[0].get_marker())
+            self.assertEqual(METHOD_KIND_MARKERS["main-code"], ax.lines[1].get_marker())
+            self.assertEqual([0, 2], ax.lines[0].get_markevery())
+            self.assertEqual([0, 1], ax.lines[1].get_markevery())
+            self.assertEqual(PAPER_MARKER_SIZE, ax.lines[0].get_markersize())
+            self.assertEqual(PAPER_MARKER_SIZE, ax.lines[1].get_markersize())
+            self.assertEqual((0.0, 6.0), ax.get_xlim())
+            self.assertEqual(PAPER_LEGEND_ANCHOR, legend.get_bbox_to_anchor()._bbox.bounds[:2])
         finally:
             plt.close(fig)
 
-    def test_default_plot_uses_integer_ticks_and_ten_plus_clip(self):
+    def test_default_plot_uses_sparse_ticks_without_clipping(self):
         df = pd.DataFrame(
             [
                 {"method_kind": "main-code", "ch_diff": 1},
-                {"method_kind": "main-code", "ch_diff": 12},
+                {"method_kind": "main-code", "ch_diff": 52},
                 {"method_kind": "test-case-method", "ch_diff": 2},
-                {"method_kind": "test-case-method", "ch_diff": 11},
+                {"method_kind": "test-case-method", "ch_diff": 101},
             ]
         )
         fig, ax = plt.subplots()
@@ -320,15 +351,51 @@ class TestArtifactRevisionCdf(unittest.TestCase):
             plot_change_axis(ax, df, "ch_diff", 0, paper_mode=False)
 
             self.assertEqual("ch_diff", ax.get_title())
-            self.assertEqual(
-                [str(value) for value in range(10)] + ["10+"],
-                [tick.get_text() for tick in ax.get_xticklabels()],
+            self.assertEqual("linear", ax.get_xscale())
+            tick_labels = [tick.get_text() for tick in ax.get_xticklabels()]
+            self.assertEqual(["0", "1", "2", "5", "10", "20", "50", "100"], tick_labels)
+            self.assertNotIn("10+", tick_labels)
+            self.assertEqual("0", ax.get_xticklabels()[0].get_text())
+            self.assertEqual(list(range(len(tick_labels))), ax.get_xticks().tolist())
+            self.assertTrue(
+                all(tick.get_fontsize() == DEFAULT_TICK_FONT_SIZE for tick in ax.get_xticklabels())
             )
-            self.assertEqual((0.0, 10.0), ax.get_xlim())
-            self.assertEqual([1, 10], ax.lines[0].get_xdata().tolist())
-            self.assertEqual([0, 10], ax.lines[1].get_xdata().tolist())
+            self.assertTrue(
+                all(tick.get_fontsize() == DEFAULT_TICK_FONT_SIZE for tick in ax.get_yticklabels())
+            )
+            self.assertEqual((0.0, 7.0), ax.get_xlim())
+            self.assertEqual([1, 7], ax.lines[0].get_xdata().tolist())
+            self.assertEqual([0, 6.02], ax.lines[1].get_xdata().tolist())
+            self.assertEqual("None", ax.lines[0].get_marker())
+            self.assertEqual("None", ax.lines[1].get_marker())
         finally:
             plt.close(fig)
+
+    def test_revision_tick_values_are_sparse(self):
+        self.assertEqual([0], revision_tick_values(0))
+        self.assertEqual([0, 1, 2, 5, 10], revision_tick_values(9))
+        self.assertEqual([0, 1, 2, 5, 10], revision_tick_values(10))
+        self.assertEqual([0, 1, 2, 5, 10, 20, 50, 100, 200], revision_tick_values(101))
+
+    def test_revision_display_positions_are_equally_spaced_at_ticks(self):
+        ticks = [0, 1, 2, 5, 10, 20, 50, 100]
+
+        self.assertEqual(
+            list(range(len(ticks))),
+            revision_display_positions(ticks, ticks).tolist(),
+        )
+        self.assertEqual(
+            [4.5, 6.02],
+            revision_display_positions([15, 51], ticks).round(2).tolist(),
+        )
+
+    def test_paper_marker_indices_skip_duplicate_tail_positions(self):
+        self.assertEqual([0, 2], paper_marker_indices([0, 1, 6, 6, 6]))
+        self.assertEqual([0, 2, 4], paper_marker_indices([0, 1, 2, 3, 4]))
+
+    def test_artifact_revision_cdf_figure_widths_are_increased(self):
+        self.assertEqual(4.6, PAPER_CHANGE_AXIS_WIDTH)
+        self.assertEqual(5.5, DEFAULT_CHANGE_AXIS_WIDTH)
 
     def test_subsequent_revision_series_excludes_introduction(self):
         series = pd.Series([0, 1, 2, 11])
