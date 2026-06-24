@@ -501,7 +501,11 @@ def postprocess_strategy_project(repository: pd.Series, data_directory: str, str
     bridge_df = pd.read_csv(bridge_file, dtype=str, keep_default_na=False)
     _require_columns(bridge_df, set(BRIDGE_COLUMNS), bridge_file)
     if raw_df.empty:
-        output_df = pd.DataFrame(columns=POSTPROCESS_COLUMNS)
+        output_df = _append_unsmelled_strategy_methods(
+            pd.DataFrame(columns=POSTPROCESS_COLUMNS),
+            bridge_df,
+            project=project,
+        )
         output_df.to_csv(output_file, index=False)
         pd.DataFrame(columns=POSTPROCESS_ERROR_COLUMNS).to_csv(error_file, index=False)
         return output_df
@@ -573,10 +577,46 @@ def postprocess_strategy_project(repository: pd.Series, data_directory: str, str
                     }
                 )
 
-    output_df = pd.DataFrame(rows, columns=POSTPROCESS_COLUMNS)
+    output_df = _append_unsmelled_strategy_methods(
+        pd.DataFrame(rows, columns=POSTPROCESS_COLUMNS),
+        bridge_df,
+        project=project,
+    )
     output_df.to_csv(output_file, index=False)
     pd.DataFrame(error_rows, columns=POSTPROCESS_ERROR_COLUMNS).to_csv(error_file, index=False)
     return output_df
+
+
+def _append_unsmelled_strategy_methods(
+    output_df: pd.DataFrame,
+    bridge_df: pd.DataFrame,
+    *,
+    project: str,
+) -> pd.DataFrame:
+    if bridge_df.empty:
+        return pd.DataFrame(output_df, columns=POSTPROCESS_COLUMNS)
+
+    output_df = pd.DataFrame(output_df, columns=POSTPROCESS_COLUMNS)
+    smelly_urls = set(output_df["url"].dropna().astype(str)) if "url" in output_df.columns else set()
+    method_rows = _deduplicate_bridge_by_from_method(bridge_df)
+    rows = output_df.to_dict("records")
+    for _, method in method_rows.iterrows():
+        from_url = str(method.get("from_url", ""))
+        if not from_url or from_url in smelly_urls:
+            continue
+        rows.append(
+            {
+                "project": str(method.get("project", "")) or project,
+                "name": str(method.get("from_name", "")),
+                "smell": "",
+                "smell_detector": TEST_SMELL_TOOL,
+                "url": from_url,
+                "smell_begin": "",
+                "smell_end": "",
+                "loc": _method_loc(method.get("from_start", ""), method.get("from_end", "")),
+            }
+        )
+    return pd.DataFrame(rows, columns=POSTPROCESS_COLUMNS)
 
 
 def _select_candidate(test_file: str, rows: pd.DataFrame) -> dict:

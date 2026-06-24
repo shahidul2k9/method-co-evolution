@@ -45,8 +45,13 @@ from ptc.generator.t2p_test_smell_top_loc_correlation import (
     correlation_rows as top_loc_correlation_rows,
     effect_size_label as correlation_effect_size_label,
     main as top_loc_correlation_main,
+    method_frame_from_t2p_test_smell,
     top_smell_count_frame,
-    unique_test_method_loc_smells,
+)
+from ptc.generator.t2p_test_smell import (
+    OUTPUT_COLUMNS as T2P_TEST_SMELL_COLUMNS,
+    build_project_frame as build_t2p_test_smell_frame,
+    main as t2p_test_smell_main,
 )
 from ptc.generator.t2p_test_smell_loc_group import (
     loc_group,
@@ -133,6 +138,114 @@ from ptc.plot.t2p_test_smell_size_control_effectplot import (
 
 @unittest.skipIf(pd is None, "pandas is required for test smell tests")
 class TestT2PTestSmell(unittest.TestCase):
+    def test_t2p_test_smell_frame_keeps_linked_methods_without_smells(self):
+        project_df = pd.DataFrame(
+            [
+                {"from_url": "test://a", "to_url": "prod://1", "extra": "ignored"},
+                {"from_url": "test://b", "to_url": "prod://2", "extra": "ignored"},
+            ]
+        )
+        smell_df = pd.DataFrame(
+            [
+                {"url": "test://a", "smell": "AR"},
+                {"url": "test://a", "smell": "VT"},
+                {"url": "test://a", "smell": "AR"},
+            ]
+        )
+
+        output = build_t2p_test_smell_frame(project_df, smell_df, project="demo")
+
+        self.assertEqual(T2P_TEST_SMELL_COLUMNS, output.columns.tolist())
+        self.assertEqual(2, len(output))
+        self.assertEqual("AR VT", output.loc[output["from_url"] == "test://a", "smells"].iloc[0])
+        self.assertEqual("", output.loc[output["from_url"] == "test://b", "smells"].iloc[0])
+
+    def test_t2p_test_smell_main_writes_linked_smell_rows(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            link_dir = experiment_dir / "t2p-link" / "nc" / "historyFinder"
+            link_dir.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                [
+                    {"project": "demo", "from_url": "test://a", "to_url": "prod://1"},
+                    {"project": "demo", "from_url": "test://b", "to_url": "prod://2"},
+                ]
+            ).to_csv(link_dir / "demo.csv", index=False)
+            self.write_smells(
+                experiment_dir,
+                "demo",
+                [
+                    {"url": "test://a", "smell": "AR", "loc": 10},
+                    {"url": "test://a", "smell": "VT", "loc": 10},
+                ],
+            )
+
+            t2p_test_smell_main(
+                [
+                    "--workspace-directory",
+                    tmpdir,
+                    "--experiment-name",
+                    "demo-exp",
+                    "--tools",
+                    "historyFinder",
+                    "--strategies",
+                    "nc",
+                    "--projects",
+                    "demo",
+                    "--smell-detector",
+                    "jnose",
+                    "--replace",
+                ]
+            )
+
+            output = pd.read_csv(
+                experiment_dir / "t2p-test-smell" / "nc" / "historyFinder" / "jnose" / "demo.csv",
+                keep_default_na=False,
+            )
+            self.assertEqual(T2P_TEST_SMELL_COLUMNS, output.columns.tolist())
+            self.assertEqual(2, len(output))
+            self.assertEqual("", output.loc[output["from_url"] == "test://b", "smells"].iloc[0])
+
+    def test_t2p_test_smell_main_supports_direct_strategy_link_directory(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            link_dir = experiment_dir / "t2p-link" / "nc"
+            link_dir.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                [
+                    {"project": "demo", "from_url": "test://a", "to_url": "prod://1"},
+                    {"project": "demo", "from_url": "test://b", "to_url": "prod://2"},
+                ]
+            ).to_csv(link_dir / "demo.csv", index=False)
+            self.write_smells(
+                experiment_dir,
+                "demo",
+                [{"url": "test://a", "smell": "AR", "loc": 10}],
+            )
+
+            t2p_test_smell_main(
+                [
+                    "--workspace-directory",
+                    tmpdir,
+                    "--experiment-name",
+                    "demo-exp",
+                    "--strategies",
+                    "nc",
+                    "--projects",
+                    "demo",
+                    "--smell-detector",
+                    "jnose",
+                    "--replace",
+                ]
+            )
+
+            output = pd.read_csv(
+                experiment_dir / "t2p-test-smell" / "nc" / "jnose" / "demo.csv",
+                keep_default_na=False,
+            )
+            self.assertEqual(T2P_TEST_SMELL_COLUMNS, output.columns.tolist())
+            self.assertEqual(["AR", ""], output["smells"].tolist())
+
     def test_smell_config_loads_acronym_and_full_name(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             config_file = Path(tmpdir) / "test-smell.yml"
@@ -1913,17 +2026,27 @@ class TestT2PTestSmell(unittest.TestCase):
             )
 
     def test_top_loc_correlation_counts_unique_top_smells_and_computes_correlations(self):
-        methods = unique_test_method_loc_smells(
+        methods = method_frame_from_t2p_test_smell(
             [
                 pd.DataFrame(
                     [
-                        {"url": "test://a", "loc": 10, "smell": "AR"},
-                        {"url": "test://a", "loc": 10, "smell": "AR"},
-                        {"url": "test://a", "loc": 10, "smell": "VT"},
-                        {"url": "test://b", "loc": 20, "smell": "MNT"},
-                        {"url": "test://c", "loc": 30, "smell": ""},
-                        {"url": "test://d", "loc": 40, "smell": "DA"},
-                        {"url": "test://bad", "loc": 0, "smell": "AR"},
+                        {"from_url": "test://a", "smells": "AR VT AR"},
+                        {"from_url": "test://b", "smells": "MNT"},
+                        {"from_url": "test://c", "smells": ""},
+                        {"from_url": "test://d", "smells": "DA"},
+                        {"from_url": "test://e", "smells": ""},
+                    ]
+                )
+            ],
+            [
+                pd.DataFrame(
+                    [
+                        {"from_url": "test://a", "from_start": 1, "from_end": 10},
+                        {"from_url": "test://b", "from_start": 1, "from_end": 20},
+                        {"from_url": "test://c", "from_start": 1, "from_end": 30},
+                        {"from_url": "test://d", "from_start": 1, "from_end": 40},
+                        {"from_url": "test://e", "from_start": 1, "from_end": 50},
+                        {"from_url": "test://bad", "from_start": 10, "from_end": 0},
                     ]
                 )
             ]
@@ -1931,11 +2054,12 @@ class TestT2PTestSmell(unittest.TestCase):
         count_frame = top_smell_count_frame(methods, ["AR", "VT", "MNT"])
         count_by_url = count_frame.set_index("from_url")["top_smell_count"].to_dict()
 
-        self.assertEqual({"test://a", "test://b", "test://c", "test://d"}, set(count_frame["from_url"]))
+        self.assertEqual({"test://a", "test://b", "test://c", "test://d", "test://e"}, set(count_frame["from_url"]))
         self.assertEqual(2, count_by_url["test://a"])
         self.assertEqual(1, count_by_url["test://b"])
         self.assertEqual(0, count_by_url["test://c"])
         self.assertEqual(0, count_by_url["test://d"])
+        self.assertEqual(0, count_by_url["test://e"])
         self.assertEqual("negligible", correlation_effect_size_label(0.05))
         self.assertEqual("small", correlation_effect_size_label(0.1))
         self.assertEqual("medium", correlation_effect_size_label(0.3))
@@ -1954,7 +2078,7 @@ class TestT2PTestSmell(unittest.TestCase):
         self.assertEqual(["spearman", "kendall", "pearson"], output["correlation_algorithm"].tolist())
         self.assertEqual(3, output["top_n"].iloc[0])
         self.assertEqual("AR VT MNT", output["top_smells"].iloc[0])
-        self.assertEqual(4, output["methods"].iloc[0])
+        self.assertEqual(5, output["methods"].iloc[0])
         self.assertEqual(0, output["top_smell_count_min"].iloc[0])
         self.assertEqual(2, output["top_smell_count_max"].iloc[0])
         self.assertTrue(output["correlation"].notna().all())
@@ -1969,12 +2093,31 @@ class TestT2PTestSmell(unittest.TestCase):
                 generated_dir / "demo.csv",
                 index=False,
             )
+            t2p_test_smell_dir = experiment_dir / "t2p-test-smell" / "nc" / "historyFinder" / "jnose"
+            t2p_test_smell_dir.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                [
+                    {"project": "demo", "from_url": "test://a", "to_url": "prod://1", "smells": "AR VT"},
+                    {"project": "demo", "from_url": "test://b", "to_url": "prod://2", "smells": "MNT"},
+                    {"project": "demo", "from_url": "test://c", "to_url": "prod://3", "smells": ""},
+                    {"project": "demo", "from_url": "test://d", "to_url": "prod://4", "smells": "DA"},
+                ]
+            ).to_csv(t2p_test_smell_dir / "demo.csv", index=False)
+            t2p_link_dir = experiment_dir / "t2p-link" / "nc" / "historyFinder"
+            t2p_link_dir.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(
+                [
+                    {"project": "demo", "from_url": "test://a", "to_url": "prod://1", "from_start": 1, "from_end": 10},
+                    {"project": "demo", "from_url": "test://b", "to_url": "prod://2", "from_start": 1, "from_end": 20},
+                    {"project": "demo", "from_url": "test://c", "to_url": "prod://3", "from_start": 1, "from_end": 30},
+                    {"project": "demo", "from_url": "test://d", "to_url": "prod://4", "from_start": 1, "from_end": 40},
+                ]
+            ).to_csv(t2p_link_dir / "demo.csv", index=False)
             self.write_smells(
                 experiment_dir,
                 "demo",
                 [
                     {"url": "test://a", "smell": "AR", "loc": 10},
-                    {"url": "test://a", "smell": "VT", "loc": 10},
                     {"url": "test://b", "smell": "MNT", "loc": 20},
                     {"url": "test://c", "smell": "", "loc": 30},
                     {"url": "test://d", "smell": "DA", "loc": 40},

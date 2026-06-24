@@ -810,8 +810,13 @@ class TestSmellWorkflowTest(unittest.TestCase):
 
         result = postprocess_strategy_project(self._repository(), str(self.data), strategy)
 
-        self.assertEqual(["testFoo"], result["name"].tolist())
-        self.assertEqual(["https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L30"], result["url"].tolist())
+        smelly = result[result["smell"] == "LT"]
+        unsmelled = result[result["smell"] == ""]
+        self.assertEqual(["testFoo"], smelly["name"].tolist())
+        self.assertEqual(["https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L30"], smelly["url"].tolist())
+        self.assertEqual(["testFoo"], unsmelled["name"].tolist())
+        self.assertEqual(["https://github.com/acme/sample/blob/abc123/src/test/java/acme/FooTest.java#L10"], unsmelled["url"].tolist())
+        self.assertEqual(["11"], unsmelled["loc"].tolist())
 
     def test_strategy_postprocess_matches_old_file_before_method_name(self):
         strategy = "nc"
@@ -891,11 +896,15 @@ class TestSmellWorkflowTest(unittest.TestCase):
 
         result = postprocess_strategy_project(self._repository(), str(self.data), strategy)
 
-        self.assertEqual(["testBar"], result["name"].tolist())
+        smelly = result[result["smell"] == "LT"]
+        unsmelled = result[result["smell"] == ""]
+        self.assertEqual(["testBar"], smelly["name"].tolist())
         self.assertEqual(
             ["https://github.com/acme/sample/blob/abc123/src/test/java/acme/BarTest.java#L15"],
-            result["url"].tolist(),
+            smelly["url"].tolist(),
         )
+        self.assertEqual(["testFoo"], unsmelled["name"].tolist())
+        self.assertEqual(["11"], unsmelled["loc"].tolist())
         errors = pd.read_csv(_postprocess_error_file(str(self.data), self.project, strategy), dtype=str)
         self.assertTrue(errors.empty)
 

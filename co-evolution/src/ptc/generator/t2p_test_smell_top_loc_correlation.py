@@ -10,6 +10,7 @@ from scipy.stats import kendalltau, pearsonr, spearmanr
 import mhc.util as util
 from mhc.command_util import (
     build_experiment_parser,
+    list_csv_files,
     non_negative_int,
     resolve_experiment_filters,
     resolve_experiment_paths,
@@ -21,8 +22,9 @@ from mhc.command_util import (
 from ptc.generator.run_stats import GenerationStats, should_generate
 from ptc.generator.t2p_test_smell_association import DEFAULT_CHANGE, OUTPUT_FILE_NAME as ASSOCIATION_OUTPUT_FILE_NAME
 from ptc.generator.t2p_test_smell_loc_group import valid_loc
-from ptc.generator.t2p_test_smell_prevalence import load_smell_frames, split_smells
-from ptc.generator.t2p_test_smell_revision import CHANGE_COLUMNS, OUTPUT_DIRECTORY_NAME
+from ptc.generator.t2p_test_smell_prevalence import split_smells
+from ptc.generator.t2p_test_smell import OUTPUT_DIRECTORY_NAME as T2P_TEST_SMELL_DIRECTORY_NAME
+from ptc.generator.t2p_test_smell_revision import CHANGE_COLUMNS
 from ptc.generator.t2p_test_smell_size_control_association import top_smells_from_association
 
 OUTPUT_FILE_NAME = "t2p-test-smell-top-loc-correlation.csv"
@@ -74,6 +76,39 @@ def effect_size_label(value: float) -> str:
     return "large"
 
 
+def unique_test_method_locs(smell_frames: list[pd.DataFrame]) -> pd.DataFrame:
+    rows_by_url: dict[str, dict] = {}
+    for smell_df in smell_frames:
+        if not {"url", "loc"}.issubset(smell_df.columns):
+            continue
+        for row in smell_df[["url", "loc"]].itertuples(index=False):
+            url = str(row[0] or "")
+            if not url:
+                continue
+            loc = valid_loc(row[1])
+            if loc is None:
+                continue
+            rows_by_url.setdefault(url, {"from_url": url, "loc": loc})
+    return pd.DataFrame(rows_by_url.values(), columns=["from_url", "loc"])
+
+
+def unique_linked_method_locs(link_frames: list[pd.DataFrame]) -> pd.DataFrame:
+    rows_by_url: dict[str, dict] = {}
+    for link_df in link_frames:
+        if not {"from_url", "from_start", "from_end"}.issubset(link_df.columns):
+            continue
+        starts = pd.to_numeric(link_df["from_start"], errors="coerce")
+        ends = pd.to_numeric(link_df["from_end"], errors="coerce")
+        for url, start, end in zip(link_df["from_url"].astype(str), starts, ends):
+            if not url or pd.isna(start) or pd.isna(end):
+                continue
+            loc = int(end) - int(start) + 1
+            if loc <= 0:
+                continue
+            rows_by_url.setdefault(url, {"from_url": url, "loc": loc})
+    return pd.DataFrame(rows_by_url.values(), columns=["from_url", "loc"])
+
+
 def unique_test_method_loc_smells(smell_frames: list[pd.DataFrame]) -> pd.DataFrame:
     rows_by_url: dict[str, dict] = {}
     for smell_df in smell_frames:
@@ -93,14 +128,40 @@ def unique_test_method_loc_smells(smell_frames: list[pd.DataFrame]) -> pd.DataFr
             for smell in split_smells(row[2]):
                 entry["smells"].add(smell)
     rows = [
-        {
-            "from_url": row["from_url"],
-            "loc": row["loc"],
-            "smells": " ".join(sorted(row["smells"])),
-        }
+        {"from_url": row["from_url"], "loc": row["loc"], "smells": " ".join(sorted(row["smells"]))}
         for row in rows_by_url.values()
     ]
     return pd.DataFrame(rows, columns=["from_url", "loc", "smells"])
+
+
+def unique_linked_test_method_smells(link_frames: list[pd.DataFrame]) -> pd.DataFrame:
+    rows_by_url: dict[str, set[str]] = {}
+    for link_df in link_frames:
+        if not {"from_url", "smells"}.issubset(link_df.columns):
+            continue
+        for row in link_df[["from_url", "smells"]].itertuples(index=False):
+            url = str(row[0] or "")
+            if not url:
+                continue
+            rows_by_url.setdefault(url, set()).update(split_smells(row[1]))
+    rows = [
+        {"from_url": url, "smells": " ".join(sorted(smells))}
+        for url, smells in rows_by_url.items()
+    ]
+    return pd.DataFrame(rows, columns=["from_url", "smells"])
+
+
+def method_frame_from_t2p_test_smell(
+    link_frames: list[pd.DataFrame],
+    loc_frames: list[pd.DataFrame],
+) -> pd.DataFrame:
+    linked_methods = unique_linked_test_method_smells(link_frames)
+    if linked_methods.empty:
+        return pd.DataFrame(columns=["from_url", "loc", "smells"])
+    locs = unique_linked_method_locs(loc_frames)
+    if locs.empty:
+        return pd.DataFrame(columns=["from_url", "loc", "smells"])
+    return linked_methods.merge(locs, on="from_url", how="inner")[["from_url", "loc", "smells"]]
 
 
 def top_smell_count_frame(methods: pd.DataFrame, top_smells: list[str]) -> pd.DataFrame:
@@ -176,6 +237,54 @@ def correlation_rows(
     return rows
 
 
+def t2p_test_smell_input_directory(
+    experiment_directory,
+    strategy: str,
+    tool: str,
+    smell_detector: str,
+):
+    strategy_dir = experiment_directory / T2P_TEST_SMELL_DIRECTORY_NAME / strategy
+    nested_dir = strategy_dir / tool / smell_detector if tool else None
+    if nested_dir is not None and nested_dir.exists():
+        return nested_dir
+    return strategy_dir / smell_detector
+
+
+def load_t2p_test_smell_frames(
+    experiment_directory,
+    strategy: str,
+    tool: str,
+    smell_detector: str,
+    selected_projects: list[str] | None,
+) -> list[pd.DataFrame]:
+    input_dir = t2p_test_smell_input_directory(experiment_directory, strategy, tool, smell_detector)
+    csv_files = list_csv_files(input_dir, selected_projects, strict=False)
+    frames = []
+    for csv_file in csv_files:
+        frame = pd.read_csv(csv_file, keep_default_na=False, na_filter=False)
+        frames.append(frame)
+    return frames
+
+
+def t2p_link_input_directory(experiment_directory, strategy: str, tool: str):
+    strategy_dir = experiment_directory / "t2p-link" / strategy
+    nested_dir = strategy_dir / tool if tool else None
+    if nested_dir is not None and nested_dir.exists():
+        return nested_dir
+    return strategy_dir
+
+
+def load_t2p_link_frames(
+    experiment_directory,
+    strategy: str,
+    tool: str,
+    selected_projects: list[str] | None,
+) -> list[pd.DataFrame]:
+    input_dir = t2p_link_input_directory(experiment_directory, strategy, tool)
+    csv_files = list_csv_files(input_dir, selected_projects, strict=False)
+    return [pd.read_csv(csv_file, keep_default_na=False, na_filter=False) for csv_file in csv_files]
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     stats = GenerationStats("t2p_test_smell_top_loc_correlation")
@@ -211,9 +320,12 @@ def main(argv: list[str] | None = None) -> None:
         return
     association_frame = pd.read_csv(association_file, keep_default_na=False)
 
-    generated_dir = experiment_directory / OUTPUT_DIRECTORY_NAME
+    generated_dir = experiment_directory / T2P_TEST_SMELL_DIRECTORY_NAME
     if not generated_dir.exists():
-        warnings.warn(f"Directory not found, skipping: {generated_dir}")
+        warnings.warn(
+            f"Directory not found, skipping: {generated_dir}. "
+            "Run ptc.generator.t2p_test_smell first."
+        )
         stats.skipped_missing_input += 1
         stats.print_summary()
         return
@@ -226,20 +338,29 @@ def main(argv: list[str] | None = None) -> None:
         strict=False,
     )
     for strategy in strategies:
-        methods = unique_test_method_loc_smells(
-            load_smell_frames(experiment_directory, smell_detector, strategy, selected_projects)
-        )
-        tools = select_named_items(
-            util.sorted_directory_names(generated_dir / strategy),
-            selected_tools,
-            item_label="tool",
-        )
+        strategy_dir = generated_dir / strategy
+        strategy_children = util.sorted_directory_names(strategy_dir)
+        if smell_detector in strategy_children:
+            tools = [""]
+        else:
+            tools = select_named_items(strategy_children, selected_tools, item_label="tool")
         for tool in tools:
+            link_frames = load_t2p_test_smell_frames(
+                experiment_directory,
+                strategy,
+                tool,
+                smell_detector,
+                selected_projects,
+            )
+            methods = method_frame_from_t2p_test_smell(
+                link_frames,
+                load_t2p_link_frames(experiment_directory, strategy, tool, selected_projects),
+            )
             for revision_type in revision_types:
                 top_smells = top_smells_from_association(
                     association_frame,
                     strategy=strategy,
-                    tool=tool,
+                    tool=tool or "historyFinder",
                     smell_detector=smell_detector,
                     revision_type=revision_type,
                     top_n=args.top_n_smells,
@@ -247,18 +368,18 @@ def main(argv: list[str] | None = None) -> None:
                 if not top_smells:
                     warnings.warn(
                         "No association-selected top smells found for "
-                        f"{strategy}/{tool}/{smell_detector}/{revision_type}, skipping."
+                        f"{strategy}/{tool or 'historyFinder'}/{smell_detector}/{revision_type}, skipping."
                     )
                     continue
                 print(
                     "Top LOC-correlation smells "
-                    f"({strategy}/{tool}/{smell_detector}/{revision_type}): {', '.join(top_smells)}"
+                    f"({strategy}/{tool or 'historyFinder'}/{smell_detector}/{revision_type}): {', '.join(top_smells)}"
                 )
                 rows.extend(
                     correlation_rows(
                         methods,
                         strategy=strategy,
-                        tool=tool,
+                        tool=tool or "historyFinder",
                         smell_detector=smell_detector,
                         revision_type=revision_type,
                         top_smells=top_smells,
