@@ -72,10 +72,13 @@ from ptc.generator.t2p_test_smell_revision import (
 from ptc.plot.t2p_test_smell_barchart import (
     EFFECT_COMPARISON_STYLES,
     EFFECT_LEGEND_FONTSIZE,
+    EFFECT_MATCHED_CI_LINEWIDTH,
+    EFFECT_MATCHED_XTICK_FONTSIZE,
     EFFECT_X_AXIS_LABEL,
     EFFECT_X_AXIS_MAX,
     EFFECT_X_AXIS_MIN,
     EFFECT_XTICK_FONTSIZE,
+    EFFECT_Y_AXIS_LABEL,
     EFFECT_YTICK_FONTSIZE,
     NONSIGNIFICANT_MARKER,
     SIGNIFICANT_MARKER,
@@ -110,6 +113,7 @@ from ptc.plot.t2p_test_smell_boxplot import (
 )
 from ptc.plot.t2p_test_smell_size_control_effectplot import (
     SIZE_CONTROL_CI_LINEWIDTH,
+    SIZE_CONTROL_XTICK_FONTSIZE,
     METHOD_SIZE_LABEL,
     control_group_order as size_control_group_order,
     main as size_control_effectplot_main,
@@ -836,12 +840,14 @@ class TestT2PTestSmell(unittest.TestCase):
                 if len(collection.get_facecolors()) > 0
             ]
             minor_ticks = ax.get_xticks(minor=True).astype(int).tolist()
+            ci_linewidth = ax.collections[0].get_linewidths()[0]
         finally:
             plt.close(fig)
 
         self.assertEqual(["VT", "AR"], effect_order(frame))
         self.assertEqual(["Verbose Test", "Assertion Roulette"], labels)
         self.assertEqual(EFFECT_X_AXIS_LABEL, ax.get_xlabel())
+        self.assertEqual(EFFECT_Y_AXIS_LABEL, ax.get_ylabel())
         self.assertEqual(["D", "s"], legend_markers)
         self.assertEqual(["HTR - NTR", "MTR - NTR"], legend_labels)
         self.assertNotIn("BH-adjusted p < .05", legend_labels)
@@ -853,7 +859,10 @@ class TestT2PTestSmell(unittest.TestCase):
         self.assertIn(-1, minor_ticks)
         self.assertIn(1, minor_ticks)
         self.assertIn(17, minor_ticks)
-        self.assertGreaterEqual(ax.xaxis.get_ticklabels()[0].get_fontsize(), EFFECT_XTICK_FONTSIZE)
+        self.assertEqual(SIZE_CONTROL_XTICK_FONTSIZE, EFFECT_MATCHED_XTICK_FONTSIZE)
+        self.assertEqual(SIZE_CONTROL_CI_LINEWIDTH, EFFECT_MATCHED_CI_LINEWIDTH)
+        self.assertEqual(EFFECT_MATCHED_XTICK_FONTSIZE, ax.xaxis.get_ticklabels()[0].get_fontsize())
+        self.assertEqual(EFFECT_MATCHED_CI_LINEWIDTH, ci_linewidth)
         self.assertGreaterEqual(ax.yaxis.get_ticklabels()[0].get_fontsize(), EFFECT_YTICK_FONTSIZE)
         self.assertEqual(EFFECT_LEGEND_FONTSIZE, legend.get_texts()[0].get_fontsize())
         self.assertEqual(

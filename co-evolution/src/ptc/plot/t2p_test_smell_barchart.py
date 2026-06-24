@@ -57,8 +57,15 @@ EFFECT_XTICK_FONTSIZE = 13
 EFFECT_YTICK_FONTSIZE = 9
 EFFECT_LEGEND_FONTSIZE = 8.5
 EFFECT_X_AXIS_LABEL = "Initial Test-Smell Difference with 95% CI (%)"
-EFFECT_X_AXIS_MIN = -2
-EFFECT_X_AXIS_MAX = 18
+EFFECT_Y_AXIS_LABEL = "Test Smell Type"
+EFFECT_X_AXIS_MIN = -4
+EFFECT_X_AXIS_MAX = 20
+EFFECT_MATCHED_XTICK_FONTSIZE = EFFECT_XTICK_FONTSIZE + 2
+EFFECT_MATCHED_AXIS_LABEL_FONTSIZE = EFFECT_XTICK_FONTSIZE + 1
+EFFECT_MATCHED_CI_LINEWIDTH = 2.6
+EFFECT_MATCHED_CI_CAP_LINEWIDTH = 2.0
+EFFECT_MATCHED_CI_CAP_HALF_HEIGHT = 0.07
+EFFECT_MATCHED_MARKER_SIZE = 58
 
 
 def build_parser():
@@ -311,6 +318,9 @@ def plot_effect_axis(ax, association_df: pd.DataFrame, smell_names: dict[str, st
                 high,
                 color=str(style["color"]),
                 linestyle=str(style["linestyle"]),
+                linewidth=EFFECT_MATCHED_CI_LINEWIDTH,
+                cap_linewidth=EFFECT_MATCHED_CI_CAP_LINEWIDTH,
+                cap_half_height=EFFECT_MATCHED_CI_CAP_HALF_HEIGHT,
             )
             ax.scatter(
                 [difference],
@@ -318,13 +328,14 @@ def plot_effect_axis(ax, association_df: pd.DataFrame, smell_names: dict[str, st
                 marker=str(style["marker"]),
                 facecolor=str(style["color"]) if str(row["significant"]) == "x" else "white",
                 edgecolor="black",
-                linewidth=0.8,
-                s=34,
+                linewidth=1.0,
+                s=EFFECT_MATCHED_MARKER_SIZE,
                 zorder=2,
             )
     ax.axvline(0, color="black", linewidth=0.9, linestyle="--")
     ax.set_yticks(list(range(len(smells))))
     ax.set_yticklabels([display_smell(smell, smell_names) for smell in smells], fontsize=EFFECT_YTICK_FONTSIZE)
+    ax.set_ylabel(EFFECT_Y_AXIS_LABEL, fontsize=EFFECT_MATCHED_AXIS_LABEL_FONTSIZE)
     comparison_handles = [
         Line2D(
             [0],
@@ -344,11 +355,11 @@ def plot_effect_axis(ax, association_df: pd.DataFrame, smell_names: dict[str, st
         fontsize=EFFECT_LEGEND_FONTSIZE,
         loc="lower right",
     )
-    ax.set_xlabel(EFFECT_X_AXIS_LABEL, fontsize=EFFECT_XTICK_FONTSIZE + 1)
+    ax.set_xlabel(EFFECT_X_AXIS_LABEL, fontsize=EFFECT_MATCHED_AXIS_LABEL_FONTSIZE)
     ax.set_xlim(EFFECT_X_AXIS_MIN, EFFECT_X_AXIS_MAX)
     ax.set_xticks(list(range(EFFECT_X_AXIS_MIN, EFFECT_X_AXIS_MAX + 1, 2)))
     ax.xaxis.set_minor_locator(MultipleLocator(1))
-    ax.tick_params(axis="x", labelsize=EFFECT_XTICK_FONTSIZE)
+    ax.tick_params(axis="x", labelsize=EFFECT_MATCHED_XTICK_FONTSIZE)
     ax.tick_params(axis="y", labelsize=EFFECT_YTICK_FONTSIZE)
     ax.grid(True, axis="x", which="major", alpha=0.3)
     ax.grid(True, axis="x", which="minor", alpha=0.18)
