@@ -46,6 +46,7 @@ from ptc.generator.t2p_test_smell_prevalence import (
 )
 from ptc.generator.t2p_test_smell_association import (
     association_rows,
+    selected_revision_group_pairs as selected_association_revision_group_pairs,
     benjamini_hochberg,
     main as association_main,
 )
@@ -59,8 +60,16 @@ from ptc.generator.t2p_test_smell_revision import (
     output_directory,
 )
 from ptc.plot.t2p_test_smell_barchart import (
+    EFFECT_COMPARISON_STYLES,
+    EFFECT_LEGEND_FONTSIZE,
+    EFFECT_X_AXIS_LABEL,
+    EFFECT_X_AXIS_MAX,
+    EFFECT_X_AXIS_MIN,
+    EFFECT_XTICK_FONTSIZE,
+    EFFECT_YTICK_FONTSIZE,
     NONSIGNIFICANT_MARKER,
     SIGNIFICANT_MARKER,
+    comparison_pairs,
     display_smell,
     effect_order,
     format_any_smell_summary,
@@ -726,6 +735,18 @@ class TestT2PTestSmell(unittest.TestCase):
         self.assertEqual("NTR", association.loc["AR", "baseline_group"])
         self.assertEqual("HTR", association.loc["AR", "focal_group"])
 
+    def test_association_revision_group_pair_defaults_and_custom_order(self):
+        self.assertEqual(
+            [(REVISION_GROUP_3, REVISION_GROUP_1)],
+            selected_association_revision_group_pairs(None),
+        )
+        self.assertEqual(
+            [(REVISION_GROUP_3, REVISION_GROUP_1), (REVISION_GROUP_2, REVISION_GROUP_1)],
+            selected_association_revision_group_pairs("HTR,NTR;MTR,NTR"),
+        )
+        with self.assertRaises(ValueError):
+            selected_association_revision_group_pairs("HTR")
+
     def test_association_main_writes_unique_method_results(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             experiment_dir = self.create_experiment(tmpdir)
@@ -735,6 +756,7 @@ class TestT2PTestSmell(unittest.TestCase):
                 [
                     self.generated_row("demo", "test://r", "prod://1", 20, 1, "AR", REVISION_GROUP_3),
                     self.generated_row("demo", "test://r", "prod://2", 20, 1, "AR", REVISION_GROUP_3),
+                    self.generated_row("demo", "test://m", "prod://4", 8, 1, "VT", REVISION_GROUP_2),
                     self.generated_row("demo", "test://p", "prod://3", 1, 2, "", REVISION_GROUP_1),
                 ]
             ).to_csv(output_dir / "demo.csv", index=False)
@@ -751,11 +773,17 @@ class TestT2PTestSmell(unittest.TestCase):
                     "nc",
                     "--min-t2p-links",
                     "0",
+                    "--revision-group-pairs",
+                    "HTR,NTR;MTR,NTR",
                 ]
             )
 
             output_df = pd.read_csv(experiment_dir / "aggregate" / "t2p-test-smell-association.csv")
-            ar = output_df[output_df["smell"] == "AR"].iloc[0]
+            self.assertEqual(
+                {("HTR", "NTR"), ("MTR", "NTR")},
+                set(zip(output_df["focal_group"], output_df["baseline_group"])),
+            )
+            ar = output_df[(output_df["smell"] == "AR") & (output_df["focal_group"] == "HTR")].iloc[0]
             self.assertEqual(1, ar["focal_n"])
             self.assertEqual(1, ar["baseline_n"])
             self.assertEqual("NTR", ar["baseline_group"])
@@ -770,6 +798,8 @@ class TestT2PTestSmell(unittest.TestCase):
             [
                 self.association_row("AR", 10, 20, 30, 50, "x"),
                 self.association_row("VT", 10, 20, 12, 25, ""),
+                self.association_row("AR", 10, 20, 20, 50, "", focal_group=REVISION_GROUP_2),
+                self.association_row("VT", 10, 20, 15, 50, "x", focal_group=REVISION_GROUP_2),
             ]
         )
         import matplotlib.pyplot as plt
@@ -778,14 +808,41 @@ class TestT2PTestSmell(unittest.TestCase):
         try:
             plot_effect_axis(ax, frame, {"AR": "Assertion Roulette", "VT": "Verbose Test"})
             labels = [label.get_text() for label in ax.get_yticklabels()]
-            legend_markers = [handle.get_marker() for handle in ax.get_legend().legend_handles]
+            legend = ax.get_legend()
+            legend_markers = [handle.get_marker() for handle in legend.legend_handles]
+            legend_labels = [text.get_text() for text in legend.get_texts()]
+            facecolors = [
+                collection.get_facecolors()[0].tolist()
+                for collection in ax.collections
+                if len(collection.get_facecolors()) > 0
+            ]
+            minor_ticks = ax.get_xticks(minor=True).astype(int).tolist()
         finally:
             plt.close(fig)
 
         self.assertEqual(["VT", "AR"], effect_order(frame))
         self.assertEqual(["Verbose Test", "Assertion Roulette"], labels)
-        self.assertEqual("", ax.get_xlabel())
-        self.assertEqual([SIGNIFICANT_MARKER, NONSIGNIFICANT_MARKER], legend_markers)
+        self.assertEqual(EFFECT_X_AXIS_LABEL, ax.get_xlabel())
+        self.assertEqual(["D", "s"], legend_markers)
+        self.assertEqual(["HTR - NTR", "MTR - NTR"], legend_labels)
+        self.assertNotIn("BH-adjusted p < .05", legend_labels)
+        self.assertNotIn("Not significant", legend_labels)
+        self.assertIn([1.0, 1.0, 1.0, 1.0], facecolors)
+        self.assertTrue(any(facecolor != [1.0, 1.0, 1.0, 1.0] for facecolor in facecolors))
+        self.assertEqual((EFFECT_X_AXIS_MIN, EFFECT_X_AXIS_MAX), tuple(int(value) for value in ax.get_xlim()))
+        self.assertEqual(list(range(EFFECT_X_AXIS_MIN, EFFECT_X_AXIS_MAX + 1, 2)), ax.get_xticks().astype(int).tolist())
+        self.assertIn(-1, minor_ticks)
+        self.assertIn(1, minor_ticks)
+        self.assertIn(17, minor_ticks)
+        self.assertGreaterEqual(ax.xaxis.get_ticklabels()[0].get_fontsize(), EFFECT_XTICK_FONTSIZE)
+        self.assertGreaterEqual(ax.yaxis.get_ticklabels()[0].get_fontsize(), EFFECT_YTICK_FONTSIZE)
+        self.assertEqual(EFFECT_LEGEND_FONTSIZE, legend.get_texts()[0].get_fontsize())
+        self.assertEqual(
+            [(REVISION_GROUP_3, REVISION_GROUP_1), (REVISION_GROUP_2, REVISION_GROUP_1)],
+            comparison_pairs(frame),
+        )
+        self.assertEqual("D", EFFECT_COMPARISON_STYLES[(REVISION_GROUP_3, REVISION_GROUP_1)]["marker"])
+        self.assertEqual("s", EFFECT_COMPARISON_STYLES[(REVISION_GROUP_2, REVISION_GROUP_1)]["marker"])
 
     def test_effect_plot_formats_any_smell_summary(self):
         frame = pd.DataFrame(
@@ -797,6 +854,20 @@ class TestT2PTestSmell(unittest.TestCase):
 
         self.assertEqual(
             "Any test smell: NTR 37.9% vs HTR 67.5% (+29.6 pp)",
+            format_any_smell_summary(frame),
+        )
+
+    def test_effect_plot_formats_multiple_any_smell_summaries(self):
+        frame = pd.DataFrame(
+            [
+                self.association_row(ALL_SMELLS, 379, 1000, 675, 1000, ""),
+                self.association_row(ALL_SMELLS, 379, 1000, 500, 1000, "", focal_group=REVISION_GROUP_2),
+            ]
+        )
+
+        self.assertEqual(
+            "Any test smell: NTR 37.9% vs HTR 67.5% (+29.6 pp)\n"
+            "Any test smell: NTR 37.9% vs MTR 50.0% (+12.1 pp)",
             format_any_smell_summary(frame),
         )
 
@@ -845,7 +916,18 @@ class TestT2PTestSmell(unittest.TestCase):
             experiment_dir = self.create_experiment(tmpdir)
             aggregate_dir = experiment_dir / "aggregate"
             aggregate_dir.mkdir(parents=True, exist_ok=True)
-            frame.to_csv(aggregate_dir / "t2p-test-smell-association.csv", index=False)
+            table_input = pd.concat(
+                [
+                    frame,
+                    pd.DataFrame(
+                        [
+                            self.association_row("VT", 5, 100, 12, 100, "", focal_group=REVISION_GROUP_2),
+                        ]
+                    ),
+                ],
+                ignore_index=True,
+            )
+            table_input.to_csv(aggregate_dir / "t2p-test-smell-association.csv", index=False)
             association_table_main(
                 [
                     "--workspace-directory",
@@ -865,6 +947,14 @@ class TestT2PTestSmell(unittest.TestCase):
                     / "t2p-test-smell-association-table--historyFinder--nc--jnose--ch_diff.tex"
                 ).exists()
             )
+            latex_file = (
+                experiment_dir
+                / "figure"
+                / "t2p-test-smell-association-table--historyFinder--nc--jnose--ch_diff.tex"
+            )
+            rendered = latex_file.read_text(encoding="utf-8")
+            self.assertIn("Assertion Roulette", rendered)
+            self.assertNotIn("Verbose Test", rendered)
 
     def test_association_table_renders_string_numeric_columns_and_blank_p_values(self):
         frame = pd.DataFrame(
@@ -1602,6 +1692,9 @@ class TestT2PTestSmell(unittest.TestCase):
         focal_smell_n: int,
         focal_n: int,
         significant: str,
+        *,
+        focal_group: str = REVISION_GROUP_3,
+        baseline_group: str = REVISION_GROUP_1,
     ) -> dict:
         baseline_percent = baseline_smell_n / baseline_n * 100
         focal_percent = focal_smell_n / focal_n * 100
@@ -1612,8 +1705,8 @@ class TestT2PTestSmell(unittest.TestCase):
             "smell_detector": "jnose",
             "change": "ch_diff",
             "loc_group": ALL_LOC_GROUP,
-            "baseline_group": REVISION_GROUP_1,
-            "focal_group": REVISION_GROUP_3,
+            "baseline_group": baseline_group,
+            "focal_group": focal_group,
             "smell": smell,
             "baseline_n": baseline_n,
             "baseline_smell_n": baseline_smell_n,

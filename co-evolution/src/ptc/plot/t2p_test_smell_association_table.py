@@ -13,6 +13,7 @@ from mhc.command_util import (
 )
 from ptc.generator.t2p_test_smell_association import DEFAULT_CHANGE, OUTPUT_FILE_NAME
 from ptc.generator.t2p_test_smell_prevalence import ALL_SMELLS
+from ptc.generator.t2p_test_smell_revision import REVISION_GROUP_1, REVISION_GROUP_3, normalize_revision_group
 from ptc.plot.method_history_runtime_table import resolve_path
 from ptc.plot_util import build_experiment_plot_parser
 
@@ -39,7 +40,19 @@ def build_parser():
         include_output_directory=True,
     )
     parser.add_argument("--change", default=DEFAULT_CHANGE)
+    parser.add_argument(
+        "--revision-group-pair",
+        default=f"{REVISION_GROUP_3},{REVISION_GROUP_1}",
+        help="Focal,baseline revision-group pair to render. Defaults to HTR,NTR.",
+    )
     return parser
+
+
+def selected_revision_group_pair(value: str) -> tuple[str, str]:
+    names = [normalize_revision_group(part.strip()) for part in str(value).split(",") if part.strip()]
+    if len(names) != 2:
+        raise ValueError("--revision-group-pair must use focal,baseline format, for example HTR,NTR.")
+    return names[0], names[1]
 
 
 def escape_latex(value: object) -> str:
@@ -119,8 +132,14 @@ def main(argv: list[str] | None = None) -> None:
         strategies=args.strategies,
     )
     smell_detector = resolve_smell_detector(args.smell_detector)
+    focal_group, baseline_group = selected_revision_group_pair(args.revision_group_pair)
     frame = pd.read_csv(input_file, keep_default_na=False, na_filter=False)
     frame = frame[(frame["smell_detector"] == smell_detector) & (frame["change"] == args.change)]
+    if {"baseline_group", "focal_group"}.issubset(frame.columns):
+        frame = frame[
+            (frame["baseline_group"] == baseline_group)
+            & (frame["focal_group"] == focal_group)
+        ]
     if "loc_group" in frame.columns:
         frame = frame[frame["loc_group"] == "ALL"]
     if selected_tools is not None:

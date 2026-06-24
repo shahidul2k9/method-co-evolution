@@ -32,6 +32,7 @@ from ptc.generator.t2p_test_smell_loc_group import SIZE_GROUPS
 from ptc.generator.t2p_test_smell_revision import (
     OUTPUT_DIRECTORY_NAME,
     REVISION_GROUP_1,
+    REVISION_GROUP_2,
     REVISION_GROUP_3,
     normalize_revision_group,
 )
@@ -86,6 +87,15 @@ def build_parser():
     )
     parser.add_argument("--change", default=DEFAULT_CHANGE, help=f"Revision change column. Defaults to {DEFAULT_CHANGE}.")
     parser.add_argument(
+        "--revision-group-pairs",
+        dest="revision_group_pairs",
+        default=None,
+        help=(
+            "Semicolon-separated focal,baseline revision-group pairs. "
+            "Example: HTR,NTR;MTR,NTR. Defaults to HTR,NTR."
+        ),
+    )
+    parser.add_argument(
         "--min-t2p-links",
         dest="min_t2p_links",
         type=non_negative_int,
@@ -93,6 +103,25 @@ def build_parser():
         help="Minimum generated linked rows required before including a project.",
     )
     return parser
+
+
+def selected_revision_group_pairs(value: str | None) -> list[tuple[str, str]]:
+    if value is None or not str(value).strip():
+        return [(REVISION_GROUP_3, REVISION_GROUP_1)]
+
+    pairs = []
+    for raw_pair in str(value).split(";"):
+        names = [normalize_revision_group(part.strip()) for part in raw_pair.split(",") if part.strip()]
+        if len(names) != 2:
+            raise ValueError(
+                "--revision-group-pairs entries must use focal,baseline format, "
+                f"for example HTR,NTR;MTR,NTR: {raw_pair}"
+            )
+        unknown = [name for name in names if name not in {REVISION_GROUP_1, REVISION_GROUP_2, REVISION_GROUP_3}]
+        if unknown:
+            raise ValueError(f"Unknown revision group(s): {', '.join(unknown)}")
+        pairs.append((names[0], names[1]))
+    return pairs
 
 
 def benjamini_hochberg(values: list[float]) -> list[float]:
@@ -338,6 +367,7 @@ def main(argv: list[str] | None = None) -> None:
         strategies=args.strategies,
     )
     smell_detector = resolve_smell_detector(args.smell_detector)
+    revision_group_pairs = selected_revision_group_pairs(args.revision_group_pairs)
     generated_dir = experiment_directory / OUTPUT_DIRECTORY_NAME
     if not generated_dir.exists():
         warnings.warn(f"Directory not found, skipping: {generated_dir}")
@@ -364,16 +394,19 @@ def main(argv: list[str] | None = None) -> None:
                 min_t2p_links=args.min_t2p_links,
             )
             if not frame.empty:
-                rows.extend(
-                    association_rows(
-                        frame,
-                        strategy=strategy,
-                        tool=tool,
-                        smell_detector=smell_detector,
-                        change=args.change,
-                        loc_groups=loc_groups,
+                for focal_group, baseline_group in revision_group_pairs:
+                    rows.extend(
+                        association_rows(
+                            frame,
+                            strategy=strategy,
+                            tool=tool,
+                            smell_detector=smell_detector,
+                            change=args.change,
+                            baseline_group=baseline_group,
+                            focal_group=focal_group,
+                            loc_groups=loc_groups,
+                        )
                     )
-                )
 
     output_file = experiment_directory / "aggregate" / OUTPUT_FILE_NAME
     os.makedirs(output_file.parent, exist_ok=True)

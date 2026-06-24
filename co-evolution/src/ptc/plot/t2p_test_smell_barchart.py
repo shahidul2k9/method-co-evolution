@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.ticker import MultipleLocator
 import pandas as pd
 
 from mhc.command_util import (
@@ -26,6 +27,9 @@ from ptc.generator.t2p_test_smell_revision import (
     CHANGE_COLUMNS,
     REVISION_GROUP_LABELS,
     REVISION_GROUP_ORDER,
+    REVISION_GROUP_1,
+    REVISION_GROUP_2,
+    REVISION_GROUP_3,
     normalize_revision_group,
 )
 from ptc.plot.method_history_runtime_table import resolve_path
@@ -34,6 +38,27 @@ from ptc.plot_util import build_experiment_plot_parser
 
 SIGNIFICANT_MARKER = "D"
 NONSIGNIFICANT_MARKER = "o"
+PRIMARY_EFFECT_PAIR = (REVISION_GROUP_3, REVISION_GROUP_1)
+EFFECT_COMPARISON_STYLES = {
+    (REVISION_GROUP_3, REVISION_GROUP_1): {
+        "marker": "D",
+        "color": "#1f77b4",
+        "linestyle": "-",
+        "label": "HTR - NTR",
+    },
+    (REVISION_GROUP_2, REVISION_GROUP_1): {
+        "marker": "s",
+        "color": "#d55e00",
+        "linestyle": "--",
+        "label": "MTR - NTR",
+    },
+}
+EFFECT_XTICK_FONTSIZE = 13
+EFFECT_YTICK_FONTSIZE = 9
+EFFECT_LEGEND_FONTSIZE = 8.5
+EFFECT_X_AXIS_LABEL = "Initial Test-Smell Difference with 95% CI (%)"
+EFFECT_X_AXIS_MIN = -2
+EFFECT_X_AXIS_MAX = 18
 
 
 def build_parser():
@@ -173,10 +198,47 @@ def plot_prevalence(
     plt.close(fig)
 
 
-def effect_order(frame: pd.DataFrame) -> list[str]:
+def comparison_pair(row: pd.Series) -> tuple[str, str]:
+    return normalize_revision_group(row["focal_group"]), normalize_revision_group(row["baseline_group"])
+
+
+def comparison_label(pair: tuple[str, str]) -> str:
+    style = EFFECT_COMPARISON_STYLES.get(pair)
+    if style is not None:
+        return str(style["label"])
+    return f"{pair[0]} - {pair[1]}"
+
+
+def comparison_style(pair: tuple[str, str]) -> dict[str, str]:
+    return {
+        "marker": "o",
+        "color": "black",
+        "linestyle": "-.",
+        "label": comparison_label(pair),
+        **EFFECT_COMPARISON_STYLES.get(pair, {}),
+    }
+
+
+def comparison_pairs(frame: pd.DataFrame) -> list[tuple[str, str]]:
+    if frame.empty:
+        return []
+    pairs = [comparison_pair(row) for _, row in frame[["focal_group", "baseline_group"]].drop_duplicates().iterrows()]
+    preferred = [pair for pair in EFFECT_COMPARISON_STYLES if pair in pairs]
+    remaining = [pair for pair in pairs if pair not in preferred]
+    return [*preferred, *remaining]
+
+
+def effect_order(frame: pd.DataFrame, primary_pair: tuple[str, str] = PRIMARY_EFFECT_PAIR) -> list[str]:
+    individual = frame[frame["smell"] != ALL_SMELLS].copy()
+    if individual.empty:
+        return []
+
+    individual["_pair"] = individual.apply(comparison_pair, axis=1)
+    primary = individual[individual["_pair"] == primary_pair]
+    sort_frame = primary if not primary.empty else individual[individual["_pair"] == comparison_pairs(individual)[0]]
     return (
-        frame[frame["smell"] != ALL_SMELLS]
-        .sort_values("difference_pp", ascending=True)["smell"]
+        sort_frame.sort_values("difference_pp", ascending=True)
+        .drop_duplicates("smell")["smell"]
         .tolist()
     )
 
@@ -185,89 +247,101 @@ def format_any_smell_summary(association_df: pd.DataFrame) -> str:
     summary = association_df[association_df["smell"] == ALL_SMELLS]
     if summary.empty:
         return ""
-    row = summary.iloc[0]
-    return (
-        f"Any test smell: NTR {float(row['baseline_percent']):.1f}% vs "
-        f"HTR {float(row['focal_percent']):.1f}% "
-        f"({float(row['difference_pp']):+.1f} pp)"
-    )
+    lines = []
+    for pair in comparison_pairs(summary):
+        pair_df = summary[summary.apply(lambda row: comparison_pair(row) == pair, axis=1)]
+        if pair_df.empty:
+            continue
+        row = pair_df.iloc[0]
+        lines.append(
+            f"Any test smell: {pair[1]} {float(row['baseline_percent']):.1f}% vs "
+            f"{pair[0]} {float(row['focal_percent']):.1f}% "
+            f"({float(row['difference_pp']):+.1f} pp)"
+        )
+    return "\n".join(lines)
+
+
+def draw_horizontal_ci(ax, y: float, low: float, high: float, *, color: str, linestyle: str) -> None:
+    ax.hlines(y, low, high, colors=color, linestyles=linestyle, linewidth=1.4, zorder=1)
+    cap_half_height = 0.045
+    ax.vlines([low, high], y - cap_half_height, y + cap_half_height, colors=color, linewidth=1.1, zorder=1)
 
 
 def plot_effect_axis(ax, association_df: pd.DataFrame, smell_names: dict[str, str]) -> None:
-    individual = association_df[association_df["smell"] != ALL_SMELLS].sort_values(
-        "difference_pp",
-        ascending=True,
-    )
+    individual = association_df[association_df["smell"] != ALL_SMELLS].copy()
     if individual.empty:
         ax.text(0.5, 0.5, "No association data", ha="center", va="center", transform=ax.transAxes)
         ax.axis("off")
         return
 
-    y = list(range(len(individual)))
-    differences = individual["difference_pp"].astype(float).tolist()
-    lower = individual["difference_ci_low"].astype(float).tolist()
-    upper = individual["difference_ci_high"].astype(float).tolist()
-    significant = [str(value) == "x" for value in individual["significant"]]
-    for position, difference, low, high in zip(y, differences, lower, upper):
-        ax.errorbar(
-            difference,
-            position,
-            xerr=[[difference - low], [high - difference]],
-            fmt="none",
-            ecolor="black",
-            elinewidth=1.3,
-            capsize=3,
-            zorder=1,
-        )
-    for marker, is_significant, facecolor, label in [
-        (SIGNIFICANT_MARKER, True, "black", "BH-adjusted p < .05"),
-        (NONSIGNIFICANT_MARKER, False, "white", "Not significant"),
-    ]:
-        marker_x = [difference for difference, flag in zip(differences, significant) if flag == is_significant]
-        marker_y = [position for position, flag in zip(y, significant) if flag == is_significant]
-        if not marker_x:
-            continue
-        ax.scatter(
-            marker_x,
-            marker_y,
-            marker=marker,
-            facecolor=facecolor,
-            edgecolor="black",
-            linewidth=0.7,
-            label=label,
-            zorder=2,
-        )
+    smells = effect_order(individual)
+    y_by_smell = {smell: index for index, smell in enumerate(smells)}
+    pairs = comparison_pairs(individual)
+    offsets = {pair: 0.0 for pair in pairs}
+    if len(pairs) > 1:
+        step = 0.22
+        offsets = {pair: (index - (len(pairs) - 1) / 2) * step for index, pair in enumerate(pairs)}
+
+    individual["_pair"] = individual.apply(comparison_pair, axis=1)
+    for pair in pairs:
+        style = comparison_style(pair)
+        pair_df = individual[individual["_pair"] == pair].set_index("smell")
+        for smell in smells:
+            if smell not in pair_df.index:
+                continue
+            row = pair_df.loc[smell]
+            y_position = y_by_smell[smell] + offsets[pair]
+            difference = float(row["difference_pp"])
+            low = float(row["difference_ci_low"])
+            high = float(row["difference_ci_high"])
+            draw_horizontal_ci(
+                ax,
+                y_position,
+                low,
+                high,
+                color=str(style["color"]),
+                linestyle=str(style["linestyle"]),
+            )
+            ax.scatter(
+                [difference],
+                [y_position],
+                marker=str(style["marker"]),
+                facecolor=str(style["color"]) if str(row["significant"]) == "x" else "white",
+                edgecolor="black",
+                linewidth=0.8,
+                s=34,
+                zorder=2,
+            )
     ax.axvline(0, color="black", linewidth=0.9, linestyle="--")
-    ax.set_yticks(y)
-    ax.set_yticklabels([display_smell(smell, smell_names) for smell in individual["smell"]])
+    ax.set_yticks(list(range(len(smells))))
+    ax.set_yticklabels([display_smell(smell, smell_names) for smell in smells], fontsize=EFFECT_YTICK_FONTSIZE)
+    comparison_handles = [
+        Line2D(
+            [0],
+            [0],
+            marker=str(comparison_style(pair)["marker"]),
+            markerfacecolor=str(comparison_style(pair)["color"]),
+            markeredgecolor="black",
+            color=str(comparison_style(pair)["color"]),
+            linestyle=str(comparison_style(pair)["linestyle"]),
+            label=comparison_label(pair),
+        )
+        for pair in pairs
+    ]
     ax.legend(
-        handles=[
-            Line2D(
-                [0],
-                [0],
-                marker=SIGNIFICANT_MARKER,
-                markerfacecolor="black",
-                markeredgecolor="black",
-                color="black",
-                linestyle="None",
-                label="BH-adjusted p < .05",
-            ),
-            Line2D(
-                [0],
-                [0],
-                marker=NONSIGNIFICANT_MARKER,
-                markerfacecolor="white",
-                markeredgecolor="black",
-                color="black",
-                linestyle="None",
-                label="Not significant",
-            ),
-        ],
+        handles=comparison_handles,
         frameon=False,
-        fontsize=8,
+        fontsize=EFFECT_LEGEND_FONTSIZE,
         loc="lower right",
     )
-    ax.grid(True, axis="x", alpha=0.25)
+    ax.set_xlabel(EFFECT_X_AXIS_LABEL, fontsize=EFFECT_XTICK_FONTSIZE + 1)
+    ax.set_xlim(EFFECT_X_AXIS_MIN, EFFECT_X_AXIS_MAX)
+    ax.set_xticks(list(range(EFFECT_X_AXIS_MIN, EFFECT_X_AXIS_MAX + 1, 2)))
+    ax.xaxis.set_minor_locator(MultipleLocator(1))
+    ax.tick_params(axis="x", labelsize=EFFECT_XTICK_FONTSIZE)
+    ax.tick_params(axis="y", labelsize=EFFECT_YTICK_FONTSIZE)
+    ax.grid(True, axis="x", which="major", alpha=0.3)
+    ax.grid(True, axis="x", which="minor", alpha=0.18)
 
 
 def plot_effect(
@@ -289,7 +363,7 @@ def plot_effect(
     if plot_df.empty:
         return
 
-    fig, ax = plt.subplots(figsize=(7.2, max(5.0, len(effect_order(plot_df)) * 0.32)))
+    fig, ax = plt.subplots(figsize=(8.2, max(5.2, len(effect_order(plot_df)) * 0.34)))
     plot_effect_axis(ax, plot_df, smell_names)
     fig.tight_layout()
     os.makedirs(output_file.parent, exist_ok=True)
