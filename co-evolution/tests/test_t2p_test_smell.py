@@ -113,6 +113,7 @@ from ptc.plot.t2p_test_smell_association_table import (
     main as association_table_main,
     pair_suffix as association_table_pair_suffix,
     render_latex_table,
+    render_standalone_latex_table,
 )
 from ptc.plot.t2p_test_smell_prevalence_wilcoxon_srt_table import (
     main as wilcoxon_table_main,
@@ -147,6 +148,7 @@ from ptc.plot.t2p_test_smell_size_control_effectplot import (
 from ptc.plot.t2p_test_smell_size_control_odds_ratio_effectplot import (
     main as size_control_odds_ratio_effectplot_main,
     plot_size_control_odds_ratio_effect,
+    render_standalone_latex_plot as render_standalone_odds_ratio_plot,
 )
 
 
@@ -1209,6 +1211,8 @@ class TestT2PTestSmell(unittest.TestCase):
                     "historyFinder",
                     "--strategies",
                     "nc",
+                    "--output-type",
+                    "tex",
                     "--revision-group-pair",
                     "MTR,NTR",
                 ]
@@ -1225,7 +1229,135 @@ class TestT2PTestSmell(unittest.TestCase):
             self.assertIn("Magic Number Test", mtr_rendered)
             self.assertNotIn("Assertion Roulette", mtr_rendered)
             self.assertEqual("", association_table_pair_suffix(REVISION_GROUP_3, REVISION_GROUP_1))
+            self.assertEqual(
+                "--HTR-NTR",
+                association_table_pair_suffix(REVISION_GROUP_3, REVISION_GROUP_1, include_default=True),
+            )
             self.assertEqual("--MTR-NTR", association_table_pair_suffix(REVISION_GROUP_MTR, REVISION_GROUP_1))
+
+    def test_association_table_writes_pdf_output(self):
+        frame = pd.DataFrame(
+            [
+                self.association_row(ANY_SMELL, 50, 100, 75, 100, ""),
+                self.association_row(NO_SMELL, 50, 100, 25, 100, ""),
+                self.association_row("AR", 10, 100, 30, 100, "x"),
+                self.association_row("MNT", 5, 100, 20, 100, "", focal_group=REVISION_GROUP_MTR),
+            ]
+        )
+        standalone = render_standalone_latex_table(render_latex_table(frame, {"AR": "Assertion Roulette"}))
+        self.assertIn(r"\documentclass{article}", standalone)
+        self.assertIn(r"\usepackage{booktabs}", standalone)
+        self.assertIn(r"\usepackage{graphicx}", standalone)
+        self.assertIn(r"\resizebox{\textwidth}{!}", standalone)
+        self.assertIn("Assertion Roulette", standalone)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            project_directory = Path(tmpdir)
+            experiment_dir = self.create_experiment(tmpdir)
+            aggregate_dir = experiment_dir / "aggregate"
+            aggregate_dir.mkdir(parents=True, exist_ok=True)
+            frame.to_csv(aggregate_dir / "t2p-test-smell-association.csv", index=False)
+
+            def fake_compile(tex_file):
+                pdf_file = tex_file.with_suffix(".pdf")
+                pdf_file.write_bytes(b"%PDF-1.4\n")
+                return pdf_file
+
+            with mock.patch(
+                "ptc.plot.t2p_test_smell_association_table.compile_latex_pdf",
+                side_effect=fake_compile,
+            ) as compile_mock:
+                association_table_main(
+                    [
+                        "--project-directory",
+                        str(project_directory),
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo-exp",
+                        "--tools",
+                        "historyFinder",
+                        "--strategies",
+                        "nc",
+                        "--output-directory",
+                        "t2plinker-latex/figure",
+                        "--output-type",
+                        "pdf",
+                        "--revision-group-pair",
+                        "HTR,NTR",
+                    ]
+                )
+
+            default_output_file = (
+                project_directory
+                / "t2plinker-latex"
+                / "figure"
+                / "t2p-test-smell-association-table--historyFinder--nc--jnose--ch_diff--HTR-NTR.pdf"
+            )
+            default_build_tex_file = (
+                project_directory
+                / "t2plinker-latex"
+                / "figure"
+                / "build"
+                / "t2p-test-smell-association-table--historyFinder--nc--jnose--ch_diff--HTR-NTR"
+                / "t2p-test-smell-association-table--historyFinder--nc--jnose--ch_diff--HTR-NTR.tex"
+            )
+            self.assertTrue(default_output_file.exists())
+            self.assertFalse((project_directory / "t2plinker-latex" / "figure" / "t2p-test-smell-association-table--historyFinder--nc--jnose--ch_diff.pdf").exists())
+            self.assertTrue(default_build_tex_file.exists())
+
+            with mock.patch(
+                "ptc.plot.t2p_test_smell_association_table.compile_latex_pdf",
+                side_effect=fake_compile,
+            ) as compile_mock:
+                association_table_main(
+                    [
+                        "--project-directory",
+                        str(project_directory),
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo-exp",
+                        "--tools",
+                        "historyFinder",
+                        "--strategies",
+                        "nc",
+                        "--output-directory",
+                        "t2plinker-latex/figure",
+                        "--output-type",
+                        "pdf",
+                        "--revision-group-pair",
+                        "MTR,NTR",
+                    ]
+                )
+
+            output_file = (
+                project_directory
+                / "t2plinker-latex"
+                / "figure"
+                / "t2p-test-smell-association-table--historyFinder--nc--jnose--ch_diff--MTR-NTR.pdf"
+            )
+            build_tex_file = (
+                project_directory
+                / "t2plinker-latex"
+                / "figure"
+                / "build"
+                / "t2p-test-smell-association-table--historyFinder--nc--jnose--ch_diff--MTR-NTR"
+                / "t2p-test-smell-association-table--historyFinder--nc--jnose--ch_diff--MTR-NTR.tex"
+            )
+            self.assertTrue(output_file.exists())
+            self.assertFalse(output_file.with_suffix(".tex").exists())
+            self.assertTrue(build_tex_file.exists())
+            build_latex = build_tex_file.read_text(encoding="utf-8")
+            self.assertIn(r"\documentclass{article}", build_latex)
+            self.assertIn(r"\usepackage{graphicx}", build_latex)
+            self.assertIn("Magic Number Test", build_latex)
+            self.assertNotIn("Assertion Roulette", build_latex)
+            compile_mock.assert_called_once_with(build_tex_file)
+
+    def test_association_table_rejects_invalid_output_type(self):
+        with self.assertRaises(SystemExit):
+            association_table_main(["--output-type", "html"])
 
     def test_association_table_renders_string_numeric_columns_and_blank_p_values(self):
         frame = pd.DataFrame(
@@ -2348,6 +2480,32 @@ class TestT2PTestSmell(unittest.TestCase):
                     / "t2p-test-smell-size-control-odds-ratio-effectplot--historyFinder--nc--jnose--ch_diff--MTR-NTR.pdf"
                 ).exists()
             )
+            size_control_odds_ratio_effectplot_main([*mtr_plot_args, "--output-type", "tex"])
+            tex_file = (
+                experiment_dir
+                / "figure"
+                / "t2p-test-smell-size-control-odds-ratio-effectplot--historyFinder--nc--jnose--ch_diff--MTR-NTR.tex"
+            )
+            build_pdf_file = (
+                experiment_dir
+                / "figure"
+                / "build"
+                / "t2p-test-smell-size-control-odds-ratio-effectplot--historyFinder--nc--jnose--ch_diff--MTR-NTR"
+                / "t2p-test-smell-size-control-odds-ratio-effectplot--historyFinder--nc--jnose--ch_diff--MTR-NTR.pdf"
+            )
+            self.assertTrue(tex_file.exists())
+            self.assertTrue(build_pdf_file.exists())
+            tex = tex_file.read_text(encoding="utf-8")
+            self.assertIn(r"\documentclass{article}", tex)
+            self.assertIn(r"\usepackage{graphicx}", tex)
+            self.assertIn(r"\includegraphics", tex)
+            self.assertIn("build/t2p-test-smell-size-control-odds-ratio-effectplot", tex)
+            self.assertIn(
+                r"\includegraphics[width=\textwidth]{\detokenize{build/plot.pdf}}",
+                render_standalone_odds_ratio_plot("build/plot.pdf"),
+            )
+            with self.assertRaises(SystemExit):
+                size_control_odds_ratio_effectplot_main(["--output-type", "html"])
 
     def test_top_loc_correlation_counts_unique_top_smells_and_computes_correlations(self):
         methods = method_frame_from_t2p_test_smell(

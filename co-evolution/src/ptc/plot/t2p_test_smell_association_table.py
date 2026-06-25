@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -45,6 +48,12 @@ def build_parser():
         default=f"{REVISION_GROUP_3},{REVISION_GROUP_1}",
         help="Focal,baseline revision-group pair to render. Defaults to HTR,NTR.",
     )
+    parser.add_argument(
+        "--output-type",
+        choices=("tex", "pdf"),
+        default="tex",
+        help="Output format. 'tex' writes the tabular fragment; 'pdf' writes a standalone compiled PDF.",
+    )
     return parser
 
 
@@ -55,10 +64,15 @@ def selected_revision_group_pair(value: str) -> tuple[str, str]:
     return pairs[0]
 
 
-def pair_suffix(focal_group: str, baseline_group: str) -> str:
-    if (focal_group, baseline_group) == (REVISION_GROUP_3, REVISION_GROUP_1):
+def pair_suffix(focal_group: str, baseline_group: str, *, include_default: bool = False) -> str:
+    if not include_default and (focal_group, baseline_group) == (REVISION_GROUP_3, REVISION_GROUP_1):
         return ""
     return f"--{focal_group}-{baseline_group}"
+
+
+def has_explicit_revision_group_pair(argv: list[str] | None) -> bool:
+    arguments = sys.argv[1:] if argv is None else argv
+    return "--revision-group-pair" in arguments
 
 
 def escape_latex(value: object) -> str:
@@ -123,8 +137,65 @@ def render_latex_table(
 """
 
 
+def render_standalone_latex_table(table_latex: str) -> str:
+    return rf"""\documentclass{{article}}
+\usepackage[landscape,margin=0.5in]{{geometry}}
+\usepackage{{booktabs}}
+\usepackage{{graphicx}}
+
+\begin{{document}}
+\pagestyle{{empty}}
+
+\begin{{center}}
+\resizebox{{\textwidth}}{{!}}{{%
+{table_latex}
+}}
+\end{{center}}
+
+\end{{document}}
+"""
+
+
+def compile_latex_pdf(tex_file: Path) -> Path:
+    latex_engine = shutil.which("pdflatex")
+    if latex_engine is None:
+        raise SystemExit("pdflatex not found; install a LaTeX distribution or use --output-type tex.")
+    subprocess.run(
+        [
+            latex_engine,
+            "-interaction=nonstopmode",
+            "-halt-on-error",
+            tex_file.name,
+        ],
+        cwd=tex_file.parent,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return tex_file.with_suffix(".pdf")
+
+
+def write_table_output(output_file: Path, table_latex: str, output_type: str) -> None:
+    os.makedirs(output_file.parent, exist_ok=True)
+    if output_type == "tex":
+        output_file.write_text(table_latex, encoding="utf-8")
+        print(f"Wrote {output_file}")
+        return
+
+    output_stem = output_file.stem
+    build_directory = output_file.parent / "build" / output_stem
+    os.makedirs(build_directory, exist_ok=True)
+    build_tex_file = build_directory / f"{output_stem}.tex"
+    build_tex_file.write_text(render_standalone_latex_table(table_latex), encoding="utf-8")
+    build_pdf_file = compile_latex_pdf(build_tex_file)
+    shutil.copy2(build_pdf_file, output_file)
+    print(f"Wrote {output_file}")
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
+    include_default_pair_suffix = has_explicit_revision_group_pair(argv)
     project_directory = Path(args.project_directory)
     experiment_directory = resolve_experiment_paths(
         getattr(args, "workspace_directory", None),
@@ -164,24 +235,18 @@ def main(argv: list[str] | None = None) -> None:
     smell_names = load_test_smell_names(smell_detector)
     for row in frame[["strategy", "tool", "smell_detector", "change"]].drop_duplicates().itertuples(index=False):
         table_df = frame[(frame["strategy"] == row.strategy) & (frame["tool"] == row.tool)]
-        output_file = (
-            output_directory
-            / (
-                f"t2p-test-smell-association-table--{row.tool}--{row.strategy}--{row.smell_detector}"
-                f"--{row.change}{pair_suffix(focal_group, baseline_group)}.tex"
-            )
+        output_stem = (
+            f"t2p-test-smell-association-table--{row.tool}--{row.strategy}--{row.smell_detector}"
+            f"--{row.change}{pair_suffix(focal_group, baseline_group, include_default=include_default_pair_suffix)}"
         )
-        os.makedirs(output_file.parent, exist_ok=True)
-        output_file.write_text(
-            render_latex_table(
-                table_df,
-                smell_names,
-                baseline_group=baseline_group,
-                focal_group=focal_group,
-            ),
-            encoding="utf-8",
+        output_file = output_directory / f"{output_stem}.{args.output_type}"
+        table_latex = render_latex_table(
+            table_df,
+            smell_names,
+            baseline_group=baseline_group,
+            focal_group=focal_group,
         )
-        print(f"Wrote {output_file}")
+        write_table_output(output_file, table_latex, args.output_type)
 
 
 if __name__ == "__main__":
