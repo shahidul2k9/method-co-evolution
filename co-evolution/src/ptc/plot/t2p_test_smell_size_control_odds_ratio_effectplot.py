@@ -44,6 +44,8 @@ from ptc.plot.t2p_test_smell_size_control_effectplot import (
     METHOD_SIZE_LABEL,
     control_group_order,
     legend_pairs,
+    pairs_suffix,
+    selected_revision_group_pair_list,
     series_order,
     series_style,
 )
@@ -55,7 +57,7 @@ ODDS_RATIO_X_AXIS_LABEL = "Initial Test-Smell Odds Ratio with 95% CI"
 
 
 def build_parser():
-    return build_experiment_plot_parser(
+    parser = build_experiment_plot_parser(
         "Render the LOC-controlled RQ4 test-smell odds-ratio effect plot.",
         include_projects=False,
         include_revision_types=True,
@@ -63,6 +65,16 @@ def build_parser():
         include_project_directory=True,
         include_output_directory=True,
     )
+    parser.add_argument(
+        "--revision-group-pair",
+        default="HTR,NTR",
+        help=(
+            "Focal,baseline revision-group pair(s) to render. "
+            "Use semicolons for multiple pairs, for example HTR,NTR;MHTR,NTR;MTR,NTR. "
+            "Defaults to HTR,NTR."
+        ),
+    )
+    return parser
 
 
 def finite_positive_values(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
@@ -135,11 +147,12 @@ def plot_odds_ratio_axis(
         return
 
     series = series_order(plot_df)
-    offsets = {item: 0.0 for item in series}
-    if len(series) > 1:
-        offsets = {
-            item: (index - (len(series) - 1) / 2) * SIZE_CONTROL_SERIES_STEP
-            for index, item in enumerate(series)
+    pairs = legend_pairs(plot_df)
+    pair_offsets = {pair: 0.0 for pair in pairs}
+    if len(pairs) > 1:
+        pair_offsets = {
+            pair: (index - (len(pairs) - 1) / 2) * SIZE_CONTROL_SERIES_STEP
+            for index, pair in enumerate(pairs)
         }
 
     plot_df = plot_df.copy()
@@ -162,7 +175,7 @@ def plot_odds_ratio_axis(
         high = clip_for_log_axis(high, x_limits)
         if not all(math.isfinite(value) for value in [ratio, low, high]):
             continue
-        y_position = y_by_control_group[control_group] + offsets[series_item]
+        y_position = y_by_control_group[control_group] + pair_offsets[pair]
         draw_log_horizontal_ci(
             ax,
             y_position,
@@ -205,8 +218,11 @@ def plot_size_control_odds_ratio_effect(
     smell_detector: str,
     change: str,
     smell_names: dict[str, str],
+    revision_group_pairs: list[tuple[str, str]] | None = None,
     output_file: Path,
 ) -> None:
+    revision_group_pairs = revision_group_pairs or [("HTR", "NTR")]
+    pair_set = set(revision_group_pairs)
     plot_df = frame[
         (frame["strategy"] == strategy)
         & (frame["tool"] == tool)
@@ -214,6 +230,10 @@ def plot_size_control_odds_ratio_effect(
         & (frame["change"] == change)
         & (frame["smell"] == COMBINED_ROBUST_SMELLS)
     ].copy()
+    if not plot_df.empty:
+        plot_df["_pair"] = plot_df.apply(comparison_pair, axis=1)
+        plot_df = plot_df[plot_df["_pair"].isin(pair_set)].drop(columns=["_pair"])
+        plot_df.attrs["revision_group_pairs"] = revision_group_pairs
     if plot_df.empty:
         return
 
@@ -275,6 +295,7 @@ def main(argv: list[str] | None = None) -> None:
         include_extra=False,
     )
     smell_names = load_test_smell_names(smell_detector)
+    revision_group_pairs = selected_revision_group_pair_list(args.revision_group_pair)
     frame = pd.read_csv(input_file, keep_default_na=False, na_filter=False)
     if frame.empty:
         print("No size-control test smell odds-ratio plots generated.")
@@ -293,7 +314,10 @@ def main(argv: list[str] | None = None) -> None:
     for row in combinations.itertuples(index=False):
         output_file = (
             output_directory
-            / f"{OUTPUT_FILE_PREFIX}--{row.tool}--{row.strategy}--{row.smell_detector}--{row.change}.pdf"
+            / (
+                f"{OUTPUT_FILE_PREFIX}--{row.tool}--{row.strategy}--{row.smell_detector}--{row.change}"
+                f"{pairs_suffix(revision_group_pairs)}.pdf"
+            )
         )
         plot_size_control_odds_ratio_effect(
             frame,
@@ -302,6 +326,7 @@ def main(argv: list[str] | None = None) -> None:
             smell_detector=row.smell_detector,
             change=row.change,
             smell_names=smell_names,
+            revision_group_pairs=revision_group_pairs,
             output_file=output_file,
         )
         if output_file.exists():

@@ -26,6 +26,7 @@ from ptc.generator.t2p_test_smell_size_control_association import (
     CONTROL_SIZE_GROUPS,
     OUTPUT_FILE_NAME,
 )
+from ptc.generator.t2p_test_smell_association import selected_revision_group_pairs
 from ptc.generator.t2p_test_smell_revision import CHANGE_COLUMNS
 from ptc.plot.method_history_runtime_table import resolve_path
 from ptc.plot.t2p_test_smell_barchart import (
@@ -55,7 +56,7 @@ SIZE_CONTROL_MIN_FIGURE_HEIGHT = 3.4
 
 
 def build_parser():
-    return build_experiment_plot_parser(
+    parser = build_experiment_plot_parser(
         "Render the LOC-controlled RQ4 top-smell effect plot.",
         include_projects=False,
         include_revision_types=True,
@@ -63,6 +64,42 @@ def build_parser():
         include_project_directory=True,
         include_output_directory=True,
     )
+    parser.add_argument(
+        "--revision-group-pair",
+        default="HTR,NTR",
+        help=(
+            "Focal,baseline revision-group pair(s) to render. "
+            "Use semicolons for multiple pairs, for example HTR,NTR;MHTR,NTR;MTR,NTR. "
+            "Defaults to HTR,NTR."
+        ),
+    )
+    return parser
+
+
+def selected_revision_group_pair(value: str) -> tuple[str, str]:
+    pairs = selected_revision_group_pair_list(value)
+    if len(pairs) != 1:
+        raise ValueError("--revision-group-pair must contain exactly one focal,baseline pair.")
+    return pairs[0]
+
+
+def selected_revision_group_pair_list(value: str) -> list[tuple[str, str]]:
+    pairs = selected_revision_group_pairs(value)
+    if not pairs:
+        raise ValueError("--revision-group-pair must include at least one focal,baseline pair.")
+    return pairs
+
+
+def pair_suffix(focal_group: str, baseline_group: str) -> str:
+    if (focal_group, baseline_group) == ("HTR", "NTR"):
+        return ""
+    return f"--{focal_group}-{baseline_group}"
+
+
+def pairs_suffix(pairs: list[tuple[str, str]]) -> str:
+    if pairs == [("HTR", "NTR")]:
+        return ""
+    return "--" + "-".join(f"{focal}-{baseline}" for focal, baseline in pairs)
 
 
 def control_group_order(frame: pd.DataFrame) -> list[str]:
@@ -93,7 +130,7 @@ def smell_order(frame: pd.DataFrame) -> list[str]:
 
 
 def series_order(frame: pd.DataFrame) -> list[tuple[str, tuple[str, str]]]:
-    pairs = comparison_pairs(frame)
+    pairs = legend_pairs(frame)
     return [(control_group, pair) for control_group in CONTROL_SIZE_GROUPS for pair in pairs]
 
 
@@ -108,7 +145,13 @@ def series_style(series: tuple[str, tuple[str, str]]) -> dict[str, str]:
 
 
 def legend_pairs(frame: pd.DataFrame) -> list[tuple[str, str]]:
-    return comparison_pairs(frame)
+    pairs = comparison_pairs(frame)
+    requested = frame.attrs.get("revision_group_pairs")
+    if requested:
+        requested = [pair for pair in requested if pair in pairs]
+        remaining = [pair for pair in pairs if pair not in requested]
+        return [*requested, *remaining]
+    return pairs
 
 
 def plot_combined_axis(
@@ -124,11 +167,12 @@ def plot_combined_axis(
         return
 
     series = series_order(plot_df)
-    offsets = {item: 0.0 for item in series}
-    if len(series) > 1:
-        offsets = {
-            item: (index - (len(series) - 1) / 2) * SIZE_CONTROL_SERIES_STEP
-            for index, item in enumerate(series)
+    pairs = comparison_pairs(plot_df)
+    pair_offsets = {pair: 0.0 for pair in pairs}
+    if len(pairs) > 1:
+        pair_offsets = {
+            pair: (index - (len(pairs) - 1) / 2) * SIZE_CONTROL_SERIES_STEP
+            for index, pair in enumerate(pairs)
         }
 
     plot_df = plot_df.copy()
@@ -141,7 +185,7 @@ def plot_combined_axis(
         if COMBINED_ROBUST_SMELLS not in series_df.index or control_group not in y_by_control_group:
             continue
         row = series_df.loc[COMBINED_ROBUST_SMELLS]
-        y_position = y_by_control_group[control_group] + offsets[series_item]
+        y_position = y_by_control_group[control_group] + pair_offsets[pair]
         difference = float(row["difference_pp"])
         draw_horizontal_ci(
             ax,
@@ -187,8 +231,11 @@ def plot_size_control_effect(
     smell_detector: str,
     change: str,
     smell_names: dict[str, str],
+    revision_group_pairs: list[tuple[str, str]] | None = None,
     output_file: Path,
 ) -> None:
+    revision_group_pairs = revision_group_pairs or [("HTR", "NTR")]
+    pair_set = set(revision_group_pairs)
     plot_df = frame[
         (frame["strategy"] == strategy)
         & (frame["tool"] == tool)
@@ -196,6 +243,10 @@ def plot_size_control_effect(
         & (frame["change"] == change)
         & (frame["smell"] == COMBINED_ROBUST_SMELLS)
     ].copy()
+    if not plot_df.empty:
+        plot_df["_pair"] = plot_df.apply(comparison_pair, axis=1)
+        plot_df = plot_df[plot_df["_pair"].isin(pair_set)].drop(columns=["_pair"])
+        plot_df.attrs["revision_group_pairs"] = revision_group_pairs
     if plot_df.empty:
         return
 
@@ -257,6 +308,7 @@ def main(argv: list[str] | None = None) -> None:
         include_extra=False,
     )
     smell_names = load_test_smell_names(smell_detector)
+    revision_group_pairs = selected_revision_group_pair_list(args.revision_group_pair)
     frame = pd.read_csv(input_file, keep_default_na=False, na_filter=False)
     if frame.empty:
         print("No size-control test smell effect plots generated.")
@@ -275,7 +327,10 @@ def main(argv: list[str] | None = None) -> None:
     for row in combinations.itertuples(index=False):
         output_file = (
             output_directory
-            / f"{OUTPUT_FILE_PREFIX}--{row.tool}--{row.strategy}--{row.smell_detector}--{row.change}.pdf"
+            / (
+                f"{OUTPUT_FILE_PREFIX}--{row.tool}--{row.strategy}--{row.smell_detector}--{row.change}"
+                f"{pairs_suffix(revision_group_pairs)}.pdf"
+            )
         )
         plot_size_control_effect(
             frame,
@@ -284,6 +339,7 @@ def main(argv: list[str] | None = None) -> None:
             smell_detector=row.smell_detector,
             change=row.change,
             smell_names=smell_names,
+            revision_group_pairs=revision_group_pairs,
             output_file=output_file,
         )
         if output_file.exists():

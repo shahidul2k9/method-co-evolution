@@ -25,6 +25,7 @@ from ptc.generator.t2p_test_smell_association import (
     DEFAULT_CHANGE,
     OUTPUT_FILE_NAME as ASSOCIATION_OUTPUT_FILE_NAME,
     benjamini_hochberg,
+    comparison_unique_method_frame,
     difference_interval,
     pooled_statistics,
     selected_revision_group_pairs,
@@ -35,7 +36,6 @@ from ptc.generator.t2p_test_smell_prevalence import (
     load_generated_frames,
     load_smell_frames,
     split_smells,
-    unique_method_frame,
 )
 from ptc.generator.t2p_test_smell_revision import (
     CHANGE_COLUMNS,
@@ -352,24 +352,25 @@ def controlled_association_rows(
     top_smells = list(top_smells or [])
     if not top_smells:
         return []
-    selected_groups = sorted(
-        {group for pair in revision_group_pairs for group in pair},
-        key=[REVISION_GROUP_1, REVISION_GROUP_2, REVISION_GROUP_3].index,
-    )
-    group_column = f"rg_{revision_type}"
-    unique = unique_method_frame(frame, revision_type, selected_groups)
-    if unique.empty or group_column not in unique.columns:
-        return []
     if control_groups is None or control_groups.empty:
-        return []
-    unique = unique.merge(control_groups[["from_url", "control_group"]], on="from_url", how="inner")
-    if unique.empty:
         return []
 
     rows = []
-    for control_group in CONTROL_SIZE_GROUPS:
-        control_df = unique[unique["control_group"] == control_group].copy()
-        for focal_group, baseline_group in revision_group_pairs:
+    for focal_group, baseline_group in revision_group_pairs:
+        unique = comparison_unique_method_frame(
+            frame,
+            revision_type,
+            baseline_group=baseline_group,
+            focal_group=focal_group,
+        )
+        group_column = f"rg_{revision_type}"
+        if unique.empty or group_column not in unique.columns:
+            continue
+        unique = unique.merge(control_groups[["from_url", "control_group"]], on="from_url", how="inner")
+        if unique.empty:
+            continue
+        for control_group in CONTROL_SIZE_GROUPS:
+            control_df = unique[unique["control_group"] == control_group].copy()
             rows.extend(
                 _controlled_rows_for_pair(
                     control_df,
@@ -527,35 +528,40 @@ def main(argv: list[str] | None = None) -> None:
             if frame.empty:
                 continue
             for revision_type in revision_types:
-                top_smells = robust_significant_smells_from_association(
-                    association_frame,
-                    strategy=strategy,
-                    tool=tool,
-                    smell_detector=smell_detector,
-                    revision_type=revision_type,
-                )
-                if not top_smells:
-                    warnings.warn(
-                        "No robust-significant association smells found for "
-                        f"{strategy}/{tool}/{smell_detector}/{revision_type}, skipping."
-                    )
-                    continue
-                print(
-                    "Size-control robust significant smells "
-                    f"({strategy}/{tool}/{smell_detector}/{revision_type}): {', '.join(top_smells)}"
-                )
-                rows.extend(
-                    controlled_association_rows(
-                        frame,
+                for focal_group, baseline_group in revision_group_pairs:
+                    top_smells = robust_significant_smells_from_association(
+                        association_frame,
                         strategy=strategy,
                         tool=tool,
                         smell_detector=smell_detector,
                         revision_type=revision_type,
-                        revision_group_pairs=revision_group_pairs,
-                        control_groups=control_groups,
-                        top_smells=top_smells,
+                        focal_group=focal_group,
+                        baseline_group=baseline_group,
                     )
-                )
+                    if not top_smells:
+                        warnings.warn(
+                            "No robust-significant association smells found for "
+                            f"{strategy}/{tool}/{smell_detector}/{revision_type}/{focal_group}-{baseline_group}, "
+                            "skipping."
+                        )
+                        continue
+                    print(
+                        "Size-control robust significant smells "
+                        f"({strategy}/{tool}/{smell_detector}/{revision_type}/{focal_group}-{baseline_group}): "
+                        f"{', '.join(top_smells)}"
+                    )
+                    rows.extend(
+                        controlled_association_rows(
+                            frame,
+                            strategy=strategy,
+                            tool=tool,
+                            smell_detector=smell_detector,
+                            revision_type=revision_type,
+                            revision_group_pairs=[(focal_group, baseline_group)],
+                            control_groups=control_groups,
+                            top_smells=top_smells,
+                        )
+                    )
 
     os.makedirs(output_file.parent, exist_ok=True)
     output_df = pd.DataFrame(rows, columns=OUTPUT_COLUMNS)

@@ -39,6 +39,13 @@ from ptc.generator.t2p_test_smell_revision import (
 OUTPUT_FILE_NAME = "t2p-test-smell-association.csv"
 DEFAULT_CHANGE = "ch_diff"
 ALPHA = 0.05
+REVISION_GROUP_MHTR = "MHTR"
+REVISION_GROUP_MEMBERS = {
+    REVISION_GROUP_1: {REVISION_GROUP_1},
+    REVISION_GROUP_2: {REVISION_GROUP_2},
+    REVISION_GROUP_3: {REVISION_GROUP_3},
+    REVISION_GROUP_MHTR: {REVISION_GROUP_2, REVISION_GROUP_3},
+}
 OUTPUT_COLUMNS = [
     "strategy",
     "tool",
@@ -72,6 +79,48 @@ OUTPUT_COLUMNS = [
 
 def output_revision_group(group: str) -> str:
     return normalize_revision_group(group)
+
+
+def known_revision_groups() -> set[str]:
+    return set(REVISION_GROUP_MEMBERS)
+
+
+def revision_group_members(group: str) -> set[str]:
+    normalized = normalize_revision_group(group)
+    if normalized not in REVISION_GROUP_MEMBERS:
+        raise ValueError(f"Unknown revision group: {group}")
+    return REVISION_GROUP_MEMBERS[normalized]
+
+
+def comparison_unique_method_frame(
+    frame: pd.DataFrame,
+    change: str,
+    *,
+    baseline_group: str,
+    focal_group: str,
+) -> pd.DataFrame:
+    baseline_group = normalize_revision_group(baseline_group)
+    focal_group = normalize_revision_group(focal_group)
+    baseline_members = revision_group_members(baseline_group)
+    focal_members = revision_group_members(focal_group)
+    group_column = f"rg_{change}"
+    if group_column not in frame.columns:
+        return pd.DataFrame(columns=[*frame.columns])
+
+    selected_members = sorted(baseline_members | focal_members)
+    selected = frame[frame[group_column].isin(selected_members)].copy()
+    if selected.empty:
+        return selected
+
+    def relabel(group: str) -> str:
+        if group in baseline_members:
+            return baseline_group
+        if group in focal_members:
+            return focal_group
+        return group
+
+    selected[group_column] = selected[group_column].map(relabel)
+    return unique_method_frame(selected, change, [baseline_group, focal_group])
 
 
 def build_parser():
@@ -115,7 +164,7 @@ def selected_revision_group_pairs(value: str | None) -> list[tuple[str, str]]:
                 "--revision-group-pairs entries must use focal,baseline format, "
                 f"for example HTR,NTR;MTR,NTR: {raw_pair}"
             )
-        unknown = [name for name in names if name not in {REVISION_GROUP_1, REVISION_GROUP_2, REVISION_GROUP_3}]
+        unknown = [name for name in names if name not in known_revision_groups()]
         if unknown:
             raise ValueError(f"Unknown revision group(s): {', '.join(unknown)}")
         pairs.append((names[0], names[1]))
@@ -232,7 +281,12 @@ def association_rows(
     focal_group: str = REVISION_GROUP_3,
 ) -> list[dict]:
     group_column = f"rg_{change}"
-    unique = unique_method_frame(frame, change, [baseline_group, focal_group])
+    unique = comparison_unique_method_frame(
+        frame,
+        change,
+        baseline_group=baseline_group,
+        focal_group=focal_group,
+    )
     if unique.empty or group_column not in unique.columns:
         return []
 

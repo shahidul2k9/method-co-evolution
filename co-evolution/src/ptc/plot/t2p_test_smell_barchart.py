@@ -58,6 +58,12 @@ EFFECT_COMPARISON_STYLES = {
         "linestyle": "--",
         "label": "MTR - NTR",
     },
+    ("MHTR", REVISION_GROUP_1): {
+        "marker": "^",
+        "color": "#009e73",
+        "linestyle": "-.",
+        "label": "MHTR - NTR",
+    },
 }
 EFFECT_XTICK_FONTSIZE = 13
 EFFECT_YTICK_FONTSIZE = 9

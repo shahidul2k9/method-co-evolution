@@ -71,7 +71,9 @@ from ptc.generator.t2p_test_smell_prevalence import (
     unique_method_frame,
 )
 from ptc.generator.t2p_test_smell_association import (
+    REVISION_GROUP_MHTR,
     association_rows,
+    comparison_unique_method_frame,
     selected_revision_group_pairs as selected_association_revision_group_pairs,
     benjamini_hochberg,
     main as association_main,
@@ -109,6 +111,7 @@ from ptc.plot.t2p_test_smell_barchart import (
 )
 from ptc.plot.t2p_test_smell_association_table import (
     main as association_table_main,
+    pair_suffix as association_table_pair_suffix,
     render_latex_table,
 )
 from ptc.plot.t2p_test_smell_prevalence_wilcoxon_srt_table import (
@@ -131,9 +134,13 @@ from ptc.plot.t2p_test_smell_size_control_effectplot import (
     METHOD_SIZE_LABEL,
     SIZE_CONTROL_CI_LINEWIDTH,
     SIZE_CONTROL_XTICK_FONTSIZE,
+    pair_suffix as size_control_pair_suffix,
+    pairs_suffix as size_control_pairs_suffix,
     control_group_order as size_control_group_order,
     main as size_control_effectplot_main,
     plot_size_control_effect,
+    selected_revision_group_pair_list as selected_size_control_revision_group_pair_list,
+    selected_revision_group_pair as selected_size_control_revision_group_pair,
     series_label,
     series_order,
 )
@@ -904,8 +911,48 @@ class TestT2PTestSmell(unittest.TestCase):
             [(REVISION_GROUP_3, REVISION_GROUP_1), (REVISION_GROUP_2, REVISION_GROUP_1)],
             selected_association_revision_group_pairs("HTR,NTR;MTR,NTR"),
         )
+        self.assertEqual(
+            [(REVISION_GROUP_MHTR, REVISION_GROUP_1)],
+            selected_association_revision_group_pairs("MHTR,NTR"),
+        )
         with self.assertRaises(ValueError):
             selected_association_revision_group_pairs("HTR")
+
+    def test_association_rows_support_mhtr_composite_group(self):
+        frame = pd.DataFrame(
+            [
+                self.generated_row("demo", "test://h", "prod://1", 10, 1, "AR", REVISION_GROUP_3),
+                self.generated_row("demo", "test://m", "prod://2", 6, 1, "VT", REVISION_GROUP_2),
+                self.generated_row("demo", "test://n", "prod://3", 1, 5, "", REVISION_GROUP_1),
+                self.generated_row("demo", "test://both-focal", "prod://4", 10, 1, "AR", REVISION_GROUP_3),
+                self.generated_row("demo", "test://both-focal", "prod://5", 6, 1, "VT", REVISION_GROUP_2),
+                self.generated_row("demo", "test://conflict", "prod://6", 6, 1, "AR", REVISION_GROUP_2),
+                self.generated_row("demo", "test://conflict", "prod://7", 1, 5, "", REVISION_GROUP_1),
+            ]
+        )
+        unique = comparison_unique_method_frame(
+            frame,
+            "ch_diff",
+            baseline_group=REVISION_GROUP_1,
+            focal_group=REVISION_GROUP_MHTR,
+        )
+        self.assertNotIn("test://conflict", set(unique["from_url"]))
+        self.assertEqual(
+            {REVISION_GROUP_MHTR, REVISION_GROUP_1},
+            set(unique["rg_ch_diff"]),
+        )
+        rows = association_rows(
+            frame,
+            strategy="nc",
+            tool="historyFinder",
+            smell_detector="jnose",
+            baseline_group=REVISION_GROUP_1,
+            focal_group=REVISION_GROUP_MHTR,
+        )
+        association = pd.DataFrame(rows).set_index("smell")
+        self.assertEqual(3, association.loc["AR", "focal_n"])
+        self.assertEqual(1, association.loc["AR", "baseline_n"])
+        self.assertEqual(REVISION_GROUP_MHTR, association.loc["AR", "focal_group"])
 
     def test_association_main_writes_unique_method_results(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -934,13 +981,13 @@ class TestT2PTestSmell(unittest.TestCase):
                     "--min-t2p-links",
                     "0",
                     "--revision-group-pairs",
-                    "HTR,NTR;MTR,NTR",
+                    "HTR,NTR;MTR,NTR;MHTR,NTR",
                 ]
             )
 
             output_df = pd.read_csv(experiment_dir / "aggregate" / "t2p-test-smell-association.csv")
             self.assertEqual(
-                {("HTR", "NTR"), ("MTR", "NTR")},
+                {("HTR", "NTR"), ("MTR", "NTR"), ("MHTR", "NTR")},
                 set(zip(output_df["focal_group"], output_df["baseline_group"])),
             )
             ar = output_df[(output_df["smell"] == "AR") & (output_df["focal_group"] == "HTR")].iloc[0]
@@ -1098,6 +1145,7 @@ class TestT2PTestSmell(unittest.TestCase):
                     pd.DataFrame(
                         [
                             self.association_row("VT", 5, 100, 12, 100, "", focal_group=REVISION_GROUP_2),
+                            self.association_row("MNT", 5, 100, 20, 100, "", focal_group=REVISION_GROUP_MHTR),
                         ]
                     ),
                 ],
@@ -1131,6 +1179,35 @@ class TestT2PTestSmell(unittest.TestCase):
             rendered = latex_file.read_text(encoding="utf-8")
             self.assertIn("Assertion Roulette", rendered)
             self.assertNotIn("Verbose Test", rendered)
+            self.assertNotIn("Magic Number Test", rendered)
+
+            association_table_main(
+                [
+                    "--workspace-directory",
+                    tmpdir,
+                    "--experiment-name",
+                    "demo-exp",
+                    "--tools",
+                    "historyFinder",
+                    "--strategies",
+                    "nc",
+                    "--revision-group-pair",
+                    "MHTR,NTR",
+                ]
+            )
+            mhtr_latex_file = (
+                experiment_dir
+                / "figure"
+                / "t2p-test-smell-association-table--historyFinder--nc--jnose--ch_diff--MHTR-NTR.tex"
+            )
+            self.assertTrue(mhtr_latex_file.exists())
+            mhtr_rendered = mhtr_latex_file.read_text(encoding="utf-8")
+            self.assertIn(r"\textbf{NTR \%}", mhtr_rendered)
+            self.assertIn(r"\textbf{MHTR \%}", mhtr_rendered)
+            self.assertIn("Magic Number Test", mhtr_rendered)
+            self.assertNotIn("Assertion Roulette", mhtr_rendered)
+            self.assertEqual("", association_table_pair_suffix(REVISION_GROUP_3, REVISION_GROUP_1))
+            self.assertEqual("--MHTR-NTR", association_table_pair_suffix(REVISION_GROUP_MHTR, REVISION_GROUP_1))
 
     def test_association_table_renders_string_numeric_columns_and_blank_p_values(self):
         frame = pd.DataFrame(
@@ -1911,6 +1988,50 @@ class TestT2PTestSmell(unittest.TestCase):
         self.assertIn("odds_ratio_ci_high", output.columns)
         self.assertIn("fisher_p_adjusted", output.columns)
 
+    def test_size_control_rows_support_mhtr_composite_group(self):
+        frame = pd.DataFrame(
+            [
+                self.generated_row("demo", "test://h-small", "prod://1", 10, 1, "AR", REVISION_GROUP_3),
+                self.generated_row("demo", "test://m-small", "prod://2", 5, 1, "VT", REVISION_GROUP_2),
+                self.generated_row("demo", "test://n-small", "prod://3", 1, 5, "", REVISION_GROUP_1),
+                self.generated_row("demo", "test://conflict", "prod://4", 5, 1, "AR", REVISION_GROUP_2),
+                self.generated_row("demo", "test://conflict", "prod://5", 1, 5, "", REVISION_GROUP_1),
+            ]
+        )
+        control_groups = pd.DataFrame(
+            [
+                {"from_url": "test://h-small", "control_group": "Small"},
+                {"from_url": "test://m-small", "control_group": "Small"},
+                {"from_url": "test://n-small", "control_group": "Small"},
+                {"from_url": "test://conflict", "control_group": "Small"},
+            ]
+        )
+
+        rows = controlled_association_rows(
+            frame,
+            strategy="nc",
+            tool="historyFinder",
+            smell_detector="jnose",
+            revision_type="ch_diff",
+            revision_group_pairs=[(REVISION_GROUP_MHTR, REVISION_GROUP_1)],
+            control_groups=control_groups,
+            top_smells=["AR", "VT"],
+        )
+        output = pd.DataFrame(rows)
+
+        self.assertEqual({REVISION_GROUP_MHTR}, set(output["focal_group"]))
+        self.assertEqual({REVISION_GROUP_1}, set(output["baseline_group"]))
+        small_ar = output[(output["control_group"] == "Small") & (output["smell"] == "AR")].iloc[0]
+        small_vt = output[(output["control_group"] == "Small") & (output["smell"] == "VT")].iloc[0]
+        small_robust = output[
+            (output["control_group"] == "Small") & (output["smell"] == COMBINED_ROBUST_SMELLS)
+        ].iloc[0]
+        self.assertEqual(2, small_ar["focal_n"])
+        self.assertEqual(1, small_ar["focal_smell_n"])
+        self.assertEqual(1, small_vt["focal_smell_n"])
+        self.assertEqual(2, small_robust["focal_smell_n"])
+        self.assertEqual(1, small_robust["baseline_n"])
+
     def test_size_control_effectplot_writes_pdf(self):
         frame = pd.DataFrame(
             [
@@ -1958,11 +2079,10 @@ class TestT2PTestSmell(unittest.TestCase):
             self.assertEqual(SIZE_CONTROL_CI_LINEWIDTH, ci_linewidth)
             self.assertEqual(1, axes_count)
             self.assertNotIn("Assertion Roulette", ytick_labels)
-            self.assertEqual(["HTR - NTR", "MTR - NTR"], legend_labels)
+            self.assertEqual(["HTR - NTR"], legend_labels)
             self.assertEqual(
                 [
                     EFFECT_COMPARISON_STYLES[(REVISION_GROUP_3, REVISION_GROUP_1)]["color"],
-                    EFFECT_COMPARISON_STYLES[(REVISION_GROUP_2, REVISION_GROUP_1)]["color"],
                 ],
                 legend_colors,
             )
@@ -2018,6 +2138,73 @@ class TestT2PTestSmell(unittest.TestCase):
             self.assertEqual("log", xscale)
             self.assertTrue(reference_lines)
 
+    def test_size_control_plots_support_multiple_revision_group_pairs(self):
+        frame = pd.DataFrame(
+            [
+                self.size_control_row("Small", COMBINED_ROBUST_SMELLS, REVISION_GROUP_3, 1, 10, 5, 10, ""),
+                self.size_control_row("Small", COMBINED_ROBUST_SMELLS, REVISION_GROUP_MHTR, 1, 10, 4, 10, "x"),
+                self.size_control_row("Small", COMBINED_ROBUST_SMELLS, REVISION_GROUP_2, 1, 10, 3, 10, ""),
+                self.size_control_row("Medium", COMBINED_ROBUST_SMELLS, REVISION_GROUP_3, 1, 10, 4, 10, "x"),
+                self.size_control_row("Medium", COMBINED_ROBUST_SMELLS, REVISION_GROUP_MHTR, 1, 10, 3, 10, ""),
+                self.size_control_row("Medium", COMBINED_ROBUST_SMELLS, REVISION_GROUP_2, 1, 10, 2, 10, ""),
+                self.size_control_row("Large", COMBINED_ROBUST_SMELLS, REVISION_GROUP_3, 1, 10, 3, 10, ""),
+                self.size_control_row("Large", COMBINED_ROBUST_SMELLS, REVISION_GROUP_MHTR, 1, 10, 2, 10, "x"),
+                self.size_control_row("Large", COMBINED_ROBUST_SMELLS, REVISION_GROUP_2, 1, 10, 1, 10, ""),
+            ]
+        )
+        revision_group_pairs = [
+            (REVISION_GROUP_3, REVISION_GROUP_1),
+            (REVISION_GROUP_MHTR, REVISION_GROUP_1),
+            (REVISION_GROUP_2, REVISION_GROUP_1),
+        ]
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_file = Path(tmpdir) / "size-control-multi.pdf"
+            or_output_file = Path(tmpdir) / "size-control-or-multi.pdf"
+            import matplotlib.pyplot as plt
+
+            real_close = plt.close
+            with mock.patch("matplotlib.pyplot.close") as close:
+                plot_size_control_effect(
+                    frame,
+                    strategy="nc",
+                    tool="historyFinder",
+                    smell_detector="jnose",
+                    change="ch_diff",
+                    smell_names={},
+                    revision_group_pairs=revision_group_pairs,
+                    output_file=output_file,
+                )
+                figure = plt.gcf()
+                legend_labels = [text.get_text() for text in figure.legends[0].get_texts()]
+                close.assert_called_once()
+                real_close(figure)
+
+            with mock.patch("matplotlib.pyplot.close") as close:
+                plot_size_control_odds_ratio_effect(
+                    frame,
+                    strategy="nc",
+                    tool="historyFinder",
+                    smell_detector="jnose",
+                    change="ch_diff",
+                    smell_names={},
+                    revision_group_pairs=revision_group_pairs,
+                    output_file=or_output_file,
+                )
+                figure = plt.gcf()
+                or_legend_labels = [text.get_text() for text in figure.legends[0].get_texts()]
+                close.assert_called_once()
+                real_close(figure)
+
+            self.assertTrue(output_file.exists())
+            self.assertTrue(or_output_file.exists())
+            self.assertEqual(["HTR - NTR", "MHTR - NTR", "MTR - NTR"], legend_labels)
+            self.assertEqual(["HTR - NTR", "MHTR - NTR", "MTR - NTR"], or_legend_labels)
+            self.assertEqual(revision_group_pairs, selected_size_control_revision_group_pair_list("HTR,NTR;MHTR,NTR;MTR,NTR"))
+            self.assertEqual(
+                "--HTR-NTR-MHTR-NTR-MTR-NTR",
+                size_control_pairs_suffix(revision_group_pairs),
+            )
+
     def test_size_control_main_writes_aggregate_and_plot(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             experiment_dir = self.create_experiment(tmpdir)
@@ -2060,6 +2247,12 @@ class TestT2PTestSmell(unittest.TestCase):
                     self.association_output_row("CTL", 5.5, REVISION_GROUP_3, REVISION_GROUP_1),
                     self.association_output_row("EH", 5.4, REVISION_GROUP_3, REVISION_GROUP_1),
                     self.association_output_row("DA", 4.8, REVISION_GROUP_3, REVISION_GROUP_1),
+                    self.association_output_row("AR", 14.5, REVISION_GROUP_MHTR, REVISION_GROUP_1),
+                    self.association_output_row("VT", 10.9, REVISION_GROUP_MHTR, REVISION_GROUP_1),
+                    self.association_output_row("MNT", 7.4, REVISION_GROUP_MHTR, REVISION_GROUP_1),
+                    self.association_output_row("CTL", 4.5, REVISION_GROUP_MHTR, REVISION_GROUP_1),
+                    self.association_output_row("EH", 4.4, REVISION_GROUP_MHTR, REVISION_GROUP_1),
+                    self.association_output_row("DA", 3.8, REVISION_GROUP_MHTR, REVISION_GROUP_1),
                 ]
             ).to_csv(experiment_dir / "aggregate" / "t2p-test-smell-association.csv", index=False)
 
@@ -2083,7 +2276,7 @@ class TestT2PTestSmell(unittest.TestCase):
 
             self.assertTrue((experiment_dir / "aggregate" / "t2p-test-smell-size-control-association.csv").exists())
             output_df = pd.read_csv(experiment_dir / "aggregate" / "t2p-test-smell-size-control-association.csv")
-            self.assertEqual(42, len(output_df))
+            self.assertEqual(21, len(output_df))
             self.assertEqual({"AR", "VT", "MNT", "CTL", "EH", "DA", COMBINED_ROBUST_SMELLS}, set(output_df["smell"]))
             self.assertIn("odds_ratio", output_df.columns)
             self.assertTrue(
@@ -2099,6 +2292,42 @@ class TestT2PTestSmell(unittest.TestCase):
                     experiment_dir
                     / "figure"
                     / "t2p-test-smell-size-control-odds-ratio-effectplot--historyFinder--nc--jnose--ch_diff.pdf"
+                ).exists()
+            )
+
+            size_control_association_main(
+                [
+                    *generator_args,
+                    "--min-t2p-links",
+                    "0",
+                    "--revision-group-pairs",
+                    "MHTR,NTR",
+                    "--replace",
+                ]
+            )
+            output_df = pd.read_csv(experiment_dir / "aggregate" / "t2p-test-smell-size-control-association.csv")
+            self.assertEqual({(REVISION_GROUP_MHTR, REVISION_GROUP_1)}, set(zip(output_df["focal_group"], output_df["baseline_group"])))
+            self.assertEqual(21, len(output_df))
+            self.assertEqual("--MHTR-NTR", size_control_pair_suffix(REVISION_GROUP_MHTR, REVISION_GROUP_1))
+            self.assertEqual(
+                (REVISION_GROUP_MHTR, REVISION_GROUP_1),
+                selected_size_control_revision_group_pair("MHTR,NTR"),
+            )
+            mhtr_plot_args = [*plot_args, "--revision-group-pair", "MHTR,NTR"]
+            size_control_effectplot_main(mhtr_plot_args)
+            self.assertTrue(
+                (
+                    experiment_dir
+                    / "figure"
+                    / "t2p-test-smell-size-control-effectplot--historyFinder--nc--jnose--ch_diff--MHTR-NTR.pdf"
+                ).exists()
+            )
+            size_control_odds_ratio_effectplot_main(mhtr_plot_args)
+            self.assertTrue(
+                (
+                    experiment_dir
+                    / "figure"
+                    / "t2p-test-smell-size-control-odds-ratio-effectplot--historyFinder--nc--jnose--ch_diff--MHTR-NTR.pdf"
                 ).exists()
             )
 

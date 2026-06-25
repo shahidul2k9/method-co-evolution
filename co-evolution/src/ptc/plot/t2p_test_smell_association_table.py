@@ -11,9 +11,9 @@ from mhc.command_util import (
     resolve_experiment_paths,
     resolve_smell_detector,
 )
-from ptc.generator.t2p_test_smell_association import DEFAULT_CHANGE, OUTPUT_FILE_NAME
+from ptc.generator.t2p_test_smell_association import DEFAULT_CHANGE, OUTPUT_FILE_NAME, selected_revision_group_pairs
 from ptc.generator.t2p_test_smell_prevalence import PSEUDO_SMELLS
-from ptc.generator.t2p_test_smell_revision import REVISION_GROUP_1, REVISION_GROUP_3, normalize_revision_group
+from ptc.generator.t2p_test_smell_revision import REVISION_GROUP_1, REVISION_GROUP_3
 from ptc.plot.method_history_runtime_table import resolve_path
 from ptc.plot_util import build_experiment_plot_parser
 
@@ -49,10 +49,16 @@ def build_parser():
 
 
 def selected_revision_group_pair(value: str) -> tuple[str, str]:
-    names = [normalize_revision_group(part.strip()) for part in str(value).split(",") if part.strip()]
-    if len(names) != 2:
-        raise ValueError("--revision-group-pair must use focal,baseline format, for example HTR,NTR.")
-    return names[0], names[1]
+    pairs = selected_revision_group_pairs(value)
+    if len(pairs) != 1:
+        raise ValueError("--revision-group-pair must contain exactly one focal,baseline pair.")
+    return pairs[0]
+
+
+def pair_suffix(focal_group: str, baseline_group: str) -> str:
+    if (focal_group, baseline_group) == (REVISION_GROUP_3, REVISION_GROUP_1):
+        return ""
+    return f"--{focal_group}-{baseline_group}"
 
 
 def escape_latex(value: object) -> str:
@@ -82,7 +88,13 @@ def format_p(value: object) -> str:
     return r"$<.001$" if number < 0.001 else f"{number:.3f}"
 
 
-def render_latex_table(frame: pd.DataFrame, smell_names: dict[str, str]) -> str:
+def render_latex_table(
+    frame: pd.DataFrame,
+    smell_names: dict[str, str],
+    *,
+    baseline_group: str = REVISION_GROUP_1,
+    focal_group: str = REVISION_GROUP_3,
+) -> str:
     frame = numeric_table_frame(frame)
     individual = frame[~frame["smell"].isin(PSEUDO_SMELLS)].sort_values("difference_pp", ascending=False)
     rows = []
@@ -102,7 +114,7 @@ def render_latex_table(frame: pd.DataFrame, smell_names: dict[str, str]) -> str:
     body = "\n".join(rows)
     return rf"""\begin{{tabular}}{{lrrrrrrr}}
 \toprule
-\textbf{{Test smell}} & \textbf{{NTR \%}} & \textbf{{HTR \%}} & \textbf{{$\Delta$ pp}} &
+\textbf{{Test smell}} & \textbf{{{baseline_group} \%}} & \textbf{{{focal_group} \%}} & \textbf{{$\Delta$ pp}} &
 \textbf{{OR [95\% CI]}} & \textbf{{$p_{{BH}}$}} & \textbf{{MH OR}} & \textbf{{MH $p_{{BH}}$}} \\
 \midrule
 {body}
@@ -151,10 +163,21 @@ def main(argv: list[str] | None = None) -> None:
         table_df = frame[(frame["strategy"] == row.strategy) & (frame["tool"] == row.tool)]
         output_file = (
             output_directory
-            / f"t2p-test-smell-association-table--{row.tool}--{row.strategy}--{row.smell_detector}--{row.change}.tex"
+            / (
+                f"t2p-test-smell-association-table--{row.tool}--{row.strategy}--{row.smell_detector}"
+                f"--{row.change}{pair_suffix(focal_group, baseline_group)}.tex"
+            )
         )
         os.makedirs(output_file.parent, exist_ok=True)
-        output_file.write_text(render_latex_table(table_df, smell_names), encoding="utf-8")
+        output_file.write_text(
+            render_latex_table(
+                table_df,
+                smell_names,
+                baseline_group=baseline_group,
+                focal_group=focal_group,
+            ),
+            encoding="utf-8",
+        )
         print(f"Wrote {output_file}")
 
 
