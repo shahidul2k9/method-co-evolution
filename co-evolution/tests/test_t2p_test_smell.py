@@ -31,14 +31,14 @@ from ptc.generator.t2p_test_smell_count_mww import (
     selected_revision_group_pairs,
 )
 from ptc.generator.t2p_test_smell_size_control_association import (
-    COMBINED_TOP_SMELLS,
+    COMBINED_ROBUST_SMELLS,
     CONTROL_SIZE_GROUPS,
     association_top_smells,
     controlled_association_rows,
     fixed_control_group,
     fixed_control_group_frame,
     main as size_control_association_main,
-    top_smells_from_association,
+    robust_significant_smells_from_association,
 )
 from ptc.generator.t2p_test_smell_top_loc_correlation import (
     OUTPUT_COLUMNS as TOP_LOC_CORRELATION_COLUMNS,
@@ -128,14 +128,18 @@ from ptc.plot.t2p_test_smell_boxplot import (
     unique_smell_count,
 )
 from ptc.plot.t2p_test_smell_size_control_effectplot import (
+    METHOD_SIZE_LABEL,
     SIZE_CONTROL_CI_LINEWIDTH,
     SIZE_CONTROL_XTICK_FONTSIZE,
-    METHOD_SIZE_LABEL,
     control_group_order as size_control_group_order,
     main as size_control_effectplot_main,
     plot_size_control_effect,
     series_label,
     series_order,
+)
+from ptc.plot.t2p_test_smell_size_control_odds_ratio_effectplot import (
+    main as size_control_odds_ratio_effectplot_main,
+    plot_size_control_odds_ratio_effect,
 )
 
 
@@ -1801,7 +1805,7 @@ class TestT2PTestSmell(unittest.TestCase):
         self.assertEqual("Large", frame.loc["test://l", "control_group"])
         self.assertNotIn("test://bad", frame.index)
 
-    def test_size_control_rows_use_association_top_smells_and_combined_row(self):
+    def test_size_control_rows_use_robust_significant_association_smells(self):
         frame = pd.DataFrame(
             [
                 self.generated_row("demo", "test://h-small", "prod://1", 10, 1, "AR VT AR", REVISION_GROUP_3),
@@ -1848,6 +1852,7 @@ class TestT2PTestSmell(unittest.TestCase):
                 self.association_output_row("ET", 1.6, REVISION_GROUP_2, REVISION_GROUP_1),
             ]
         )
+        association_frame.loc[association_frame["smell"] == "DA", "mh_p_adjusted"] = 0.50
         self.assertEqual(
             [("AR", 16.5), ("VT", 11.9), ("MNT", 8.4), ("CTL", 5.5), ("EH", 5.4)],
             association_top_smells(
@@ -1861,13 +1866,12 @@ class TestT2PTestSmell(unittest.TestCase):
                 top_n=5,
             ),
         )
-        selected_smells = top_smells_from_association(
+        selected_smells = robust_significant_smells_from_association(
             association_frame,
             strategy="nc",
             tool="historyFinder",
             smell_detector="jnose",
             revision_type="ch_diff",
-            top_n=5,
         )
         self.assertEqual(["AR", "VT", "MNT", "CTL", "EH"], selected_smells)
 
@@ -1885,7 +1889,7 @@ class TestT2PTestSmell(unittest.TestCase):
         self.assertEqual(set(CONTROL_SIZE_GROUPS), set(output["control_group"].unique()))
         self.assertEqual({REVISION_GROUP_2, REVISION_GROUP_3}, set(output["focal_group"].unique()))
         self.assertEqual({REVISION_GROUP_1}, set(output["baseline_group"].unique()))
-        self.assertEqual({"AR", "VT", "MNT", "CTL", "EH", COMBINED_TOP_SMELLS}, set(output["smell"].unique()))
+        self.assertEqual({"AR", "VT", "MNT", "CTL", "EH", COMBINED_ROBUST_SMELLS}, set(output["smell"].unique()))
         self.assertEqual(36, len(output))
         htr_small_ar = output[
             (output["control_group"] == "Small")
@@ -1894,39 +1898,29 @@ class TestT2PTestSmell(unittest.TestCase):
         ].iloc[0]
         self.assertEqual(1, htr_small_ar["focal_n"])
         self.assertEqual(1, htr_small_ar["baseline_n"])
-        htr_small_combined = output[
+        htr_small_robust = output[
             (output["control_group"] == "Small")
             & (output["focal_group"] == REVISION_GROUP_3)
-            & (output["smell"] == COMBINED_TOP_SMELLS)
+            & (output["smell"] == COMBINED_ROBUST_SMELLS)
         ].iloc[0]
-        self.assertEqual(1, htr_small_combined["focal_smell_n"])
-        self.assertEqual(0, htr_small_combined["baseline_smell_n"])
-        self.assertTrue(pd.isna(htr_small_combined["fisher_p_adjusted"]))
-        self.assertEqual("", htr_small_combined["significant"])
+        self.assertEqual(1, htr_small_robust["focal_smell_n"])
+        self.assertEqual(0, htr_small_robust["baseline_smell_n"])
         self.assertIn("difference_ci_low", output.columns)
+        self.assertIn("odds_ratio", output.columns)
+        self.assertIn("odds_ratio_ci_low", output.columns)
+        self.assertIn("odds_ratio_ci_high", output.columns)
         self.assertIn("fisher_p_adjusted", output.columns)
 
     def test_size_control_effectplot_writes_pdf(self):
         frame = pd.DataFrame(
             [
-                self.size_control_row("Small", "AR", REVISION_GROUP_3, 0, 10, 5, 10, ""),
-                self.size_control_row("Small", "AR", REVISION_GROUP_2, 0, 10, 2, 10, "x"),
-                self.size_control_row("Medium", "AR", REVISION_GROUP_3, 1, 10, 4, 10, "x"),
-                self.size_control_row("Medium", "AR", REVISION_GROUP_2, 1, 10, 3, 10, ""),
-                self.size_control_row("Large", "AR", REVISION_GROUP_3, 0, 10, 6, 10, "x"),
-                self.size_control_row("Large", "AR", REVISION_GROUP_2, 0, 10, 2, 10, ""),
-                self.size_control_row("Small", "VT", REVISION_GROUP_3, 1, 10, 3, 10, ""),
-                self.size_control_row("Small", "VT", REVISION_GROUP_2, 1, 10, 2, 10, ""),
-                self.size_control_row("Medium", "VT", REVISION_GROUP_3, 1, 10, 4, 10, "x"),
-                self.size_control_row("Medium", "VT", REVISION_GROUP_2, 1, 10, 2, 10, ""),
-                self.size_control_row("Large", "VT", REVISION_GROUP_3, 1, 10, 5, 10, "x"),
-                self.size_control_row("Large", "VT", REVISION_GROUP_2, 1, 10, 2, 10, ""),
-                self.size_control_row("Small", COMBINED_TOP_SMELLS, REVISION_GROUP_3, 1, 10, 6, 10, ""),
-                self.size_control_row("Small", COMBINED_TOP_SMELLS, REVISION_GROUP_2, 1, 10, 3, 10, ""),
-                self.size_control_row("Medium", COMBINED_TOP_SMELLS, REVISION_GROUP_3, 2, 10, 6, 10, ""),
-                self.size_control_row("Medium", COMBINED_TOP_SMELLS, REVISION_GROUP_2, 2, 10, 4, 10, ""),
-                self.size_control_row("Large", COMBINED_TOP_SMELLS, REVISION_GROUP_3, 1, 10, 7, 10, ""),
-                self.size_control_row("Large", COMBINED_TOP_SMELLS, REVISION_GROUP_2, 1, 10, 3, 10, ""),
+                self.size_control_row("Small", COMBINED_ROBUST_SMELLS, REVISION_GROUP_3, 0, 10, 5, 10, ""),
+                self.size_control_row("Small", COMBINED_ROBUST_SMELLS, REVISION_GROUP_2, 0, 10, 2, 10, "x"),
+                self.size_control_row("Medium", COMBINED_ROBUST_SMELLS, REVISION_GROUP_3, 1, 10, 4, 10, "x"),
+                self.size_control_row("Medium", COMBINED_ROBUST_SMELLS, REVISION_GROUP_2, 1, 10, 3, 10, ""),
+                self.size_control_row("Large", COMBINED_ROBUST_SMELLS, REVISION_GROUP_3, 0, 10, 6, 10, "x"),
+                self.size_control_row("Large", COMBINED_ROBUST_SMELLS, REVISION_GROUP_2, 0, 10, 2, 10, ""),
+                self.size_control_row("Small", "AR", REVISION_GROUP_3, 0, 10, 1, 10, ""),
             ]
         )
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -1941,12 +1935,13 @@ class TestT2PTestSmell(unittest.TestCase):
                     tool="historyFinder",
                     smell_detector="jnose",
                     change="ch_diff",
-                    smell_names={"AR": "Assertion Roulette", "VT": "Verbose Test"},
+                    smell_names={"AR": "Assertion Roulette"},
                     output_file=output_file,
                 )
                 figure = plt.gcf()
                 axes_count = len(figure.axes)
                 legend_labels = [text.get_text() for text in figure.legends[0].get_texts()]
+                legend_colors = [handle.get_color() for handle in figure.legends[0].legend_handles]
                 ytick_labels = [text.get_text() for text in figure.axes[0].get_yticklabels()]
                 ylabel = figure.axes[0].get_ylabel()
                 ylabel_size = figure.axes[0].yaxis.label.get_fontsize()
@@ -1956,24 +1951,72 @@ class TestT2PTestSmell(unittest.TestCase):
                 real_close(figure)
 
             self.assertTrue(output_file.exists())
-            top5_frame = frame[frame["smell"] == COMBINED_TOP_SMELLS]
-            self.assertEqual(["Small", "Medium", "Large"], size_control_group_order(top5_frame))
+            self.assertEqual(["Small", "Medium", "Large"], size_control_group_order(frame))
             self.assertEqual(["Small", "Medium", "Large"], ytick_labels)
             self.assertEqual(METHOD_SIZE_LABEL, ylabel)
             self.assertEqual(xlabel_size, ylabel_size)
             self.assertEqual(SIZE_CONTROL_CI_LINEWIDTH, ci_linewidth)
             self.assertEqual(1, axes_count)
             self.assertNotIn("Assertion Roulette", ytick_labels)
-            self.assertNotIn("Verbose Test", ytick_labels)
             self.assertEqual(["HTR - NTR", "MTR - NTR"], legend_labels)
             self.assertEqual(
                 [
-                    (REVISION_GROUP_3, REVISION_GROUP_1),
-                    (REVISION_GROUP_2, REVISION_GROUP_1),
+                    EFFECT_COMPARISON_STYLES[(REVISION_GROUP_3, REVISION_GROUP_1)]["color"],
+                    EFFECT_COMPARISON_STYLES[(REVISION_GROUP_2, REVISION_GROUP_1)]["color"],
                 ],
-                series_order(top5_frame),
+                legend_colors,
             )
-            self.assertEqual("HTR - NTR", series_label((REVISION_GROUP_3, REVISION_GROUP_1)))
+            self.assertEqual(
+                [
+                    ("Small", (REVISION_GROUP_3, REVISION_GROUP_1)),
+                    ("Small", (REVISION_GROUP_2, REVISION_GROUP_1)),
+                    ("Medium", (REVISION_GROUP_3, REVISION_GROUP_1)),
+                    ("Medium", (REVISION_GROUP_2, REVISION_GROUP_1)),
+                    ("Large", (REVISION_GROUP_3, REVISION_GROUP_1)),
+                    ("Large", (REVISION_GROUP_2, REVISION_GROUP_1)),
+                ],
+                series_order(frame),
+            )
+            self.assertEqual("HTR - NTR", series_label(("Small", (REVISION_GROUP_3, REVISION_GROUP_1))))
+
+    def test_size_control_odds_ratio_effectplot_writes_pdf(self):
+        frame = pd.DataFrame(
+            [
+                self.size_control_row("Small", COMBINED_ROBUST_SMELLS, REVISION_GROUP_3, 2, 10, 5, 10, ""),
+                self.size_control_row("Small", COMBINED_ROBUST_SMELLS, REVISION_GROUP_2, 2, 10, 3, 10, "x"),
+                self.size_control_row("Medium", COMBINED_ROBUST_SMELLS, REVISION_GROUP_3, 2, 10, 4, 10, "x"),
+                self.size_control_row("Medium", COMBINED_ROBUST_SMELLS, REVISION_GROUP_2, 2, 10, 3, 10, ""),
+                self.size_control_row("Large", COMBINED_ROBUST_SMELLS, REVISION_GROUP_3, 2, 10, 6, 10, "x"),
+                self.size_control_row("Large", COMBINED_ROBUST_SMELLS, REVISION_GROUP_2, 2, 10, 3, 10, ""),
+            ]
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_file = Path(tmpdir) / "size-control-or.pdf"
+            import matplotlib.pyplot as plt
+
+            real_close = plt.close
+            with mock.patch("matplotlib.pyplot.close") as close:
+                plot_size_control_odds_ratio_effect(
+                    frame,
+                    strategy="nc",
+                    tool="historyFinder",
+                    smell_detector="jnose",
+                    change="ch_diff",
+                    smell_names={"AR": "Assertion Roulette"},
+                    output_file=output_file,
+                )
+                figure = plt.gcf()
+                axis = figure.axes[0]
+                xscale = axis.get_xscale()
+                reference_lines = [
+                    line for line in axis.lines if len(line.get_xdata()) == 2 and list(line.get_xdata()) == [1, 1]
+                ]
+                close.assert_called_once()
+                real_close(figure)
+
+            self.assertTrue(output_file.exists())
+            self.assertEqual("log", xscale)
+            self.assertTrue(reference_lines)
 
     def test_size_control_main_writes_aggregate_and_plot(self):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -2040,13 +2083,22 @@ class TestT2PTestSmell(unittest.TestCase):
 
             self.assertTrue((experiment_dir / "aggregate" / "t2p-test-smell-size-control-association.csv").exists())
             output_df = pd.read_csv(experiment_dir / "aggregate" / "t2p-test-smell-size-control-association.csv")
-            self.assertEqual(36, len(output_df))
-            self.assertEqual({"AR", "VT", "MNT", "CTL", "EH", COMBINED_TOP_SMELLS}, set(output_df["smell"]))
+            self.assertEqual(42, len(output_df))
+            self.assertEqual({"AR", "VT", "MNT", "CTL", "EH", "DA", COMBINED_ROBUST_SMELLS}, set(output_df["smell"]))
+            self.assertIn("odds_ratio", output_df.columns)
             self.assertTrue(
                 (
                     experiment_dir
                     / "figure"
                     / "t2p-test-smell-size-control-effectplot--historyFinder--nc--jnose--ch_diff.pdf"
+                ).exists()
+            )
+            size_control_odds_ratio_effectplot_main(plot_args)
+            self.assertTrue(
+                (
+                    experiment_dir
+                    / "figure"
+                    / "t2p-test-smell-size-control-odds-ratio-effectplot--historyFinder--nc--jnose--ch_diff.pdf"
                 ).exists()
             )
 
@@ -2359,6 +2411,9 @@ class TestT2PTestSmell(unittest.TestCase):
             "difference_pp": difference,
             "difference_ci_low": difference - 5,
             "difference_ci_high": difference + 5,
+            "odds_ratio": 2.0,
+            "odds_ratio_ci_low": 1.2,
+            "odds_ratio_ci_high": 3.0,
             "fisher_p": 0.01,
             "fisher_p_adjusted": 0.02,
             "significant": significant,

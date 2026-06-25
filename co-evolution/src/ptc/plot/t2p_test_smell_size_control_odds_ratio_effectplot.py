@@ -10,7 +10,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.ticker import MultipleLocator
+from matplotlib.ticker import FixedLocator, FuncFormatter
 import pandas as pd
 
 from mhc.command_util import (
@@ -23,40 +23,40 @@ from mhc.command_util import (
 )
 from ptc.generator.t2p_test_smell_size_control_association import (
     COMBINED_ROBUST_SMELLS,
-    CONTROL_SIZE_GROUPS,
     OUTPUT_FILE_NAME,
 )
 from ptc.generator.t2p_test_smell_revision import CHANGE_COLUMNS
 from ptc.plot.method_history_runtime_table import resolve_path
 from ptc.plot.t2p_test_smell_barchart import (
     EFFECT_LEGEND_FONTSIZE,
-    EFFECT_X_AXIS_LABEL,
-    EFFECT_XTICK_FONTSIZE,
     EFFECT_YTICK_FONTSIZE,
-    comparison_label,
-    comparison_pair,
-    comparison_pairs,
-    comparison_style,
-    draw_horizontal_ci,
 )
+from ptc.plot.t2p_test_smell_size_control_effectplot import (
+    SIZE_CONTROL_AXIS_LABEL_FONTSIZE,
+    SIZE_CONTROL_CI_CAP_HALF_HEIGHT,
+    SIZE_CONTROL_CI_CAP_LINEWIDTH,
+    SIZE_CONTROL_CI_LINEWIDTH,
+    SIZE_CONTROL_MARKER_SIZE,
+    SIZE_CONTROL_MIN_FIGURE_HEIGHT,
+    SIZE_CONTROL_ROW_HEIGHT,
+    SIZE_CONTROL_SERIES_STEP,
+    SIZE_CONTROL_XTICK_FONTSIZE,
+    METHOD_SIZE_LABEL,
+    control_group_order,
+    legend_pairs,
+    series_order,
+    series_style,
+)
+from ptc.plot.t2p_test_smell_barchart import comparison_label, comparison_pair, comparison_style
 from ptc.plot_util import build_experiment_plot_parser
 
-OUTPUT_FILE_PREFIX = "t2p-test-smell-size-control-effectplot"
-SIZE_CONTROL_XTICK_FONTSIZE = EFFECT_XTICK_FONTSIZE + 2
-SIZE_CONTROL_AXIS_LABEL_FONTSIZE = EFFECT_XTICK_FONTSIZE + 1
-SIZE_CONTROL_CI_LINEWIDTH = 2.6
-SIZE_CONTROL_CI_CAP_LINEWIDTH = 2.0
-SIZE_CONTROL_CI_CAP_HALF_HEIGHT = 0.07
-SIZE_CONTROL_MARKER_SIZE = 58
-METHOD_SIZE_LABEL = "Method Size"
-SIZE_CONTROL_SERIES_STEP = 0.16
-SIZE_CONTROL_ROW_HEIGHT = 0.72
-SIZE_CONTROL_MIN_FIGURE_HEIGHT = 3.4
+OUTPUT_FILE_PREFIX = "t2p-test-smell-size-control-odds-ratio-effectplot"
+ODDS_RATIO_X_AXIS_LABEL = "Initial Test-Smell Odds Ratio with 95% CI"
 
 
 def build_parser():
     return build_experiment_plot_parser(
-        "Render the LOC-controlled RQ4 top-smell effect plot.",
+        "Render the LOC-controlled RQ4 test-smell odds-ratio effect plot.",
         include_projects=False,
         include_revision_types=True,
         include_smell_detector=True,
@@ -65,58 +65,69 @@ def build_parser():
     )
 
 
-def control_group_order(frame: pd.DataFrame) -> list[str]:
-    if frame.empty:
-        return []
-    available = set(frame["control_group"].dropna().astype(str))
-    return [group for group in CONTROL_SIZE_GROUPS if group in available]
+def finite_positive_values(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
+    values = pd.to_numeric(pd.concat([frame[column] for column in columns], ignore_index=True), errors="coerce")
+    return values[(values > 0) & values.map(math.isfinite)]
 
 
-def axis_limits(frame: pd.DataFrame) -> tuple[int, int]:
-    values = pd.to_numeric(
-        pd.concat([frame["difference_ci_low"], frame["difference_ci_high"]], ignore_index=True),
-        errors="coerce",
-    ).dropna()
+def odds_ratio_axis_limits(frame: pd.DataFrame) -> tuple[float, float]:
+    values = finite_positive_values(frame, ["odds_ratio_ci_low", "odds_ratio_ci_high", "odds_ratio"])
     if values.empty:
-        return -2, 18
-    low = min(-2, int(math.floor(values.min() / 2.0) * 2))
-    high = max(18, int(math.ceil(values.max() / 2.0) * 2))
-    return low, high
+        return 0.5, 16.0
+    low = 2 ** math.floor(math.log2(min(values.min(), 1.0)))
+    high = 2 ** math.ceil(math.log2(max(values.max(), 1.0)))
+    return max(low, 0.03125), max(high, 2.0)
 
 
-def smell_order(frame: pd.DataFrame) -> list[str]:
-    if frame.empty:
-        return []
-    ordered = frame[["smell", "smell_rank"]].drop_duplicates().copy()
-    ordered["smell_rank"] = pd.to_numeric(ordered["smell_rank"], errors="coerce")
-    return ordered.sort_values(["smell_rank", "smell"])["smell"].astype(str).tolist()
+def odds_ratio_ticks(x_limits: tuple[float, float]) -> list[float]:
+    candidates = [0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32, 64, 128]
+    return [value for value in candidates if x_limits[0] <= value <= x_limits[1]]
 
 
-def series_order(frame: pd.DataFrame) -> list[tuple[str, tuple[str, str]]]:
-    pairs = comparison_pairs(frame)
-    return [(control_group, pair) for control_group in CONTROL_SIZE_GROUPS for pair in pairs]
+def format_odds_tick(value: float, _position: int) -> str:
+    if value >= 1:
+        return f"{value:g}"
+    return f"{value:.3g}"
 
 
-def series_label(series: tuple[str, tuple[str, str]]) -> str:
-    _, pair = series
-    return comparison_label(pair)
+def numeric_cell(row: pd.Series, column: str) -> float:
+    return float(pd.to_numeric(pd.Series([row[column]]), errors="coerce").iloc[0])
 
 
-def series_style(series: tuple[str, tuple[str, str]]) -> dict[str, str]:
-    _, pair = series
-    return comparison_style(pair).copy()
+def clip_for_log_axis(value: float, x_limits: tuple[float, float]) -> float:
+    if not math.isfinite(value):
+        return math.nan
+    if value <= 0:
+        return x_limits[0]
+    return min(max(value, x_limits[0]), x_limits[1])
 
 
-def legend_pairs(frame: pd.DataFrame) -> list[tuple[str, str]]:
-    return comparison_pairs(frame)
+def draw_log_horizontal_ci(
+    ax,
+    y: float,
+    low: float,
+    high: float,
+    *,
+    color: str,
+    linestyle: str,
+) -> None:
+    ax.hlines(y, low, high, colors=color, linestyles=linestyle, linewidth=SIZE_CONTROL_CI_LINEWIDTH, zorder=1)
+    ax.vlines(
+        [low, high],
+        y - SIZE_CONTROL_CI_CAP_HALF_HEIGHT,
+        y + SIZE_CONTROL_CI_CAP_HALF_HEIGHT,
+        colors=color,
+        linewidth=SIZE_CONTROL_CI_CAP_LINEWIDTH,
+        zorder=1,
+    )
 
 
-def plot_combined_axis(
+def plot_odds_ratio_axis(
     ax,
     plot_df: pd.DataFrame,
     *,
     control_groups: list[str],
-    x_limits: tuple[int, int],
+    x_limits: tuple[float, float],
 ) -> None:
     if plot_df.empty:
         ax.text(0.5, 0.5, "No data", ha="center", va="center", transform=ax.transAxes)
@@ -141,21 +152,27 @@ def plot_combined_axis(
         if COMBINED_ROBUST_SMELLS not in series_df.index or control_group not in y_by_control_group:
             continue
         row = series_df.loc[COMBINED_ROBUST_SMELLS]
+        ratio = numeric_cell(row, "odds_ratio")
+        low = numeric_cell(row, "odds_ratio_ci_low")
+        high = numeric_cell(row, "odds_ratio_ci_high")
+        if not all(math.isfinite(value) for value in [ratio, low, high]):
+            continue
+        ratio = clip_for_log_axis(ratio, x_limits)
+        low = clip_for_log_axis(low, x_limits)
+        high = clip_for_log_axis(high, x_limits)
+        if not all(math.isfinite(value) for value in [ratio, low, high]):
+            continue
         y_position = y_by_control_group[control_group] + offsets[series_item]
-        difference = float(row["difference_pp"])
-        draw_horizontal_ci(
+        draw_log_horizontal_ci(
             ax,
             y_position,
-            float(row["difference_ci_low"]),
-            float(row["difference_ci_high"]),
+            low,
+            high,
             color=str(style["color"]),
             linestyle=str(style["linestyle"]),
-            linewidth=SIZE_CONTROL_CI_LINEWIDTH,
-            cap_linewidth=SIZE_CONTROL_CI_CAP_LINEWIDTH,
-            cap_half_height=SIZE_CONTROL_CI_CAP_HALF_HEIGHT,
         )
         ax.scatter(
-            [difference],
+            [ratio],
             [y_position],
             marker=str(style["marker"]),
             facecolor=str(style["color"]) if str(row["significant"]) == "x" else "white",
@@ -165,21 +182,22 @@ def plot_combined_axis(
             zorder=2,
         )
 
-    ax.axvline(0, color="black", linewidth=0.9, linestyle="--")
+    ax.axvline(1, color="black", linewidth=0.9, linestyle="--")
+    ax.set_xscale("log")
+    ax.set_xlim(*x_limits)
+    ticks = odds_ratio_ticks(x_limits)
+    ax.xaxis.set_major_locator(FixedLocator(ticks))
+    ax.xaxis.set_major_formatter(FuncFormatter(format_odds_tick))
+    ax.tick_params(axis="x", labelsize=SIZE_CONTROL_XTICK_FONTSIZE)
     ax.set_yticks(list(range(len(control_groups))))
     ax.set_yticklabels(control_groups, fontsize=EFFECT_YTICK_FONTSIZE)
     ax.set_ylabel(METHOD_SIZE_LABEL, fontsize=SIZE_CONTROL_AXIS_LABEL_FONTSIZE)
     ax.invert_yaxis()
     ax.set_ylim(len(control_groups) - 0.5, -0.5)
-    ax.set_xlim(*x_limits)
-    ax.set_xticks(list(range(x_limits[0], x_limits[1] + 1, 2)))
-    ax.xaxis.set_minor_locator(MultipleLocator(1))
-    ax.tick_params(axis="x", labelsize=SIZE_CONTROL_XTICK_FONTSIZE)
     ax.grid(True, axis="x", which="major", alpha=0.3)
-    ax.grid(True, axis="x", which="minor", alpha=0.18)
 
 
-def plot_size_control_effect(
+def plot_size_control_odds_ratio_effect(
     frame: pd.DataFrame,
     *,
     strategy: str,
@@ -200,11 +218,11 @@ def plot_size_control_effect(
         return
 
     control_groups = control_group_order(plot_df)
-    x_limits = axis_limits(plot_df)
+    x_limits = odds_ratio_axis_limits(plot_df)
     fig, ax = plt.subplots(
         figsize=(10.5, max(SIZE_CONTROL_MIN_FIGURE_HEIGHT, len(control_groups) * SIZE_CONTROL_ROW_HEIGHT))
     )
-    plot_combined_axis(ax, plot_df, control_groups=control_groups, x_limits=x_limits)
+    plot_odds_ratio_axis(ax, plot_df, control_groups=control_groups, x_limits=x_limits)
 
     pairs = legend_pairs(plot_df)
     handles = [
@@ -221,7 +239,7 @@ def plot_size_control_effect(
         for pair in pairs
     ]
     fig.legend(handles=handles, frameon=False, fontsize=EFFECT_LEGEND_FONTSIZE, loc="upper center", ncol=2)
-    fig.supxlabel(EFFECT_X_AXIS_LABEL, fontsize=SIZE_CONTROL_AXIS_LABEL_FONTSIZE)
+    fig.supxlabel(ODDS_RATIO_X_AXIS_LABEL, fontsize=SIZE_CONTROL_AXIS_LABEL_FONTSIZE)
     fig.tight_layout(rect=(0, 0, 1, 0.88))
     os.makedirs(output_file.parent, exist_ok=True)
     fig.savefig(output_file, bbox_inches="tight")
@@ -259,7 +277,7 @@ def main(argv: list[str] | None = None) -> None:
     smell_names = load_test_smell_names(smell_detector)
     frame = pd.read_csv(input_file, keep_default_na=False, na_filter=False)
     if frame.empty:
-        print("No size-control test smell effect plots generated.")
+        print("No size-control test smell odds-ratio plots generated.")
         return
 
     frame = frame[frame["smell_detector"] == smell_detector].copy()
@@ -277,7 +295,7 @@ def main(argv: list[str] | None = None) -> None:
             output_directory
             / f"{OUTPUT_FILE_PREFIX}--{row.tool}--{row.strategy}--{row.smell_detector}--{row.change}.pdf"
         )
-        plot_size_control_effect(
+        plot_size_control_odds_ratio_effect(
             frame,
             strategy=row.strategy,
             tool=row.tool,
@@ -291,7 +309,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"Wrote {output_file}")
 
     if not plotted_any:
-        print("No size-control test smell effect plots generated.")
+        print("No size-control test smell odds-ratio plots generated.")
 
 
 if __name__ == "__main__":

@@ -6,7 +6,6 @@ import warnings
 from pathlib import Path
 
 import pandas as pd
-from scipy.stats import fisher_exact
 
 import mhc.util as util
 from mhc.command_util import (
@@ -27,6 +26,7 @@ from ptc.generator.t2p_test_smell_association import (
     OUTPUT_FILE_NAME as ASSOCIATION_OUTPUT_FILE_NAME,
     benjamini_hochberg,
     difference_interval,
+    pooled_statistics,
     selected_revision_group_pairs,
 )
 from ptc.generator.t2p_test_smell_loc_group import valid_loc
@@ -49,6 +49,7 @@ from ptc.generator.t2p_test_smell_revision import (
 OUTPUT_FILE_NAME = "t2p-test-smell-size-control-association.csv"
 DEFAULT_REVISION_GROUP_PAIRS = f"{REVISION_GROUP_3},{REVISION_GROUP_1};{REVISION_GROUP_2},{REVISION_GROUP_1}"
 COMBINED_TOP_SMELLS = "TOP5"
+COMBINED_ROBUST_SMELLS = "ROBUST"
 CONTROL_SIZE_GROUPS = ["Small", "Medium", "Large"]
 CONTROL_SIZE_LABELS = {
     "Small": "Small (1-29 LOC)",
@@ -75,6 +76,9 @@ OUTPUT_COLUMNS = [
     "difference_pp",
     "difference_ci_low",
     "difference_ci_high",
+    "odds_ratio",
+    "odds_ratio_ci_low",
+    "odds_ratio_ci_high",
     "fisher_p",
     "fisher_p_adjusted",
     "significant",
@@ -171,7 +175,7 @@ def association_top_smells(
         & (association_frame["change"] == revision_type)
         & (association_frame["focal_group"] == normalize_revision_group(focal_group))
         & (association_frame["baseline_group"] == normalize_revision_group(baseline_group))
-        & (~association_frame["smell"].isin([*PSEUDO_SMELLS, COMBINED_TOP_SMELLS]))
+        & (~association_frame["smell"].isin([*PSEUDO_SMELLS, COMBINED_TOP_SMELLS, COMBINED_ROBUST_SMELLS]))
     ].copy()
     if "loc_group" in subset.columns:
         subset = subset[subset["loc_group"] == "ALL"].copy()
@@ -206,6 +210,58 @@ def top_smells_from_association(
             top_n=top_n,
         )
     ]
+
+
+def robust_significant_smells_from_association(
+    association_frame: pd.DataFrame,
+    *,
+    strategy: str,
+    tool: str,
+    smell_detector: str,
+    revision_type: str,
+    focal_group: str = REVISION_GROUP_3,
+    baseline_group: str = REVISION_GROUP_1,
+    alpha: float = ALPHA,
+) -> list[str]:
+    required_columns = {
+        "strategy",
+        "tool",
+        "smell_detector",
+        "change",
+        "baseline_group",
+        "focal_group",
+        "smell",
+        "difference_pp",
+        "fisher_p_adjusted",
+        "mh_p_adjusted",
+    }
+    if not required_columns.issubset(association_frame.columns):
+        return []
+    subset = association_frame[
+        (association_frame["strategy"] == strategy)
+        & (association_frame["tool"] == tool)
+        & (association_frame["smell_detector"] == smell_detector)
+        & (association_frame["change"] == revision_type)
+        & (association_frame["focal_group"] == normalize_revision_group(focal_group))
+        & (association_frame["baseline_group"] == normalize_revision_group(baseline_group))
+        & (~association_frame["smell"].isin([*PSEUDO_SMELLS, COMBINED_TOP_SMELLS, COMBINED_ROBUST_SMELLS]))
+    ].copy()
+    if "loc_group" in subset.columns:
+        subset = subset[subset["loc_group"] == "ALL"].copy()
+    if subset.empty:
+        return []
+    subset["difference_pp"] = pd.to_numeric(subset["difference_pp"], errors="coerce")
+    subset["fisher_p_adjusted"] = pd.to_numeric(subset["fisher_p_adjusted"], errors="coerce")
+    subset["mh_p_adjusted"] = pd.to_numeric(subset["mh_p_adjusted"], errors="coerce")
+    subset = subset[
+        (subset["fisher_p_adjusted"] < alpha)
+        & (subset["mh_p_adjusted"] < alpha)
+        & subset["difference_pp"].notna()
+    ]
+    if subset.empty:
+        return []
+    subset = subset.sort_values(["difference_pp", "smell"], ascending=[False, True])
+    return subset["smell"].astype(str).tolist()
 
 
 def smell_differences(
@@ -350,7 +406,7 @@ def _controlled_rows_for_pair(
 
     rows = []
     smell_specs = [(smell_rank, smell, [smell]) for smell_rank, smell in enumerate(top_smells, start=1)]
-    smell_specs.append((len(top_smells) + 1, COMBINED_TOP_SMELLS, top_smells))
+    smell_specs.append((len(top_smells) + 1, COMBINED_ROBUST_SMELLS, top_smells))
     for smell_rank, smell, matched_smells in smell_specs:
         has_smell = lambda value: bool(set(split_smells(value)).intersection(matched_smells))
         focal_smell_n = int(focal["smells"].map(has_smell).sum())
@@ -358,12 +414,11 @@ def _controlled_rows_for_pair(
         focal_percent = focal_smell_n / len(focal) * 100
         baseline_percent = baseline_smell_n / len(baseline) * 100
         ci_low, ci_high = difference_interval(focal_smell_n, len(focal), baseline_smell_n, len(baseline))
-        _, fisher_p = fisher_exact(
-            [
-                [focal_smell_n, len(focal) - focal_smell_n],
-                [baseline_smell_n, len(baseline) - baseline_smell_n],
-            ],
-            alternative="two-sided",
+        ratio, ratio_low, ratio_high, fisher_p = pooled_statistics(
+            focal_smell_n,
+            len(focal),
+            baseline_smell_n,
+            len(baseline),
         )
         rows.append(
             {
@@ -386,15 +441,17 @@ def _controlled_rows_for_pair(
                 "difference_pp": round(focal_percent - baseline_percent, 2),
                 "difference_ci_low": round(ci_low, 2),
                 "difference_ci_high": round(ci_high, 2),
+                "odds_ratio": round(ratio, 2),
+                "odds_ratio_ci_low": round(ratio_low, 2),
+                "odds_ratio_ci_high": round(ratio_high, 2),
                 "fisher_p": fisher_p,
                 "fisher_p_adjusted": math.nan,
                 "significant": "",
             }
         )
 
-    individual_rows = [row for row in rows if row["smell"] != COMBINED_TOP_SMELLS]
-    adjusted = benjamini_hochberg([row["fisher_p"] for row in individual_rows])
-    for row, adjusted_p in zip(individual_rows, adjusted):
+    adjusted = benjamini_hochberg([row["fisher_p"] for row in rows])
+    for row, adjusted_p in zip(rows, adjusted):
         row["fisher_p_adjusted"] = adjusted_p
         row["significant"] = "x" if adjusted_p < ALPHA else ""
     return rows
@@ -470,22 +527,21 @@ def main(argv: list[str] | None = None) -> None:
             if frame.empty:
                 continue
             for revision_type in revision_types:
-                top_smells = top_smells_from_association(
+                top_smells = robust_significant_smells_from_association(
                     association_frame,
                     strategy=strategy,
                     tool=tool,
                     smell_detector=smell_detector,
                     revision_type=revision_type,
-                    top_n=args.top_n_smells,
                 )
                 if not top_smells:
                     warnings.warn(
-                        "No association-selected top smells found for "
+                        "No robust-significant association smells found for "
                         f"{strategy}/{tool}/{smell_detector}/{revision_type}, skipping."
                     )
                     continue
                 print(
-                    "Size-control top smells "
+                    "Size-control robust significant smells "
                     f"({strategy}/{tool}/{smell_detector}/{revision_type}): {', '.join(top_smells)}"
                 )
                 rows.extend(
