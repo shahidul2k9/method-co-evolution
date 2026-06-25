@@ -168,6 +168,9 @@ def association_top_smells(
     }
     if not required_columns.issubset(association_frame.columns):
         return []
+    association_frame = association_frame.copy()
+    association_frame["focal_group"] = association_frame["focal_group"].map(normalize_revision_group)
+    association_frame["baseline_group"] = association_frame["baseline_group"].map(normalize_revision_group)
     subset = association_frame[
         (association_frame["strategy"] == strategy)
         & (association_frame["tool"] == tool)
@@ -237,6 +240,9 @@ def robust_significant_smells_from_association(
     }
     if not required_columns.issubset(association_frame.columns):
         return []
+    association_frame = association_frame.copy()
+    association_frame["focal_group"] = association_frame["focal_group"].map(normalize_revision_group)
+    association_frame["baseline_group"] = association_frame["baseline_group"].map(normalize_revision_group)
     subset = association_frame[
         (association_frame["strategy"] == strategy)
         & (association_frame["tool"] == tool)

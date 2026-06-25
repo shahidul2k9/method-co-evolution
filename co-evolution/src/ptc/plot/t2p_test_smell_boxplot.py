@@ -45,13 +45,13 @@ ALL_GROUPS = "All groups"
 GROUP_STYLE_COLORS = {
     ALL_GROUPS: "white",
     "NTR": "tab:orange",
-    "MTR": "tab:gray",
+    "ATR": "tab:gray",
     "HTR": "tab:blue",
 }
 GROUP_STYLE_HATCHES = {
     ALL_GROUPS: "",
     "NTR": "....",
-    "MTR": "...",
+    "ATR": "...",
     "HTR": "xx",
 }
 LOC_GROUP_HATCH = "\\\\\\\\"
@@ -72,7 +72,7 @@ def build_parser():
         dest="revision_groups",
         type=str,
         default=",".join(REVISION_GROUP_ORDER),
-        help="Comma-separated revision groups to plot. Defaults to NTR,MTR,HTR.",
+        help="Comma-separated revision groups to plot. Defaults to NTR,ATR,HTR.",
     )
     parser.add_argument(
         "--min-t2p-links",

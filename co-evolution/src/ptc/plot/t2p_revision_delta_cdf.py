@@ -44,7 +44,7 @@ PAPER_TICK_LABEL_SIZE = 14
 
 REVISION_DELTA_GROUPS = [
     ("NTR", "<=0", lambda delta: delta <= 0),
-    ("MTR", "1-4", lambda delta: (delta >= 1) & (delta < PAPER_MAX_DELTA)),
+    ("ATR", "1-4", lambda delta: (delta >= 1) & (delta < PAPER_MAX_DELTA)),
     ("HTR", "5+", lambda delta: delta >= PAPER_MAX_DELTA),
 ]
 

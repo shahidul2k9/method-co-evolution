@@ -92,6 +92,9 @@ def unique_method_frame(
     if not required_columns.issubset(frame.columns):
         return pd.DataFrame(columns=[*frame.columns])
 
+    revision_groups = [normalize_revision_group(group) for group in revision_groups]
+    frame = frame.copy()
+    frame[group_column] = frame[group_column].map(normalize_revision_group)
     selected = frame[frame[group_column].isin(revision_groups)].copy()
     if selected.empty:
         return selected

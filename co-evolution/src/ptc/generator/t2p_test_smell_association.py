@@ -39,12 +39,13 @@ from ptc.generator.t2p_test_smell_revision import (
 OUTPUT_FILE_NAME = "t2p-test-smell-association.csv"
 DEFAULT_CHANGE = "ch_diff"
 ALPHA = 0.05
-REVISION_GROUP_MHTR = "MHTR"
+REVISION_GROUP_AHTR = "AHTR"
+REVISION_GROUP_MHTR = REVISION_GROUP_AHTR
 REVISION_GROUP_MEMBERS = {
     REVISION_GROUP_1: {REVISION_GROUP_1},
     REVISION_GROUP_2: {REVISION_GROUP_2},
     REVISION_GROUP_3: {REVISION_GROUP_3},
-    REVISION_GROUP_MHTR: {REVISION_GROUP_2, REVISION_GROUP_3},
+    REVISION_GROUP_AHTR: {REVISION_GROUP_2, REVISION_GROUP_3},
 }
 OUTPUT_COLUMNS = [
     "strategy",
@@ -107,6 +108,8 @@ def comparison_unique_method_frame(
     if group_column not in frame.columns:
         return pd.DataFrame(columns=[*frame.columns])
 
+    frame = frame.copy()
+    frame[group_column] = frame[group_column].map(normalize_revision_group)
     selected_members = sorted(baseline_members | focal_members)
     selected = frame[frame[group_column].isin(selected_members)].copy()
     if selected.empty:
@@ -139,7 +142,7 @@ def build_parser():
         default=None,
         help=(
             "Semicolon-separated focal,baseline revision-group pairs. "
-            "Example: HTR,NTR;MTR,NTR. Defaults to HTR,NTR."
+            "Example: HTR,NTR;ATR,NTR. Defaults to HTR,NTR."
         ),
     )
     parser.add_argument(
@@ -162,7 +165,7 @@ def selected_revision_group_pairs(value: str | None) -> list[tuple[str, str]]:
         if len(names) != 2:
             raise ValueError(
                 "--revision-group-pairs entries must use focal,baseline format, "
-                f"for example HTR,NTR;MTR,NTR: {raw_pair}"
+                f"for example HTR,NTR;ATR,NTR: {raw_pair}"
             )
         unknown = [name for name in names if name not in known_revision_groups()]
         if unknown:

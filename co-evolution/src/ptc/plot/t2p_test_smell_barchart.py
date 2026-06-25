@@ -56,13 +56,13 @@ EFFECT_COMPARISON_STYLES = {
         "marker": "s",
         "color": "#d55e00",
         "linestyle": "--",
-        "label": "MTR - NTR",
+        "label": "ATR - NTR",
     },
-    ("MHTR", REVISION_GROUP_1): {
+    ("AHTR", REVISION_GROUP_1): {
         "marker": "^",
         "color": "#009e73",
         "linestyle": "-.",
-        "label": "MHTR - NTR",
+        "label": "AHTR - NTR",
     },
 }
 EFFECT_XTICK_FONTSIZE = 13
@@ -94,7 +94,7 @@ def build_parser():
         dest="revision_groups",
         type=str,
         default=",".join(REVISION_GROUP_ORDER),
-        help="Comma-separated revision groups to plot. Defaults to NTR,MTR,HTR.",
+        help="Comma-separated revision groups to plot. Defaults to NTR,ATR,HTR.",
     )
     return parser
 

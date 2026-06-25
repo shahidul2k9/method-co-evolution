@@ -89,7 +89,7 @@ def build_parser():
         dest="revision_group_pairs",
         type=str,
         default=";".join(",".join(pair) for pair in DEFAULT_REVISION_GROUP_PAIRS),
-        help='Semicolon-separated revision group pairs, for example "HTR,NTR;HTR,MTR".',
+        help='Semicolon-separated revision group pairs, for example "HTR,NTR;HTR,ATR".',
     )
     parser.add_argument(
         "--min-t2p-links",

@@ -31,18 +31,23 @@ DEFAULT_MIN_T2P_REVISION = 5
 OUTPUT_DIRECTORY_NAME = "t2p-test-smell-with-revision"
 
 REVISION_GROUP_1 = "NTR"
-REVISION_GROUP_2 = "MTR"
+REVISION_GROUP_2 = "ATR"
 REVISION_GROUP_3 = "HTR"
 REVISION_GROUP_ORDER = [REVISION_GROUP_1, REVISION_GROUP_2, REVISION_GROUP_3]
 REVISION_GROUP_LABELS = {
     REVISION_GROUP_1: "Normal Test Revision (NTR)",
-    REVISION_GROUP_2: "Moderate Test Revision (MTR)",
+    REVISION_GROUP_2: "Average Test Revision (ATR)",
     REVISION_GROUP_3: "High Test Revision (HTR)",
+}
+REVISION_GROUP_ALIASES = {
+    "MTR": REVISION_GROUP_2,
+    "MHTR": "AHTR",
 }
 
 
 def normalize_revision_group(group: str) -> str:
-    return group
+    normalized = str(group).strip()
+    return REVISION_GROUP_ALIASES.get(normalized, normalized)
 
 
 def build_parser():
