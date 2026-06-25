@@ -115,7 +115,7 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
         self.assertEqual(
             [
                 ("NTR", "<=0", 3, 42.9),
-                ("MTR", "1-4", 2, 28.6),
+                ("ATR", "1-4", 2, 28.6),
                 ("HTR", "5+", 2, 28.6),
             ],
             [(code, label, count, round(percent, 1)) for code, label, count, percent in groups],
@@ -146,7 +146,7 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
             self.assertEqual(PAPER_TICK_LABEL_SIZE, ax.xaxis.get_ticklabels()[0].get_fontsize())
             self.assertEqual(PAPER_TICK_LABEL_SIZE, ax.yaxis.get_ticklabels()[0].get_fontsize())
             self.assertIn("NTR (<=0): 2 (50.0%)", ax.texts[0].get_text())
-            self.assertIn("MTR (1-4): 1 (25.0%)", ax.texts[0].get_text())
+            self.assertIn("ATR (1-4): 1 (25.0%)", ax.texts[0].get_text())
             self.assertIn("HTR (5+): 1 (25.0%)", ax.texts[0].get_text())
         finally:
             plt.close(fig)
@@ -165,7 +165,7 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
             plot_paper_delta_axis(ax, df, "ch_diff")
 
             self.assertIn("NTR (<=0): 1 (33.3%)", ax.texts[0].get_text())
-            self.assertIn("MTR (1-4): 1 (33.3%)", ax.texts[0].get_text())
+            self.assertIn("ATR (1-4): 1 (33.3%)", ax.texts[0].get_text())
             self.assertIn("HTR (5+): 1 (33.3%)", ax.texts[0].get_text())
         finally:
             plt.close(fig)
@@ -259,7 +259,7 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
             info_text = ax.texts[1].get_text()
             self.assertIn("total=4", info_text)
             self.assertNotIn("NTR", info_text)
-            self.assertNotIn("MTR", info_text)
+            self.assertNotIn("ATR", info_text)
             self.assertNotIn("HTR", info_text)
             self.assertNotIn("test=", info_text)
             self.assertNotIn("production=", info_text)

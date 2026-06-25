@@ -13,7 +13,7 @@ from mhc.command_util import (
 )
 from ptc.generator.t2p_test_smell_association import DEFAULT_CHANGE, OUTPUT_FILE_NAME, selected_revision_group_pairs
 from ptc.generator.t2p_test_smell_prevalence import PSEUDO_SMELLS
-from ptc.generator.t2p_test_smell_revision import REVISION_GROUP_1, REVISION_GROUP_3
+from ptc.generator.t2p_test_smell_revision import REVISION_GROUP_1, REVISION_GROUP_3, normalize_revision_group
 from ptc.plot.method_history_runtime_table import resolve_path
 from ptc.plot_util import build_experiment_plot_parser
 
@@ -148,6 +148,9 @@ def main(argv: list[str] | None = None) -> None:
     frame = pd.read_csv(input_file, keep_default_na=False, na_filter=False)
     frame = frame[(frame["smell_detector"] == smell_detector) & (frame["change"] == args.change)]
     if {"baseline_group", "focal_group"}.issubset(frame.columns):
+        frame = frame.copy()
+        frame["baseline_group"] = frame["baseline_group"].map(normalize_revision_group)
+        frame["focal_group"] = frame["focal_group"].map(normalize_revision_group)
         frame = frame[
             (frame["baseline_group"] == baseline_group)
             & (frame["focal_group"] == focal_group)
