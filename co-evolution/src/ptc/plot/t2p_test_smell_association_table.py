@@ -99,7 +99,7 @@ def format_p(value: object) -> str:
     number = pd.to_numeric(pd.Series([value]), errors="coerce").iloc[0]
     if pd.isna(number):
         return ""
-    return r"$<.001$" if number < 0.001 else f"{number:.3f}"
+    return r"$<0.05$" if number < 0.05 else f"{number:.3f}"
 
 
 def render_latex_table(

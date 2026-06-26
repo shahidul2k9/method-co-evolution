@@ -1152,7 +1152,8 @@ class TestT2PTestSmell(unittest.TestCase):
         self.assertNotIn(r"\textbf{Assertion Roulette}", latex)
         self.assertIn("Assertion Roulette", latex)
         self.assertNotIn("No smell", latex)
-        self.assertIn("0.020", latex)
+        self.assertIn(r"$<0.05$", latex)
+        self.assertNotIn("0.020", latex)
         self.assertTrue(latex.rstrip().endswith(r"\end{tabular}"))
 
         with tempfile.TemporaryDirectory() as tmpdir:
