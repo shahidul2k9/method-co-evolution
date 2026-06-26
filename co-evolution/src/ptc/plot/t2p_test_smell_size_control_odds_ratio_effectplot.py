@@ -70,11 +70,39 @@ def build_parser():
         default="HTR,NTR",
         help=(
             "Focal,baseline revision-group pair(s) to render. "
-            "Use semicolons for multiple pairs, for example HTR,NTR;AHTR,NTR;ATR,NTR. "
+            "Use semicolons for multiple pairs, for example HTR,NTR;MTR,NTR;ATR,NTR. "
             "Defaults to HTR,NTR."
         ),
     )
+    parser.add_argument(
+        "--output-type",
+        choices=("pdf", "tex"),
+        default="pdf",
+        help="Output format. 'pdf' writes the plot PDF; 'tex' writes a standalone LaTeX wrapper around a build PDF.",
+    )
     return parser
+
+
+def render_standalone_latex_plot(relative_pdf_path: str) -> str:
+    return rf"""\documentclass{{article}}
+\usepackage[margin=0.5in]{{geometry}}
+\usepackage{{graphicx}}
+
+\begin{{document}}
+\pagestyle{{empty}}
+
+\begin{{center}}
+\includegraphics[width=\textwidth]{{\detokenize{{{relative_pdf_path}}}}}
+\end{{center}}
+
+\end{{document}}
+"""
+
+
+def write_latex_plot_wrapper(tex_file: Path, pdf_file: Path) -> None:
+    os.makedirs(tex_file.parent, exist_ok=True)
+    relative_pdf_path = os.path.relpath(pdf_file, tex_file.parent).replace(os.sep, "/")
+    tex_file.write_text(render_standalone_latex_plot(relative_pdf_path), encoding="utf-8")
 
 
 def finite_positive_values(frame: pd.DataFrame, columns: list[str]) -> pd.Series:
@@ -312,13 +340,14 @@ def main(argv: list[str] | None = None) -> None:
     plotted_any = False
     combinations = frame[["strategy", "tool", "smell_detector", "change"]].drop_duplicates()
     for row in combinations.itertuples(index=False):
-        output_file = (
-            output_directory
-            / (
-                f"{OUTPUT_FILE_PREFIX}--{row.tool}--{row.strategy}--{row.smell_detector}--{row.change}"
-                f"{pairs_suffix(revision_group_pairs)}.pdf"
-            )
+        output_stem = (
+            f"{OUTPUT_FILE_PREFIX}--{row.tool}--{row.strategy}--{row.smell_detector}--{row.change}"
+            f"{pairs_suffix(revision_group_pairs)}"
         )
+        output_file = output_directory / f"{output_stem}.{args.output_type}"
+        plot_output_file = output_file
+        if args.output_type == "tex":
+            plot_output_file = output_directory / "build" / output_stem / f"{output_stem}.pdf"
         plot_size_control_odds_ratio_effect(
             frame,
             strategy=row.strategy,
@@ -327,9 +356,11 @@ def main(argv: list[str] | None = None) -> None:
             change=row.change,
             smell_names=smell_names,
             revision_group_pairs=revision_group_pairs,
-            output_file=output_file,
+            output_file=plot_output_file,
         )
-        if output_file.exists():
+        if plot_output_file.exists():
+            if args.output_type == "tex":
+                write_latex_plot_wrapper(output_file, plot_output_file)
             plotted_any = True
             print(f"Wrote {output_file}")
 

@@ -69,7 +69,7 @@ def build_parser():
         default="HTR,NTR",
         help=(
             "Focal,baseline revision-group pair(s) to render. "
-            "Use semicolons for multiple pairs, for example HTR,NTR;AHTR,NTR;ATR,NTR. "
+            "Use semicolons for multiple pairs, for example HTR,NTR;MTR,NTR;ATR,NTR. "
             "Defaults to HTR,NTR."
         ),
     )

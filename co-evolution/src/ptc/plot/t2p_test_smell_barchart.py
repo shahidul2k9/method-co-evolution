@@ -58,11 +58,11 @@ EFFECT_COMPARISON_STYLES = {
         "linestyle": "--",
         "label": "ATR - NTR",
     },
-    ("AHTR", REVISION_GROUP_1): {
+    ("MTR", REVISION_GROUP_1): {
         "marker": "^",
         "color": "#009e73",
         "linestyle": "-.",
-        "label": "AHTR - NTR",
+        "label": "MTR - NTR",
     },
 }
 EFFECT_XTICK_FONTSIZE = 13

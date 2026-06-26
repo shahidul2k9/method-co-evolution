@@ -40,8 +40,8 @@ REVISION_GROUP_LABELS = {
     REVISION_GROUP_3: "High Test Revision (HTR)",
 }
 REVISION_GROUP_ALIASES = {
-    "MTR": REVISION_GROUP_2,
-    "MHTR": "AHTR",
+    "AHTR": "MTR",
+    "MHTR": "MTR",
 }
 
 
