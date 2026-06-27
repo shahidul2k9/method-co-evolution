@@ -114,6 +114,12 @@ class TestGenerateT2PLink(unittest.TestCase):
     def test_select_link_strategies_without_filter_returns_all(self):
         self.assertEqual(METHOD_LINK_STRATEGIES, select_link_strategies(None))
 
+    def test_select_link_strategies_accepts_all_keyword(self):
+        self.assertEqual(METHOD_LINK_STRATEGIES, select_link_strategies(["all"]))
+
+    def test_select_link_strategies_accepts_all_keyword_case_insensitive(self):
+        self.assertEqual(METHOD_LINK_STRATEGIES, select_link_strategies(["ALL"]))
+
     def test_select_link_strategies_accepts_single_strategy(self):
         self.assertEqual([LinkStrategy.NC], select_link_strategies(["nc"]))
 

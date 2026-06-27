@@ -102,6 +102,20 @@ def build_project_stats(project_df: pd.DataFrame) -> dict[str, int]:
     }
 
 
+def unique_method_count(df: pd.DataFrame, method_kind: str) -> int:
+    return int(df[df["method_kind"] == method_kind]["url"].nunique())
+
+
+def print_all_projects_population_summary(tool: str, df: pd.DataFrame) -> None:
+    test_count = unique_method_count(df, "test-case-method")
+    production_count = unique_method_count(df, "main-code")
+    print(
+        f"RQ3 artifact revision CDF [{tool}]: "
+        f"test_methods={format_count(test_count)} "
+        f"production_methods={format_count(production_count)}"
+    )
+
+
 def method_kind_legend_handles() -> list[Line2D]:
     return [
         Line2D(
@@ -400,6 +414,8 @@ def main(argv: list[str] | None = None) -> None:
         if df.empty:
             print(f"No test-case or main-code method-history data available to plot for {tool}.")
             continue
+        if args.all_projects_only:
+            print_all_projects_population_summary(tool, df)
 
         change_cols = order_change_columns(
             [c for c in df.columns if c.startswith("ch_")],

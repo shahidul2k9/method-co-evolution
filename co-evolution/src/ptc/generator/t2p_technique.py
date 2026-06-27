@@ -23,7 +23,7 @@ from mhc.command_util import (
     resolve_experiment_paths,
     select_named_items,
 )
-from ptc.link_strategy import KEY_TO_STRATEGY, LinkStrategy, STRATEGY_KEYS
+from ptc.link_strategy import ALL_STRATEGY_KEY, KEY_TO_STRATEGY, LinkStrategy, STRATEGY_KEYS
 from ptc.generator.run_stats import GenerationStats, should_generate, unlink_stale_output
 
 # ---------------------------
@@ -208,6 +208,8 @@ MAX_STRATEGY_COLUMNS = [
 ]
 def selected_strategy_mask(selected_strategies: list[str] | None) -> LinkStrategy:
     if selected_strategies is None:
+        return LinkStrategy.ALL
+    if any(strategy_name.lower() == ALL_STRATEGY_KEY for strategy_name in selected_strategies):
         return LinkStrategy.ALL
 
     strategy_keys = list(STRATEGY_KEYS.values())

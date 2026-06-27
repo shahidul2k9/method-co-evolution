@@ -41,6 +41,9 @@ class LinkStrategy(IntFlag):
     )
 
 
+ALL_STRATEGY_KEY = "all"
+
+
 # Single source of truth for external keys (config/csv/json/etc.)
 STRATEGY_KEYS: dict[LinkStrategy, str] = {
     LinkStrategy.OMC: "omc",

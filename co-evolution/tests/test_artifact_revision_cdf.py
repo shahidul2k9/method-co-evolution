@@ -1,4 +1,6 @@
 from pathlib import Path
+from contextlib import redirect_stdout
+import io
 import sys
 import tempfile
 import unittest
@@ -267,24 +269,30 @@ class TestArtifactRevisionCdf(unittest.TestCase):
             )
             output_directory = Path(tmpdir) / "paper-figure"
 
-            main(
-                [
-                    "--workspace-directory",
-                    tmpdir,
-                    "--experiment-name",
-                    "demo",
-                    "--tools",
-                    "historyFinder",
-                    "--revision-types",
-                    "ch_diff",
-                    "--all-projects-only",
-                    "--output-directory",
-                    str(output_directory),
-                ]
-            )
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                main(
+                    [
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo",
+                        "--tools",
+                        "historyFinder",
+                        "--revision-types",
+                        "ch_diff",
+                        "--all-projects-only",
+                        "--output-directory",
+                        str(output_directory),
+                    ]
+                )
 
             self.assertTrue((output_directory / "artifact-revision-cdf--historyFinder.pdf").exists())
             self.assertFalse((experiment_dir / "figure" / "artifact-revision-cdf--historyFinder.pdf").exists())
+            self.assertIn(
+                "RQ3 artifact revision CDF [historyFinder]: test_methods=2 production_methods=2",
+                stdout.getvalue(),
+            )
 
     def test_paper_plot_axis_labels_ticks_legend_and_title(self):
         df = pd.DataFrame(

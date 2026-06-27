@@ -442,6 +442,12 @@ class TestApplyLlmTechniques(unittest.TestCase):
     def test_selected_strategy_mask_defaults_to_all(self):
         self.assertEqual(LinkStrategy.ALL, selected_strategy_mask(None))
 
+    def test_selected_strategy_mask_accepts_all_keyword(self):
+        self.assertEqual(LinkStrategy.ALL, selected_strategy_mask(["all"]))
+
+    def test_selected_strategy_mask_accepts_all_keyword_case_insensitive(self):
+        self.assertEqual(LinkStrategy.ALL, selected_strategy_mask(["ALL"]))
+
     def test_selected_strategy_mask_accepts_multiple_strategies(self):
         self.assertEqual(
             LinkStrategy.NC | LinkStrategy.NCC,

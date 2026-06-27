@@ -264,6 +264,11 @@ def strategy_output_key(mask: LinkStrategy) -> str:
 
 
 def select_link_strategies(selected_strategies: list[str] | None) -> list[LinkStrategy]:
+    if selected_strategies is not None and any(
+        strategy_name.lower() == ALL_STRATEGY_KEY for strategy_name in selected_strategies
+    ):
+        return METHOD_LINK_STRATEGIES
+
     strategy_by_key = {
         strategy_output_key(link_strategy): link_strategy
         for link_strategy in METHOD_LINK_STRATEGIES

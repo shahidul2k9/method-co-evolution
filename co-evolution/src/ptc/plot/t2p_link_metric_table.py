@@ -14,10 +14,10 @@ from ptc.plot.method_history_runtime_table import resolve_output_file, resolve_p
 
 DEFAULT_OUTPUT = Path("figure") / "t2p-link-metric-table.tex"
 DATASET_LABELS = {
-    "tctracer-2020": r"TCTracer ICSE~\cite{white_establishing_2020}",
-    "tctracer-plus": r"TCTracer ESE~\cite{white_tctracer_2022}",
-    "testlinker-plus": r"TestLinker TSE~\cite{sun_method-level_2024}",
-    "t2plinker": "Ours",
+    "tctracer-2020": r"TCTracer~\cite{white_establishing_2020}",
+    "tctracer-plus": r"TCTracer~\cite{white_tctracer_2022}",
+    "testlinker-plus": r"TestLinker~\cite{sun_method-level_2024}",
+    "t2plinker": "New",
     "t2plinker-plus": "All",
 }
 STRATEGY_LABELS = {
