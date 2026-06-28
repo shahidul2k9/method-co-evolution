@@ -133,13 +133,17 @@ from ptc.plot.t2p_test_smell_boxplot import (
 )
 from ptc.plot.t2p_test_smell_size_control_effectplot import (
     METHOD_SIZE_LABEL,
+    SIZE_CONTROL_CI_CAP_HALF_HEIGHT,
+    SIZE_CONTROL_CI_CAP_LINEWIDTH,
     SIZE_CONTROL_AXIS_LABEL_FONTSIZE,
     SIZE_CONTROL_CI_LINEWIDTH,
     SIZE_CONTROL_LEGEND_FONTSIZE,
     SIZE_CONTROL_LEGEND_MARKER_SCALE,
     SIZE_CONTROL_MARKER_EDGE_WIDTH,
     SIZE_CONTROL_MARKER_SIZE,
+    SIZE_CONTROL_MIN_FIGURE_HEIGHT,
     SIZE_CONTROL_ODDS_RATIO_X_AXIS_LABEL,
+    SIZE_CONTROL_ROW_HEIGHT,
     SIZE_CONTROL_SERIES_STEP,
     SIZE_CONTROL_X_AXIS_LABEL,
     SIZE_CONTROL_XTICK_FONTSIZE,
@@ -2220,6 +2224,7 @@ class TestT2PTestSmell(unittest.TestCase):
                     output_file=output_file,
                 )
                 figure = plt.gcf()
+                figure_height = figure.get_size_inches()[1]
                 axes_count = len(figure.axes)
                 legend_labels = [text.get_text() for text in figure.legends[0].get_texts()]
                 legend_colors = [handle.get_color() for handle in figure.legends[0].legend_handles]
@@ -2246,6 +2251,9 @@ class TestT2PTestSmell(unittest.TestCase):
                 xlabel = figure._supxlabel.get_text()
                 xlabel_size = figure._supxlabel.get_fontsize()
                 ci_linewidth = figure.axes[0].collections[0].get_linewidths()[0]
+                cap_linewidth = figure.axes[0].collections[1].get_linewidths()[0]
+                cap_segment = figure.axes[0].collections[1].get_segments()[0]
+                cap_half_height = abs(cap_segment[1][1] - cap_segment[0][1]) / 2
                 marker_collections = [
                     collection for collection in figure.axes[0].collections if hasattr(collection, "get_sizes")
                 ]
@@ -2272,9 +2280,14 @@ class TestT2PTestSmell(unittest.TestCase):
             self.assertTrue(visible_minor_ticks)
             self.assertTrue(all(float(tick).is_integer() for tick in visible_minor_ticks))
             self.assertEqual(SIZE_CONTROL_CI_LINEWIDTH, ci_linewidth)
+            self.assertEqual(SIZE_CONTROL_CI_CAP_LINEWIDTH, cap_linewidth)
+            self.assertAlmostEqual(SIZE_CONTROL_CI_CAP_HALF_HEIGHT, cap_half_height)
             self.assertEqual(SIZE_CONTROL_MARKER_SIZE, marker_size)
             self.assertEqual(SIZE_CONTROL_MARKER_EDGE_WIDTH, marker_edge_width)
-            self.assertGreater(SIZE_CONTROL_SERIES_STEP, 0.16)
+            self.assertEqual(0.40, SIZE_CONTROL_SERIES_STEP)
+            self.assertEqual(1.55, SIZE_CONTROL_ROW_HEIGHT)
+            self.assertEqual(6.2, SIZE_CONTROL_MIN_FIGURE_HEIGHT)
+            self.assertEqual(SIZE_CONTROL_MIN_FIGURE_HEIGHT, figure_height)
             self.assertEqual(1, axes_count)
             self.assertNotIn("Assertion Roulette", ytick_labels)
             self.assertEqual(["HTR - NTR"], legend_labels)
@@ -2324,6 +2337,7 @@ class TestT2PTestSmell(unittest.TestCase):
                     output_file=output_file,
                 )
                 figure = plt.gcf()
+                figure_height = figure.get_size_inches()[1]
                 axis = figure.axes[0]
                 xscale = axis.get_xscale()
                 xticks = axis.get_xticks()
@@ -2343,10 +2357,14 @@ class TestT2PTestSmell(unittest.TestCase):
                 xtick_fontsize = axis.xaxis.get_ticklabels()[0].get_fontsize()
                 ytick_fontsize = axis.yaxis.get_ticklabels()[0].get_fontsize()
                 ci_linewidth = axis.collections[0].get_linewidths()[0]
+                cap_linewidth = axis.collections[1].get_linewidths()[0]
+                cap_segment = axis.collections[1].get_segments()[0]
+                cap_half_height = abs(cap_segment[1][1] - cap_segment[0][1]) / 2
                 marker_collections = [
                     collection for collection in axis.collections if hasattr(collection, "get_sizes")
                 ]
                 marker_size = marker_collections[-1].get_sizes()[0]
+                marker_edge_width = marker_collections[-1].get_linewidths()[0]
                 legend_fontsize = figure.legends[0].get_texts()[0].get_fontsize()
                 legend_marker_size = figure.legends[0].legend_handles[0].get_markersize()
                 close.assert_called_once()
@@ -2366,7 +2384,11 @@ class TestT2PTestSmell(unittest.TestCase):
             self.assertEqual(SIZE_CONTROL_LEGEND_FONTSIZE, legend_fontsize)
             self.assertGreater(legend_marker_size, 6 * SIZE_CONTROL_LEGEND_MARKER_SCALE - 0.1)
             self.assertEqual(SIZE_CONTROL_CI_LINEWIDTH, ci_linewidth)
+            self.assertEqual(SIZE_CONTROL_CI_CAP_LINEWIDTH, cap_linewidth)
+            self.assertAlmostEqual(SIZE_CONTROL_CI_CAP_HALF_HEIGHT, cap_half_height)
             self.assertEqual(SIZE_CONTROL_MARKER_SIZE, marker_size)
+            self.assertEqual(SIZE_CONTROL_MARKER_EDGE_WIDTH, marker_edge_width)
+            self.assertEqual(SIZE_CONTROL_MIN_FIGURE_HEIGHT, figure_height)
 
     def test_size_control_plots_support_multiple_revision_group_pairs(self):
         frame = pd.DataFrame(
