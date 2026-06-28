@@ -42,7 +42,7 @@ def build_parser():
     parser.add_argument(
         "--input-file",
         default=None,
-        help="Runtime metric CSV. Defaults to <project-directory>/data/research-question/rq1/method-level-revision-history-metric.csv.",
+        help="Runtime metric CSV. Defaults to <project-directory>/data/rqs/rq1/method-level-revision-history-metric.csv.",
     )
     parser.add_argument(
         "--output-file",

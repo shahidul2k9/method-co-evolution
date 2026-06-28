@@ -59,7 +59,7 @@ class TestMethodHistoryRuntimeBoxplot(unittest.TestCase):
         self.assertEqual("linear", ax.get_yscale())
         self.assertEqual((0.0, 12.0), ax.get_ylim())
         self.assertEqual(list(range(13)), ax.get_yticks().tolist())
-        self.assertEqual(["n=1"], [text.get_text() for text in ax.texts])
+        self.assertEqual(["1"], [text.get_text() for text in ax.texts])
         self.assertEqual(1, len(ax.collections))
         plt.close(fig)
 
@@ -70,7 +70,7 @@ class TestMethodHistoryRuntimeBoxplot(unittest.TestCase):
             input_file = (
                 project_directory
                 / "data"
-                / "research-question"
+                / "rqs"
                 / "rq1"
                 / "method-level-revision-history-metric.csv"
             )
@@ -111,7 +111,7 @@ class TestMethodHistoryRuntimeBoxplot(unittest.TestCase):
             input_file = (
                 project_directory
                 / "data"
-                / "research-question"
+                / "rqs"
                 / "rq1"
                 / "method-level-revision-history-metric.csv"
             )
