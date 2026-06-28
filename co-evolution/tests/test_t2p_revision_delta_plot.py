@@ -1,4 +1,6 @@
 from pathlib import Path
+from contextlib import redirect_stdout
+import io
 import sys
 import tempfile
 import unittest
@@ -31,8 +33,10 @@ from ptc.plot.t2p_revision_delta_cdf import (
     PAPER_TICK_LABEL_SIZE,
     clipped_delta_cdf,
     delta_cdf,
+    delta_project_df,
     delta_threshold,
     draw_row_info_axis,
+    filter_projects_by_min_links,
     main,
     plot_paper_delta_axis,
     revision_delta_group_counts,
@@ -119,11 +123,42 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
         self.assertEqual(
             [
                 ("NTR", "<=0", 3, 42.9),
-                ("ATR", "1-4", 2, 28.6),
+                ("MTR", "1-4", 2, 28.6),
                 ("HTR", "5+", 2, 28.6),
             ],
             [(code, label, count, round(percent, 1)) for code, label, count, percent in groups],
         )
+
+    def test_delta_project_df_keeps_project_values_for_group_summary(self):
+        df = pd.DataFrame(
+            [
+                {"project": "projectA", "from_ch_diff": 0, "to_ch_diff": 2},
+                {"project": "projectA", "from_ch_diff": 4, "to_ch_diff": 0},
+                {"project": "projectB", "from_ch_diff": 5, "to_ch_diff": 0},
+                {"project": "projectC", "from_ch_diff": "bad", "to_ch_diff": 0},
+            ]
+        )
+
+        delta_df = delta_project_df(df, "ch_diff")
+
+        self.assertEqual(["projectA", "projectA", "projectB"], delta_df["project"].tolist())
+        self.assertEqual([-2, 4, 5], delta_df["delta"].tolist())
+
+    def test_filter_projects_by_min_links_keeps_only_projects_at_threshold(self):
+        df = pd.DataFrame(
+            [
+                {"project": "projectA", "from_ch_diff": 0, "to_ch_diff": 0},
+                {"project": "projectA", "from_ch_diff": 1, "to_ch_diff": 0},
+                {"project": "projectA", "from_ch_diff": 2, "to_ch_diff": 0},
+                {"project": "projectB", "from_ch_diff": 5, "to_ch_diff": 0},
+                {"project": "projectB", "from_ch_diff": 6, "to_ch_diff": 0},
+            ]
+        )
+
+        filtered_df = filter_projects_by_min_links(df, 3)
+
+        self.assertEqual(["projectA"], filtered_df["project"].unique().tolist())
+        self.assertEqual(3, len(filtered_df))
 
     def test_paper_delta_axis_uses_linear_clipped_axis_and_tenth_y_ticks(self):
         df = pd.DataFrame(
@@ -139,7 +174,7 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
         try:
             plot_paper_delta_axis(ax, df, "ch_diff")
 
-            self.assertEqual("# Test - Production Revisions", ax.get_xlabel())
+            self.assertEqual("# Revision Difference", ax.get_xlabel())
             self.assertEqual("CDF", ax.get_ylabel())
             self.assertEqual((-10.0, 10.0), ax.get_xlim())
             self.assertEqual([0.0, 0.2, 0.4], [round(value, 1) for value in ax.get_yticks()[:3]])
@@ -162,7 +197,7 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
             self.assertEqual(PAPER_TICK_LABEL_SIZE, ax.xaxis.get_ticklabels()[0].get_fontsize())
             self.assertEqual(PAPER_TICK_LABEL_SIZE, ax.yaxis.get_ticklabels()[0].get_fontsize())
             self.assertIn("NTR (<=0): 2 (50.0%)", ax.texts[0].get_text())
-            self.assertIn("ATR (1-4): 1 (25.0%)", ax.texts[0].get_text())
+            self.assertIn("MTR (1-4): 1 (25.0%)", ax.texts[0].get_text())
             self.assertIn("HTR (5+): 1 (25.0%)", ax.texts[0].get_text())
         finally:
             plt.close(fig)
@@ -201,7 +236,7 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
             plot_paper_delta_axis(ax, df, "ch_diff")
 
             self.assertIn("NTR (<=0): 1 (33.3%)", ax.texts[0].get_text())
-            self.assertIn("ATR (1-4): 1 (33.3%)", ax.texts[0].get_text())
+            self.assertIn("MTR (1-4): 1 (33.3%)", ax.texts[0].get_text())
             self.assertIn("HTR (5+): 1 (33.3%)", ax.texts[0].get_text())
         finally:
             plt.close(fig)
@@ -244,29 +279,51 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
     def test_all_projects_only_writes_paper_plot_to_output_directory(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             experiment_dir = self.create_experiment(tmpdir)
-            self.write_t2p_change_rows(experiment_dir, "historyFinder", "omc--nc", "projectA")
-            self.write_t2p_change_rows(experiment_dir, "historyFinder", "omc--nc", "projectB")
+            self.write_t2p_change_rows(
+                experiment_dir,
+                "historyFinder",
+                "omc--nc",
+                "projectA",
+                rows=[
+                    {"project": "projectA", "from_ch_diff": 0, "to_ch_diff": 0},
+                    {"project": "projectA", "from_ch_diff": 1, "to_ch_diff": 0},
+                    {"project": "projectA", "from_ch_diff": 4, "to_ch_diff": 0},
+                    {"project": "projectA", "from_ch_diff": 5, "to_ch_diff": 0},
+                ],
+            )
+            self.write_t2p_change_rows(
+                experiment_dir,
+                "historyFinder",
+                "omc--nc",
+                "projectB",
+                rows=[
+                    {"project": "projectB", "from_ch_diff": 5, "to_ch_diff": 0},
+                    {"project": "projectB", "from_ch_diff": 6, "to_ch_diff": 0},
+                ],
+            )
             output_directory = Path(tmpdir) / "paper-figure"
 
-            main(
-                [
-                    "--workspace-directory",
-                    tmpdir,
-                    "--experiment-name",
-                    "demo",
-                    "--tools",
-                    "historyFinder",
-                    "--strategies",
-                    "omc--nc",
-                    "--revision-types",
-                    "ch_diff",
-                    "--all-projects-only",
-                    "--min-t2p-links",
-                    "0",
-                    "--output-directory",
-                    str(output_directory),
-                ]
-            )
+            stdout = io.StringIO()
+            with redirect_stdout(stdout):
+                main(
+                    [
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo",
+                        "--tools",
+                        "historyFinder",
+                        "--strategies",
+                        "omc--nc",
+                        "--revision-types",
+                        "ch_diff",
+                        "--all-projects-only",
+                        "--min-t2p-links",
+                        "3",
+                        "--output-directory",
+                        str(output_directory),
+                    ]
+                )
 
             self.assertTrue(
                 (
@@ -276,6 +333,54 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
             )
             self.assertFalse(
                 (experiment_dir / "figure" / "t2p-revision-delta-cdf--historyFinder--omc--nc.pdf").exists()
+            )
+            self.assertIn(
+                "RQ3 revision groups [historyFinder][omc--nc][ch_diff]: "
+                "NTR methods=1 projects=1; MTR methods=2 projects=1; HTR methods=1 projects=1",
+                stdout.getvalue(),
+            )
+            self.assertNotIn("ATR", stdout.getvalue())
+
+    def test_all_projects_only_skips_when_no_project_meets_min_links(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            experiment_dir = self.create_experiment(tmpdir)
+            self.write_t2p_change_rows(experiment_dir, "historyFinder", "omc--nc", "projectA")
+            self.write_t2p_change_rows(experiment_dir, "historyFinder", "omc--nc", "projectB")
+            output_directory = Path(tmpdir) / "paper-figure"
+
+            with warnings.catch_warnings(record=True) as caught_warnings:
+                warnings.simplefilter("always")
+                main(
+                    [
+                        "--workspace-directory",
+                        tmpdir,
+                        "--experiment-name",
+                        "demo",
+                        "--tools",
+                        "historyFinder",
+                        "--strategies",
+                        "omc--nc",
+                        "--revision-types",
+                        "ch_diff",
+                        "--all-projects-only",
+                        "--min-t2p-links",
+                        "4",
+                        "--output-directory",
+                        str(output_directory),
+                    ]
+                )
+
+            self.assertFalse(
+                (
+                    output_directory
+                    / "t2p-revision-delta-cdf--historyFinder--omc--nc.pdf"
+                ).exists()
+            )
+            self.assertTrue(
+                any(
+                    "no projects have at least min_t2p_links=4" in str(warning.message)
+                    for warning in caught_warnings
+                )
             )
 
     def test_row_info_axis_hides_revision_groups_and_test_production_counts(self):
@@ -295,7 +400,7 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
             info_text = ax.texts[1].get_text()
             self.assertIn("total=4", info_text)
             self.assertNotIn("NTR", info_text)
-            self.assertNotIn("ATR", info_text)
+            self.assertNotIn("MTR", info_text)
             self.assertNotIn("HTR", info_text)
             self.assertNotIn("test=", info_text)
             self.assertNotIn("production=", info_text)
@@ -371,10 +476,11 @@ class TestT2PRevisionDeltaPlot(unittest.TestCase):
         tool: str,
         strategy: str,
         project: str,
+        rows: list[dict[str, object]] | None = None,
     ) -> None:
         output_file = experiment_dir / "t2p-change" / tool / strategy / f"{project}.csv"
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        rows = [
+        rows = rows or [
             {
                 "project": project,
                 "from_ch_all": 5,

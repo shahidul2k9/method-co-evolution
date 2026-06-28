@@ -47,7 +47,7 @@ PAPER_FIGURE_SIZE = (5.8, 4.2)
 
 REVISION_DELTA_GROUPS = [
     ("NTR", "<=0", lambda delta: delta <= 0),
-    ("ATR", "1-4", lambda delta: (delta >= 1) & (delta < PAPER_MAX_DELTA)),
+    ("MTR", "1-4", lambda delta: (delta >= 1) & (delta < PAPER_MAX_DELTA)),
     ("HTR", "5+", lambda delta: delta >= PAPER_MAX_DELTA),
 ]
 
@@ -187,6 +187,22 @@ def delta_series(df: pd.DataFrame, change: str) -> pd.Series:
     return (pair_df[f"from_{change}"] - pair_df[f"to_{change}"]).astype("int64")
 
 
+def delta_project_df(df: pd.DataFrame, change: str) -> pd.DataFrame:
+    if "project" not in df.columns:
+        raise ValueError("T2P change data must include a project column for revision group project counts.")
+
+    pair_df = df[["project", f"to_{change}", f"from_{change}"]].copy()
+    pair_df[[f"to_{change}", f"from_{change}"]] = pair_df[
+        [f"to_{change}", f"from_{change}"]
+    ].apply(pd.to_numeric, errors="coerce")
+    pair_df = pair_df.dropna(subset=[f"to_{change}", f"from_{change}"]).copy()
+    if pair_df.empty:
+        return pd.DataFrame(columns=["project", "delta"])
+
+    pair_df["delta"] = (pair_df[f"from_{change}"] - pair_df[f"to_{change}"]).astype("int64")
+    return pair_df[["project", "delta"]]
+
+
 def delta_cdf(df: pd.DataFrame, change: str) -> pd.Series:
     delta = delta_series(df, change)
 
@@ -219,6 +235,34 @@ def revision_delta_group_counts(delta: pd.Series) -> list[tuple[str, str, int, f
         percent = (count / total) * 100 if total else 0.0
         groups.append((code, label, count, percent))
     return groups
+
+
+def revision_delta_group_project_counts(delta_df: pd.DataFrame) -> list[tuple[str, int, int]]:
+    groups = []
+    delta = delta_df["delta"] if "delta" in delta_df.columns else pd.Series(dtype="int64")
+    for code, _, mask_fn in REVISION_DELTA_GROUPS:
+        group_df = delta_df[mask_fn(delta)] if not delta_df.empty else delta_df
+        groups.append((code, len(group_df), int(group_df["project"].nunique()) if "project" in group_df else 0))
+    return groups
+
+
+def print_revision_group_project_summary(tool: str, strategy: str, change: str, df: pd.DataFrame) -> None:
+    group_parts = [
+        f"{code} methods={format_count(method_count)} projects={format_count(project_count)}"
+        for code, method_count, project_count in revision_delta_group_project_counts(delta_project_df(df, change))
+    ]
+    print(f"RQ3 revision groups [{tool}][{strategy}][{change}]: " + "; ".join(group_parts))
+
+
+def filter_projects_by_min_links(df: pd.DataFrame, min_t2p_links: int) -> pd.DataFrame:
+    if "project" not in df.columns:
+        raise ValueError("T2P change data must include a project column for project-level link filtering.")
+    if min_t2p_links <= 0:
+        return df.copy()
+
+    project_sizes = df.groupby("project").size()
+    included_projects = project_sizes[project_sizes >= min_t2p_links].index
+    return df[df["project"].isin(included_projects)].copy()
 
 
 def format_paper_delta_tick(value: float, _: int) -> str:
@@ -385,11 +429,11 @@ def main(argv: list[str] | None = None) -> None:
 
             print(tool, strategy)
             if args.all_projects_only:
-                all_size = len(df)
-                if all_size < min_t2p_links:
+                plot_df = filter_projects_by_min_links(df, min_t2p_links)
+                if plot_df.empty:
                     warnings.warn(
                         f"Skipping T2P revision delta CDF for project={ALL_REPOSITORY}, tool={tool}, strategy={strategy}: "
-                        f"t2p_links={all_size} is below min_t2p_links={min_t2p_links}."
+                        f"no projects have at least min_t2p_links={min_t2p_links}."
                     )
                     continue
 
@@ -404,7 +448,8 @@ def main(argv: list[str] | None = None) -> None:
                     ax = axes[0][change_index]
                     if len(change_cols) > 1:
                         ax.set_title(format_change_name(change), fontsize=14)
-                    plot_paper_delta_axis(ax, df, change, show_group_summary=False)
+                    print_revision_group_project_summary(tool, strategy, change, plot_df)
+                    plot_paper_delta_axis(ax, plot_df, change, show_group_summary=False)
 
                 fig.tight_layout()
                 fig_file = output_directory / f"t2p-revision-delta-cdf--{tool}--{strategy}.pdf"

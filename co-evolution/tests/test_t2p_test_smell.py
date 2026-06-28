@@ -2267,6 +2267,7 @@ class TestT2PTestSmell(unittest.TestCase):
                 marker_size = marker_collections[-1].get_sizes()[0]
                 marker_edge_width = marker_collections[-1].get_linewidths()[0]
                 legend_fontsize = figure.legends[0].get_texts()[0].get_fontsize()
+                legend_linewidth = figure.legends[0].legend_handles[0].get_linewidth()
                 legend_anchor = figure.legends[0].get_bbox_to_anchor().transformed(figure.transFigure.inverted())
                 y_grid_lines = [line for line in figure.axes[0].get_ygridlines() if line.get_visible()]
                 separator_lines = [
@@ -2294,6 +2295,7 @@ class TestT2PTestSmell(unittest.TestCase):
             self.assertEqual(SIZE_CONTROL_XTICK_FONTSIZE, xtick_fontsize)
             self.assertEqual(SIZE_CONTROL_YTICK_FONTSIZE, ytick_fontsize)
             self.assertEqual(SIZE_CONTROL_LEGEND_FONTSIZE, legend_fontsize)
+            self.assertEqual(SIZE_CONTROL_CI_LINEWIDTH, legend_linewidth)
             self.assertAlmostEqual(SIZE_CONTROL_LEGEND_ANCHOR_X, legend_anchor.x0)
             self.assertFalse(y_grid_lines)
             self.assertEqual([0.5, 1.5], sorted(float(line.get_ydata()[0]) for line in separator_lines))
@@ -2400,6 +2402,7 @@ class TestT2PTestSmell(unittest.TestCase):
                 marker_edge_width = marker_collections[-1].get_linewidths()[0]
                 legend_fontsize = figure.legends[0].get_texts()[0].get_fontsize()
                 legend_marker_size = figure.legends[0].legend_handles[0].get_markersize()
+                legend_linewidth = figure.legends[0].legend_handles[0].get_linewidth()
                 legend_anchor = figure.legends[0].get_bbox_to_anchor().transformed(figure.transFigure.inverted())
                 y_grid_lines = [line for line in axis.get_ygridlines() if line.get_visible()]
                 separator_lines = [
@@ -2429,6 +2432,7 @@ class TestT2PTestSmell(unittest.TestCase):
             self.assertEqual(SIZE_CONTROL_XTICK_FONTSIZE, xtick_fontsize)
             self.assertEqual(SIZE_CONTROL_YTICK_FONTSIZE, ytick_fontsize)
             self.assertEqual(SIZE_CONTROL_LEGEND_FONTSIZE, legend_fontsize)
+            self.assertEqual(SIZE_CONTROL_CI_LINEWIDTH, legend_linewidth)
             self.assertAlmostEqual(SIZE_CONTROL_LEGEND_ANCHOR_X, legend_anchor.x0)
             self.assertFalse(y_grid_lines)
             self.assertEqual([0.5, 1.5], sorted(float(line.get_ydata()[0]) for line in separator_lines))

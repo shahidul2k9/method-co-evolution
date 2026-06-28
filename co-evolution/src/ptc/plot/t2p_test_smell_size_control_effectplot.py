@@ -290,6 +290,7 @@ def plot_size_control_effect(
             markeredgecolor="black",
             color=str(comparison_style(pair)["color"]),
             linestyle=str(comparison_style(pair)["linestyle"]),
+            linewidth=SIZE_CONTROL_CI_LINEWIDTH,
             label=comparison_label(pair),
         )
         for pair in pairs
