@@ -80,7 +80,7 @@ class TestMethodHistoryRuntimeTable(unittest.TestCase):
             input_file = (
                 project_directory
                 / "data"
-                / "research-question"
+                / "rqs"
                 / "rq1"
                 / "method-level-revision-history-metric.csv"
             )
@@ -124,7 +124,7 @@ class TestMethodHistoryRuntimeTable(unittest.TestCase):
             input_file = (
                 project_directory
                 / "data"
-                / "research-question"
+                / "rqs"
                 / "rq1"
                 / "method-level-revision-history-metric.csv"
             )

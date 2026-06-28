@@ -6,7 +6,7 @@ import pandas as pd
 from mhc.command_util import build_experiment_parser, resolve_experiment_paths
 
 
-DEFAULT_INPUT = Path("data") / "research-question" / "rq1" / "method-level-revision-history-metric.csv"
+DEFAULT_INPUT = Path("data") / "rqs" / "rq1" / "method-level-revision-history-metric.csv"
 DEFAULT_OUTPUT = Path("figure") / "method-history-runtime-table.tex"
 RUNTIME_SUFFIX = "_runtime"
 STATISTICS = ("mean", "median", "max")
@@ -33,7 +33,7 @@ def build_parser():
     parser.add_argument(
         "--input-file",
         default=None,
-        help="Runtime metric CSV. Defaults to <project-directory>/data/research-question/rq1/method-level-revision-history-metric.csv.",
+        help="Runtime metric CSV. Defaults to <project-directory>/data/rqs/rq1/method-level-revision-history-metric.csv.",
     )
     parser.add_argument(
         "--output-file",
