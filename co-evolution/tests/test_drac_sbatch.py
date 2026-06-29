@@ -27,8 +27,8 @@ sbatch \\
   --time=1-00:00:00 \\
   --array=22,29,36,47 \\
   --mem=8GB \\
-  --output=/home/shahidul/scratch/method-co-evolution/log/job/%x.%A_%a.out \\
-  --error=/home/shahidul/scratch/method-co-evolution/log/job/%x.%A_%a.err \\
+  --output=~/scratch/method-co-evolution/log/job/%x.%A_%a.out \\
+  --error=~/scratch/method-co-evolution/log/job/%x.%A_%a.err \\
   scripts/job.sh \\
   --command call-graph \\
   --workspace-directory {workspace} \\

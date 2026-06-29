@@ -40,7 +40,7 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 /**
- * @author Shahidul Islam
+ * @author Nobody
  * @since 2025-12-23
  */
 @Slf4j

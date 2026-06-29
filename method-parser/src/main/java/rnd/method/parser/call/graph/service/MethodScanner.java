@@ -5,7 +5,7 @@ import rnd.method.parser.call.graph.model.Method;
 import java.util.List;
 
 /**
- * @author Shahidul Islam
+ * @author Nobody
  * @since 2026-01-12
  */
 public interface MethodScanner {
