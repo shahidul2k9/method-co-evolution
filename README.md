@@ -1,6 +1,22 @@
-# method-co-evolution
+# Understanding Method-Level Test Code Evolution
 
-Research pipeline for studying how Java production methods and test methods co-evolve. The repository extracts method and class indexes, builds call graphs, traces method histories with external history tools, links test methods to production methods with heuristic, LLM, and neural techniques, and supports downstream sampling, review, and analysis.
+This repository supports an empirical study of method-level test code evolution. It evaluates test method history tracking, production-to-test mapping, and downstream analyses of revision frequency and test smells.
+
+## Research Questions
+
+**RQ1: Can existing history tracking tools effectively track test method revision histories?**  
+We evaluate state-of-the-art method history tracking tools using a manually constructed oracle of 120 test methods from 40 open-source Java projects.
+
+**RQ2: What is the most accurate approach for method-level production-to-test mapping?**  
+We evaluate static analysis-based mapping techniques using existing benchmarks and a newly created oracle for 20 projects.
+
+**RQ3: Are test methods revised less frequently?**  
+Using the most effective history tracking and mapping approaches, we compare revision frequencies between test methods and the production methods they exercise.
+
+**RQ4: Are test smells associated with high revisions?**  
+We study whether test smells are more common in test methods that accumulate more revisions than their corresponding production methods.
+
+Ground-truth datasets for RQ1 and RQ2 are documented in [data/ground-truth.md](data/ground-truth.md).
 
 ## Prerequisites
 
