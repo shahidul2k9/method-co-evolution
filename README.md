@@ -95,7 +95,7 @@ HF_TOKEN=hf_...
 OPENAI_API_KEY=sk_...
 ```
 
-## Setup
+## Python Environment
 
 Run these commands from the repository root:
 
@@ -110,85 +110,20 @@ pip install -e './co-evolution[llm]'
 pip install -e './co-evolution[testlinker]'
 ```
 
-Build the Java parser and copy the executable JAR into `WORKSPACE_DIRECTORY/jar/`:
+## Data Collection
 
-```bash
-scripts/build-method-parser.sh
-```
+If you already have data from the replication package, skip this section and follow [replication-package.md](replication-package.md) for copying data into the workspace experiment. If you are experimenting with a new project set or collecting data from scratch, follow the collection workflow and see [scripts/README.md](scripts/README.md) for local wrapper and Slurm command details.
 
-For the jNose test-smell workflow, also build `jnose-core` and `jnose-adapter`; see [jnose-adapter/README.md](jnose-adapter/README.md).
+## Running Experiment
 
-## First Pipeline Run
-
-Create or confirm the experiment project index:
+Run the code in each notebook cell in order. Before running notebook commands, make sure the required raw data already exists; see [Data Collection](#data-collection) for collecting data from scratch. Each step in the notebooks may depend on intermediate results produced by earlier cells or earlier notebooks.
 
 ```text
-WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/project.csv
+co-evolution/src/ptc/run/method_link_run.ipynb
+co-evolution/src/ptc/run/method_history_run.ipynb
+co-evolution/src/ptc/run/method_linker_evaluation.ipynb
+co-evolution/src/ptc/run/rq_plot_run.ipynb
 ```
-
-The file must include a `project` column and the repository metadata expected by the collection commands.
-
-Run a minimal extraction for one project:
-
-```bash
-mhc method-scan \
-  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
-  --experiment-name "$ME_EXPERIMENT_NAME" \
-  --project "checkstyle"
-
-mhc class-scan \
-  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
-  --experiment-name "$ME_EXPERIMENT_NAME" \
-  --project "checkstyle"
-
-mhc method-callgraph \
-  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
-  --experiment-name "$ME_EXPERIMENT_NAME" \
-  --tool-name methodParser \
-  --project "checkstyle"
-
-mhc method-code \
-  --workspace-directory "$ME_WORKSPACE_DIRECTORY" \
-  --experiment-name "$ME_EXPERIMENT_NAME" \
-  --project "checkstyle"
-```
-
-Core outputs are written under:
-
-```text
-WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/method/<project>.csv
-WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/class/<project>.csv
-WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/callgraph/<project>.csv
-WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/fanin/<project>.csv
-WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/method-code/<project>.csv
-```
-
-Then run history collection, candidate generation, LLM linking, or TestLinker depending on the experiment.
-
-To review histories in the local UI, run:
-
-```bash
-scripts/history-viewer.sh
-```
-
-The helper serves `ptc-history-viewer` at `http://127.0.0.1:8765`; see [scripts/README.md](scripts/README.md#history-viewersh) for details.
-
-## Pipeline Overview
-
-```text
-project.csv
-  -> mhc method-scan       -> method/<project>.csv
-  -> mhc class-scan        -> class/<project>.csv
-  -> mhc method-callgraph  -> callgraph/<project>.csv and fanin/<project>.csv
-  -> mhc method-history    -> history/<tool>/<project>/
-  -> mhc method-code       -> method-code/<project>.csv
-  -> generator scripts     -> t2p-candidate-filtered/ and related candidate datasets
-  -> ptc-llm               -> llm/<input-kind>/<model>/
-  -> ptc-testlinker        -> testlinker/output/<model>/
-  -> ptc-history-viewer    -> local browser review UI
-```
-
-Paths in the overview are relative to `WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/` unless noted otherwise.
 
 ## Common Documentation
 

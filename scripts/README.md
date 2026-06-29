@@ -1,27 +1,14 @@
-# scripts
+# Data Collection scripts
 
 Helper scripts for building Java artifacts, running collection jobs locally or on Slurm, and maintaining experiment datasets. Unless noted otherwise, run commands from the repository root.
 
-The scripts expect the same environment used by the Python packages:
+The parser-backed collection commands require the Java parser executable JAR. Build the Java parser and copy the executable JAR into `WORKSPACE_DIRECTORY/jar/` before running data collection:
 
 ```bash
-ME_PROJECT_DIRECTORY=/path/to/method-co-evolution
-ME_WORKSPACE_DIRECTORY=/path/to/method-co-evolution/workspace
-ME_EXPERIMENT_NAME=main
-GITHUB_API_KEY=ghp_...
+scripts/build-method-parser.sh
 ```
 
-Most outputs live under:
-
-```text
-WORKSPACE_DIRECTORY/experiment/EXPERIMENT_NAME/
-```
-
-Shared Java artifacts live under:
-
-```text
-WORKSPACE_DIRECTORY/jar/
-```
+For the jNose test-smell workflow, also build `jnose-core` and `jnose-adapter`; see [jnose-adapter/README.md](../jnose-adapter/README.md).
 
 ## `build-method-parser.sh`
 
@@ -30,8 +17,6 @@ Builds the `method-parser` Maven module and copies the parser JAR into `WORKSPAC
 ```bash
 scripts/build-method-parser.sh
 ```
-
-It reads `ME_WORKSPACE_DIRECTORY` from `.env`. Build this JAR before running parser-backed `mhc` commands such as `method-scan`, `class-scan`, `method-callgraph`, or `method-complexity`.
 
 ## Local Wrapper Scripts
 
