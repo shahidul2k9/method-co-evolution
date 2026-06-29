@@ -4,11 +4,11 @@ Research pipeline for studying how Java production methods and test methods co-e
 
 ## Prerequisites
 
-- Python 3.10+
+- Python 3.12+
 - Java 21
 - Maven 3.6+
 - Git
-- A GitHub API token for repository access and history collection
+- Optional: A GitHub API token for faster repository checkout.
 - Optional: CUDA-capable environment for local Hugging Face or TestLinker inference
 
 ## Repository Layout
