@@ -1,0 +1,14 @@
+projects:
+  jgit:
+    testModulePatterns:
+      - "*.test"
+    modules:
+      org.eclipse.jgit.test:
+        mainSourceRoots:
+          - src
+        unitTestSourceRoots:
+          - tst
+        integrationTestSourceRoots:
+          - exttst
+        testResourceRoots:
+          - tst-rsrc

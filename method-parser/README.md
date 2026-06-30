@@ -86,6 +86,9 @@ One row per method or constructor extracted from the repository at the indexed c
 
 The `url` column is the primary method identifier used throughout the pipeline.
 
+Artifact tags in `method/<project>.csv` and `class/<project>.csv` are documented
+in [artifact-detection.md](artifact-detection.md).
+
 ## `class/<project>.csv`
 
 One row per indexed class or type declaration. The class dataset is the type boundary for callgraph fallback resolution and artifact role updates.

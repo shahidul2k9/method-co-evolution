@@ -1,0 +1,5 @@
+projects:
+  elasticsearch:
+    legacyTestCaseSuperclasses:
+      - org.elasticsearch.test.ESTestCase
+      - org.apache.lucene.tests.util.LuceneTestCase

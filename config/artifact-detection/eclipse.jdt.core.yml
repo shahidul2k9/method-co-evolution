@@ -1,0 +1,4 @@
+projects:
+  eclipse.jdt.core:
+    testModuleSourceRoots:
+      - src

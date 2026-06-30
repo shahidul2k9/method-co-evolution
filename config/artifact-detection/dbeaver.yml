@@ -1,0 +1,11 @@
+projects:
+  dbeaver:
+    testModuleSourceRoots:
+      - src
+    testClassSuperclasses:
+      - org.jkiss.junit.ApplicationUnitTest
+      - org.jkiss.junit.DBeaverUnitTest
+    testClassContextAnnotations:
+      - org.jkiss.junit.osgi.annotation.RunWithApplication
+      - org.jkiss.junit.osgi.annotation.RunWithProduct
+      - org.jkiss.junit.osgi.annotation.RunnerProxy

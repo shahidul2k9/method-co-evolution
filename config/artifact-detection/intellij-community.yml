@@ -1,0 +1,8 @@
+projects:
+  intellij-community:
+    unitTestSourceRoots:
+      - testSrc
+    testResourceRoots:
+      - testData
+    generatedTestSourceRoots:
+      - testGen

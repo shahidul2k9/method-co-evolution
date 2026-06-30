@@ -4,17 +4,13 @@ Helper scripts for building Java artifacts, running collection jobs locally or o
 
 ReadMe Index:
 
-- [`mhc method-scan`](#mhc-method-scan)
-- [`mhc class-scan`](#mhc-class-scan)
-- [`mhc method-callgraph`](#mhc-method-callgraph)
-- [`mhc method-code`](#mhc-method-code)
-- [`mhc artifact-update`](#mhc-artifact-update)
-- [`mhc method-history`](#mhc-method-history)
-- [`mhc method-complexity`](#mhc-method-complexity)
-- [`mhc test-smell`](#mhc-test-smell)
-- [`ptc-testlinker testlinker`](#ptc-testlinker-testlinker)
+- [Java Dependency](#java-dependency)
+- [Command Reference](#command-reference)
+- [SLURM Job](#slurm-job)
+- [Web UI](#web-ui)
 
-## Jar Dependency
+## Java Dependency
+
 The parser-backed collection commands require the Java parser executable JAR. Build the Java parser and copy the executable JAR into `WORKSPACE_DIRECTORY/jar/` before running data collection:
 
 ```bash
@@ -23,7 +19,7 @@ scripts/build-method-parser.sh
 
 For the jNose test-smell workflow, also build `jnose-core` and `jnose-adapter`; see [jnose-adapter/README.md](../jnose-adapter/README.md).
 
-## MHC Command
+## Command Reference
 
 The full batch command and option list is maintained in [`scripts/job.sh`](job.sh); run `scripts/job.sh --help` to inspect it. For direct local runs, most `mhc` commands follow this shape:
 
@@ -42,6 +38,17 @@ Common prerequisites:
 - `WORKSPACE_DIRECTORY/jar/` contains the parser JAR from `scripts/build-method-parser.sh`.
 - jNose, TestLinker, and LLM commands require their extra backend setup.
 
+MHC command index:
+
+- [`mhc method-scan`](#mhc-method-scan)
+- [`mhc class-scan`](#mhc-class-scan)
+- [`mhc method-callgraph`](#mhc-method-callgraph)
+- [`mhc method-code`](#mhc-method-code)
+- [`mhc artifact-update`](#mhc-artifact-update)
+- [`mhc method-history`](#mhc-method-history)
+- [`mhc method-complexity`](#mhc-method-complexity)
+- [`mhc test-smell`](#mhc-test-smell)
+- [`ptc-testlinker testlinker`](#ptc-testlinker-testlinker)
 
 ### MHC Option Reference
 
@@ -194,10 +201,7 @@ ptc-testlinker testlinker \
   --project "checkstyle"
 ```
 
-
-It reads `ME_WORKSPACE_DIRECTORY` from `.env` and uses `ME_EXPERIMENT_NAME`, defaulting to `main`.
-
-## `SLURM Job Command`
+## SLURM Job
 
 Slurm `sbatch` wrapper for `mhc`, `ptc-llm`, and `ptc-testlinker` commands. It loads cluster modules, activates `.venv`, resolves Slurm array task IDs into projects and shards, and forwards normalized arguments to the correct CLI.
 
@@ -309,7 +313,7 @@ sbatch --array=1-2 scripts/job.sh \
 
 Omit `--strategies` to run the callgraph-based jNose workflow.
 
-## `ptc-sbatch`
+### `ptc-sbatch`
 
 `ptc-sbatch` is installed by the `co-evolution` package. It rewrites large or sparse `sbatch` array commands into valid task ranges, optionally skipping projects whose expected outputs already exist.
 
@@ -334,7 +338,8 @@ ptc-sbatch workspace/cmd.txt --replace
 It prints project indexes included, requested indexes not included, converted task indexes, any truncated ranges, and the final shell-safe `sbatch` command.
 
 
-## `Web UI`
+## Web UI
+
 Oracle Labelling with Web UI
 
 `http://127.0.0.1:8765`.

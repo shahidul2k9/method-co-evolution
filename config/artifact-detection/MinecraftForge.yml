@@ -1,0 +1,4 @@
+projects:
+  MinecraftForge:
+    unitTestSourceRoots:
+      - src/test_old/java

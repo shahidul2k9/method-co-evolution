@@ -1,0 +1,10 @@
+projects:
+  spring-boot:
+    testModulePatterns:
+      - "*-test"
+      - "*-tests"
+      - "*-test-autoconfigure"
+      - "*-test-support"
+    integrationTestSourceRoots:
+      - src/integrationTest/java
+      - src/it/java

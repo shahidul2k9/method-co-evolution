@@ -1,0 +1,111 @@
+defaults:
+  mainSourceRoots:
+    - src/main/java
+    - src
+  unitTestSourceRoots:
+    - src/test/java
+    - src/androidTest/java
+    - src/androidTest
+    - src/test
+    - src/tests/junit
+    - test
+    - tests
+    - tst
+    - testSrc
+  integrationTestSourceRoots:
+    - src/integrationTest/java
+    - src/it/java
+    - integrationTest
+    - it
+    - itest
+    - exttst
+  mainResourceRoots:
+    - src/main/resources
+    - resources
+  testResourceRoots:
+    - src/test/resources
+    - src/integrationTest/resources
+    - test-resources
+    - testData
+    - tst-rsrc
+  generatedMainSourceRoots:
+    - target/generated-sources
+    - build/generated/sources/main
+    - build/generated/sources/annotationProcessor/java/main
+  generatedTestSourceRoots:
+    - target/generated-test-sources
+    - testGen
+    - build/generated/sources/test
+    - build/generated/sources/annotationProcessor/java/test
+  testModulePatterns:
+    - "*.test"
+    - "*.tests"
+    - "*-test"
+    - "*-tests"
+    - test
+    - tests
+    - integrationtest
+    - integration-test
+  allSourceRootsInTestModuleAreTest: false
+  docModulePatterns:
+    - documentation
+    - docs
+  testMethodAnnotations:
+    - org.junit.Test
+    - org.junit.jupiter.api.Test
+    - org.junit.jupiter.params.ParameterizedTest
+    - org.junit.jupiter.api.ParameterizedTest
+    - org.junit.jupiter.api.RepeatedTest
+    - org.junit.jupiter.api.TestFactory
+    - org.junit.jupiter.api.TestTemplate
+    - org.junit.experimental.theories.Theory
+    - org.testng.annotations.Test
+    - org.testng.annotations.Factory
+    - net.jqwik.api.Property
+    - net.jqwik.api.Example
+  fixtureMethodAnnotations:
+    - org.junit.Before
+    - org.junit.After
+    - org.junit.BeforeClass
+    - org.junit.AfterClass
+    - org.junit.jupiter.api.BeforeEach
+    - org.junit.jupiter.api.AfterEach
+    - org.junit.jupiter.api.BeforeAll
+    - org.junit.jupiter.api.AfterAll
+    - org.testng.annotations.BeforeSuite
+    - org.testng.annotations.AfterSuite
+    - org.testng.annotations.BeforeTest
+    - org.testng.annotations.AfterTest
+    - org.testng.annotations.BeforeGroups
+    - org.testng.annotations.AfterGroups
+    - org.testng.annotations.BeforeClass
+    - org.testng.annotations.AfterClass
+    - org.testng.annotations.BeforeMethod
+    - org.testng.annotations.AfterMethod
+    - net.jqwik.api.lifecycle.BeforeContainer
+    - net.jqwik.api.lifecycle.AfterContainer
+    - net.jqwik.api.lifecycle.BeforeProperty
+    - net.jqwik.api.lifecycle.AfterProperty
+    - net.jqwik.api.lifecycle.BeforeExample
+    - net.jqwik.api.lifecycle.AfterExample
+    - net.jqwik.api.lifecycle.BeforeTry
+    - net.jqwik.api.lifecycle.AfterTry
+  legacyTestCaseSuperclasses:
+    - junit.framework.TestCase
+    - android.test.AndroidTestCase
+    - android.test.InstrumentationTestCase
+  legacyTestMethodNamePrefixes:
+    - test
+  legacyTestClassNamePatterns:
+    - "Test*"
+    - "*Test"
+    - "*Tests"
+    - "*TestCase"
+  testClassContextAnnotations:
+    - org.junit.jupiter.api.extension.ExtendWith
+    - org.junit.runner.RunWith
+    - org.mockito.junit.jupiter.MockitoSettings
+    - org.mockito.Mock
+    - org.mockito.Spy
+    - org.mockito.InjectMocks
+    - org.mockito.Captor

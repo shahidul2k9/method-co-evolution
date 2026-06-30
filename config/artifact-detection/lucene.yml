@@ -1,0 +1,19 @@
+projects:
+  lucene:
+    unitTestSourceRoots:
+      - src/test
+      - src/test-framework
+    testResourceRoots:
+      - src/resources
+      - src/test-files
+    testModulePatterns:
+      - "*.tests"
+      - "*-test"
+      - "*-tests"
+      - "*-test-framework"
+    legacyTestCaseSuperclasses:
+      - org.apache.lucene.tests.util.LuceneTestCase
+    modules:
+      lucene/test-framework:
+        unitTestSourceRoots:
+          - src/java

@@ -1,0 +1,6 @@
+projects:
+  hibernate-search:
+    modules:
+      hibernate-search-integrationtest-backend-tck:
+        unitTestSourceRoots:
+          - src/main/java

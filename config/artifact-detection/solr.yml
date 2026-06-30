@@ -1,0 +1,5 @@
+projects:
+  solr:
+    legacyTestCaseSuperclasses:
+      - org.apache.solr.SolrTestCaseJ4
+      - org.apache.lucene.tests.util.LuceneTestCase

@@ -2,7 +2,7 @@
 
 This repository supports an empirical study of method-level test code evolution. It evaluates test method history tracking, production-to-test mapping, and downstream analyses of revision frequency and test smells.
 
-## Research Questions
+## Research Questions (RQs)
 
 **RQ1: Can existing history tracking tools effectively track test method revision histories?**  
 We evaluate state-of-the-art method history tracking tools using a manually constructed oracle of 120 test methods from 40 open-source Java projects.
@@ -16,7 +16,12 @@ Using the most effective history tracking and mapping approaches, we compare rev
 **RQ4: Are test smells associated with high revisions?**  
 We study whether test smells are more common in test methods that accumulate more revisions than their corresponding production methods.
 
+## Ground Truth
 Ground-truth datasets for RQ1 and RQ2 are documented in [data/ground-truth.md](data/ground-truth.md).
+
+## Replication Package
+
+Use [replication-package.md](replication-package.md) for instructions on copying packaged data into the workspace experiment before running the notebooks.
 
 ## Prerequisites
 
@@ -32,10 +37,9 @@ Ground-truth datasets for RQ1 and RQ2 are documented in [data/ground-truth.md](d
 | `method-history-collector/` | Python package exposing `mhc`, the main collection CLI |
 | `method-parser/` | JavaParser-based Maven module for method, class, and callgraph extraction |
 | `co-evolution/` | Python package exposing `ptc-llm`, `ptc-history-viewer`, `ptc-testlinker`, and `ptc-sbatch` |
-| `co-evolution/src/ptc/testlinker/` | Neural TestLinker integration and model pipeline notes |
 | `jnose-adapter/` | Executable wrapper used by the `mhc test-smell` workflow |
 | `scripts/` | Build, Slurm, and maintenance helpers |
-| `config/` and `docs/` | Artifact-detection and experiment configuration references |
+| `config/` | Artifact-detection and experiment configuration references |
 
 Each tracked README is a focused reference for its module. Generated cache READMEs, such as `.pytest_cache/README.md`, are not part of the project documentation.
 
@@ -70,7 +74,8 @@ workspace/
       t2p-test-smell-with-revision/  Linked test smell rows with revision-group information.
 ```
 
-The Python packages load `.env` from the repository root. A typical local file contains:
+## Environment Property
+Create `.env` into the project directory
 
 ```bash
 # Repository root used by scripts to resolve project-relative paths.
@@ -97,22 +102,37 @@ OPENAI_API_KEY=sk_...
 
 ## Python Environment
 
-Run these commands from the repository root:
+Run these commands from the repository root.
+
+Create and activate a local virtual environment for the Python packages:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ./method-history-collector
-pip install -e ./co-evolution
+```
 
-# Optional backends
+Install `method-history-collector`, which provides the `mhc` CLI for repository scanning, parser-backed extraction, method history collection, and test-smell workflows:
+
+```bash
+pip install -e ./method-history-collector
+```
+
+Install `co-evolution`, which provides the production-to-test linking, evaluation, plotting, notebook, TestLinker, LLM, and history viewer utilities:
+
+```bash
+pip install -e ./co-evolution
+```
+
+Install optional backends only when running LLM-based linking or neural TestLinker experiments:
+
+```bash
 pip install -e './co-evolution[llm]'
 pip install -e './co-evolution[testlinker]'
 ```
 
 ## Data Collection
 
-If you already have data from the replication package, skip this section and follow [replication-package.md](replication-package.md) for copying data into the workspace experiment. If you are experimenting with a new project set or collecting data from scratch, follow the collection workflow and see [scripts/README.md](scripts/README.md) for local wrapper and Slurm command details.
+If you already have data from the replication package, skip this section and follow [replication-package.md](replication-package.md) for copying data into the workspace experiment. If you are experimenting with a new project set or collecting data from scratch, follow the collection workflow and see [scripts/command.md](scripts/command.md) for local wrapper and Slurm command details.
 
 ## Running Experiment
 
@@ -131,5 +151,5 @@ co-evolution/src/ptc/run/rq_plot_run.ipynb
 - [method-parser/README.md](method-parser/README.md) for Java build steps and CSV schemas.
 - [co-evolution/README.md](co-evolution/README.md) for LLM linking, history viewer, TestLinker entrypoints, and Slurm command expansion.
 - [co-evolution/src/ptc/testlinker/README.md](co-evolution/src/ptc/testlinker/README.md) for neural TestLinker setup and model artifacts.
-- [scripts/README.md](scripts/README.md) for helper scripts and Slurm usage.
+- [scripts/command.md](scripts/command.md) for helper scripts and Slurm usage.
 - [jnose-adapter/README.md](jnose-adapter/README.md) for test-smell adapter build steps.
