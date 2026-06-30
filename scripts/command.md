@@ -2,7 +2,7 @@
 
 Helper scripts for building Java artifacts, running collection jobs locally or on Slurm, and maintaining experiment datasets. Unless noted otherwise, run commands from the repository root.
 
-ReadMe Index:
+## Index
 
 - [Java Dependency](#java-dependency)
 - [Command Reference](#command-reference)

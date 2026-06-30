@@ -2,6 +2,20 @@
 
 This repository supports an empirical study of method-level test code evolution. It evaluates test method history tracking, production-to-test mapping, and downstream analyses of revision frequency and test smells.
 
+## Index
+
+- [Research Questions (RQs)](#research-questions-rqs)
+- [Ground Truth](#ground-truth)
+- [Replication Package](#replication-package)
+- [Prerequisites](#prerequisites)
+- [Project Layout](#project-layout)
+- [Workspace Layout](#workspace-layout)
+- [Environment Property](#environment-property)
+- [Python Environment](#python-environment)
+- [Data Collection](#data-collection)
+- [Running Experiment](#running-experiment)
+- [Common Documentation](#common-documentation)
+
 ## Research Questions (RQs)
 
 **RQ1: Can existing history tracking tools effectively track test method revision histories?**  
